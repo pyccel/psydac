@@ -119,7 +119,7 @@ def run_field_2d_dir(ncells, degree, comm=None):
     # ...
 
     # ...
-    x = Vh.vector_space.zeros()
+    x = Vh.coeff_space.zeros()
     x[:] = 1.
 
     phi = FemField( Vh, x )

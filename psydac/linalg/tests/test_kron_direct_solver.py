@@ -271,9 +271,9 @@ def get_inverse_mass_matrices(derham_h, domain_h):
     # assert 2D
     # Maybe should add more assert regarding the types and the domain form in case this get used in general context.
     
-    V0h   = derham_h.V0.vector_space
-    V1h   = derham_h.V1.vector_space
-    V2h   = derham_h.V2.vector_space
+    V0h   = derham_h.V0.coeff_space
+    V1h   = derham_h.V1.coeff_space
+    V2h   = derham_h.V2.coeff_space
     
     bounds1 = domain_h.domain.bounds1
     bounds2 = domain_h.domain.bounds2
@@ -569,7 +569,7 @@ def test_3d_m1_solver(ncells, degree, periodic):
     derham = Derham(domain)
     domain_h = discretize(domain, ncells=ncells, periodic=periodic, comm=comm)
     derham_h = discretize(derham, domain_h, degree=degree)
-    V1 = derham_h.V1.vector_space
+    V1 = derham_h.V1.coeff_space
     P0, P1, P2, P3  = derham_h.projectors()
 
     # obtain an iterative M1 solver the usual way

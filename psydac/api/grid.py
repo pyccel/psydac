@@ -8,7 +8,7 @@ from psydac.core.bsplines import find_span
 from psydac.core.bsplines import basis_funs_all_ders
 from psydac.fem.splines   import SplineSpace
 from psydac.fem.tensor    import TensorFemSpace
-from psydac.fem.vector    import ProductFemSpace, VectorFemSpace
+from psydac.fem.vector    import MultipatchFemSpace, VectorFemSpace
 
 __all__ = (
     'get_points_weights',
@@ -61,16 +61,16 @@ class QuadratureGrid():
         points              = []
         weights             = []
 
-        if isinstance(V, (ProductFemSpace, VectorFemSpace)):
+        if isinstance(V, (MultipatchFemSpace, VectorFemSpace)):
             V1 = V.spaces[0]
             spaces = list(V.spaces)
         else:
             V1 = V
             spaces = [V]
 
-        if trial_space and not isinstance(trial_space, (ProductFemSpace, VectorFemSpace)):
+        if trial_space and not isinstance(trial_space, (MultipatchFemSpace, VectorFemSpace)):
             spaces.append(trial_space)
-        elif isinstance(trial_space, ProductFemSpace):
+        elif isinstance(trial_space, MultipatchFemSpace):
             spaces = spaces + list(trial_space.spaces)
 
         # calculate the union of the indices in quad_grids, and make sure that all the grids match for each space.
@@ -203,11 +203,11 @@ class BasisValues():
 
         self._space = V
         assert grid is not None
-        if isinstance(V, (ProductFemSpace, VectorFemSpace)):
-            starts = V.vector_space.starts
+        if isinstance(V, (MultipatchFemSpace, VectorFemSpace)):
+            starts = V.coeff_space.starts
             V      = V.spaces
         else:
-            starts = [V.vector_space.starts]
+            starts = [V.coeff_space.starts]
             V      = [V]
 
         spans = []
@@ -220,7 +220,7 @@ class BasisValues():
             spans_i = []
             basis_i = []
 
-            for sij, g, w, p, vij in zip(si, assembly_grids, weights, Vi.vector_space.pads, Vi.spaces):
+            for sij, g, w, p, vij in zip(si, assembly_grids, weights, Vi.coeff_space.pads, Vi.spaces):
                 sp = g.spans - sij
                 bs = g.basis[:, :, :nderiv+1, :].copy()
                 if not trial:

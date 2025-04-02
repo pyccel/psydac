@@ -32,7 +32,7 @@ class C1Projector:
 
         assert isinstance(mapping, SplineMapping)
 
-        S = mapping.space.vector_space
+        S = mapping.space.coeff_space
 
         assert isinstance(S, StencilVectorSpace)
 
@@ -46,9 +46,9 @@ class C1Projector:
     # ...
     def compute_lambda(self, mapping):
 
-        s1, s2 = mapping.space.vector_space.starts
-        e1, e2 = mapping.space.vector_space.ends
-        p1, p2 = mapping.space.vector_space.pads
+        s1, s2 = mapping.space.coeff_space.starts
+        e1, e2 = mapping.space.coeff_space.ends
+        p1, p2 = mapping.space.coeff_space.pads
 
         if s1 == 0:
 

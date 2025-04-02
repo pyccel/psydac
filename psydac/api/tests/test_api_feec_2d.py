@@ -529,8 +529,8 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
     half_step_faraday_2d = (dt/2) * D1
     #minus_half_step_faraday_2d = (-dt/2) * D1
 
-    de = derham_h.V1.vector_space.zeros()
-    db = derham_h.V2.vector_space.zeros()
+    de = derham_h.V1.coeff_space.zeros()
+    db = derham_h.V2.coeff_space.zeros()
 
     # Time loop
     for ts in range(1, nsteps+1):

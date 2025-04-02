@@ -565,8 +565,8 @@ class EvalMapping(BaseNode):
         mapping_atoms  = components.arguments
         basis          = q_basis
         target         = basis.target
-        multiplicity   = tuple(mapping_space.vector_space.shifts) if mapping_space else ()
-        pads           = tuple(mapping_space.vector_space.pads) if mapping_space else ()
+        multiplicity   = tuple(mapping_space.coeff_space.shifts) if mapping_space else ()
+        pads           = tuple(mapping_space.coeff_space.pads) if mapping_space else ()
         quad_loop      = True if quad_loop is None else quad_loop
 
         if isinstance(target, IndexedVectorFunction):

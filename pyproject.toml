@@ -111,4 +111,3 @@ ignore_errors = true
 
 [tool.coverage.html]
 directory = "coverage_html_report"
-

@@ -265,7 +265,7 @@ class DomainDecomposition:
             # Know my coordinates in the topology
             self._rank_in_topo = self._comm_cart.Get_rank()
             self._coords       = self._comm_cart.Get_coords( rank=self._rank_in_topo )
-            self._ranks_in_topo = np.array(comm.group.Translate_ranks(self._comm_cart.group, list(range(self._comm_cart.size)), comm.group))
+            self._ranks_in_topo = np.array(self._comm_cart.group.Translate_ranks(list(range(self._comm_cart.size)), comm.group))
 
         # Start/end values of global indices (without ghost regions)
         self._starts = tuple( self._global_element_starts[axis][c] for axis,c in zip(range(self._ndims), self._coords) )
@@ -894,7 +894,7 @@ class CartDecomposition():
         if len([i for i in shift if i==0]) == 2 and rank_dest != MPI.PROC_NULL:
             direction = [i for i,s in enumerate(shift) if s != 0][0]
             comm = self._subcomm[direction]
-            local_dest_rank = comm.group.Translate_ranks(self._comm_cart.group, np.array([rank_dest]), comm.group)[0]
+            local_dest_rank = self._comm_cart.group.Translate_ranks(np.array([rank_dest]), comm.group)[0]
         else:
             local_dest_rank = rank_dest
             comm = self._comm_cart
@@ -907,7 +907,7 @@ class CartDecomposition():
         if len([i for i in shift if i==0]) == 2 and rank_source != MPI.PROC_NULL:
             direction = [i for i,s in enumerate(shift) if s != 0][0]
             comm = self._subcomm[direction]
-            local_source_rank = comm.group.Translate_ranks(self._comm_cart.group, np.array([rank_source]), comm.group)[0]
+            local_source_rank = self._comm_cart.group.Translate_ranks(np.array([rank_source]), comm.group)[0]
         else:
             local_source_rank = rank_source
             comm = self._comm_cart
@@ -1107,11 +1107,11 @@ class InterfaceCartDecomposition:
         comm_minus = comm.Create_group(boundary_group_minus)
         comm_plus  = comm.Create_group(boundary_group_plus)
 
-        root_minus = comm.group.Translate_ranks(boundary_group_minus, [0], comm.group)[0]
-        root_plus  = comm.group.Translate_ranks(boundary_group_plus, [0], comm.group)[0]
+        root_minus = boundary_group_minus.Translate_ranks([0], comm.group)[0]
+        root_plus  = boundary_group_plus.Translate_ranks([0], comm.group)[0]
 
-        procs_index_minus = boundary_group_minus.Translate_ranks(local_groups[0], self._boundary_ranks_minus, boundary_group_minus)
-        procs_index_plus  = boundary_group_plus.Translate_ranks(local_groups[1],  self._boundary_ranks_plus,  boundary_group_plus)
+        procs_index_minus = local_groups[0].Translate_ranks(self._boundary_ranks_minus, boundary_group_minus)
+        procs_index_plus  = local_groups[1].Translate_ranks(self._boundary_ranks_plus,  boundary_group_plus)
 
         # Reorder procs ranks from 0 to local_group.size-1
         self._boundary_ranks_minus = self._boundary_ranks_minus[procs_index_minus]
@@ -1129,8 +1129,8 @@ class InterfaceCartDecomposition:
         if self._intercomm == MPI.COMM_NULL:
             return
 
-        self._local_boundary_ranks_minus = boundary_group_minus.Translate_ranks(local_groups[0], self._boundary_ranks_minus, boundary_group_minus)
-        self._local_boundary_ranks_plus  = boundary_group_plus.Translate_ranks(local_groups[1], self._boundary_ranks_plus, boundary_group_plus)
+        self._local_boundary_ranks_minus = local_groups[0].Translate_ranks(self._boundary_ranks_minus, boundary_group_minus)
+        self._local_boundary_ranks_plus  = local_groups[1].Translate_ranks(self._boundary_ranks_plus, boundary_group_plus)
 
 #        high = self._local_rank_plus is not None
 #        self._intercomm = self._intercomm.Merge(high=high)
@@ -1785,8 +1785,8 @@ def create_interfaces_cart(domain_decomposition, carts, interfaces, communicatio
 
             interfaces_groups[i,j] = local_groups[i].Union(local_groups[i], local_groups[j])
             interfaces_comm  [i,j] = comm.Create_group(interfaces_groups[i,j])
-            root_rank_i            = interfaces_groups[i,j].Translate_ranks(local_groups[i], [0], interfaces_groups[i,j])[0]
-            root_rank_j            = interfaces_groups[i,j].Translate_ranks(local_groups[j], [0], interfaces_groups[i,j])[0]
+            root_rank_i            = local_groups[i].Translate_ranks([0], interfaces_groups[i,j])[0]
+            root_rank_j            = local_groups[j].Translate_ranks([0], interfaces_groups[i,j])[0]
             interfaces_root_ranks[i,j] = [root_rank_i, root_rank_j]
 
     tag   = lambda i,j,disp: (2+disp)*(i+j)

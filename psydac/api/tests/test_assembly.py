@@ -508,8 +508,8 @@ def test_assembly_no_synchr_args(backend):
     func  = Functional(rho, domain)
     func_h = discretize(func, domain_h, V1h, **kwargs)
 
-    uh      = array_to_psydac(np.array([i for i in range(nc)]), V0h.vector_space)
-    const_1 = array_to_psydac(np.array([1/nc]*nc), V1h.vector_space)
+    uh      = array_to_psydac(np.array([i for i in range(nc)]), V0h.coeff_space)
+    const_1 = array_to_psydac(np.array([1/nc]*nc), V1h.coeff_space)
 
     rhoh1 = div.dot(uh)
     rhof1 = FemField(V1h, rhoh1)

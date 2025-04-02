@@ -23,6 +23,7 @@ __all__ = (
     # ----------------------
     'push_1d_h1',
     'push_1d_l2',
+    'push_2d_h1_vec',
     'push_2d_h1',
     'push_2d_hcurl',
     'push_2d_hdiv',
@@ -378,7 +379,10 @@ def push_1d_l2(f, eta, F):
 #==============================================================================
 # 2D PUSH-FORWARDS
 #==============================================================================
-#def push_2d_h1(f, eta):
+def push_2d_h1_vec(f1, f2, eta1, eta2):
+    eta = eta1, eta2
+    return f1(*eta), f2(*eta)
+
 def push_2d_h1(f, eta1, eta2):
     eta = eta1, eta2
     return f(*eta)
