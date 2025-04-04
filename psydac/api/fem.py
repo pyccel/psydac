@@ -385,6 +385,11 @@ class DiscreteBilinearForm(BasicDiscrete):
                        nquads=nquads, is_rational_mapping=is_rational_mapping, mapping=symbolic_mapping,
                        mapping_space=mapping_space, num_threads=self._num_threads, backend=assembly_backend,
                        fast_assembly=fast_assembly)
+        
+        if (comm is not None) and (comm.size > 1) and (fast_assembly==True):
+            if comm.rank != 0:
+                self._imports_string = None
+            self._imports_string = comm.bcast(self._imports_string, root=0)
 
         #... Handle the special case where the current MPI process does not need to do anything
         if isinstance(target, (Boundary, Interface)):
@@ -1103,11 +1108,25 @@ class DiscreteBilinearForm(BasicDiscrete):
         import os
         if not os.path.isdir('__psydac__'):
             os.makedirs('__psydac__')
-        file_id = id_generator()
-        filename = f'__psydac__/assemble_{file_id}.py'
-        f = open(filename, 'w')
-        f.writelines(assembly_code)
-        f.close()
+
+        comm = self.comm
+        if comm is not None and comm.size>1:
+            if comm.rank == 0:
+                file_id = id_generator()
+                filename = f'__psydac__/assemble_{file_id}.py'  #-
+                f = open(filename, 'w')
+                f.writelines(assembly_code)
+                f.close()                                       #-
+            else:
+                file_id = None
+            file_id = comm.bcast(file_id, root=0)
+        else:
+            file_id = id_generator()
+            filename = f'__psydac__/assemble_{file_id}.py'      #-
+            f = open(filename, 'w')
+            f.writelines(assembly_code)
+            f.close()                                           #-
+
         return file_id
 
     def read_BilinearForm(self):
@@ -1554,7 +1573,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                 'accelerators': ('openmp',) if assembly_backend['openmp'] else (),
                 'verbose'     : True,
                 # 'folder': assembly_backend['folder'],
-                # 'comm': self.comm,
+                'comm': self.comm,
                 # 'time_execution': verbose,
                 # 'verbose': verbose
             }

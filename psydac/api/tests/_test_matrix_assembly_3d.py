@@ -344,7 +344,7 @@ def build_matrices(mapping_option, verbose, backend, comm):
                              'weighted_l2_mass_F3', 'divdiv_Fs', 'Fvc test', 'dot(grad(u), v)', 'dot(curl(v), w)_F0', 'dot(curl(v), w)_F0_2', 
                              'u*f', 'f*u', 'sqrt_pi_Fvd', 'dot(v, w)', 'dot(w, v)')
 
-    bilinear_forms_to_test = bilinear_form_strings[0:10] # [bilinear_form_strings[0], ]
+    bilinear_forms_to_test = [bilinear_form_strings[0], ]
     
     for bf in bilinear_forms_to_test:
         value = bilinear_forms[bf]
@@ -425,7 +425,8 @@ def build_matrices(mapping_option, verbose, backend, comm):
         err = np.linalg.norm((A_old-A_new).toarray())
         rel_err = err / A_old_norm
 
-        if verbose and (mpi_rank == 0):
+        if verbose: #  and (mpi_rank == 0):
+            print(f' >>> MPI rank       : {comm.Get_rank()} ')
             print(f' >>> Mapping Option : {mapping_option} ')
             print(f' >>> BF {bf} ')
             print(f' >>> Discretization in: Old {disc_time_old:.3g}\t\t|| New {disc_time_new:.3g} ')
@@ -442,7 +443,7 @@ def build_matrices(mapping_option, verbose, backend, comm):
 
 verbose = True
 
-mapping_options = [None, 'analytical'] # [None, 'analytical', 'Bspline']
+mapping_options = [None, ] # [None, 'analytical', 'Bspline']
 
 comm    = MPI.COMM_WORLD
 backend = PSYDAC_BACKEND_GPYCCEL
