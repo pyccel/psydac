@@ -53,10 +53,11 @@ if platform.system() == "Darwin" and platform.machine() == 'arm64' and gfortran_
 
     # Apple silicon requires architecture-specific flags (see https://github.com/pyccel/psydac/pull/411)
     # which are only available on GCC version >= 14
-    cpu_brand = subprocess.check_output(['sysctl','-n','machdep.cpu.brand_string']).decode('utf-8') # nosec B603, B607
-    if "Apple M" in cpu_brand:
-        # Example: Apple M1 --> -mcpu=apple-m1
-        PSYDAC_BACKEND_GPYCCEL['flags'] += ' -mcpu=' + cpu_brand.lower().replace(' ','-')
+    cpu_brand = subprocess.check_output(['sysctl','-n','machdep.cpu.brand_string']).decode('utf-8').strip() # nosec B603, B607
+    if cpu_brand.startswith("Apple M"):
+        # Example: "Apple M3 Pro (virtual)" --> " -mcpu=apple-m3"
+        cpu_flag = cpu_brand.lower().replace(' ','-')[:8]
+        PSYDAC_BACKEND_GPYCCEL['flags'] += f' -mcpu={cpu_flag}'
     else:
         # TODO: Support later Apple CPU models. Perhaps the CPU naming scheme could be easily guessed
         # based on the output of 'sysctl -n machdep.cpu.brand_string', but I wouldn't rely on this
