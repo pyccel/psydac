@@ -45,7 +45,7 @@ PSYDAC_BACKEND_NVPYCCEL = {'name': 'pyccel',
 
 # Get gfortran version
 gfortran_version_output = subprocess.check_output(['gfortran', '--version']).decode('utf-8') # nosec B603, B607
-gfortran_version_string = re.search("(\d+\.\d+\.\d+)", gfortran_version_output).group()
+gfortran_version_string = re.search(r"(\d+\.\d+\.\d+)", gfortran_version_output).group()
 gfortran_version = Version(gfortran_version_string)
 
 # Platform-dependent flags
