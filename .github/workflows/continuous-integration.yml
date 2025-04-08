@@ -160,6 +160,12 @@ jobs:
       - name: Install project
         run: |
           python -m pip install .[test]
+          pip uninstall pyccel
+          git clone --recurse-submodules https://github.com/pyccel/pyccel.git
+          cd pyccel
+          git checkout devel
+          pip install -e ".[test]"
+          cd ../
           python -m pip freeze
 
       - name: Test Pyccel optimization flags
