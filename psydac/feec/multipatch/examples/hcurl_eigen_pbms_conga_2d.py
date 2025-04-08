@@ -345,7 +345,7 @@ def get_eigenvalues(nb_eigs, sigma, A_m, M_m):
                 OP_m.shape, lambda x: OP_spilu.solve(x))
             tol = tol_eigsh
             OPinv = LinearOperator(
-                matvec=lambda v: lgmres(OP_m, v, x0=None, tol=tol, atol=tol, M=preconditioner,
+                matvec=lambda v: lgmres(OP_m, v, x0=None, rtol=tol, atol=tol, M=preconditioner,
                                         callback=lambda x: print(
                                             'cg -- residual = ', norm(OP_m.dot(x) - v))
                                         )[0],
