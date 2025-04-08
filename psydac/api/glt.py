@@ -335,7 +335,7 @@ class GltBasicCodeGen(object):
 
         # ...
         # from pyccel.epyccel import epyccel
-        from pyccel.commands.epyccel  import epyccel
+        from pyccel import epyccel
 
         # ... convert python to fortran using pyccel
         compiler       = self.backend['compiler']

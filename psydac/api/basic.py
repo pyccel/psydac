@@ -260,7 +260,7 @@ class BasicCodeGen:
         _PYCCEL_FOLDER = self.backend['folder']
 
         # from pyccel.epyccel import epyccel
-        from pyccel.commands.epyccel  import epyccel
+        from pyccel import epyccel
         fmod = epyccel(mod,
                        accelerators = accelerators,
                        compiler    = compiler,
