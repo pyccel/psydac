@@ -420,9 +420,10 @@ def solve_td_maxwell_pbm(*,
     # Absorbing dC_m
     CH2 = C_m.transpose() @ H2_m
     H1A = H1_m + dt * A_eps
-    dC_m = sp.sparse.linalg.spsolve(H1A, CH2)
 
-    dCH1_m = sp.sparse.linalg.spsolve(H1A, H1_m)
+    H1A_csc = H1A.tocsc()
+    dC_m   = sp.sparse.linalg.spsolve(H1A_csc,  CH2.tocsc())
+    dCH1_m = sp.sparse.linalg.spsolve(H1A_csc, H1_m.tocsc())
 
     print(' .. matrix of the dual div (still in primal bases)...')
     div_m = dH0_m @ cP0_m.transpose() @ bD0_m.transpose() @ H1_m
