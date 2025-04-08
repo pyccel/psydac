@@ -112,8 +112,8 @@ def first_eigenmodes_hlap(
         avr    = lambda u:0.5*plus(u)+0.5*minus(u)
         jump   = lambda u: minus(u)-plus(u)
 
-        expr = (curl(v) * curl(u)) + (div(v) * div(u))  # doesn't work
-        # expr = inner(grad(v), grad(u))
+        # expr = (curl(v) * curl(u)) + (div(v) * div(u))  # doesn't work
+        expr = inner(grad(v), grad(u))
         expr_I = kappa * dot(jump(u), jump(v))
 
         if bc_type == 'H0curl':
@@ -315,17 +315,19 @@ if __name__ == '__main__':
     # bc_type = 'H0div'
 
     method_type = 'H1_fem'
-    # method_type = 'feec'
+    method_type = 'feec'
 
 
     # nc = 20
     # deg = 4
-    nc = 50
+    nc = 10
     deg = 3
 
     domain_name = 'square_mp'
+    domain_name = 'u_square_mp'
+    # domain_name = 'o_square_mp'
     # domain_name = 'square'
-    domain_name = 'curved_L_shape'
+    # domain_name = 'curved_L_shape'
     # domain_name = 'pretzel_f'
     # domain_name = 'annulus_4'
 
@@ -339,23 +341,32 @@ if __name__ == '__main__':
     print(f' .. building domain {domain_name}..')
     if domain_name in ['pretzel_f', 'annulus_4', 'curved_L_shape']:
         domain = build_multipatch_domain(domain_name=domain_name)
-    elif domain_name == 'square_mp':
+    elif domain_name in ['square_mp', 'u_square_mp', 'o_square_mp']:
         int_x = [0, np.pi]
         int_y = [0, np.pi]
 
-        square_with_hole = False
-        if square_with_hole:
+        if domain_name == 'u_square_mp':
+            ncells_patch_grid = np.array([
+                [2,  None, 2],
+                [2,  None, 2],
+                [2,  2,    2]
+                ])
+        elif domain_name == 'o_square_mp':
             ncells_patch_grid = np.array([
                 [2,  2,    2],
                 [2,  None, 2],
                 [2,  2,    2]
                 ])
-        else:
-            ncells_patch_grid = np.array([
-                [4, 4],
-                [4, 4]
-                ])
 
+        elif domain_name == 'square_mp':
+            ncells_patch_grid = np.array([
+                [2,  2,    2],
+                [2,  2,    2],
+                [2,  2,    2]
+                ])
+        else:
+            raise ValueError(domain_name)
+        
         domain = build_cartesian_multipatch_domain(ncells_patch_grid, int_x, int_y, mapping='identity')
     run_dir = f'{method_type}_{bc_type}_{domain_name}_nc={nc}_deg={deg}/'
     # m_load_dir = 'matrices_{}_nc={}_deg={}/'.format(domain_name, nc, deg)
