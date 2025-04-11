@@ -84,10 +84,11 @@ def petsc_to_psydac(x, Xh, out=None):
     x : PETSc.Vec
       PETSc vector
 
-    Xh: psydac.linalg.stencil.StencilVectorSpace | psydac.linalg.block.BlockVectorSpace
+    Xh : psydac.linalg.stencil.StencilVectorSpace | psydac.linalg.block.BlockVectorSpace
       Space of the coefficients of the Psydac vector.
 
-    out: Psydac vector to store the result.
+    out : psydac.linalg.stencil.StencilVector | psydac.linalg.block.BlockVector, optional
+      The Psydac vector where to store the result.
 
     Returns
     -------
