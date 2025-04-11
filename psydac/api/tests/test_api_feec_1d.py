@@ -344,8 +344,8 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
 
     half_step_faraday_1d = (dt/2) * D0
 
-    de = derham_h.V0.vector_space.zeros()
-    db = derham_h.V1.vector_space.zeros()
+    de = derham_h.V0.coeff_space.zeros()
+    db = derham_h.V1.coeff_space.zeros()
 
     # Time loop
     for i in range(nsteps):

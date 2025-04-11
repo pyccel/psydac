@@ -35,7 +35,6 @@ from psydac.feec.multipatch.utils_conga_2d import P0_phys
 
 from psydac.feec.multipatch.fem_linear_operators import IdLinearOperator
 from psydac.feec.multipatch.operators import HodgeOperator
-from psydac.feec.multipatch.plotting_utilities import plot_field
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
 from psydac.feec.multipatch.examples.ppc_test_cases import get_source_and_solution_h1
 from psydac.feec.multipatch.utilities import time_count
@@ -218,16 +217,16 @@ def solve_h1_source_pbm(
         OM.add_spaces(V0h=V0h)
         OM.set_static()
 
-        stencil_coeffs = array_to_psydac(uh_c, V0h.vector_space)
+        stencil_coeffs = array_to_psydac(uh_c, V0h.coeff_space)
         vh = FemField(V0h, coeffs=stencil_coeffs)
         OM.export_fields(vh=vh)
 
-        stencil_coeffs = array_to_psydac(f_c, V0h.vector_space)
+        stencil_coeffs = array_to_psydac(f_c, V0h.coeff_space)
         fh = FemField(V0h, coeffs=stencil_coeffs)
         OM.export_fields(fh=fh)
         
         if u_ex:
-            stencil_coeffs = array_to_psydac(u_ex_c, V0h.vector_space)
+            stencil_coeffs = array_to_psydac(u_ex_c, V0h.coeff_space)
             uh_ex = FemField(V0h, coeffs=stencil_coeffs)
             OM.export_fields(uh_ex=uh_ex)
 

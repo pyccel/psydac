@@ -14,13 +14,11 @@ from psydac.api.settings import PSYDAC_BACKENDS
 from psydac.feec.multipatch.fem_linear_operators import IdLinearOperator
 from psydac.feec.multipatch.operators import HodgeOperator
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
-from psydac.feec.multipatch.plotting_utilities import plot_field
 from psydac.feec.multipatch.utilities import time_count, get_run_dir, get_plot_dir, get_mat_dir, get_sol_dir, diag_fn
 from psydac.feec.multipatch.utils_conga_2d import write_diags_to_file
 
 from sympde.topology import Square
 from sympde.topology import IdentityMapping, PolarMapping
-from psydac.fem.vector import ProductFemSpace
 
 from scipy.sparse.linalg import spilu, lgmres
 from scipy.sparse.linalg import LinearOperator, eigsh, minres
@@ -277,7 +275,7 @@ def hcurl_solve_eigen_pbm(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), doma
         norm_emode_i = np.dot(emode_i, H1_m.dot(emode_i))
         eh_c = emode_i / norm_emode_i
 
-        stencil_coeffs = array_to_psydac(cP1_m @ eh_c, V1h.vector_space)
+        stencil_coeffs = array_to_psydac(cP1_m @ eh_c, V1h.coeff_space)
         vh = FemField(V1h, coeffs=stencil_coeffs)
         OM.add_snapshot(i, i)
         OM.export_fields(vh=vh)

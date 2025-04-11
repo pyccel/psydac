@@ -7,7 +7,7 @@ from sympde.topology.datatype import UndefinedSpaceType, H1SpaceType, HcurlSpace
 
 from psydac.mapping.discrete import SplineMapping
 from psydac.fem.basic import FemField
-from psydac.fem.vector import ProductFemSpace, VectorFemSpace
+from psydac.fem.vector import MultipatchFemSpace, VectorFemSpace
 from psydac.core.bsplines import cell_index
 from psydac.core.field_evaluation_kernels import (pushforward_2d_l2, pushforward_3d_l2,
                                                   pushforward_2d_hdiv, pushforward_3d_hdiv,
@@ -266,7 +266,7 @@ class Pushforward:
 
         fields_eval = getattr(space, self._eval_func)(self.grid, *field_list, overlap=overlap)
 
-        if isinstance(space, (VectorFemSpace, ProductFemSpace)):
+        if isinstance(space, (VectorFemSpace, MultipatchFemSpace)):
             return [tuple(np.ascontiguousarray(fields_eval[i][index_trim[i] + (j,)], dtype=field_list[0].coeffs.dtype) for i in range(self.ldim)) for j in range(len(field_list))]
         else:
             return [np.ascontiguousarray(fields_eval[index_trim + (j,)], dtype=field_list[0].coeffs.dtype) for j in range(len(field_list))]
@@ -288,7 +288,7 @@ class Pushforward:
         if self.sqrt_metric_det_temp is None:
             self.sqrt_metric_det_temp = self.sqrt_metric_det()
 
-        if isinstance(space, (VectorFemSpace, ProductFemSpace)):
+        if isinstance(space, (VectorFemSpace, MultipatchFemSpace)):
 
             fields_to_push = [np.ascontiguousarray(fields_eval[i][index_trim[i]]) for i in range(self.ldim)]
             pushed_fields_list = [np.zeros_like(fields_to_push[i], dtype=fields_eval[i].dtype) for i in range(self.ldim)]
@@ -464,7 +464,7 @@ class Pushforward:
         ----------
         space : FemSpace
         """
-        if isinstance(space, (ProductFemSpace, VectorFemSpace)):
+        if isinstance(space, (MultipatchFemSpace, VectorFemSpace)):
             overlap = []
             index_trim = []
             for i in range(len(space.spaces)):

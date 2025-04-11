@@ -25,8 +25,8 @@ class FemLinearOperator( LinearOperator ):
             self._fem_codomain = fem_codomain
         else:
             self._fem_codomain = fem_domain
-        self._domain   = self._fem_domain.vector_space
-        self._codomain = self._fem_codomain.vector_space
+        self._domain   = self._fem_domain.coeff_space
+        self._codomain = self._fem_codomain.coeff_space
 
         self._matrix = matrix
         self._sparse_matrix = sparse_matrix

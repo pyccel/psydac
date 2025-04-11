@@ -49,7 +49,7 @@ from .nodes import Block, ParallelBlock
 from psydac.api.ast.utilities import variables
 from psydac.api.utilities     import flatten
 from psydac.linalg.block      import BlockVectorSpace
-from psydac.fem.vector        import ProductFemSpace, VectorFemSpace
+from psydac.fem.vector        import VectorFemSpace
 
 #==============================================================================
 def toInteger(a):
@@ -288,8 +288,8 @@ class AST(object):
             fields              = expr.fields
             is_broken           = spaces.symbolic_space.is_broken
             tests_degrees       = get_degrees(tests, spaces)
-            multiplicity_tests  = get_multiplicity(tests, spaces.vector_space)
-            is_parallel         = spaces.vector_space.parallel
+            multiplicity_tests  = get_multiplicity(tests, spaces.coeff_space)
+            is_parallel         = spaces.coeff_space.parallel
             spaces              = spaces.symbolic_space
 
             # Define the type of scalar that the code should manage
@@ -304,9 +304,9 @@ class AST(object):
             is_broken           = spaces[1].symbolic_space.is_broken
             tests_degrees       = get_degrees(tests, spaces[1])
             trials_degrees      = get_degrees(trials, spaces[0])
-            multiplicity_tests  = get_multiplicity(tests, spaces[1].vector_space)
-            multiplicity_trials = get_multiplicity(trials, spaces[0].vector_space)
-            is_parallel         = spaces[1].vector_space.parallel
+            multiplicity_tests  = get_multiplicity(tests, spaces[1].coeff_space)
+            multiplicity_trials = get_multiplicity(trials, spaces[0].coeff_space)
+            is_parallel         = spaces[1].coeff_space.parallel
             spaces              = [V.symbolic_space for V in spaces]
 
             # Define the type of scalar that the code should manage
@@ -324,8 +324,8 @@ class AST(object):
             fields              = tuple(expr.atoms(ScalarFunction, VectorFunction))
             is_broken           = spaces.symbolic_space.is_broken
             fields_degrees      = get_degrees(fields, spaces)
-            multiplicity_fields = get_multiplicity(fields, spaces.vector_space)
-            is_parallel         = spaces.vector_space.parallel
+            multiplicity_fields = get_multiplicity(fields, spaces.coeff_space)
+            is_parallel         = spaces.coeff_space.parallel
             spaces              = spaces.symbolic_space
 
             # Define the type of scalar that the code should manage
@@ -418,8 +418,8 @@ class AST(object):
 
                 mapping_degrees_m      = get_degrees([f_m], mapping_space[0])
                 mapping_degrees_p      = get_degrees([f_p], mapping_space[1])
-                multiplicity_mapping_m = get_multiplicity([f_m], mapping_space[0].vector_space)
-                multiplicity_mapping_p = get_multiplicity([f_p], mapping_space[1].vector_space)
+                multiplicity_mapping_m = get_multiplicity([f_m], mapping_space[0].coeff_space)
+                multiplicity_mapping_p = get_multiplicity([f_p], mapping_space[1].coeff_space)
                 mapping_degrees        = (mapping_degrees_m, mapping_degrees_p)
                 multiplicity_mapping   = (multiplicity_mapping_m, multiplicity_mapping_p)
             else:
@@ -427,7 +427,7 @@ class AST(object):
                 f  = expand([f])[0]
                 f  = (f,)
                 mapping_degrees      = (get_degrees(f, mapping_space),)
-                multiplicity_mapping = (get_multiplicity(f, mapping_space.vector_space),)
+                multiplicity_mapping = (get_multiplicity(f, mapping_space.coeff_space),)
 
             d_mapping = {fi: {'global':       GlobalTensorQuadratureTestBasis (fi),
                               'local' :       LocalTensorQuadratureTestBasis(fi),

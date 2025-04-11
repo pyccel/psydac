@@ -34,7 +34,6 @@ from psydac.feec.pull_push import pull_2d_hcurl
 from psydac.feec.multipatch.api import discretize
 from psydac.feec.multipatch.fem_linear_operators import IdLinearOperator
 from psydac.feec.multipatch.operators import HodgeOperator
-from psydac.feec.multipatch.plotting_utilities import plot_field
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
 from psydac.feec.multipatch.examples.ppc_test_cases import get_source_and_solution_hcurl
 from psydac.feec.multipatch.utils_conga_2d import DiagGrid, P0_phys, P1_phys, P2_phys, get_Vh_diags_for
@@ -309,10 +308,10 @@ def solve_hcurl_source_pbm(
         print(' .. adding the lifted boundary condition...')
         uh_c += ubc_c
 
-    uh = FemField(V1h, coeffs=array_to_psydac(uh_c, V1h.vector_space))
+    uh = FemField(V1h, coeffs=array_to_psydac(uh_c, V1h.coeff_space))
     #need cp1 here?
     f_c = dH1_m.dot(tilde_f_c)
-    jh = FemField(V1h, coeffs=array_to_psydac(f_c, V1h.vector_space))
+    jh = FemField(V1h, coeffs=array_to_psydac(f_c, V1h.coeff_space))
 
     t_stamp = time_count(t_stamp)
 
