@@ -1,8 +1,6 @@
 # This workflow will install Python dependencies and run tests with a variety of Python versions
 # For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
 
-name: Run tests
-
 on:
   push:
     branches: [ devel-tiny, devel, main ]
@@ -10,14 +8,15 @@ on:
     branches: [ devel-tiny, devel, main ]
 
 jobs:
-  test:
+  compile-with-pyccel-devel:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ ubuntu-latest ]
         # TODO: Make sure that struphy works with python > 3.11, keep the lower bound to 3.10
-        python-version: [ '3.10', '3.11', '3.12', '3.13' ]
+        python-version: [ '3.10', '3.12', '3.13' ]
+        compile_language: ['c', 'fortran']
         isMerge:
           - ${{ github.event_name == 'push' && github.ref == 'refs/heads/devel' }}
         # exclude:
@@ -29,7 +28,176 @@ jobs:
         #   - os: macos-14
         #     python-version: '3.13'
 
-    name: ${{ matrix.os }} / Python ${{ matrix.python-version }}
+    name: Compile with pyccel devel on ${{ matrix.os }} / Python ${{ matrix.python-version }} / ${{ matrix.compile_language }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+          cache-dependency-path: |
+            pyproject.toml
+            requirements.txt
+
+      - name: Install non-Python dependencies on Ubuntu
+        if: matrix.os == 'ubuntu-latest'
+        uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: gfortran openmpi-bin libopenmpi-dev libhdf5-openmpi-dev
+          version: 1.0
+          execute_install_scripts: true
+
+      # When loading cached apt packages, the default MPI compiler isn't set.
+      # Workaround is to 'reinstall' openmpi-bin, which doesn't actually perform
+      # installation (since openmpi-bin already exists), but instead reruns
+      # `update-alternatives` which fixes the symlinks to mpicc/mpif90.
+      - name: Reconfigure non-Python dependencies on Ubuntu
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --reinstall openmpi-bin libhdf5-openmpi-dev liblapack-dev libblas-dev
+
+      - name: Install non-Python dependencies on macOS
+        if: matrix.os == 'macos-14'
+        run: |
+          brew install open-mpi
+          brew install hdf5-mpi
+          brew install libomp
+          brew update
+          brew install python3
+          brew install gcc
+          brew install openblas
+          brew install lapack
+          brew install git
+          brew install pandoc
+          GFORTRAN_HOME=$(which gfortran || true)
+          echo "GFORTRAN_HOME : $GFORTRAN_HOME"
+          if [[ ! -f "$GFORTRAN_HOME" ]]; then
+            gfort=$(find ${PATH//:/\/ } -name 'gfortran-*' -exec basename {} \; | sort | tail -n 1 || true)
+            echo "Found $gfort"
+            gfort_path=$(which ${gfort})
+            folder=$(dirname ${gfort_path})
+            ln -s ${gfort_path} ${folder}/gfortran
+          fi
+          echo "MPI_OPTS=--oversubscribe" >> $GITHUB_ENV
+
+      - name: Print information on MPI and HDF5 libraries
+        run: |
+          ompi_info
+          h5pcc -showconfig -echo || true
+
+      - name: Upgrade pip
+        run: |
+          python -m pip install --upgrade pip
+
+      - name: Determine directory of parallel HDF5 library
+        run: |
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+            HDF5_DIR=$(dpkg -L libhdf5-openmpi-dev | grep libhdf5.so | xargs dirname)
+          elif [[ "${{ matrix.os }}" == "macos-14" ]]; then
+            HDF5_DIR=$(brew list hdf5-mpi | grep "libhdf5.dylib" | xargs dirname | xargs dirname)
+          fi
+          echo $HDF5_DIR
+          echo "HDF5_DIR=$HDF5_DIR" >> $GITHUB_ENV
+
+      - name: Cache PETSc
+        uses: actions/cache@v4
+        id: cache-petsc
+        env:
+          cache-name: cache-PETSc
+        with:
+          path: "./petsc"
+          key: petsc-${{ matrix.os }}-${{ matrix.python-version }}
+
+      - if: steps.cache-petsc.outputs.cache-hit != 'true'
+        name: Download a specific release of PETSc
+        run: |
+          git clone --depth 1 --branch v3.22.2 https://gitlab.com/petsc/petsc.git
+
+      - if: steps.cache-petsc.outputs.cache-hit != 'true'
+        name: Install PETSc with complex support
+        working-directory: ./petsc
+        run: |
+          export PETSC_DIR=$(pwd)
+          export PETSC_ARCH=petsc-cmplx
+          ./configure --with-scalar-type=complex --with-fortran-bindings=0 --have-numpy=1 --download-fblaslapack=1
+          make all
+          echo "PETSC_DIR=$PETSC_DIR" > petsc.env
+          echo "PETSC_ARCH=$PETSC_ARCH" >> petsc.env
+
+      # This step is not really necessary and could be combined with PETSc install
+      # step; however it's good to verify if the cached PETSc installation really works!
+      - name: Test PETSc installation
+        working-directory: ./petsc
+        run: |
+          source petsc.env
+          make check
+          echo "PETSC_DIR=$PETSC_DIR" >> $GITHUB_ENV
+          echo "PETSC_ARCH=$PETSC_ARCH" >> $GITHUB_ENV
+
+      - name: Install petsc4py
+        working-directory: ./petsc
+        run: | 
+          python -m pip install wheel Cython numpy
+          python -m pip install src/binding/petsc4py
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install -r requirements.txt
+          python -m pip list
+
+      - name: Install project
+        run: |
+          python -m pip install ".[test]" --no-cache-dir
+          python -m pip freeze
+
+      - name: Set up environment variables
+        run: |
+          echo "PSYDAC_DIR=$GITHUB_WORKSPACE" >> $GITHUB_ENV
+          echo "PYCCEL_DIR=$GITHUB_WORKSPACE/pyccel" >> $GITHUB_ENV
+  
+      - name: Clone pyccel from Github (devel branch)
+        run: |
+          git clone --recurse-submodules https://github.com/pyccel/pyccel.git $PYCCEL_DIR
+
+      - name: Install pyccel
+        working-directory: ${{ env.PYCCEL_DIR }}
+        run: |
+          echo "Pyccel location for this branch"
+          pip show pyccel
+          pip uninstall pyccel -y
+          python -m pip install ".[test]" --no-cache-dir
+          echo "Pyccel location after reinstalling"
+          pip show pyccel
+      
+      - name: Compile psydac kernels
+        run: |
+          psydac-accelerate --language ${{ matrix.compile_language }}
+
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest ]
+        # TODO: Make sure that struphy works with python > 3.11, keep the lower bound to 3.10
+        python-version: [ '3.10', '3.12', '3.13' ]
+        compile_language: ['c', 'fortran']
+        isMerge:
+          - ${{ github.event_name == 'push' && github.ref == 'refs/heads/devel' }}
+        # exclude:
+        #  - { isMerge: false, python-version: '3.10' }
+        #  - { isMerge: false, python-version: '3.11' }
+        # include:
+        #   - os: macos-14
+        #     python-version: '3.10'
+        #   - os: macos-14
+        #     python-version: '3.13'
+
+    name: Run tests on ${{ matrix.os }} / Python ${{ matrix.python-version }} / ${{ matrix.compile_language }}
 
     steps:
       - uses: actions/checkout@v4
@@ -157,7 +325,7 @@ jobs:
       
       - name: Compile psydac kernels
         run: |
-          psydac-accelerate --language c
+          psydac-accelerate --language ${{ matrix.compile_language }}
 
       # - name: Test Pyccel optimization flags
       #   run: |
@@ -206,6 +374,7 @@ jobs:
 
       - name: Clone struphy from GitLab (devel branch)
         run: |
+          # git clone --branch test-pyccel-devel-in-ci https://gitlab.mpcdf.mpg.de/struphy/struphy.git $STRUPHY_DIR
           git clone --branch devel https://gitlab.mpcdf.mpg.de/struphy/struphy.git $STRUPHY_DIR
       
       - name: Install struphy
@@ -232,7 +401,7 @@ jobs:
         run: |
           pip show psydac
           struphy -h
-          struphy compile -y
+          struphy compile -y --language ${{ matrix.compile_language }}
 
       - name: Run struphy unit tests
         working-directory: ${{ env.STRUPHY_DIR }}

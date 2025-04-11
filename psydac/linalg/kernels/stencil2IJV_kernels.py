@@ -13,6 +13,8 @@ def stencil2IJV_1d_C(A:'T[:,:]', Ib:'int64[:]', Jb:'int64[:]', Vb:'T[:]', rowmap
     nnz_rows = 0
     gr1 = cp1 * cm1
 
+    stencil_size1 = A.shape[1] # pre-compute the size
+
     for i1 in range(cnl1):
         nnz_in_row = 0
         i1_n = cs1 + i1
@@ -24,7 +26,8 @@ def stencil2IJV_1d_C(A:'T[:,:]', Ib:'int64[:]', Jb:'int64[:]', Vb:'T[:]', rowmap
             pr_i1 = k
 
         i_g = csh[pr_i1] + i1_n - cgs1[pr_i1]
-        stencil_size1 = A[i1 + gr1].size
+        # this is used in upstream psydac, doesn't work with --language c
+        # stencil_size1 = A[i1 + gr1].size
 
         for k1 in range(stencil_size1):
 

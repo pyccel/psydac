@@ -614,7 +614,7 @@ class ScaledLinearOperator(LinearOperator):
 
 #===============================================================================
 class SumLinearOperator(LinearOperator):
-    """
+    r"""
     Sum $\sum_{i=1}^n A_i$ of linear operators $A_1,\dots,A_n$ acting between the same vector spaces V (domain) and W (codomain).
 
     """
@@ -728,7 +728,7 @@ class SumLinearOperator(LinearOperator):
 
 #===============================================================================
 class ComposedLinearOperator(LinearOperator):
-    """
+    r"""
     Composition $A_n\circ\dots\circ A_1$ of two or more linear operators $A_1,\dots,A_n$.
     
     """
@@ -788,7 +788,7 @@ class ComposedLinearOperator(LinearOperator):
 
     @property
     def multiplicants(self):
-        """
+        r"""
         A tuple $(A_1,\dots,A_n)$ containing the multiplicants of the linear operator 
         $self = A_n\circ\dots\circ A_1$.
         
@@ -851,7 +851,7 @@ class ComposedLinearOperator(LinearOperator):
 
 #===============================================================================
 class PowerLinearOperator(LinearOperator):
-    """
+    r"""
     Power $A^n$ of a linear operator $A$ for some integer $n\geq 0$.
     
     """
