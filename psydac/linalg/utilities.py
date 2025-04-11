@@ -74,7 +74,7 @@ def _array_to_psydac_recursive(x, u):
         raise NotImplementedError(f'Can only handle StencilVector or BlockVector spaces, got {type(V)} instead')
     
 #==============================================================================
-def petsc_to_psydac(x, Xh):
+def petsc_to_psydac(x, Xh, out=None):
     """
     Convert a PETSc.Vec object to a StencilVector or BlockVector. It assumes that PETSc was installed with the configuration for complex numbers.
     Uses the index conversion functions in psydac.linalg.topetsc.py.
@@ -83,6 +83,11 @@ def petsc_to_psydac(x, Xh):
     ----------
     x : PETSc.Vec
       PETSc vector
+
+    Xh: psydac.linalg.basic.VectorSpace | psydac.linalg.block.BlockVectorSpace
+      Space of the coefficients of the Psydac vector.
+
+    out: Psydac vector to store the result.
 
     Returns
     -------
@@ -94,7 +99,13 @@ def petsc_to_psydac(x, Xh):
         if any([isinstance(Xh.spaces[b], BlockVectorSpace) for b in range(len(Xh.spaces))]):
             raise NotImplementedError('Block of blocks not implemented.')
         
-        u = BlockVector(Xh)
+        if out is not None:
+            assert isinstance(out, BlockVector)
+            assert out.space is Xh
+            u = out
+        else:
+            u = BlockVector(Xh)
+
         comm       = x.comm
         dtype      = Xh._dtype
         localsize, globalsize = x.getSizes()
@@ -117,7 +128,13 @@ def petsc_to_psydac(x, Xh):
         
     elif isinstance(Xh, StencilVectorSpace):
 
-        u          = StencilVector(Xh)
+        if out is not None:
+            assert isinstance(out, StencilVector)
+            assert out.space is Xh
+            u = out
+        else:
+            u = StencilVector(Xh)
+
         comm       = x.comm
         dtype      = Xh.dtype
         localsize, globalsize = x.getSizes()
