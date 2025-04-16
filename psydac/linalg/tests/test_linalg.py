@@ -1037,7 +1037,7 @@ def test_ILO_copy(solver):
     assert M1_inv is not M1_inv_copy
     assert M1_inv is M1_inv # sanity check
 
-    x = derham_h.V1.vector_space.zeros()
+    x = derham_h.V1.coeff_space.zeros()
     rng.random(out=x[0]._data)
     rng.random(out=x[1]._data)
 
@@ -1058,7 +1058,7 @@ def test_LO_copy():
     u, v = elements_of(derham.V1, names='u, v')
     m1 = BilinearForm((u, v), integral(domain, dot(u, v)))
     M1 = discretize(m1, domain_h, (derham_h.V1, derham_h.V1), backend=PSYDAC_BACKEND_GPYCCEL).assemble()
-    I  = IdentityOperator(derham_h.V1.vector_space)
+    I  = IdentityOperator(derham_h.V1.coeff_space)
     A = M1 + I
     dt = 0.1
 
@@ -1078,7 +1078,7 @@ def test_LO_copy():
     assert A3 is not B3
     assert A4 is not B4
 
-    x = derham_h.V1.vector_space.zeros()
+    x = derham_h.V1.coeff_space.zeros()
     rng.random(out=x[0]._data)
     rng.random(out=x[1]._data)
 
@@ -1127,7 +1127,7 @@ def test_failing_BLO_add_cases():
     m1 = BilinearForm((u, v), integral(domain, dot(u, v)))
     M1 = discretize(m1, domain_h, (derham_h.V1, derham_h.V1), backend=PSYDAC_BACKEND_GPYCCEL).assemble()
 
-    V = derham_h.V1.vector_space
+    V = derham_h.V1.coeff_space
 
     Z1 = ZeroOperator(V, V)
 
