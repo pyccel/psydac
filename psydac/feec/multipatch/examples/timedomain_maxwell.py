@@ -37,7 +37,7 @@ from psydac.feec.multipatch.api import discretize
 from psydac.feec.multipatch.fem_linear_operators import IdLinearOperator
 from psydac.feec.multipatch.operators import HodgeOperator, get_K0_and_K0_inv, get_K1_and_K1_inv
 # , write_field_to_diag_grid,
-from psydac.feec.multipatch.plotting_utilities import plot_field
+from psydac.fem.plotting_utilities import plot_field_2d as plot_field
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
 # , get_praxial_Gaussian_beam_E, get_easy_Gaussian_beam_E, get_easy_Gaussian_beam_B,get_easy_Gaussian_beam_E_2, get_easy_Gaussian_beam_B_2
 from psydac.feec.multipatch.examples.ppc_test_cases import get_source_and_solution_hcurl, get_div_free_pulse, get_curl_free_pulse, get_Delta_phi_pulse, get_Gaussian_beam
@@ -420,9 +420,10 @@ def solve_td_maxwell_pbm(*,
     # Absorbing dC_m
     CH2 = C_m.transpose() @ H2_m
     H1A = H1_m + dt * A_eps
-    dC_m = sp.sparse.linalg.spsolve(H1A, CH2)
 
-    dCH1_m = sp.sparse.linalg.spsolve(H1A, H1_m)
+    H1A_csc = H1A.tocsc()
+    dC_m   = sp.sparse.linalg.spsolve(H1A_csc,  CH2.tocsc())
+    dCH1_m = sp.sparse.linalg.spsolve(H1A_csc, H1_m.tocsc())
 
     print(' .. matrix of the dual div (still in primal bases)...')
     div_m = dH0_m @ cP0_m.transpose() @ bD0_m.transpose() @ H1_m
@@ -991,12 +992,12 @@ def solve_td_maxwell_pbm(*,
         OM2.add_spaces(V2h=V2h)
         OM2.export_space_info()
 
-        stencil_coeffs_E = array_to_psydac(cP1_m @ E_c, V1h.vector_space)
+        stencil_coeffs_E = array_to_psydac(cP1_m @ E_c, V1h.coeff_space)
         Eh = FemField(V1h, coeffs=stencil_coeffs_E)
         OM1.add_snapshot(t=0, ts=0)
         OM1.export_fields(Eh=Eh)
 
-        stencil_coeffs_B = array_to_psydac(B_c, V2h.vector_space)
+        stencil_coeffs_B = array_to_psydac(B_c, V2h.coeff_space)
         Bh = FemField(V2h, coeffs=stencil_coeffs_B)
         OM2.add_snapshot(t=0, ts=0)
         OM2.export_fields(Bh=Bh)
@@ -1085,12 +1086,12 @@ def solve_td_maxwell_pbm(*,
             # plot_B_field(B_c, nt=nt+1)
             # plot_J_source_nPlusHalf(f_c, nt=nt)
 
-            stencil_coeffs_E = array_to_psydac(cP1_m @ E_c, V1h.vector_space)
+            stencil_coeffs_E = array_to_psydac(cP1_m @ E_c, V1h.coeff_space)
             Eh = FemField(V1h, coeffs=stencil_coeffs_E)
             OM1.add_snapshot(t=nt * dt, ts=nt)
             OM1.export_fields(Eh=Eh)
 
-            stencil_coeffs_B = array_to_psydac(B_c, V2h.vector_space)
+            stencil_coeffs_B = array_to_psydac(B_c, V2h.coeff_space)
             Bh = FemField(V2h, coeffs=stencil_coeffs_B)
             OM2.add_snapshot(t=nt * dt, ts=nt)
             OM2.export_fields(Bh=Bh)
@@ -1137,7 +1138,7 @@ def solve_td_maxwell_pbm(*,
    # GaussErr_norm2_diag=GaussErr_norm2_diag,
    # GaussErrP_norm2_diag=GaussErrP_norm2_diag)
 
-    # Eh = FemField(V1h, coeffs=array_to_stencil(E_c, V1h.vector_space))
+    # Eh = FemField(V1h, coeffs=array_to_stencil(E_c, V1h.coeff_space))
     # t_stamp = time_count(t_stamp)
 
     # if sol_filename:
@@ -1168,7 +1169,7 @@ def solve_td_maxwell_pbm(*,
     #     plot_field(numpy_coeffs=curl_uh_c, Vh=V2h, space_kind='l2', domain=domain, surface_plot=False, title=title, filename=plot_dir+'/'+params_str+'_curl_uh.png',
     # plot_type='amplitude', cb_min=None, cb_max=None, hide_plot=hide_plots)
 
-    #     curl_uh = FemField(V2h, coeffs=array_to_stencil(curl_uh_c, V2h.vector_space))
+    #     curl_uh = FemField(V2h, coeffs=array_to_stencil(curl_uh_c, V2h.coeff_space))
     #     curl_diags = diag_grid.get_diags_for(v=curl_uh, space='V2')
     #     diags['curl_error (to be checked)'] = curl_diags['rel_l2_error']
 
@@ -1177,7 +1178,7 @@ def solve_td_maxwell_pbm(*,
     #     plot_field(numpy_coeffs=div_uh_c, Vh=V0h, space_kind='h1', domain=domain, surface_plot=False, title=title, filename=plot_dir+'/'+params_str+'_div_uh.png',
     # plot_type='amplitude', cb_min=None, cb_max=None, hide_plot=hide_plots)
 
-    #     div_uh = FemField(V0h, coeffs=array_to_stencil(div_uh_c, V0h.vector_space))
+    #     div_uh = FemField(V0h, coeffs=array_to_stencil(div_uh_c, V0h.coeff_space))
     #     div_diags = diag_grid.get_diags_for(v=div_uh, space='V0')
     #     diags['div_error (to be checked)'] = div_diags['rel_l2_error']
 

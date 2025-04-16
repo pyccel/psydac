@@ -16,7 +16,7 @@ def test_axis_projection():
     Pei = BilinearForm((u,f), integral(domain, expr))
     pei = discretize(Pei, domain_h, (V1h,V2h), backend=PSYDAC_BACKENDS['python'])
     Peih = pei.assemble()
-    uh = V1h.vector_space.zeros()
+    uh = V1h.coeff_space.zeros()
     test = Peih.dot(uh)
 
 if __name__ == '__main__':

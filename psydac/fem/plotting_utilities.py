@@ -10,43 +10,41 @@ from matplotlib import cm, colors
 from collections import OrderedDict
 
 from psydac.linalg.utilities import array_to_psydac
-from psydac.fem.basic import FemField
+from psydac.fem.basic import FemField, FemSpace
 from psydac.utilities.utils import refine_array_1d
-from psydac.feec.pull_push import push_2d_h1, push_2d_hcurl, push_2d_hdiv, push_2d_l2
+from psydac.feec.pull_push import push_2d_h1_vec, push_2d_h1, push_2d_hcurl, push_2d_hdiv, push_2d_l2
 
 __all__ = (
-    'is_vector_valued',
     'get_grid_vals',
     'get_grid_quad_weights',
     'get_plotting_grid',
     'get_diag_grid',
     'get_patch_knots_gridlines',
-    'plot_field',
+    'plot_field_2d',
     'my_small_plot',
     'my_small_streamplot')
 
 # ==============================================================================
 
-
-def is_vector_valued(u):
-    # small utility function, only tested for FemFields in multi-patch spaces of the 2D grad-curl sequence
-    # todo: a proper interface returning the number of components of a general
-    # FemField would be nice
-    return u.fields[0].space.is_product
-
-# ------------------------------------------------------------------------------
-
-
-def get_grid_vals(u, etas, mappings_list, space_kind='hcurl'):
+def get_grid_vals(u, etas, mappings_list, space_kind=None):
     """
     get the physical field values, given the logical field and the logical grid
-    :param u: FemField
+    :param u: FemField or callable function
     :param etas: logical grid
     :param space_kind: specifies the push-forward for the physical values
     """
     n_patches = len(mappings_list)
-    vector_valued = is_vector_valued(u) if isinstance(
-        u, FemField) else isinstance(u[0], (list, tuple))
+    if isinstance(u, FemField):
+        vector_valued = u.space.is_vector_valued 
+    else:
+        # then u should be callable
+        vector_valued = isinstance(u, (list, tuple)) # [MCP 04.03.25]: this needs to be tested
+
+    if space_kind is None:
+        # use a simple change of variable
+        # todo [MCP 26.03.2025]: this information should be stored in the FemSpace object!
+        space_kind = 'h1'
+            
     if vector_valued:
         # WARNING: here we assume 2D !
         u_vals_components = [n_patches * [None], n_patches * [None]]
@@ -60,11 +58,11 @@ def get_grid_vals(u, etas, mappings_list, space_kind='hcurl'):
         uk_field_1 = None
         if isinstance(u, FemField):
             if vector_valued:
-                uk_field_0 = u[k].fields[0]
-                uk_field_1 = u[k].fields[1]
+                uk_field_0 = u.patch_fields[k].fields[0]
+                uk_field_1 = u.patch_fields[k].fields[1]
             else:
-                # it would be nice to just write u[k].fields[0] here...
-                uk_field_0 = u.fields[k]
+                # it would be nice to just write u.patch_fields[k].fields[0] here...
+                uk_field_0 = u.patch_fields[k]
         else:
             # then u should be callable
             if vector_valued:
@@ -75,12 +73,16 @@ def get_grid_vals(u, etas, mappings_list, space_kind='hcurl'):
 
         # computing the pushed-fwd values on the grid
         if space_kind == 'h1' or space_kind == 'V0':
-            assert not vector_valued
-            # todo (MCP): add 2d_hcurl_vector
 
-            def push_field(
-                eta1, eta2): return push_2d_h1(
-                uk_field_0, eta1, eta2)
+            if vector_valued:
+                def push_field(
+                    eta1, eta2): return push_2d_h1_vec(
+                    uk_field_0, uk_field_1, eta1, eta2)
+            
+            else:
+                def push_field(
+                    eta1, eta2): return push_2d_h1(
+                    uk_field_0, eta1, eta2)
         elif space_kind == 'hcurl' or space_kind == 'V1':
             # todo (MCP): specify 2d_hcurl_scalar in push functions
             def push_field(
@@ -191,15 +193,11 @@ def get_plotting_grid(
     # etas     = [[refine_array_1d( bounds, N ) for bounds in zip(D.min_coords, D.max_coords)] for D in mappings]
     etas = [[refine_array_1d(bounds, N_cells) for bounds in zip(
         grid_min_coords[k], grid_max_coords[k])] for k in range(nb_patches)]
-    mappings_lambda = [
-        lambdify(
-            M.logical_coordinates,
-            M.expressions) for d,
-        M in mappings.items()]
+    callable_mappings = [M.get_callable_mapping() for d, M in mappings.items()]
 
     pcoords = [np.array([[f(e1, e2) for e2 in eta[1]] for e1 in eta[0]])
-               for f, eta in zip(mappings_lambda, etas)]
-
+               for f, eta in zip(callable_mappings, etas)]
+    
     xx = [pcoords[k][:, :, 0] for k in range(nb_patches)]
     yy = [pcoords[k][:, :, 1] for k in range(nb_patches)]
 
@@ -215,18 +213,9 @@ def get_diag_grid(mappings, N):
     nb_patches = len(mappings)
     etas = [[refine_array_1d(bounds, N) for bounds in zip(
         D.min_coords, D.max_coords)] for D in mappings]
-    mappings_lambda = [
-        lambdify(
-            M.logical_coordinates,
-            M.expressions) for d,
-        M in mappings.items()]
-
+    callable_mappings = [M.get_callable_mapping() for d, M in mappings.items()]
     pcoords = [np.array([[f(e1, e2) for e2 in eta[1]] for e1 in eta[0]])
-               for f, eta in zip(mappings_lambda, etas)]
-
-    # pcoords  = np.concatenate(pcoords, axis=1)
-    # xx = pcoords[:,:,0]
-    # yy = pcoords[:,:,1]
+               for f, eta in zip(callable_mappings, etas)]
 
     xx = [pcoords[k][:, :, 0] for k in range(nb_patches)]
     yy = [pcoords[k][:, :, 1] for k in range(nb_patches)]
@@ -242,8 +231,8 @@ def get_patch_knots_gridlines(Vh, N, mappings, plotted_patch=-1):
     F = [M.get_callable_mapping() for d, M in mappings.items()]
 
     if plotted_patch in range(len(mappings)):
-        grid_x1 = Vh.spaces[plotted_patch].spaces[0].breaks[0]
-        grid_x2 = Vh.spaces[plotted_patch].spaces[0].breaks[1]
+        grid_x1 = Vh.patch_spaces[plotted_patch].spaces[0].breaks[0]
+        grid_x2 = Vh.patch_spaces[plotted_patch].spaces[0].breaks[1]
 
         x1 = refine_array_1d(grid_x1, N)
         x2 = refine_array_1d(grid_x2, N)
@@ -263,7 +252,7 @@ def get_patch_knots_gridlines(Vh, N, mappings, plotted_patch=-1):
 # ------------------------------------------------------------------------------
 
 
-def plot_field(
+def plot_field_2d(
         fem_field=None,
         stencil_coeffs=None,
         numpy_coeffs=None,
@@ -294,24 +283,20 @@ def plot_field(
 
     space_kind : (str)
         type of the push-forward defining the physical Fem Space
+        ## todo [MCP 13.03.2025]: rename this argument to something like push_kind and check other similar arguments in the code
 
     N_vis : (int)
         nb of visualization points per patch (per dimension)
     """
 
-    if space_kind not in ['h1', 'hcurl', 'l2']:
-        raise ValueError(
-            'invalid value for space_kind = {}'.format(space_kind))
-
     vh = fem_field
     if vh is None:
         if numpy_coeffs is not None:
             assert stencil_coeffs is None
-            stencil_coeffs = array_to_psydac(numpy_coeffs, Vh.vector_space)
+            stencil_coeffs = array_to_psydac(numpy_coeffs, Vh.coeff_space)
         vh = FemField(Vh, coeffs=stencil_coeffs)
 
-    mappings = OrderedDict([(P.logical_domain, P.mapping)
-                           for P in domain.interior])
+    mappings = domain.mappings
     mappings_list = list(mappings.values())
     etas, xx, yy = get_plotting_grid(mappings, N=N_vis)
 
@@ -319,13 +304,13 @@ def plot_field(
         v, etas, mappings_list, space_kind=space_kind)
 
     vh_vals = grid_vals(vh)
-    if plot_type == 'vector_field' and not is_vector_valued(vh):
+    if plot_type == 'vector_field' and not vh.space.is_vector_valued:
         print(
-            "WARNING [plot_field]: vector_field plot is not possible with a scalar field, plotting the amplitude instead")
+            "WARNING [plot_field_2d]: vector_field plot is not possible with a scalar field, plotting the amplitude instead")
         plot_type = 'amplitude'
 
     if plot_type == 'vector_field':
-        if is_vector_valued(vh):
+        if vh.space.is_vector_valued:
             my_small_streamplot(
                 title=title,
                 vals_x=vh_vals[0],
@@ -343,7 +328,7 @@ def plot_field(
         # computing plot_vals_list: may have several elements for several plots
         if plot_type == 'amplitude':
 
-            if is_vector_valued(vh):
+            if vh.space.is_vector_valued:
                 # then vh_vals[d] contains the values of the d-component of vh
                 # (as a patch-indexed list)
                 plot_vals = [np.sqrt(abs(v[0])**2 + abs(v[1])**2)
@@ -355,7 +340,7 @@ def plot_field(
             plot_vals_list = [plot_vals]
 
         elif plot_type == 'components':
-            if is_vector_valued(vh):
+            if vh.space.is_vector_valued:
                 # then vh_vals[d] contains the values of the d-component of vh
                 # (as a patch-indexed list)
                 plot_vals_list = vh_vals
@@ -383,27 +368,6 @@ def plot_field(
             cmap=cmap,
             dpi=300,
         )
-
-    # if is_vector_valued(vh):
-    #     # then vh_vals[d] contains the values of the d-component of vh (as a patch-indexed list)
-    #     vh_abs_vals = [np.sqrt(abs(v[0])**2 + abs(v[1])**2) for v in zip(vh_vals[0],vh_vals[1])]
-    # else:
-    #     # then vh_vals just contains the values of vh (as a patch-indexed list)
-    #     vh_abs_vals = np.abs(vh_vals)
-
-    # my_small_plot(
-    #     title=title,
-    #     vals=[vh_abs_vals],
-    #     titles=subtitles,
-    #     xx=xx,
-    #     yy=yy,
-    #     surface_plot=False,
-    #     save_fig=filename,
-    #     save_vals=False,
-    #     hide_plot=hide_plot,
-    #     cmap='hsv',
-    #     dpi = 400,
-    # )
 
 # ------------------------------------------------------------------------------
 
@@ -592,7 +556,7 @@ def my_small_streamplot(
     # X, Y = np.meshgrid(x, y)
     max_val = max(np.max(vals_x), np.max(vals_y))
     # print('max_val = {}'.format(max_val))
-    vf_amp = amp_factor / max_val
+    vf_amp = amp_factor / (max_val + 1e-20)
     for k in range(n_patches):
         ax.quiver(xx[k][::skip,
                         ::skip],
