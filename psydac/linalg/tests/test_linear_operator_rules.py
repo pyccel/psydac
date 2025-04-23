@@ -1,6 +1,6 @@
 from psydac.linalg.basic   import IdentityOperator, SumLinearOperator, ScaledLinearOperator, ComposedLinearOperator
-#from psydac.linalg.block   import BlockVectorSpace
-from psydac.linalg.stencil import StencilVectorSpace, StencilMatrix
+from psydac.linalg.block   import BlockLinearOperator
+from psydac.linalg.stencil import StencilMatrix
 
 from .test_linalg import get_StencilVectorSpace
 
