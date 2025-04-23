@@ -26,23 +26,28 @@ def test_types_and_refs():
   # If S is changed, so is M1
   assert isinstance(M1, SumLinearOperator)
 
-  # 
-  M1 += 2*P  # M1 := I + S + 2*P
+  # += does not modify the object, but creates a new one
+  M1 += 2*P  # M1 := I + S + 2*P = a + 2*P
   b = M1
-  # Same object, with references to [I, S, P]
+  # New object, with references to the same atoms [I, S, P]
   assert isinstance(M1, SumLinearOperator)
-  assert a is b
+  assert M1 is not a
 
   # Store reference to M1
-  M1 *= 2 # -> 2 * (I + S + 2*P)
-  # New object, with references to [I, S, P]
-  # Not the same object as b := I + S + 2*P
+  M1 *= 2   # M1 := 2 * (I + S + 2*P) = 2 * b
+  # New object, with references to the same atoms [I, S, P]
   assert isinstance(M1, ScaledLinearOperator)
-  assert b is not M1
+  assert M1 is not b
 
-  # Think about this one...
-  M2 = S + S
-  assert isinstance(M2, StencilMatrix)
+  # Think about this one... are we OK with creating a new StencilMatrix?
+  M2 = S + 3 * S + P
+  assert isinstance(M2, StencilMatrix)  # ?
 
   M3 = S @ S
   assert isinstance(M3, ComposedLinearOperator)
+
+  # Example 2
+  # ---------
+
+  
+  
