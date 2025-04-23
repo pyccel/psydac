@@ -1,12 +1,18 @@
 from psydac.linalg.basic   import IdentityOperator, SumLinearOperator, ScaledLinearOperator, ComposedLinearOperator
 #from psydac.linalg.block   import BlockVectorSpace
 from psydac.linalg.stencil import StencilVectorSpace, StencilMatrix
-from psydac.api.settings   import PSYDAC_BACKEND_GPYCCEL
 
 from .test_linalg import get_StencilVectorSpace
 
 
 def get_Hcurl_mass_matrix_2d(nc=5, comm=None):
+
+    from sympde.calculus                import dot
+    from sympde.expr                    import BilinearForm, integral
+    from sympde.topology                import Derham, elements_of, Square
+
+    from psydac.api.discretization      import discretize
+    from psydac.api.settings            import PSYDAC_BACKEND_GPYCCEL
 
     domain = Square()
     derham = Derham(domain, sequence=['h1', 'hcurl', 'l2'])
