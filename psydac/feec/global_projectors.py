@@ -356,7 +356,7 @@ class GlobalProjector(metaclass=ABCMeta):
         pass
     
     def __call__(self, fun):
-        """
+        r"""
         Project vector function onto the given finite element
         space by the instance of this class. This happens in the logical domain $\hat{\Omega}$.
 
