@@ -675,6 +675,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                             z_x1 = 0.0
                             z_x2 = 0.0
                             z_x3 = 0.0
+{D2_1}
 
 {F_INIT}
 
@@ -683,12 +684,15 @@ class DiscreteBilinearForm(BasicDiscrete):
                             for i_1 in range(test_mapping_p1+1):
                                 mapping_1       = global_basis_mapping_1[k_1, i_1, 0, q_1]
                                 mapping_1_x1    = global_basis_mapping_1[k_1, i_1, 1, q_1]
+                                {D2_2}
                                 for i_2 in range(test_mapping_p2+1):
                                     mapping_2       = global_basis_mapping_2[k_2, i_2, 0, q_2]
                                     mapping_2_x2    = global_basis_mapping_2[k_2, i_2, 1, q_2]
+                                    {D2_3}
                                     for i_3 in range(test_mapping_p3+1):
                                         mapping_3       = global_basis_mapping_3[k_3, i_3, 0, q_3]
                                         mapping_3_x3    = global_basis_mapping_3[k_3, i_3, 1, q_3]
+                                        {D2_4}
 
                                         coeff_x = arr_coeffs_x[i_1,i_2,i_3]
                                         coeff_y = arr_coeffs_y[i_1,i_2,i_3]
@@ -698,6 +702,8 @@ class DiscreteBilinearForm(BasicDiscrete):
                                         mapping_x1 = mapping_1_x1*mapping_2*mapping_3
                                         mapping_x2 = mapping_1*mapping_2_x2*mapping_3
                                         mapping_x3 = mapping_1*mapping_2*mapping_3_x3
+
+{D2_5}
 
                                         x += mapping*coeff_x
                                         y += mapping*coeff_y
@@ -712,6 +718,8 @@ class DiscreteBilinearForm(BasicDiscrete):
                                         z_x1 += mapping_x1*coeff_z
                                         z_x2 += mapping_x2*coeff_z
                                         z_x3 += mapping_x3*coeff_z
+
+{D2_6}
                                         
 {TEMPS}
 {COUPLING_TERMS}
@@ -1023,6 +1031,40 @@ class DiscreteBilinearForm(BasicDiscrete):
         
         KEYS = KEYS_2 + KEYS_3
 
+        if mapping_option == 'Bspline':
+            D2_1 = '\n'
+            spaces1 = '                            '
+            spaces2 = spaces1 + '            '
+            for symbol in ('x', 'y', 'z'):
+                for d1 in range(1, 4):
+                    for d2 in range(1, 4):
+                        if d2 >= d1:
+                            D2_1 += spaces1 + f'{symbol}_x{d1}x{d2} = 0.0\n'
+                D2_1 += '\n'
+            D2_2 = 'mapping_1_x1x1  = global_basis_mapping_1[k_1, i_1, 2, q_1]'
+            D2_3 = 'mapping_2_x2x2  = global_basis_mapping_2[k_2, i_2, 2, q_2]'
+            D2_4 = 'mapping_3_x3x3  = global_basis_mapping_3[k_3, i_3, 2, q_3]'
+            D2_5 = spaces2+'mapping_x1x1 = mapping_1_x1x1 * mapping_2      * mapping_3\n'+spaces2
+            D2_5 += 'mapping_x1x2 = mapping_1_x1   * mapping_2_x2   * mapping_3\n'+spaces2
+            D2_5 += 'mapping_x1x3 = mapping_1_x1   * mapping_2      * mapping_3_x3\n'+spaces2
+            D2_5 += 'mapping_x2x2 = mapping_1      * mapping_2_x2x2 * mapping_3\n'+spaces2
+            D2_5 += 'mapping_x2x3 = mapping_1      * mapping_2_x2   * mapping_3_x3\n'+spaces2
+            D2_5 += 'mapping_x3x3 = mapping_1      * mapping_2      * mapping_3_x3x3\n'
+            D2_6 = ''
+            for symbol in ('x', 'y', 'z'):
+                for d1 in range(1, 4):
+                    for d2 in range(1, 4):
+                        if d2 >= d1:
+                            D2_6 += f'{spaces2}{symbol}_x{d1}x{d2} += mapping_x{d1}x{d2} * coeff_{symbol}\n'
+                D2_6 += '\n'
+        else:
+            D2_1 = None
+            D2_2 = None
+            D2_3 = None
+            D2_4 = None
+            D2_5 = None
+            D2_6 = None
+
         body = code_body.format(LOCAL_SPAN=LOCAL_SPAN, 
                                 KEYS=KEYS, 
                                 A1=A1, 
@@ -1034,7 +1076,13 @@ class DiscreteBilinearForm(BasicDiscrete):
                                 F_SPAN_3=span_3_txt,
                                 F_COEFFS=arr_coeffs_assign_txt,
                                 F_INIT=field_init,
-                                F_ASSIGN_LOOP=assign)
+                                F_ASSIGN_LOOP=assign,
+                                D2_1=D2_1,
+                                D2_2=D2_2,
+                                D2_3=D2_3,
+                                D2_4=D2_4,
+                                D2_5=D2_5,
+                                D2_6=D2_6)
         
         #------------------------- MAKE LOOP -------------------------
         assembly_code = head + body
@@ -1482,9 +1530,13 @@ class DiscreteBilinearForm(BasicDiscrete):
 
             n_expr = len(ordered_stmts[block])
 
-            test_trial_1 = np.zeros((n_element_1, k1, test_v_p1 + 1, trial_u_p1 + 1, 2, 2), dtype='float64')
-            test_trial_2 = np.zeros((n_element_2, k2, test_v_p2 + 1, trial_u_p2 + 1, 2, 2), dtype='float64')
-            test_trial_3 = np.zeros((n_element_3, k3, test_v_p3 + 1, trial_u_p3 + 1, 2, 2), dtype='float64')
+            #test_trial_1 = np.zeros((n_element_1, k1, test_v_p1 + 1, trial_u_p1 + 1, 2, 2), dtype='float64')
+            #test_trial_2 = np.zeros((n_element_2, k2, test_v_p2 + 1, trial_u_p2 + 1, 2, 2), dtype='float64')
+            #test_trial_3 = np.zeros((n_element_3, k3, test_v_p3 + 1, trial_u_p3 + 1, 2, 2), dtype='float64')
+
+            test_trial_1 = np.zeros((n_element_1, k1, test_v_p1 + 1, trial_u_p1 + 1, 3, 3), dtype='float64')
+            test_trial_2 = np.zeros((n_element_2, k2, test_v_p2 + 1, trial_u_p2 + 1, 3, 3), dtype='float64')
+            test_trial_3 = np.zeros((n_element_3, k3, test_v_p3 + 1, trial_u_p3 + 1, 3, 3), dtype='float64')
 
             for k_1 in range(n_element_1):
                 for q_1 in range(k1):
@@ -1492,8 +1544,8 @@ class DiscreteBilinearForm(BasicDiscrete):
                         for j_1 in range(trial_u_p1 + 1):
                             trial   = global_basis_u_1[k_1, j_1, :, q_1]
                             test    = global_basis_v_1[k_1, i_1, :, q_1]
-                            for alpha_1 in range(2):
-                                for beta_1 in range(2):
+                            for alpha_1 in range(3):#2):
+                                for beta_1 in range(3):#2):
                                     test_trial_1[k_1, q_1, i_1, j_1, alpha_1, beta_1] = trial[alpha_1] * test[beta_1]
 
             for k_2 in range(n_element_2):
@@ -1502,8 +1554,8 @@ class DiscreteBilinearForm(BasicDiscrete):
                         for j_2 in range(trial_u_p2 + 1):
                             trial   = global_basis_u_2[k_2, j_2, :, q_2]
                             test    = global_basis_v_2[k_2, i_2, :, q_2]
-                            for alpha_2 in range(2):
-                                for beta_2 in range(2):
+                            for alpha_2 in range(3):#2):
+                                for beta_2 in range(3):#2):
                                     test_trial_2[k_2, q_2, i_2, j_2, alpha_2, beta_2] = trial[alpha_2] * test[beta_2]
 
             for k_3 in range(n_element_3):
@@ -1512,8 +1564,8 @@ class DiscreteBilinearForm(BasicDiscrete):
                         for j_3 in range(trial_u_p3 + 1):
                             trial   = global_basis_u_3[k_3, j_3, :, q_3]
                             test    = global_basis_v_3[k_3, i_3, :, q_3]
-                            for alpha_3 in range(2):
-                                for beta_3 in range(2):
+                            for alpha_3 in range(3):#2):
+                                for beta_3 in range(3):#2):
                                     test_trial_3[k_3, q_3, i_3, j_3, alpha_3, beta_3] = trial[alpha_3] * test[beta_3]
 
             test_trial_1s[block] = test_trial_1
@@ -1571,7 +1623,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                 'compiler'    : assembly_backend['compiler'],
                 'fflags'      : assembly_backend['flags'],
                 'accelerators': ('openmp',) if assembly_backend['openmp'] else (),
-                'verbose'     : True,
+                'verbose'     : False,
                 # 'folder': assembly_backend['folder'],
                 'comm': self.comm,
                 # 'time_execution': verbose,
@@ -2686,6 +2738,7 @@ class DiscreteFunctional(BasicDiscrete):
 class DiscreteSumForm(BasicDiscrete):
 
     def __init__(self, a, kernel_expr, *args, **kwargs):
+        fast_assembly = kwargs['fast_assembly'] if 'fast_assembly' in kwargs else False
         # TODO Uncomment when the SesquilinearForm exist in SymPDE
         #if not isinstance(a, (sym_BilinearForm, sym_SesquilinearForm, sym_LinearForm, sym_Functional)):
             # raise TypeError('> Expecting a symbolic BilinearForm, SesquilinearForm, LinearForm, Functional')
@@ -2710,6 +2763,9 @@ class DiscreteSumForm(BasicDiscrete):
         for e in kernel_expr:
             if isinstance(a, sym_LinearForm):
                 kwargs['update_ghost_regions'] = False
+                if 'fast_assembly' in kwargs:
+                    kwargs.pop('fast_assembly')
+                    assert 'fast_assembly' not in kwargs
                 ah = DiscreteLinearForm(a, e, *args, backend=backend, **kwargs)
                 kwargs['vector'] = ah._vector
                 operator = ah._vector
@@ -2723,11 +2779,17 @@ class DiscreteSumForm(BasicDiscrete):
 
             elif isinstance(a, sym_BilinearForm):
                 kwargs['update_ghost_regions'] = False
-                ah = DiscreteBilinearForm(a, e, *args, assembly_backend=backend, **kwargs)
+                if (('fast_assembly' not in kwargs) and (fast_assembly)):
+                    ah = DiscreteBilinearForm(a, e, *args, assembly_backend=backend, fast_assembly=True, **kwargs)
+                else:
+                    ah = DiscreteBilinearForm(a, e, *args, assembly_backend=backend, **kwargs)
                 kwargs['matrix'] = ah._matrix
                 operator = ah._matrix
 
             elif isinstance(a, sym_Functional):
+                if 'fast_assembly' in kwargs:
+                    kwargs.pop('fast_assembly')
+                    assert 'fast_assembly' not in kwargs
                 ah = DiscreteFunctional(a, e, *args, backend=backend, **kwargs)
 
             forms.append(ah)
