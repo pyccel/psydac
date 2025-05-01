@@ -148,7 +148,7 @@ class DenseVectorSpace(VectorSpace):
 
         TODO [YG 01.05.2025]: Currently, the first vector is conjugated. We
         want to reverse this behavior in order to align with the convention
-        of Fenix.
+        of FEniCS.
 
         Parameters
         ----------
