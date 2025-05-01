@@ -138,13 +138,65 @@ class DenseVectorSpace(VectorSpace):
         return DenseVector(self, data)
 
     # ...
+    def inner(self, x, y):
+        """
+        Evaluate the inner vector product between two vectors of this space V.
+
+        If the field of V is real, compute the classical scalar product.
+        If the field of V is complex, compute the classical sesquilinear
+        product with linearity on the second vector.
+
+        TODO [YG 01.05.2025]: Currently, the first vector is conjugated. We
+        want to reverse this behavior in order to align with the convention
+        of Fenix.
+
+        Parameters
+        ----------
+        x : Vector
+            The first vector in the scalar product. In the case of a complex
+            field, the inner product is antilinear w.r.t. this vector (hence
+            this vector is conjugated).
+
+        y : Vector
+            The second vector in the scalar product. The inner product is
+            linear w.r.t. this vector.
+
+        Returns
+        -------
+        float | complex
+            The scalar product of the two vectors. Note that inner(x, x) is
+            a non-negative real number which is zero if and only if x = 0.
+
+        """
+        assert isinstance(x, DenseVector)
+        assert isinstance(y, DenseVector)
+        assert x.space is self
+        assert y.space is self
+
+        res = np.dot(x._data, y._data)
+
+        V = self
+        if V.parallel:
+            if V.radial_comm.rank == V.radial_root:
+                res = V.tensor_comm.allreduce(res)
+            res = V.radial_comm.bcast(res, root=V.radial_root)
+
+        return res
+
+    # ...
     def axpy(self, a, x, y):
+
+        assert isinstance(a, (int, float, complex))
+        assert isinstance(x, DenseVector)
+        assert isinstance(y, DenseVector)
+        assert x.space is self
+        assert y.space is self
+
         y += a * x
 
     #-------------------------------------
     # Other properties/methods
     #-------------------------------------
-
     @property
     def parallel(self):
         return (self._cart is not None)
@@ -202,33 +254,8 @@ class DenseVector(Vector):
         return self._space
 
     # ...
-    @property
-    def dtype(self):
-        return self.space.dtype
-
-    # ...
-    def dot(self, v):
-        assert isinstance(v, DenseVector)
-        assert v._space is self._space
-
-        res = np.dot(self._data, v._data)
-
-        V = self._space
-        if V.parallel:
-            if V.radial_comm.rank == V.radial_root:
-                res = V.tensor_comm.allreduce(res)
-            res = V.radial_comm.bcast(res, root=V.radial_root)
-
-        return res
-
-    def conjugate(self, out=None):
-        if out is not None:
-            assert isinstance(out, DenseVector)
-            assert out.space is self.space
-        else:
-            out = DenseVector(self.space)
-        np.conjugate(self._data, out=out._data, casting='no')
-        return out
+    def toarray(self, **kwargs):
+        return self._data.copy()
 
     # ...
     def copy(self, out=None):
@@ -241,6 +268,16 @@ class DenseVector(Vector):
             return out
         else:
             return DenseVector(self._space, self._data.copy())
+
+    # ...
+    def conjugate(self, out=None):
+        if out is not None:
+            assert isinstance(out, DenseVector)
+            assert out.space is self.space
+        else:
+            out = DenseVector(self.space)
+        np.conjugate(self._data, out=out._data, casting='no')
+        return out
 
     # ...
     def __neg__(self):
@@ -284,10 +321,6 @@ class DenseVector(Vector):
     #-------------------------------------
     # Other properties/methods
     #-------------------------------------
-    def toarray(self, **kwargs):
-        return self._data.copy()
-
-    # ...
     def update_ghost_regions(self, *, direction=None):
         pass
 
