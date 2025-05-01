@@ -288,8 +288,8 @@ def test_stencil_vector_2d_serial_dot(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2
             y[i1, i2] = f2(i1,i2)
 
     # Create inner vector product (x,y) and (y,x)
-    z1 = x.dot(y)
-    z2 = y.dot(x)
+    z1 = x.inner(y)
+    z2 = y.inner(x)
 
     # Exact value by Numpy dot and vdot
     if dtype==complex:
@@ -939,8 +939,8 @@ def test_stencil_vector_2d_parallel_dot(dtype, n1, n2, p1, p2, s1, s2, P1=True, 
             y[i1, i2] = f2(i1,i2)
 
     # Create scalar product (x,y) and (y,x)
-    res1 = x.dot(y)
-    res2 = y.dot(x)
+    res1 = x.inner(y)
+    res2 = y.inner(x)
 
     # Compute exact value with Numpy dot
     if dtype==complex:
@@ -1008,8 +1008,8 @@ def test_stencil_vector_3d_parallel_dot(dtype, n1, n2, n3, p1, p2, p3, s1, s2, s
                 x[i1, i2, i3] = f2(i1,i2,i3)
 
     # Create scalar product (x,y) and (y,x)
-        res1 = x.dot(y)
-        res2 = y.dot(x)
+        res1 = x.inner(y)
+        res2 = y.inner(x)
     # Compute exact value with Numpy dot
 
     if dtype == complex:

@@ -73,6 +73,7 @@ class BlockVectorSpace(VectorSpace):
     def dtype(self):
         return self._dtype
 
+    # ...
     def zeros(self):
         """
         Get a copy of the null element of the product space V = [V1, V2, ...]
@@ -84,6 +85,44 @@ class BlockVectorSpace(VectorSpace):
 
         """
         return BlockVector(self, [Vi.zeros() for Vi in self._spaces])
+
+    # ...
+    def inner(self, x, y):
+        """
+        Evaluate the inner vector product between two vectors of this space V.
+
+        If the field of V is real, compute the classical scalar product.
+        If the field of V is complex, compute the classical sesquilinear
+        product with linearity on the second vector.
+
+        TODO [YG 01.05.2025]: Currently, the first vector is conjugated. We
+        want to reverse this behavior in order to align with the convention
+        of Fenix.
+
+        Parameters
+        ----------
+        x : Vector
+            The first vector in the scalar product. In the case of a complex
+            field, the inner product is antilinear w.r.t. this vector (hence
+            this vector is conjugated).
+
+        y : Vector
+            The second vector in the scalar product. The inner product is
+            linear w.r.t. this vector.
+
+        Returns
+        -------
+        float | complex
+            The scalar product of the two vectors. Note that inner(x, x) is
+            a non-negative real number which is zero if and only if x = 0.
+
+        """
+
+        assert isinstance(x, BlockVector)
+        assert isinstance(y, BlockVector)
+        assert x.space is self
+        assert y.space is self
+        return sum(Vi.inner(xi, yi) for Vi, xi, yi in zip(self.spaces, x.blocks, y.blocks))
 
     #...
     def axpy(self, a, x, y):
@@ -233,18 +272,13 @@ class BlockVector(Vector):
     #--------------------------------------
     @property
     def space(self):
+        """ Vector space to which this vector belongs. """
         return self._space
 
-    #...
-    @property
-    def dtype(self):
-        return self.space.dtype
-
-    #...
-    def dot(self, v):
-        assert isinstance(v, BlockVector)
-        assert v._space is self._space
-        return sum(b1.dot(b2) for b1, b2 in zip(self._blocks, v._blocks))
+    # ...
+    def toarray(self, order='C'):
+        """ Convert to Numpy 1D array. """
+        return np.concatenate([bi.toarray(order=order) for bi in self._blocks])
 
     #...
     def copy(self, out=None):
@@ -255,6 +289,19 @@ class BlockVector(Vector):
             b.copy(out=w[n])
         w._sync = self._sync
         return w
+
+    #...
+    def conjugate(self, out=None):
+        if out is not None:
+            assert isinstance(out, BlockVector)
+            assert out.space is self.space
+        else:
+            out = BlockVector(self.space)
+
+        for (Lij, Lij_out) in zip(self.blocks, out.blocks):
+            Lij.conjugate(out=Lij_out)
+        out._sync = self._sync
+        return out
 
     #...
     def __neg__(self):
@@ -311,7 +358,16 @@ class BlockVector(Vector):
     #--------------------------------------
     # Other properties/methods
     #--------------------------------------
+    @property
+    def blocks(self):
+        return tuple(self._blocks)
 
+    #...
+    @property
+    def n_blocks(self):
+        return len(self._blocks)
+
+    # ...
     def __getitem__(self, key):
         return self._blocks[key]
 
@@ -320,18 +376,6 @@ class BlockVector(Vector):
         assert value.space == self.space[key]
         assert isinstance(value, Vector)
         self._blocks[key] = value
-
-    def conjugate(self, out=None):
-        if out is not None:
-            assert isinstance(out, BlockVector)
-            assert out.space is self.space
-        else:
-            out = BlockVector(self.space)
-
-        for (Lij, Lij_out) in zip(self.blocks, out.blocks):
-            Lij.conjugate(out=Lij_out)
-        out._sync = self._sync
-        return out
 
     # ...
     @property
@@ -427,20 +471,6 @@ class BlockVector(Vector):
     def exchange_assembly_data(self):
         for vi in self.blocks:
             vi.exchange_assembly_data()
-
-    # ...
-    @property
-    def n_blocks(self):
-        return len(self._blocks)
-
-    # ...
-    @property
-    def blocks(self):
-        return tuple(self._blocks)
-
-    # ...
-    def toarray(self, order='C'):
-        return np.concatenate([bi.toarray(order=order) for bi in self._blocks])
 
     # ...
     def toarray_local(self, order='C'):
