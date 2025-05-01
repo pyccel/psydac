@@ -1,4 +1,7 @@
 # -*- coding: UTF-8 -*-
+from mpi4py import MPI
+import numpy as np
+import pytest
 
 from psydac.feec.global_projectors import Projector_H1, Projector_L2, Projector_Hcurl, Projector_Hdiv
 from psydac.fem.tensor       import TensorFemSpace, SplineSpace
@@ -11,18 +14,14 @@ from psydac.ddm.cart         import DomainDecomposition
 from psydac.linalg.solvers   import inverse
 from psydac.linalg.basic     import IdentityOperator
 
-from mpi4py import MPI
-import numpy as np
-import pytest
-
 #==============================================================================
 # 3D tests
 #==============================================================================
-@pytest.mark.parametrize('Nel', [8, 12])
-@pytest.mark.parametrize('Nq', [5])
-@pytest.mark.parametrize('p', [2,3])
+@pytest.mark.parametrize('m', [1, 2])
 @pytest.mark.parametrize('bc', [True, False])
-@pytest.mark.parametrize('m', [1,2])
+@pytest.mark.parametrize('p', [2, 3])
+@pytest.mark.parametrize('Nq', [5])
+@pytest.mark.parametrize('Nel', [5, 6])
 def test_3d_commuting_pro_1(Nel, Nq, p, bc, m):
 
     fun1    = lambda xi1, xi2, xi3 : np.sin(xi1)*np.sin(xi2)*np.sin(xi3)
@@ -92,11 +91,11 @@ def test_3d_commuting_pro_1(Nel, Nq, p, bc, m):
     norm2_e1 = np.sqrt(e1.inner(e1))
     assert norm2_e1 < 1e-12
 
-@pytest.mark.parametrize('Nel', [8, 12])
-@pytest.mark.parametrize('Nq', [8])
-@pytest.mark.parametrize('p', [2,3])
+@pytest.mark.parametrize('m', [1, 2])
 @pytest.mark.parametrize('bc', [True, False])
-@pytest.mark.parametrize('m', [1,2])
+@pytest.mark.parametrize('p', [2, 3])
+@pytest.mark.parametrize('Nq', [7])
+@pytest.mark.parametrize('Nel', [5, 6])
 def test_3d_commuting_pro_2(Nel, Nq, p, bc, m):
 
     fun1    = lambda xi1, xi2, xi3 : np.sin(xi1)*np.sin(xi2)*np.sin(xi3)
@@ -184,11 +183,11 @@ def test_3d_commuting_pro_2(Nel, Nq, p, bc, m):
     norm2_e2 = np.sqrt(e2.inner(e2))
     assert norm2_e2 < 1e-12
 
-@pytest.mark.parametrize('Nel', [8, 12])
-@pytest.mark.parametrize('Nq', [8])
-@pytest.mark.parametrize('p', [2,3])
+@pytest.mark.parametrize('m', [1, 2])
 @pytest.mark.parametrize('bc', [True, False])
-@pytest.mark.parametrize('m', [1,2])
+@pytest.mark.parametrize('p', [2, 3])
+@pytest.mark.parametrize('Nq', [7])
+@pytest.mark.parametrize('Nel', [5, 6])
 def test_3d_commuting_pro_3(Nel, Nq, p, bc, m):
 
     fun1    = lambda xi1, xi2, xi3 : np.sin(xi1)*np.sin(xi2)*np.sin(xi3)
