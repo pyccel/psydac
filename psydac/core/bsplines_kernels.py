@@ -729,9 +729,13 @@ def greville_p(knots: 'float[:]', degree: int, periodic: bool, out:'float[:]', m
     if p == multiplicity-1:
         for i in range(n):
             out[i] = sum(T[i:i + p + 2]) / (p + 2)
+            if abs(out[i]) < 1e-14:
+                out[i] = 0.0
     else:
         for i in range(1, 1+n):
             out[i - 1] = sum(T[i:i + p]) / p
+            if abs(out[i - 1]) < 1e-14:
+                out[i - 1] = 0.0
 
     # Domain boundaries
     a = T[p]
