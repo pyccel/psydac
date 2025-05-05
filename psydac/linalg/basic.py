@@ -34,7 +34,7 @@ __all__ = (
 #===============================================================================
 class VectorSpace(ABC):
     """
-    Finite-dimensional vector space V with a scalar (dot) product.
+    Finite-dimensional vector space V with a scalar (inner) product.
 
     """
     @property
