@@ -483,7 +483,7 @@ class StencilVector(Vector):
         Parameters
         ----------
         with_pads : bool
-            If True, include pads in output array.
+            If True, include pads in output array (ignored in serial case).
 
         order: {'C','F'}
              Memory representation of the data ‘C’ for row-major ordering (C-style), ‘F’ column-major ordering (Fortran-style).
