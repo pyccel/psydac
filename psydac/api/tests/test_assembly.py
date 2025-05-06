@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 from mpi4py import MPI
-from sympy import pi, sin, cos, tan, atan, atan2, exp, sinh, cosh, tanh, atanh, Tuple, I, sqrt
+from sympy import pi, sin, cos, tan, atan, atan2, exp, sinh, cosh, tanh, atanh, I, sqrt
 
 from sympde.topology import Line, Square
 from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
@@ -9,9 +9,8 @@ from sympde.topology import element_of, Derham
 from sympde.core     import Constant
 from sympde.expr     import LinearForm, BilinearForm, Functional, Norm
 from sympde.expr     import integral
-from sympde.calculus import Inner
+from sympde.calculus import inner
 
-from psydac.linalg.solvers     import inverse
 from psydac.api.discretization import discretize
 from psydac.fem.basic          import FemField
 from psydac.api.settings       import PSYDAC_BACKENDS
@@ -455,7 +454,7 @@ def test_non_symmetric_different_space_BilinearForm(backend):
     u = element_of(X, name='u')    
     w = element_of(V, name='w')
 
-    A = BilinearForm((u, w), integral(domain, Inner(u, w)))
+    A = BilinearForm((u, w), integral(domain, inner(u, w)))
 
     ncells = [4, 4]
     degree = [2, 2]

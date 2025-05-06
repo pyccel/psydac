@@ -1,14 +1,14 @@
 # -*- coding: UTF-8 -*-
 
 import os
+
 from sympy import Tuple, Matrix, symbols
 from sympy import pi, sin
 
-from sympde.calculus import grad, dot, inner, Transpose
-from sympde.topology import VectorFunctionSpace, ScalarFunctionSpace
-from sympde.topology import element_of
+from sympde.calculus import grad, inner, Transpose
+from sympde.topology import VectorFunctionSpace
+from sympde.topology import elements_of
 from sympde.topology import Domain
-from sympde.topology import Union
 from sympde.expr     import BilinearForm, LinearForm, integral
 from sympde.expr     import Norm, SemiNorm
 from sympde.expr     import find, EssentialBC
@@ -36,10 +36,7 @@ def run_vector_poisson_2d_dir(filename, solution, f):
 
     V = VectorFunctionSpace('V', domain)
 
-    x,y = domain.coordinates
-
-    v = element_of(V, name='v')
-    u = element_of(V, name='u')
+    u, v = elements_of(V, names='u, v')
 
     nn = NormalVector("nn")
 
@@ -50,23 +47,20 @@ def run_vector_poisson_2d_dir(filename, solution, f):
     avr    = lambda u:0.5*plus(u)+0.5*minus(u)
     jump   = lambda u: minus(u)-plus(u)
 
-    expr_I = - dot(Transpose(grad(avr(u)))*nn, jump(v)) - dot(Transpose(grad(avr(v)))*nn, jump(u)) + kappa*dot(jump(u), jump(v))
+    expr_I = - inner(Transpose(grad(avr(u)))*nn, jump(v)) - inner(Transpose(grad(avr(v)))*nn, jump(u)) + kappa * inner(jump(u), jump(v))
 
-    int_0 = lambda expr: integral(domain , expr)
-    int_1 = lambda expr: integral(I , expr)
+    int_0 = lambda expr: integral(domain, expr)
+    int_1 = lambda expr: integral(I, expr)
 
-    expr = inner(grad(v), grad(u))
-    a = BilinearForm((v,u), int_0(expr) + int_1(expr_I))
-
-    expr = dot(f, v)
-    l = LinearForm(v, int_0(expr))
+    a = BilinearForm((u, v), int_0(inner(grad(u), grad(v))) + int_1(expr_I))
+    l = LinearForm(v, int_0(inner(f, v)))
 
     error  = Matrix([0, u[1]-solution[1]])
     l2norm =     Norm(error, domain, kind='l2')
     h1norm = SemiNorm(error, domain, kind='h1')
 
     bc = EssentialBC(u, 0, domain.boundary)
-    equation = find(u, forall=v, lhs=a(u,v), rhs=l(v), bc=bc)
+    equation = find(u, forall=v, lhs=a(u, v), rhs=l(v), bc=bc)
     # ...
 
     # ... create the computational domain from a topological domain

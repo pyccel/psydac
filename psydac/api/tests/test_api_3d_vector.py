@@ -3,9 +3,9 @@
 from sympy import Tuple, Matrix
 from sympy import pi, sin
 
-from sympde.calculus import grad, dot, inner
+from sympde.calculus import grad, inner
 from sympde.topology import VectorFunctionSpace
-from sympde.topology import element_of
+from sympde.topology import elements_of
 from sympde.topology import Cube
 from sympde.expr     import BilinearForm, LinearForm, integral
 from sympde.expr     import Norm, SemiNorm
@@ -20,26 +20,20 @@ def run_vector_poisson_3d_dir(solution, f, ncells, degree):
     domain = Cube()
 
     V = VectorFunctionSpace('V', domain)
-
-    x,y,z = domain.coordinates
-
-    v = element_of(V, name='v')
-    u = element_of(V, name='u')
+    u, v = elements_of(V, names='u, v')
 
     int_0 = lambda expr: integral(domain , expr)
 
-    expr = inner(grad(v), grad(u))
-    a = BilinearForm((v,u), int_0(expr))
+    a = BilinearForm((u, v), int_0(inner(grad(u), grad(v))))
 
-    expr = dot(f, v)
-    l = LinearForm(v, int_0(expr))
+    l = LinearForm(v, int_0(inner(f, v)))
 
     error  = Matrix([u[0]-solution[0], u[1]-solution[1], u[2]-solution[2]])
     l2norm =     Norm(error, domain, kind='l2')
     h1norm = SemiNorm(error, domain, kind='h1')
 
     bc = EssentialBC(u, 0, domain.boundary)
-    equation = find(u, forall=v, lhs=a(u,v), rhs=l(v), bc=bc)
+    equation = find(u, forall=v, lhs=a(u, v), rhs=l(v), bc=bc)
     # ...
 
     # ... create the computational domain from a topological domain

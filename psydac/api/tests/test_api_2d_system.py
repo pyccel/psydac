@@ -1,11 +1,9 @@
 # -*- coding: UTF-8 -*-
 
-from mpi4py import MPI
 from sympy import pi, cos, sin, Tuple, Matrix
 import numpy as np
-import pytest
 
-from sympde.calculus import grad, dot, inner
+from sympde.calculus import grad, inner
 from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
 from sympde.topology import ProductSpace
 from sympde.topology import element_of
@@ -41,11 +39,11 @@ def run_system_1_2d_dir(Fe, Ge, f0, f1, ncells, degree):
     int_0 = lambda expr: integral(domain , expr)
 
     a0 = BilinearForm((v,u), int_0(inner(grad(v), grad(u))))
-    a1 = BilinearForm((q,p), int_0(p*q))
+    a1 = BilinearForm((q,p), int_0(p * q))
     a  = BilinearForm(((v,q),(u,p)), a0(v,u) + a1(q,p))
 
-    l0 = LinearForm(v, int_0(dot(f0, v)))
-    l1 = LinearForm(q, int_0(f1*q))
+    l0 = LinearForm(v, int_0(inner(f0, v)))
+    l1 = LinearForm(q, int_0(f1 * q))
     l  = LinearForm((v,q), l0(v) + l1(q))
 
     error = Matrix([F[0]-Fe[0], F[1]-Fe[1]])

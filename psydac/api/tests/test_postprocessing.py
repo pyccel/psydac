@@ -1,9 +1,8 @@
 import glob
 import os
+
 import pytest
-
 import numpy as np
-
 from mpi4py import MPI
 
 from sympde.topology import Square, Cube, ScalarFunctionSpace, VectorFunctionSpace, Domain, Derham, Union
@@ -21,7 +20,6 @@ from psydac.feec.pull_push import (push_2d_hcurl,
                                    push_3d_hcurl,
                                    push_3d_hdiv,
                                    push_3d_l2)
-
 from psydac.api.postprocessing import OutputManager, PostProcessManager
 
 # Get mesh_directory

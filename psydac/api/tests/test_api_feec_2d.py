@@ -192,7 +192,6 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
     import numpy as np
     import matplotlib.pyplot as plt
     from mpi4py          import MPI
-    from scipy.integrate import dblquad
 
     from sympde.topology import Domain
     from sympde.topology import Square
@@ -202,7 +201,7 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
     from sympde.topology import Derham
     from sympde.topology import elements_of
     from sympde.topology import NormalVector
-    from sympde.calculus import dot, cross
+    from sympde.calculus import inner, cross
     from sympde.expr     import integral
     from sympde.expr     import BilinearForm
 
@@ -279,7 +278,7 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
     u2, v2 = elements_of(derham.V2, names='u2, v2')  # magnetic field Bz
 
     # Bilinear forms that correspond to mass matrices for spaces V1 and V2
-    a1 = BilinearForm((u1, v1), integral(domain, dot(u1, v1)))
+    a1 = BilinearForm((u1, v1), integral(domain, inner(u1, v1)))
     a2 = BilinearForm((u2, v2), integral(domain, u2 * v2))
 
     # Penalization to apply homogeneous Dirichlet BCs (will only be used if domain is not periodic)

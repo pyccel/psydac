@@ -4,9 +4,9 @@ from mpi4py import MPI
 from sympy import pi, cos, sin
 import pytest
 
-from sympde.calculus import grad, dot
+from sympde.calculus import grad, dot, inner
 from sympde.topology import ScalarFunctionSpace
-from sympde.topology import element_of
+from sympde.topology import elements_of
 from sympde.topology import NormalVector
 from sympde.topology import Cube
 from sympde.topology import Union
@@ -24,17 +24,14 @@ def run_poisson_3d_dir(solution, f, ncells, degree, comm=None):
 
     V = ScalarFunctionSpace('V', domain)
 
-    x,y,z = domain.coordinates
+    u, v = elements_of(V, names='u, v')
 
-    v = element_of(V, name='v')
-    u = element_of(V, name='u')
+    int_0 = lambda expr: integral(domain, expr)
 
-    int_0 = lambda expr: integral(domain , expr)
+    expr = inner(grad(u), grad(v))
+    a = BilinearForm((u, v), int_0(expr))
 
-    expr = dot(grad(v), grad(u))
-    a = BilinearForm((v,u), int_0(expr))
-
-    expr = f*v
+    expr = f * v
     l = LinearForm(v, int_0(expr))
 
     error  = u - solution
@@ -90,23 +87,20 @@ def run_poisson_3d_dirneu(solution, f, boundary, ncells, degree, comm=None):
     else:
         B_neumann = Union(*B_neumann)
 
-    x,y,z = domain.coordinates
-
-    v = element_of(V, name='v')
-    u = element_of(V, name='u')
+    u, v = elements_of(V, names='u, v')
 
     nn = NormalVector('nn')
 
-    int_0 = lambda expr: integral(domain , expr)
-    int_1 = lambda expr: integral(B_neumann , expr)
+    int_0 = lambda expr: integral(domain, expr)
+    int_1 = lambda expr: integral(B_neumann, expr)
 
-    expr = dot(grad(v), grad(u))
-    a = BilinearForm((v,u), int_0(expr))
+    expr = inner(grad(u), grad(v))
+    a = BilinearForm((u, v), int_0(expr))
 
-    expr = f*v
+    expr = f * v
     l0 = LinearForm(v, int_0(expr))
 
-    expr = v*dot(grad(solution), nn)
+    expr = v * dot(grad(solution), nn)
     l_B_neumann = LinearForm(v, int_1(expr))
 
     expr = l0(v) + l_B_neumann(v)

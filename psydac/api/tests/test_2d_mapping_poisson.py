@@ -15,12 +15,13 @@
 #      coordinates (r, theta), but with reversed order: hence x1=theta and x2=r
 
 import os
+
 from mpi4py import MPI
 from sympy import pi, cos, sin, symbols
 import pytest
 import numpy as np
 
-from sympde.calculus import grad, dot
+from sympde.calculus import grad, dot, inner
 from sympde.calculus import laplace
 from sympde.topology import ScalarFunctionSpace
 from sympde.topology import element_of
@@ -87,7 +88,7 @@ def run_poisson_2d(filename, solution, f, dir_zero_boundary,
     nn = NormalVector('nn')
 
     # Bilinear form a: V x V --> R
-    a = BilinearForm((u, v), integral(domain, dot(grad(u),grad(v))))
+    a = BilinearForm((u, v), integral(domain, inner(grad(u), grad(v))))
 
     # Linear form l: V --> R
     l0 = LinearForm(v, integral(domain, f * v))

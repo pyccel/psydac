@@ -1,24 +1,17 @@
 # -*- coding: UTF-8 -*-
 
 from mpi4py import MPI
-import pytest
 import numpy as np
 
 from sympde.topology import Mapping
-from sympde.calculus import grad, dot
-from sympde.calculus import laplace
-from sympde.topology import ScalarFunctionSpace
+from sympde.calculus import inner
 from sympde.topology import elements_of
-from sympde.topology import NormalVector
 from sympde.topology import Cube, Derham
-from sympde.topology import Union
-from sympde.expr     import BilinearForm, LinearForm, integral
-from sympde.expr     import Norm
-from sympde.expr     import find, EssentialBC
+from sympde.expr     import BilinearForm, integral
 
 from psydac.fem.basic          import FemField
 from psydac.api.discretization import discretize
-from psydac.feec.pull_push     import push_3d_hcurl, push_3d_hdiv
+from psydac.feec.pull_push     import push_3d_hdiv
 from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL
 from psydac.linalg.utilities   import array_to_psydac
 from psydac.linalg.solvers     import inverse
@@ -101,8 +94,8 @@ def run_maxwell_3d_scipy(logical_domain, mapping, e_ex, b_ex, ncells, degree, pe
     u3, v3 = elements_of(derham.V3, names='u3, v3')
 
     a0 = BilinearForm((u0, v0), integral(domain, u0*v0))
-    a1 = BilinearForm((u1, v1), integral(domain, dot(u1, v1)))
-    a2 = BilinearForm((u2, v2), integral(domain, dot(u2, v2)))
+    a1 = BilinearForm((u1, v1), integral(domain, inner(u1, v1)))
+    a2 = BilinearForm((u2, v2), integral(domain, inner(u2, v2)))
     a3 = BilinearForm((u3, v3), integral(domain, u3*v3))
 
     # Callable mapping
@@ -196,8 +189,8 @@ def run_maxwell_3d_stencil(logical_domain, mapping, e_ex, b_ex, ncells, degree, 
     u3, v3 = elements_of(derham.V3, names='u3, v3')
 
     a0 = BilinearForm((u0, v0), integral(domain, u0*v0))
-    a1 = BilinearForm((u1, v1), integral(domain, dot(u1, v1)))
-    a2 = BilinearForm((u2, v2), integral(domain, dot(u2, v2)))
+    a1 = BilinearForm((u1, v1), integral(domain, inner(u1, v1)))
+    a2 = BilinearForm((u2, v2), integral(domain, inner(u2, v2)))
     a3 = BilinearForm((u3, v3), integral(domain, u3*v3))
 
     # Callable mapping

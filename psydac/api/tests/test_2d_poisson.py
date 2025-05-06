@@ -6,7 +6,7 @@ from sympy import pi, cos, sin, symbols
 from sympy.utilities.lambdify import implemented_function
 import pytest
 
-from sympde.calculus import grad, dot
+from sympde.calculus import grad, dot, inner
 from sympde.topology import ScalarFunctionSpace
 from sympde.topology import element_of
 from sympde.topology import NormalVector
@@ -63,7 +63,7 @@ def run_poisson_2d(solution, f, dir_zero_boundary, dir_nonzero_boundary,
     nn = NormalVector('nn')
 
     # Bilinear form a: V x V --> R
-    a = BilinearForm((u, v), integral(domain, dot(grad(u), grad(v))))
+    a = BilinearForm((u, v), integral(domain, inner(grad(u), grad(v))))
 
     # Linear form l: V --> R
     l0 = LinearForm(v, integral(domain, f * v))

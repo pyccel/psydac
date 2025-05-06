@@ -1,16 +1,15 @@
 # -*- coding: UTF-8 -*-
 import os
-
 from collections import OrderedDict
 
 from mpi4py import MPI
 import pytest
 import numpy as np
-from sympy import pi, cos, sin, symbols, conjugate, exp
+from sympy import pi, cos, sin, symbols, exp
 from sympy import Tuple, Matrix
 from sympy import lambdify
 
-from sympde.calculus import grad, dot, cross, curl
+from sympde.calculus import grad, dot, inner, cross, curl
 from sympde.calculus import minus, plus
 from sympde.calculus import laplace
 from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
@@ -18,7 +17,7 @@ from sympde.topology import element_of, elements_of
 from sympde.topology import NormalVector
 from sympde.topology import Union
 from sympde.topology import Domain, Square
-from sympde.topology import IdentityMapping, AffineMapping, PolarMapping
+from sympde.topology import IdentityMapping, PolarMapping
 from sympde.expr     import BilinearForm, LinearForm, integral
 from sympde.expr     import Norm, SemiNorm
 from sympde.expr     import find, EssentialBC
@@ -166,12 +165,12 @@ def run_poisson_2d(solution, f, domain, ncells=None, degree=None, filename=None,
             - 0.5*dot(grad(minus(v)), nn) * minus(u) - 0.5*dot(grad(minus(u)), nn) * minus(v) + kappa *minus(u)*minus(v)\
             + 0.5*dot(grad( plus(v)), nn) *  plus(u) + 0.5*dot(grad( plus(u)), nn) *  plus(v) + kappa * plus(u)* plus(v)
 
-    expr = dot(grad(u), grad(v))
+    expr = inner(grad(u), grad(v))
 
     a = BilinearForm((u, v), integral(domain, expr) + integral(I, expr_I))
     l = LinearForm(v, integral(domain, f*v))
 
-    equation = find(u, forall=v, lhs=1j*a(u,v), rhs=1j*l(v), bc=bc)
+    equation = find(u, forall=v, lhs=1j*a(u, v), rhs=1j*l(v), bc=bc)
 
     l2norm =     Norm(error, domain, kind='l2')
     h1norm = SemiNorm(error, domain, kind='h1')
@@ -215,7 +214,7 @@ def run_helmholtz_2d(solution, kappa, e_w_0, dx_e_w_0, domain, ncells=None, degr
 
     error  = u - solution
 
-    expr   = dot(grad(u),grad(v)) - 2 * kappa ** 2 * u * v
+    expr   = inner(grad(u), grad(v)) - 2 * kappa ** 2 * u * v
     boundary_expr = - 1j * kappa * u * v
     x_boundary = Union(domain.get_boundary(axis=0, ext=-1), domain.get_boundary(axis=0, ext=1))
 
@@ -280,11 +279,11 @@ def run_maxwell_2d(uex, f, alpha, domain, *, ncells=None, degree=None, filename=
                +k*cross(nn, jump(u))*curl(avr(v))\
                +kappa*cross(nn, jump(u))*cross(nn, jump(v))
 
-    expr1   = curl(u)*curl(v) + alpha*dot(u,v)
-    expr1_b = -cross(nn, v) * curl(u) -k*cross(nn, u) * curl(v)  + kappa * cross(nn, u) * cross(nn, v)
+    expr1   = curl(u) * curl(v) + alpha * inner(u,v)
+    expr1_b = -cross(nn, v) * curl(u) -k * cross(nn, u) * curl(v)  + kappa * cross(nn, u) * cross(nn, v)
 
-    expr2   = dot(f,v)
-    expr2_b = -k*cross(nn, uex)*curl(v) + kappa * cross(nn, uex) * cross(nn, v)
+    expr2   = inner(f,v)
+    expr2_b = -k * cross(nn, uex) * curl(v) + kappa * cross(nn, uex) * cross(nn, v)
 
     # Bilinear form a: V x V --> R
     a = BilinearForm((u, v), integral(domain, expr1) + integral(boundary, expr1_b) + integral(I, expr1_I))
@@ -425,8 +424,8 @@ def test_complex_helmholtz_2d(plot_sol=False):
     
     if plot_sol:
         from psydac.fem.plotting_utilities import get_plotting_grid, get_grid_vals
-        from psydac.fem.plotting_utilities import get_patch_knots_gridlines, my_small_plot
-        from psydac.feec.pull_push                     import pull_2d_h1
+        from psydac.fem.plotting_utilities import my_small_plot
+        from psydac.feec.pull_push         import pull_2d_h1
         
         Id_mapping = IdentityMapping('M', 2)
         # print(f'domain.interior = {domain.interior}')
@@ -537,9 +536,9 @@ if __name__ == '__main__':
     else:
 
         from psydac.fem.plotting_utilities import get_plotting_grid, get_grid_vals
-        from psydac.fem.plotting_utilities import get_patch_knots_gridlines, my_small_plot
-        from psydac.api.tests.build_domain             import build_pretzel
-        from psydac.feec.pull_push                     import pull_2d_hcurl
+        from psydac.fem.plotting_utilities import my_small_plot
+        from psydac.api.tests.build_domain import build_pretzel
+        from psydac.feec.pull_push         import pull_2d_hcurl
         
         domain = build_pretzel()
         x,y    = domain.coordinates

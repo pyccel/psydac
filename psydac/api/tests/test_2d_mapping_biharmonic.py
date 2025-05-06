@@ -14,18 +14,16 @@
 #      Please note that the logical coordinates (x1, x2) correspond to the polar
 #      coordinates (r, theta), but with reversed order: hence x1=theta and x2=r
 
-from mpi4py import MPI
-from sympy import pi, cos, sin, symbols
-import pytest
 import os
-import numpy as np
+
+from sympy import pi, cos, sin, symbols
 
 from sympde.calculus import grad, dot
 from sympde.calculus import laplace
 from sympde.topology import ScalarFunctionSpace
 from sympde.topology import element_of
 from sympde.topology import NormalVector
-from sympde.topology import Domain,Square
+from sympde.topology import Domain
 from sympde.topology import Union
 from sympde.expr import BilinearForm, LinearForm, integral
 from sympde.expr import Norm, SemiNorm
