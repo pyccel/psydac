@@ -242,6 +242,9 @@ class DiscreteBilinearForm(BasicDiscrete):
                  linalg_backend=None, assembly_backend=None,
                  symbolic_mapping=None,
                  fast_assembly=False):
+        
+        # to be removed asap: True for enabling second derivatives (FEEC bilinear forms will fail), False for disabling second derivatives
+        self._second_derivatives = False
 
         if not isinstance(expr, sym_BilinearForm):
             raise TypeError('> Expecting a symbolic BilinearForm')
@@ -1031,7 +1034,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         
         KEYS = KEYS_2 + KEYS_3
 
-        if mapping_option == 'Bspline':
+        if (mapping_option == 'Bspline') and self._second_derivatives:
             D2_1 = '\n'
             spaces1 = '                            '
             spaces2 = spaces1 + '            '
@@ -1058,12 +1061,12 @@ class DiscreteBilinearForm(BasicDiscrete):
                             D2_6 += f'{spaces2}{symbol}_x{d1}x{d2} += mapping_x{d1}x{d2} * coeff_{symbol}\n'
                 D2_6 += '\n'
         else:
-            D2_1 = None
-            D2_2 = None
-            D2_3 = None
-            D2_4 = None
-            D2_5 = None
-            D2_6 = None
+            D2_1 = ''
+            D2_2 = ''
+            D2_3 = ''
+            D2_4 = ''
+            D2_5 = ''
+            D2_6 = ''
 
         body = code_body.format(LOCAL_SPAN=LOCAL_SPAN, 
                                 KEYS=KEYS, 
@@ -1538,14 +1541,16 @@ class DiscreteBilinearForm(BasicDiscrete):
             test_trial_2 = np.zeros((n_element_2, k2, test_v_p2 + 1, trial_u_p2 + 1, 3, 3), dtype='float64')
             test_trial_3 = np.zeros((n_element_3, k3, test_v_p3 + 1, trial_u_p3 + 1, 3, 3), dtype='float64')
 
+            r = 3 if self._second_derivatives else 2
+
             for k_1 in range(n_element_1):
                 for q_1 in range(k1):
                     for i_1 in range(test_v_p1 + 1):
                         for j_1 in range(trial_u_p1 + 1):
                             trial   = global_basis_u_1[k_1, j_1, :, q_1]
                             test    = global_basis_v_1[k_1, i_1, :, q_1]
-                            for alpha_1 in range(3):#2):
-                                for beta_1 in range(3):#2):
+                            for alpha_1 in range(r):
+                                for beta_1 in range(r):
                                     test_trial_1[k_1, q_1, i_1, j_1, alpha_1, beta_1] = trial[alpha_1] * test[beta_1]
 
             for k_2 in range(n_element_2):
@@ -1554,8 +1559,8 @@ class DiscreteBilinearForm(BasicDiscrete):
                         for j_2 in range(trial_u_p2 + 1):
                             trial   = global_basis_u_2[k_2, j_2, :, q_2]
                             test    = global_basis_v_2[k_2, i_2, :, q_2]
-                            for alpha_2 in range(3):#2):
-                                for beta_2 in range(3):#2):
+                            for alpha_2 in range(r):
+                                for beta_2 in range(r):
                                     test_trial_2[k_2, q_2, i_2, j_2, alpha_2, beta_2] = trial[alpha_2] * test[beta_2]
 
             for k_3 in range(n_element_3):
@@ -1564,8 +1569,8 @@ class DiscreteBilinearForm(BasicDiscrete):
                         for j_3 in range(trial_u_p3 + 1):
                             trial   = global_basis_u_3[k_3, j_3, :, q_3]
                             test    = global_basis_v_3[k_3, i_3, :, q_3]
-                            for alpha_3 in range(3):#2):
-                                for beta_3 in range(3):#2):
+                            for alpha_3 in range(r):
+                                for beta_3 in range(r):
                                     test_trial_3[k_3, q_3, i_3, j_3, alpha_3, beta_3] = trial[alpha_3] * test[beta_3]
 
             test_trial_1s[block] = test_trial_1
