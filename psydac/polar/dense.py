@@ -159,7 +159,7 @@ class DenseVectorSpace(VectorSpace):
             The first vector in the scalar product. In the case of a complex
             field, the inner product is antilinear w.r.t. this vector (hence
             this vector is conjugated).
-            [np.dot
+            NOTE [MCP 07.05.2025]: currently without conjugate, see np.dot
 
         y : Vector
             The second vector in the scalar product. The inner product is
