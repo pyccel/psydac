@@ -68,6 +68,11 @@ def test_types_and_refs():
   X = S @ S
   assert isinstance(X, ComposedLinearOperator)
 
+  assert isinstance(I @ S, StencilMatrix)
+  assert isinstance(S @ I, StencilMatrix)
+  assert (I @ S) is S
+  assert (S @ I) is S
+
   # Example 2
   # ---------
 
@@ -75,6 +80,7 @@ def test_types_and_refs():
   V1 = M1.domain
   A = BlockLinearOperator(V1, V1, ((None, None), (None, M1[1, 1])))
   B = BlockLinearOperator(V1, V1, ((M1[0, 0] + IdentityOperator(V1[0]), None), (None, None)))
+  J = IdentityOperator(V1)
 
   # Sum: should we get a SumLinearOperator or a BlockLinearOperator?
   C = A + B
@@ -85,3 +91,8 @@ def test_types_and_refs():
   C *= 5  # We want a new object here!
   assert C is not r1
   assert isinstance(C, BlockLinearOperator)  # debatable
+
+  assert isinstance(J @ A, BlockLinearOperator)
+  assert isinstance(A @ J, BlockLinearOperator)
+  assert (J @ A) is A
+  assert (A @ J) is A
