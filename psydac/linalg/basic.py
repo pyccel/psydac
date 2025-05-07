@@ -651,6 +651,7 @@ class SumLinearOperator(LinearOperator):
         self._domain = domain
         self._codomain = codomain
         self._addends = addends
+        self._out = codomain.zeros()
 
     @property
     def domain(self):
@@ -713,6 +714,7 @@ class SumLinearOperator(LinearOperator):
         return out
 
     def dot(self, v, out=None):
+        out2 = self._out
         """ Evaluates SumLinearOperator object at a vector v element of domain. """
         assert isinstance(v, Vector)
         assert v.space == self.domain
@@ -721,12 +723,16 @@ class SumLinearOperator(LinearOperator):
             assert out.space == self.codomain
             out *= 0
             for a in self._addends:
-                a.idot(v, out)
+                a.dot(v, out=out2)
+                out += out2
+                #a.idot(v, out=out)
             return out
         else:
             out = self.codomain.zeros()
             for a in self._addends:
-                a.idot(v, out=out)
+                a.dot(v, out=out2)
+                out += out2
+                #a.idot(v, out=out)
             return out
 
 #===============================================================================
