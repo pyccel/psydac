@@ -408,7 +408,223 @@ def matrix_to_bandsolver(A):
 # --------------------------------------
 
 
+def get_diagonal_matrix_with_BCs(M, P, IP, inv=False, sqrt=False):
+    assert isinstance(inv, bool)
+    assert isinstance(sqrt, bool)
+    assert isinstance(M, LinearOperator)
+    assert M.domain is M.codomain
+
+    V = M.domain
+    is_block = True if isinstance(V, BlockVectorSpace) else False
+    if not is_block:
+        assert isinstance(V, StencilVectorSpace)
+
+    if not is_block:
+        M_diag_indices = M._get_diagonal_indices()
+        data = M._data[M_diag_indices]
+        if inv:
+            data = 1 / data
+        if sqrt:
+            data = np.sqrt(data)
+        D = StencilDiagonalMatrix(V, V, M._data[M_diag_indices])
+        if P is not None:
+            assert IP is not None
+            D_bc = P @ D @ P + IP
+        else:
+            assert IP is None
+            D_bc = D
+    else:
+        D = BlockLinearOperator(V, V)
+        for block_index in range(V.n_blocks):
+            V_block = V[block_index]
+            M_block = M[block_index, block_index]
+            M_block_diag_indices = M_block._get_diagonal_indices()
+            data = M_block._data[M_block_diag_indices]
+            if inv:
+                data = 1 / data
+            if sqrt:
+                data = np.sqrt(data)
+            D_block = StencilDiagonalMatrix(V_block, V_block, data)
+            D[block_index, block_index] = D_block
+        if P is not None:
+            assert IP is not None
+            D_bc = P @ D @ P + IP
+        else:
+            assert IP is None
+            D_bc = D
+    return D_bc
+    
 # ---------- LST preconditioners ----------
+def get_LST_pcs_fast(M0, M1, M2, Ps, IPs, logical_domain, Vs, Vhs, Vcs, ncells, degree, periodic, comm, backend):
+    """
+    LST (Loli, Sangalli, Tani) preconditioners are mass matrix preconditioners of the form
+
+    pc = D_inv_sqrt @ D_log_sqrt @ M_log_kron_solver @ D_log_sqrt @ D_inv_sqrt,
+
+    where
+
+    D_inv_sqrt          is the diagonal matrix of the square roots of the inverse diagonal entries of the mass matrix M,
+    D_log_sqrt          is the diagonal matrix of the square roots of the diagonal entries of the mass matrix on the logical domain,
+    M_log_kron_solver   is the Kronecker Solver of the mass matrix on the logical domain.
+
+    These preconditioners work very well even on complex domains as numerical experiments have shown.
+    
+    """
+    Pgrad, Pcurl, Pdiv = Ps
+    IPgrad, IPcurl, IPdiv = IPs
+
+    # ---------- D_inv_sqrt ----------
+    D0_inv_sqrt      = get_diagonal_matrix_with_BCs(M0, Pgrad, IPgrad, inv=True, sqrt=True) if M0 is not None else None
+    D1_inv_sqrt      = get_diagonal_matrix_with_BCs(M1, Pcurl, IPcurl, inv=True, sqrt=True) if M1 is not None else None
+    D2_inv_sqrt      = get_diagonal_matrix_with_BCs(M2, Pdiv , IPdiv , inv=True, sqrt=True) if M2 is not None else None
+    # --------------------------------
+
+    # ---------- D_log_sqrt ----------
+    logical_domain_h = discretize(logical_domain, ncells=ncells, periodic=periodic, comm=comm)
+
+    V0_log, V1_log, V2_log, V3_log = Vs
+
+    V0h_log, V1h_log, V2h_log, V3h_log = Vhs
+
+    V0_cs, V1_cs, V2_cs, V3_cs = Vcs
+
+    u0, v0  = elements_of(V0_log, names='u0, v0')
+    u1, v1  = elements_of(V1_log, names='u1, v1')
+    u2, v2  = elements_of(V2_log, names='u2, v2')
+
+    a0      = BilinearForm((u0, v0), integral(logical_domain, u0*v0))
+    a1      = BilinearForm((u1, v1), integral(logical_domain, dot(u1, v1)))
+    a2      = BilinearForm((u2, v2), integral(logical_domain, dot(u2, v2)))
+
+    if M0 is not None:
+        a0h     = discretize(a0, logical_domain_h, (V0h_log, V0h_log), backend=backend)
+        M0_log  = a0h.assemble()
+        D0_log_sqrt = get_diagonal_matrix_with_BCs(M0_log, None, None, inv=False, sqrt=True)
+
+    if M1 is not None:
+        a1h     = discretize(a1, logical_domain_h, (V1h_log, V1h_log), backend=backend)
+        M1_log  = a1h.assemble()
+        D1_log_sqrt = get_diagonal_matrix_with_BCs(M1_log, None, None, inv=False, sqrt=True)
+
+    if M2 is not None:
+        a2h     = discretize(a2, logical_domain_h, (V2h_log, V2h_log), backend=backend)
+        M2_log  = a2h.assemble()
+        D2_log_sqrt = get_diagonal_matrix_with_BCs(M2_log, None, None, inv=False, sqrt=True)
+    # --------------------------------
+    
+    # ---------- M_log_kron_solver ----------
+    ncells_x, ncells_y, ncells_z        = ncells
+    degree_x, degree_y, degree_z        = degree
+    periodic_x, periodic_y, periodic_z  = periodic
+
+    bounds1 = logical_domain.bounds1
+    bounds2 = logical_domain.bounds2
+    bounds3 = logical_domain.bounds3
+    logical_domain_1d_x = Line('L', bounds=bounds1)
+    logical_domain_1d_y = Line('L', bounds=bounds2)
+    logical_domain_1d_z = Line('L', bounds=bounds3)
+    derham_1d_x = Derham(logical_domain_1d_x)
+    derham_1d_y = Derham(logical_domain_1d_y)
+    derham_1d_z = Derham(logical_domain_1d_z)
+    #logical_domain_1d = Line('L', bounds=(0,1))
+    #derham_1d   = Derham(logical_domain_1d)
+
+    domain_xh   = discretize(logical_domain_1d_x, ncells=[ncells_x, ], periodic=[periodic_x, ])
+    domain_yh   = discretize(logical_domain_1d_y, ncells=[ncells_y, ], periodic=[periodic_y, ])
+    domain_zh   = discretize(logical_domain_1d_z, ncells=[ncells_z, ], periodic=[periodic_z, ])
+
+    derham_xh   = discretize(derham_1d_x, domain_xh, degree=[degree_x, ])
+    derham_yh   = discretize(derham_1d_y, domain_yh, degree=[degree_y, ])
+    derham_zh   = discretize(derham_1d_z, domain_zh, degree=[degree_z, ])
+
+    V0_1d_x     = derham_1d_x.V0
+    V0_1d_y     = derham_1d_y.V0
+    V0_1d_z     = derham_1d_z.V0
+    V1_1d_x     = derham_1d_x.V1
+    V1_1d_y     = derham_1d_y.V1
+    V1_1d_z     = derham_1d_z.V1
+
+    V0_xh       = derham_xh.V0
+    V1_xh       = derham_xh.V1
+
+    V0_yh       = derham_yh.V0
+    V1_yh       = derham_yh.V1
+
+    V0_zh       = derham_zh.V0
+    V1_zh       = derham_zh.V1
+
+    V0_x_cs = V0_xh.coeff_space
+
+    V0_y_cs = V0_yh.coeff_space
+
+    V0_z_cs = V0_zh.coeff_space
+
+    Px = H1BoundaryProjector_1D(V0_x_cs, V0_1d_x, periodic_x)
+    Py = H1BoundaryProjector_1D(V0_y_cs, V0_1d_y, periodic_y)
+    Pz = H1BoundaryProjector_1D(V0_z_cs, V0_1d_z, periodic_z)
+
+    IPx = IdentityOperator(V0_x_cs) - Px
+    IPy = IdentityOperator(V0_y_cs) - Py
+    IPz = IdentityOperator(V0_z_cs) - Pz
+
+    u0_1d_x, v0_1d_x = elements_of(V0_1d_x, names='u0_1d_x, v0_1d_x')
+    u1_1d_x, v1_1d_x = elements_of(V1_1d_x, names='u1_1d_x, v1_1d_x')
+    u0_1d_y, v0_1d_y = elements_of(V0_1d_y, names='u0_1d_y, v0_1d_y')
+    u1_1d_y, v1_1d_y = elements_of(V1_1d_y, names='u1_1d_y, v1_1d_y')
+    u0_1d_z, v0_1d_z = elements_of(V0_1d_z, names='u0_1d_z, v0_1d_z')
+    u1_1d_z, v1_1d_z = elements_of(V1_1d_z, names='u1_1d_z, v1_1d_z')
+
+    m0_1d_x       = BilinearForm((u0_1d_x, v0_1d_x), integral(logical_domain_1d_x, u0_1d_x*v0_1d_x))
+    m1_1d_x       = BilinearForm((u1_1d_x, v1_1d_x), integral(logical_domain_1d_x, u1_1d_x*v1_1d_x))
+    m0_1d_y       = BilinearForm((u0_1d_y, v0_1d_y), integral(logical_domain_1d_y, u0_1d_y*v0_1d_y))
+    m1_1d_y       = BilinearForm((u1_1d_y, v1_1d_y), integral(logical_domain_1d_y, u1_1d_y*v1_1d_y))
+    m0_1d_z       = BilinearForm((u0_1d_z, v0_1d_z), integral(logical_domain_1d_z, u0_1d_z*v0_1d_z))
+    m1_1d_z       = BilinearForm((u1_1d_z, v1_1d_z), integral(logical_domain_1d_z, u1_1d_z*v1_1d_z))
+
+    m0_xh       = discretize(m0_1d_x, domain_xh, (V0_xh, V0_xh), backend=backend)
+    m0_yh       = discretize(m0_1d_y, domain_yh, (V0_yh, V0_yh), backend=backend)
+    m0_zh       = discretize(m0_1d_z, domain_zh, (V0_zh, V0_zh), backend=backend)
+
+    m1_xh       = discretize(m1_1d_x, domain_xh, (V1_xh, V1_xh), backend=backend)
+    m1_yh       = discretize(m1_1d_y, domain_yh, (V1_yh, V1_yh), backend=backend)
+    m1_zh       = discretize(m1_1d_z, domain_zh, (V1_zh, V1_zh), backend=backend)
+
+    M0_x        = m0_xh.assemble()
+    M0_y        = m0_yh.assemble()
+    M0_z        = m0_zh.assemble()
+
+    M0_x        = Px @ M0_x @ Px + IPx
+    M0_y        = Py @ M0_y @ Py + IPy
+    M0_z        = Pz @ M0_z @ Pz + IPz
+
+    M1_x        = m1_xh.assemble()
+    M1_y        = m1_yh.assemble()
+    M1_z        = m1_zh.assemble()
+
+    M0_solvers  = [matrix_to_bandsolver(M) for M in [M0_x, M0_y, M0_z]]
+    M1_solvers  = [matrix_to_bandsolver(M) for M in [M1_x, M1_y, M1_z]]
+
+    M0_log_kron_solver = KroneckerLinearSolver(V0_cs, V0_cs, (M0_solvers[0], M0_solvers[1], M0_solvers[2]))
+
+    M1_0_log_kron_solver = KroneckerLinearSolver(V1_cs[0], V1_cs[0], (M1_solvers[0], M0_solvers[1], M0_solvers[2]))
+    M1_1_log_kron_solver = KroneckerLinearSolver(V1_cs[1], V1_cs[1], (M0_solvers[0], M1_solvers[1], M0_solvers[2]))
+    M1_2_log_kron_solver = KroneckerLinearSolver(V1_cs[2], V1_cs[2], (M0_solvers[0], M0_solvers[1], M1_solvers[2]))
+    M1_log_kron_solver = BlockLinearOperator(V1_cs, V1_cs, [[M1_0_log_kron_solver, None, None],
+                                                            [None, M1_1_log_kron_solver, None],
+                                                            [None, None, M1_2_log_kron_solver]])
+    
+    M2_0_log_kron_solver = KroneckerLinearSolver(V2_cs[0], V2_cs[0], (M0_solvers[0], M1_solvers[1], M1_solvers[2]))
+    M2_1_log_kron_solver = KroneckerLinearSolver(V2_cs[1], V2_cs[1], (M1_solvers[0], M0_solvers[1], M1_solvers[2]))
+    M2_2_log_kron_solver = KroneckerLinearSolver(V2_cs[2], V2_cs[2], (M1_solvers[0], M1_solvers[1], M0_solvers[2]))
+    M2_log_kron_solver = BlockLinearOperator(V2_cs, V2_cs, [[M2_0_log_kron_solver, None, None],
+                                                            [None, M2_1_log_kron_solver, None],
+                                                            [None, None, M2_2_log_kron_solver]])
+
+    M0_pc = D0_inv_sqrt @ D0_log_sqrt @ M0_log_kron_solver @ D0_log_sqrt @ D0_inv_sqrt if M0 is not None else None
+    M1_pc = D1_inv_sqrt @ D1_log_sqrt @ M1_log_kron_solver @ D1_log_sqrt @ D1_inv_sqrt if M1 is not None else None
+    M2_pc = D2_inv_sqrt @ D2_log_sqrt @ M2_log_kron_solver @ D2_log_sqrt @ D2_inv_sqrt if M2 is not None else None
+    return M0_pc, M1_pc, M2_pc
+
 def get_LST_pcs(M0, M1, M2, logical_domain, Vs, Vhs, Vcs, ncells, degree, periodic, comm, backend):
     """
     LST (Loli, Sangalli, Tani) preconditioners are mass matrix preconditioners of the form
