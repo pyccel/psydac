@@ -150,8 +150,8 @@ class DenseVectorSpace(VectorSpace):
         want to reverse this behavior in order to align with the convention
         of FEniCS.
 
-        TODO [MCP 07.05.2025]: Actually there currently no conjugation yet, 
-        since np.dot is being called.
+        TODO [MCP 07.05.2025]: Actually, there is currently no conjugation, 
+        since `numpy.dot` is being called.
 
         Parameters
         ----------
