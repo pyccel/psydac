@@ -150,12 +150,16 @@ class DenseVectorSpace(VectorSpace):
         want to reverse this behavior in order to align with the convention
         of FEniCS.
 
+        TODO [MCP 07.05.2025]: Actually, there is currently no conjugation, 
+        since `numpy.dot` is being called.
+
         Parameters
         ----------
         x : Vector
             The first vector in the scalar product. In the case of a complex
             field, the inner product is antilinear w.r.t. this vector (hence
             this vector is conjugated).
+            NOTE [MCP 07.05.2025]: currently without conjugate, see np.dot
 
         y : Vector
             The second vector in the scalar product. The inner product is
