@@ -182,7 +182,7 @@ class SplineSpace( FemSpace ):
 
         if self.periodic:
             # Convert to CSC format and compute sparse LU decomposition
-            self._interpolator = SparseSolver( csc_matrix( imat ) )
+            self._interpolator = SparseSolver( csc_matrix(imat, dtype=dtype) )
         else:
             # Convert to LAPACK banded format (see DGBTRF function)
             dmat = dia_matrix( imat )
@@ -218,7 +218,7 @@ class SplineSpace( FemSpace ):
         self.hmat= imat
         if self.periodic:
             # Convert to CSC format and compute sparse LU decomposition
-            self._histopolator = SparseSolver( csc_matrix( imat ) )
+            self._histopolator = SparseSolver( csc_matrix(imat, dtype=dtype) )
         else:
             # Convert to LAPACK banded format (see DGBTRF function)
             dmat = dia_matrix( imat )
