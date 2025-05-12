@@ -377,6 +377,11 @@ class AST(object):
 
             terminal_expr     = Matrix([[terminal_expr]])
 
+        # If the spaces are all constants, we set nderiv to zero
+        if  tests_degrees or trials_degrees:
+            if all(not any(d) for d in tests_degrees) and all(not any(d) for d in trials_degrees):
+                nderiv = 0
+
         d_tests  = {v: {'global':       GlobalTensorQuadratureTestBasis(v),
                         'local':        LocalTensorQuadratureTestBasis(v),
                         'span':         GlobalSpanArray(v),
