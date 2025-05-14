@@ -34,7 +34,7 @@ __all__ = (
 #===============================================================================
 class VectorSpace(ABC):
     """
-    Finite-dimensional vector space V with a scalar (dot) product.
+    Finite-dimensional vector space V with a scalar (inner) product.
 
     """
     @property
@@ -66,10 +66,35 @@ class VectorSpace(ABC):
 
         """
 
-#    @abstractmethod
-    def dot(self, a, b):
+    @abstractmethod
+    def inner(self, x, y):
         """
-        Evaluate the scalar product between two vectors of the same space.
+        Evaluate the inner vector product between two vectors of this space V.
+
+        If the field of V is real, compute the classical scalar product.
+        If the field of V is complex, compute the classical sesquilinear
+        product with linearity on the second vector.
+
+        TODO [YG 01.05.2025]: Currently, the first vector is conjugated. We
+        want to reverse this behavior in order to align with the convention
+        of FEniCS.
+
+        Parameters
+        ----------
+        x : Vector
+            The first vector in the scalar product. In the case of a complex
+            field, the inner product is antilinear w.r.t. this vector (hence
+            this vector is conjugated).
+
+        y : Vector
+            The second vector in the scalar product. The inner product is
+            linear w.r.t. this vector.
+
+        Returns
+        -------
+        float | complex
+            The scalar product of the two vectors. Note that inner(x, x) is
+            a non-negative real number which is zero if and only if x = 0.
 
         """
 
@@ -108,7 +133,7 @@ class Vector(ABC):
         """ The data type of the vector field V this vector belongs to. """
         return self.space.dtype
 
-    def dot(self, v):
+    def inner(self, v):
         """
         Evaluate the scalar product with the vector v of the same space.
 
@@ -120,7 +145,7 @@ class Vector(ABC):
         """
         assert isinstance(v, Vector)
         assert self.space is v.space
-        return self.space.dot(self, v)
+        return self.space.inner(self, v)
 
     def mul_iadd(self, a, v):
         """
@@ -150,8 +175,26 @@ class Vector(ABC):
 
     @abstractmethod
     def copy(self, out=None):
-        """Ensure x.copy(out=x) returns x and not a new object."""
-        pass
+        """
+        Return an identical copy of this vector.
+        
+        Subclasses must ensure that x.copy(out=x) returns x and not a new
+        object.
+        """
+
+    @abstractmethod
+    def conjugate(self, out=None):
+        """
+        Compute the complex conjugate vector.
+        
+        Please note that x.conjugate(out=x) modifies x in place and returns x.
+
+        If the field is real (i.e. `self.dtype in (np.float32, np.float64)`) this method is equivalent to `copy`.
+        If the field is complex (i.e. `self.dtype in (np.complex64, np.complex128)`) this method returns
+        the complex conjugate of `self`, element-wise.
+
+        The behavior of this function is similar to `numpy.conjugate(self, out=None)`.
+        """
 
     @abstractmethod
     def __neg__(self):
@@ -180,17 +223,6 @@ class Vector(ABC):
     @abstractmethod
     def __isub__(self, v):
         pass
-
-    @abstractmethod
-    def conjugate(self, out=None):
-        """Compute the complex conjugate vector.
-
-        If the field is real (i.e. `self.dtype in (np.float32, np.float64)`) this method is equivalent to `copy`.
-        If the field is complex (i.e. `self.dtype in (np.complex64, np.complex128)`) this method returns
-        the complex conjugate of `self`, element-wise.
-
-        The behavior of this function is similar to `numpy.conjugate(self, out=None)`.
-        """
 
     #-------------------------------------
     # Methods with default implementation

@@ -78,7 +78,7 @@ def test_field_and_constant(backend, dtype):
     # Test matrix A
     x = fh.coeffs
     #TODO change res into np.conj(res) when the conjugate is applied in the dot product in sympde
-    assert abs(x.dot(A.dot(x)) - res) < 1e-12
+    assert abs(x.inner(A.dot(x)) - res) < 1e-12
 
     # Test vector b
     assert abs(b.toarray().sum() - res) < 1e-12
@@ -138,10 +138,10 @@ def test_bilinearForm_complex(backend):
     x = fh.coeffs
 
     #TODO change res into np.conj(res) when the conjugate is applied in the dot product in sympde
-    assert abs(x.dot(A1.dot(x)) - res) < 1e-12
-    assert abs(x.dot(A2.dot(x)) - res) < 1e-12
-    assert abs(x.dot(A3.dot(x)) - res) < 1e-12
-    assert abs(x.dot(A4.dot(x)) - res) < 1e-12
+    assert abs(x.inner(A1.dot(x)) - res) < 1e-12
+    assert abs(x.inner(A2.dot(x)) - res) < 1e-12
+    assert abs(x.inner(A3.dot(x)) - res) < 1e-12
+    assert abs(x.inner(A4.dot(x)) - res) < 1e-12
 
     print("PASSED")
 
@@ -375,7 +375,7 @@ def test_multiple_fields(backend, dtype):
 
     # Test matrix A
     #TODO change res into np.conj(res) when the conjugate is applied in the dot product in sympde
-    assert abs(x.dot(A.dot(x)) - res) < 1e-12
+    assert abs(x.inner(A.dot(x)) - res) < 1e-12
 
     # Test vector b
     assert abs(b.toarray().sum() - res) < 1e-12
@@ -518,10 +518,10 @@ def test_assembly_no_synchr_args(backend):
     rhoh3 = div.dot(uh)
     rhof3  = FemField(V1h, rhoh3)
     weight_mass_matrix = weight_int_prod_h.assemble(rho=rhof1)
-    inte_bilin = const_1.dot(weight_mass_matrix.dot(const_1))
+    inte_bilin = const_1.inner(weight_mass_matrix.dot(const_1))
 
     int_prod_rho = int_prod_h.assemble(rho=rhof2)
-    inte_lin = int_prod_rho.dot(const_1)
+    inte_lin = int_prod_rho.inner(const_1)
 
     inte_norm = func_h.assemble(rho=rhof3)
 

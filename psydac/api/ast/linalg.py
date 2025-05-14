@@ -428,7 +428,7 @@ class LinearOperatorDot(SplBasic):
         return fmod
 
 #==============================================================================
-class VectorDot(SplBasic):
+class VectorInner(SplBasic):
 
     def __new__(cls, ndim, backend=None):
         tag = random_string(8)

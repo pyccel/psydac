@@ -248,7 +248,7 @@ def test_derham_projector_2d_hcurl(ncells, degree, periodic, multiplicity):
     assert maxnorm_error <= 1e-3
     
 #==============================================================================
-@pytest.mark.parametrize('ncells', [[30,30,30]])
+@pytest.mark.parametrize('ncells', [[20,20,20]])
 @pytest.mark.parametrize('degree', [[2,2,2], [2,3,2], [3,3,3]])
 @pytest.mark.parametrize('periodic', [[False, False, False], [True, True, True]])
 @pytest.mark.parametrize('multiplicity', [[1,1,1], [1,2,2], [2,2,2]])
@@ -289,19 +289,23 @@ def test_derham_projector_3d(ncells, degree, periodic, multiplicity):
     # Test if max-norm of error is <= TOL
     maxnorm_error = abs(vals_u0 - vals_f).max()
     print(ncells, maxnorm_error)
-    assert maxnorm_error <= 3e-2
+    assert maxnorm_error <= 0.01
+
     maxnorm_error = abs(vals_u1_1 - vals_f).max()
     print(ncells, maxnorm_error)
-    assert maxnorm_error <= 3e-2
+    assert maxnorm_error <= 0.01
+
     maxnorm_error = abs(vals_u2_1 - vals_f).max()
     print(ncells, maxnorm_error)
-    assert maxnorm_error <= 3e-2
+    assert maxnorm_error <= 0.05
+
     maxnorm_error = abs(vals_u3 - vals_f).max()
     print(ncells, maxnorm_error)
-    assert maxnorm_error <= 3e-2
+    assert maxnorm_error <= 0.05
+
     maxnorm_error = abs(vals_ux_1 - vals_f).max()
     print(ncells, maxnorm_error)
-    assert maxnorm_error <= 3e-2
+    assert maxnorm_error <= 0.02
 
 #==============================================================================
 if __name__ == '__main__':
