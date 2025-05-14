@@ -11,7 +11,7 @@ from sympde.expr                 import LinearForm, BilinearForm, Functional
 from sympde.topology.basic       import Boundary, Interface
 from sympde.topology             import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType, UndefinedSpaceType, IdentityMapping
 from sympde.topology.space       import ScalarFunction, VectorFunction, IndexedVectorFunction
-from sympde.topology.derivatives import _logical_partial_derivatives, get_max_logical_partial_derivatives
+from sympde.topology.derivatives import _logical_partial_derivatives, get_index_logical_derivatives_atom, get_atom_logical_derivatives
 from sympde.topology.mapping     import InterfaceMapping
 from sympde.calculus.core        import is_zero, PlusInterfaceOperator
 
@@ -50,6 +50,29 @@ from psydac.api.ast.utilities import variables
 from psydac.api.utilities     import flatten
 from psydac.linalg.block      import BlockVectorSpace
 from psydac.fem.vector        import VectorFemSpace
+
+#==============================================================================
+def get_max_logical_partial_derivatives(expr, F=None):
+    if F is None:
+        Fs = (list(expr.atoms(ScalarFunction)) +
+              list(expr.atoms(VectorFunction)) +
+              list(expr.atoms(IndexedVectorFunction)))
+
+        indices = []
+        for F in Fs:
+            indices += get_index_logical_derivatives_atom(expr, F)
+    elif isinstance(F, list):
+        indices = []
+        for a in F:
+            indices += get_index_logical_derivatives_atom(expr, a)
+    else:
+        indices = get_index_logical_derivatives_atom(expr, F)
+
+    d = {'x1':0, 'x2':0, 'x3':0}
+    for dd in indices:
+        for k,v in dd.items():
+            if v > d[k]: d[k] = v
+    return d
 
 #==============================================================================
 def toInteger(a):
@@ -339,7 +362,7 @@ class AST(object):
         fields               = expand_hdiv_hcurl(fields)
         kwargs['nquads']     = nquads
         atoms_types          = (ScalarFunction, VectorFunction, IndexedVectorFunction)
-        nderiv               = 1
+        nderiv               = 0
         terminal_expr        = terminal_expr.expr
 
         if isinstance(terminal_expr, (ImmutableDenseMatrix, Matrix)):
@@ -347,8 +370,6 @@ class AST(object):
             atomic_expr_field = {f:[] for f in fields}
             for i_row in range(0, n_rows):
                 for i_col in range(0, n_cols):
-                    d           = get_max_logical_partial_derivatives(terminal_expr[i_row,i_col])
-                    nderiv      = max(nderiv, max(d.values()))
                     atoms       = _atomic(terminal_expr[i_row, i_col], cls=atoms_types+_logical_partial_derivatives)
                     #--------------------------------------------------------------------
                     # TODO [YG, 05.02.2021]: create 'get_test_function' and use it below:
@@ -359,10 +380,12 @@ class AST(object):
                         a = _atomic(f, cls=atoms_types)
                         assert len(a) == 1
                         atomic_expr_field[a[0]].append(f)
+                    
+                    Fs = [get_atom_logical_derivatives(a) for a in atoms]
+                    d = get_max_logical_partial_derivatives(terminal_expr[i_row,i_col], Fs)
+                    nderiv      = max(nderiv, max(d.values()))
 
         else:
-            d           = get_max_logical_partial_derivatives(terminal_expr)
-            nderiv      = max(nderiv, max(d.values()))
             atoms       = _atomic(terminal_expr, cls=atoms_types+_logical_partial_derivatives)
             #--------------------------------------------------------------------
             # TODO [YG, 05.02.2021]: create 'get_test_function' and use it below:
@@ -375,12 +398,11 @@ class AST(object):
                 assert len(a) == 1
                 atomic_expr_field[a[0]].append(f)
 
-            terminal_expr     = Matrix([[terminal_expr]])
+            Fs = [get_atom_logical_derivatives(a) for a in atoms]
+            d = get_max_logical_partial_derivatives(terminal_expr, Fs)
+            nderiv      = max(nderiv, max(d.values()))
 
-        # If the spaces are all constants, we set nderiv to zero
-        if  tests_degrees or trials_degrees:
-            if all(not any(d) for d in tests_degrees) and all(not any(d) for d in trials_degrees):
-                nderiv = 0
+            terminal_expr     = Matrix([[terminal_expr]])
 
         d_tests  = {v: {'global':       GlobalTensorQuadratureTestBasis(v),
                         'local':        LocalTensorQuadratureTestBasis(v),
