@@ -121,9 +121,14 @@ class DistributedFFT(DistributedFFTBase):
         assert isinstance(space, StencilVectorSpace)
         assert np.dtype(space.dtype).kind == 'c'
         workers = int(workers) if workers is not None else None
+        self._workers = workers
+        self._norm = norm
 
         super().__init__(space, lambda out: scifft.fft(
                 out, axis=1, overwrite_x=True, workers=workers, norm=norm))
+        
+    def copy(self):
+        return DistributedFFT(self.domain, norm=self._norm, workers=self._workers)
 
 
 class DistributedIFFT(DistributedFFTBase):
@@ -149,9 +154,14 @@ class DistributedIFFT(DistributedFFTBase):
         assert isinstance(space, StencilVectorSpace)
         assert np.dtype(space.dtype).kind == 'c'
         workers = int(workers) if workers is not None else None
+        self._workers = workers
+        self._norm = norm
         
         super().__init__(space, lambda out: scifft.ifft(
                 out, axis=1, overwrite_x=True, workers=workers, norm=norm))
+        
+    def copy(self):
+        return DistributedIFFT(self.domain, norm=self._norm, workers=self._workers)
 
 class DistributedDCT(DistributedFFTBase):
     """
@@ -176,8 +186,14 @@ class DistributedDCT(DistributedFFTBase):
     """
     def __init__(self, space, norm=None, workers=os.environ.get('OMP_NUM_THREADS', None), ttype=2):
         workers = int(workers) if workers is not None else None
+        self._workers = workers
+        self._norm = norm
+        self._ttype = ttype
         super().__init__(space, lambda out: scifft.dct(
                 out, axis=1, overwrite_x=True, workers=workers, norm=norm, type=ttype))
+        
+    def copy(self):
+        return DistributedDCT(self.domain, norm=self._norm, workers=self._workers, ttype=self._ttype)
 
 class DistributedIDCT(DistributedFFTBase):
     """
@@ -202,8 +218,14 @@ class DistributedIDCT(DistributedFFTBase):
     """
     def __init__(self, space, norm=None, workers=os.environ.get('OMP_NUM_THREADS', None), ttype=2):
         workers = int(workers) if workers is not None else None
+        self._workers = workers
+        self._norm = norm
+        self._ttype = ttype
         super().__init__(space, lambda out: scifft.idct(
                 out, axis=1, overwrite_x=True, workers=workers, norm=norm, type=ttype)) 
+        
+    def copy(self):
+        return DistributedIDCT(self.domain, norm=self._norm, workers=self._workers, ttype=self._ttype)
 
 class DistributedDST(DistributedFFTBase):
     """
@@ -228,8 +250,14 @@ class DistributedDST(DistributedFFTBase):
     """
     def __init__(self, space, norm=None, workers=os.environ.get('OMP_NUM_THREADS', None), ttype=2):
         workers = int(workers) if workers is not None else None
+        self._workers = workers
+        self._norm = norm
+        self._ttype = ttype
         super().__init__(space, lambda out: scifft.dst(
                 out, axis=1, overwrite_x=True, workers=workers, norm=norm, type=ttype))
+        
+    def copy(self):
+        return DistributedDST(self.domain, norm=self._norm, workers=self._workers, ttype=self._ttype)
 
 class DistributedIDST(DistributedFFTBase):
     """
@@ -254,5 +282,11 @@ class DistributedIDST(DistributedFFTBase):
     """
     def __init__(self, space, norm=None, workers=os.environ.get('OMP_NUM_THREADS', None), ttype=2):
         workers = int(workers) if workers is not None else None
+        self._workers = workers
+        self._norm = norm
+        self._ttype = ttype
         super().__init__(space, lambda out: scifft.idst(
                 out, axis=1, overwrite_x=True, workers=workers, norm=norm, type=ttype)) 
+        
+    def copy(self):
+        return DistributedIDST(self.domain, norm=self._norm, workers=self._workers, ttype=self._ttype)

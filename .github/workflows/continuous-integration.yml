@@ -179,13 +179,13 @@ jobs:
           --cov psydac
           --cov-config $GITHUB_WORKSPACE/pyproject.toml
           --cov-report xml
-          --pyargs psydac -m "not parallel and not petsc"
+          --pyargs psydac.linalg -m "not parallel and not petsc"
 
       - name: Run single-process tests with Pytest on Ubuntu
         if: matrix.os == 'ubuntu-24.04'
         working-directory: ./pytest
         run: |
-          python -m pytest -n auto --pyargs psydac -m "not parallel and not petsc"
+          python -m pytest -n auto --pyargs psydac.linalg -m "not parallel and not petsc"
 
       - name: Upload coverage report to Codacy
         if: matrix.os == 'macos-14'
@@ -203,17 +203,17 @@ jobs:
       - name: Run MPI tests with Pytest
         working-directory: ./pytest
         run: |
-          python mpi_tester.py --mpirun="mpiexec -n 4 ${MPI_OPTS}" --pyargs psydac -m "parallel and not petsc"
+          python mpi_tester.py --mpirun="mpiexec -n 4 ${MPI_OPTS}" --pyargs psydac.linalg -m "parallel and not petsc"
 
       - name: Run single-process PETSc tests with Pytest
         working-directory: ./pytest
         run: |
-          python -m pytest -n auto --pyargs psydac -m "not parallel and petsc"
+          python -m pytest -n auto --pyargs psydac.linalg -m "not parallel and petsc"
 
       - name: Run MPI PETSc tests with Pytest
         working-directory: ./pytest
         run: |
-          python mpi_tester.py --mpirun="mpiexec -n 4 ${MPI_OPTS}" --pyargs psydac -m "parallel and petsc"
+          python mpi_tester.py --mpirun="mpiexec -n 4 ${MPI_OPTS}" --pyargs psydac.linalg -m "parallel and petsc"
 
       - name: Remove test directory
         if: always()

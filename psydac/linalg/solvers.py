@@ -131,6 +131,11 @@ class ConjugateGradient(InverseLinearOperator):
         self._tmps = {key: self.domain.zeros() for key in ("v", "r", "p")}
         self._info = None
 
+    def copy(self):
+        return ConjugateGradient(self.linop, x0=self.get_options("x0"), tol=self.get_options("tol"), 
+                                 maxiter=self.get_options("maxiter"), verbose=self.get_options("verbose"), 
+                                 recycle=self.get_options("recycle"))
+
     def solve(self, b, out=None):
         """
         Conjugate gradient algorithm for solving linear system Ax=b.
@@ -295,6 +300,11 @@ class PConjugateGradient(InverseLinearOperator):
         self._tmps = {**tmps_codomain, **tmps_domain}
         self._info = None
 
+    def copy(self):
+        return PConjugateGradient(self.linop, pc=self.get_options("pc"), x0=self.get_options("x0"), 
+                                  tol=self.get_options("tol"), maxiter=self.get_options("maxiter"), 
+                                  verbose=self.get_options("verbose"), recycle=self.get_options("recycle"))
+
     def solve(self, b, out=None):
         """
         Preconditioned Conjugate Gradient (PCG) solves the symetric positive definte
@@ -453,6 +463,11 @@ class BiConjugateGradient(InverseLinearOperator):
         self._Ah = A.H
         self._tmps = {key: self.domain.zeros() for key in ("v", "r", "p", "vs", "rs", "ps")}
         self._info = None
+
+    def copy(self):
+        return BiConjugateGradient(self.linop, x0=self.get_options("x0"), tol=self.get_options("tol"), 
+                                   maxiter=self.get_options("maxiter"), verbose=self.get_options("verbose"), 
+                                   recycle=self.get_options("recycle"))
 
     def solve(self, b, out=None):
         """
@@ -642,6 +657,11 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
         
         self._tmps = {key: self.domain.zeros() for key in ("v", "r", "p", "vr", "r0")}
         self._info = None
+
+    def copy(self):
+        return BiConjugateGradientStabilized(self.linop, x0=self.get_options("x0"), tol=self.get_options("tol"), 
+                                             maxiter=self.get_options("maxiter"), verbose=self.get_options("verbose"), 
+                                             recycle=self.get_options("recycle"))
 
     def solve(self, b, out=None):
         """
@@ -842,6 +862,11 @@ class PBiConjugateGradientStabilized(InverseLinearOperator):
                                                       "pp", "av", "app", "osp", 
                                                       "rp0")}
         self._info = None
+
+    def copy(self):
+        return PBiConjugateGradientStabilized(self.linop, pc=self.get_options("pc"), x0=self.get_options("x0"), 
+                                              tol=self.get_options("tol"), maxiter=self.get_options("maxiter"), 
+                                              verbose=self.get_options("verbose"), recycle=self.get_options("recycle"))
 
     def solve(self, b, out=None):
         """
@@ -1084,6 +1109,11 @@ class MinimumResidual(InverseLinearOperator):
         
         self._tmps = {key: self.domain.zeros() for key in ("res_old", "res_new", "w_new", "w_work", "w_old", "v", "y")}
         self._info = None
+
+    def copy(self):
+        return MinimumResidual(self.linop, x0=self.get_options("x0"), tol=self.get_options("tol"), 
+                               maxiter=self.get_options("maxiter"), verbose=self.get_options("verbose"), 
+                               recycle=self.get_options("recycle"))
 
     def solve(self, b, out=None):
         """
@@ -1398,6 +1428,11 @@ class LSMR(InverseLinearOperator):
         tmps_domain = {key: self.domain.zeros() for key in ("u", "u_work")}
         tmps_codomain = {key: self.codomain.zeros() for key in ("v", "v_work", "h", "hbar")}
         self._tmps = {**tmps_codomain, **tmps_domain}
+
+    def copy(self):
+        return LSMR(self.linop, x0=self.get_options("x0"), tol=self.get_options("tol"), atol=self.get_options("atol"), 
+                    btol=self.get_options("btol"), maxiter=self.get_options("maxiter"), conlim=self.get_options("conlim"), 
+                    verbose=self.get_options("verbose"), recycle=self.get_options("recycle"))
 
     def get_success(self):
         return self._successful
@@ -1740,6 +1775,11 @@ class GMRES(InverseLinearOperator):
         self._Q = []
         self._info = None
 
+    def copy(self):
+        return GMRES(self.linop, x0=self.get_options("x0"), tol=self.get_options("tol"), 
+                                 maxiter=self.get_options("maxiter"), verbose=self.get_options("verbose"), 
+                                 recycle=self.get_options("recycle"))
+
     def solve(self, b, out=None):
         """
         Generalized minimal residual algorithm for solving linear system Ax=b.
@@ -1911,4 +1951,3 @@ class GMRES(InverseLinearOperator):
 
     def dot(self, b, out=None):
         return self.solve(b, out=out)
-

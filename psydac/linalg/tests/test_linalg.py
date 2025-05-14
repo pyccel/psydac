@@ -1,6 +1,12 @@
 import pytest
 import numpy as np
 
+from sympde.calculus                import dot
+from sympde.expr                    import BilinearForm, integral
+from sympde.topology                import Derham, elements_of, Square
+
+from psydac.api.discretization      import discretize
+from psydac.api.settings            import PSYDAC_BACKEND_GPYCCEL
 from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 from psydac.linalg.basic import LinearOperator, ZeroOperator, IdentityOperator, ComposedLinearOperator, SumLinearOperator, PowerLinearOperator, ScaledLinearOperator
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
@@ -52,7 +58,7 @@ def get_StencilVectorSpace(n1, n2, p1, p2, P1, P2):
 
 def get_positive_definite_StencilMatrix(V):
 
-    np.random.seed(2)
+    rng = np.random.default_rng(seed=2)
     assert isinstance(V, StencilVectorSpace)
     [n1, n2] = V._npts
     [p1, p2] = V._pads
@@ -64,12 +70,12 @@ def get_positive_definite_StencilMatrix(V):
     for i in range(0, p1+1):
         if i != 0:
             for j in range(-p2, p2+1):
-                S[:, :, i, j] = 2*np.random.random()-1
+                S[:, :, i, j] = 2*rng.random()-1
         else:
             for j in range(1, p2+1):
-                S[:, :, i, j] = 2*np.random.random()-1
+                S[:, :, i, j] = 2*rng.random()-1
     S += S.T
-    S[:, :, 0, 0] = ((n1 * n2) - 1) / np.random.random()
+    S[:, :, 0, 0] = ((n1 * n2) - 1) / rng.random()
     S /= S[0, 0, 0, 0]
     S.remove_spurious_entries()
 
@@ -627,7 +633,8 @@ def test_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
     ###
 
     # Square root test
-    scaled_matrix = B * np.random.random() # Ensure the diagonal elements != 1
+    rng = np.random.default_rng()
+    scaled_matrix = B * rng.random() # Ensure the diagonal elements != 1
     diagonal_values = scaled_matrix.diagonal(sqrt=False).toarray()
     sqrt_diagonal_values = scaled_matrix.diagonal(sqrt=True).toarray()
     assert np.array_equal(sqrt_diagonal_values, np.sqrt(diagonal_values))
@@ -961,7 +968,7 @@ def test_internal_storage():
     assert np.array_equal( y2_1.toarray(), y2_2.toarray() ) & np.array_equal( y2_2.toarray(), y2_3.toarray() )
 
 #===============================================================================
-@pytest.mark.parametrize('solver', ['cg', 'pcg', 'bicg', 'minres', 'lsmr'])
+@pytest.mark.parametrize('solver', ['cg', 'pcg', 'bicg', 'bicgstab', 'pbicgstab', 'minres', 'lsmr', 'gmres'])
 
 def test_x0update(solver):
     n1 = 4
@@ -980,7 +987,7 @@ def test_x0update(solver):
 
     # Create Inverse
     tol = 1e-6
-    if solver == 'pcg':
+    if solver in ('pcg', 'pbicgstab'):
         A_inv = inverse(A, solver, pc=A.diagonal(inverse=True), tol=tol)
     else:
         A_inv = inverse(A, solver, tol=tol)
@@ -1004,6 +1011,158 @@ def test_x0update(solver):
     # Apply inverse using out=x0 and check for updated x0
     x = A_inv.dot(b, out=b)
     assert A_inv.get_options('x0') is x
+
+#===============================================================================
+@pytest.mark.parametrize('solver', ['cg', 'pcg', 'bicg', 'bicgstab', 'pbicgstab', 'minres', 'lsmr', 'gmres'])
+
+def test_ILO_copy(solver):
+
+    rng = np.random.default_rng(seed=2)
+    domain = Square()
+    derham = Derham(domain, sequence=['h1', 'hcurl', 'l2'])
+
+    domain_h = discretize(domain, ncells=[5,5], periodic=[False, False], comm=None)
+    derham_h = discretize(derham, domain_h, degree=[2, 2])
+
+    u, v = elements_of(derham.V1, names='u, v')
+    m1 = BilinearForm((u, v), integral(domain, dot(u, v)))
+    M1 = discretize(m1, domain_h, (derham_h.V1, derham_h.V1), backend=PSYDAC_BACKEND_GPYCCEL).assemble()
+
+    if solver in ('pcg', 'pbicgstab'):
+        M1_inv = inverse(M1, solver, pc=M1.diagonal(inverse=True), tol=1e-3)
+    else:
+        M1_inv = inverse(M1, solver, tol=1e-3)
+
+    M1_inv_copy = M1_inv.copy()
+    assert M1_inv is not M1_inv_copy
+    assert M1_inv is M1_inv # sanity check
+
+    x = derham_h.V1.coeff_space.zeros()
+    rng.random(out=x[0]._data)
+    rng.random(out=x[1]._data)
+
+    y1 = (M1_inv @ x).toarray()
+    y2 = (M1_inv_copy @ x).toarray()
+    assert np.allclose(y1, y2)
+
+#===============================================================================
+def test_LO_copy():
+
+    rng = np.random.default_rng(seed=2)
+    domain = Square()
+    derham = Derham(domain, sequence=['h1', 'hcurl', 'l2'])
+
+    domain_h = discretize(domain, ncells=[5,5], periodic=[False, False], comm=None)
+    derham_h = discretize(derham, domain_h, degree=[2, 2])
+
+    u, v = elements_of(derham.V1, names='u, v')
+    m1 = BilinearForm((u, v), integral(domain, dot(u, v)))
+    M1 = discretize(m1, domain_h, (derham_h.V1, derham_h.V1), backend=PSYDAC_BACKEND_GPYCCEL).assemble()
+    I  = IdentityOperator(derham_h.V1.coeff_space)
+    A = M1 + I
+    dt = 0.1
+
+    A1 = A                                          # SumLinearOperator
+    A2 = A @ A                                      # ComposedLinearOperator
+    A3 = A**3                                       # PowerLinearOperator
+    A4 = dt*A                                       # ScaledLinearOperator
+
+    B1 = A1.copy()
+    B2 = A2.copy()
+    B3 = A3.copy()
+    B4 = A4.copy()
+
+    assert A1 is A1 # sanity
+    assert A1 is not B1
+    assert A2 is not B2
+    assert A3 is not B3
+    assert A4 is not B4
+
+    x = derham_h.V1.coeff_space.zeros()
+    rng.random(out=x[0]._data)
+    rng.random(out=x[1]._data)
+
+    assert np.allclose((A1@x).toarray(), (B1@x).toarray())
+    assert np.allclose((A2@x).toarray(), (B2@x).toarray())
+    assert np.allclose((A3@x).toarray(), (B3@x).toarray())
+    assert np.allclose((A4@x).toarray(), (B4@x).toarray())
+
+#===============================================================================
+def test_set_scalar():
+
+    n1 = 4
+    n2 = 3
+    p1 = 5
+    p2 = 2
+    P1 = False
+    P2 = False
+    V = get_StencilVectorSpace(n1, n2, p1, p2, P1, P2)
+    A = get_positive_definite_StencilMatrix(V)
+    I = IdentityOperator(V)
+
+    x = V.zeros()
+    rng = np.random.default_rng()
+    rng.random(out=x._data)
+    
+    dt1 = 0.1
+    dt2 = 0.2
+
+    A       = A + dt1*I
+    y1      = A @ x
+    A.addends[1].set_scalar(dt2)
+    y2      = A @ x
+    diff    = y2 - y1
+    assert np.allclose(diff.toarray(), (0.1*x).toarray())
+
+#===============================================================================
+def test_failing_BLO_add_cases():
+
+    domain = Square()
+    derham = Derham(domain, sequence=['h1', 'hcurl', 'l2'])
+
+    domain_h = discretize(domain, ncells=[5,5], periodic=[False, False], comm=None)
+    derham_h = discretize(derham, domain_h, degree=[2, 2])
+
+    u, v = elements_of(derham.V1, names='u, v')
+    m1 = BilinearForm((u, v), integral(domain, dot(u, v)))
+    M1 = discretize(m1, domain_h, (derham_h.V1, derham_h.V1), backend=PSYDAC_BACKEND_GPYCCEL).assemble()
+
+    V = derham_h.V1.coeff_space
+
+    Z1 = ZeroOperator(V, V)
+
+    A = M1
+    A2 = BlockLinearOperator(V, V, ((None, None), (None, M1[1, 1])))
+
+    # 1. 'ZeroOperator' object has no attribute 'set_backend'
+    B = Z1
+    S = A + B
+
+    # 2. 'SumLinearOperator' object has no attribute 'set_backend'
+    B00 = IdentityOperator(V[0])
+    B01 = StencilMatrix(V[1], V[0])
+    B10 = StencilMatrix(V[0], V[1])
+
+    rng = np.random.default_rng()
+    rng.random(out=B01._data)
+    rng.random(out=B10._data)
+
+    B[0, 0] = B00
+    B[0, 1] = B01
+    B[1, 0] = B10
+
+    S = A + B
+
+    # 3. 'SumLinearOperator' object has no attribute 'copy'
+    B = BlockLinearOperator(V, V, ((M1[0,0] + IdentityOperator(V[0]), None), (None, None)))
+
+    S = A2 + B
+
+    # 4. 'ConjugateGradient' object has no attribute 'copy'
+    inv = inverse(M1[0, 0], 'cg', tol=1e-6, maxiter=100)
+    B = BlockLinearOperator(V, V, ((inv, None), (None, None)))
+
+    S = A2 + B
 
 #===============================================================================
 # SCRIPT FUNCTIONALITY

@@ -767,8 +767,8 @@ class BlockLinearOperator(LinearOperator):
         for ij in set(self._blocks.keys()) | set(M._blocks.keys()):
             Bij = self[ij]
             Mij = M[ij]
-            if   Bij is None: blocks[ij] = Mij.copy()
-            elif Mij is None: blocks[ij] = Bij.copy()
+            if   Bij is None: blocks[ij] = Mij
+            elif Mij is None: blocks[ij] = Bij
             else            : blocks[ij] = Bij + Mij
         mat = BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
         if len(mat._blocks) != len(self._blocks):
@@ -782,6 +782,7 @@ class BlockLinearOperator(LinearOperator):
 
     # ...
     def __sub__(self, M):
+        from psydac.linalg.basic import ZeroOperator
         if not isinstance(M, BlockLinearOperator):
             return LinearOperator.__sub__(self, M)
 
@@ -792,7 +793,7 @@ class BlockLinearOperator(LinearOperator):
             Bij = self[ij]
             Mij = M[ij]
             if   Bij is None: blocks[ij] = -Mij
-            elif Mij is None: blocks[ij] =  Bij.copy()
+            elif Mij is None: blocks[ij] =  Bij
             else            : blocks[ij] =  Bij - Mij
         mat = BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
         if len(mat._blocks) != len(self._blocks):
@@ -1001,54 +1002,61 @@ class BlockLinearOperator(LinearOperator):
         return out
         
     # ...
-    def __imul__(self, a):
-        for Bij in self._blocks.values():
-            Bij *= a
-        return self
+    # def __imul__(self, a):
+    #     for Bij in self._blocks.values():
+    #         Bij *= a
+    #     return self
 
     # ...
-    def __iadd__(self, M):
-        if not isinstance(M, BlockLinearOperator):
-            return LinearOperator.__add__(self, M)
+    # def __iadd__(self, M):
+    #     if not isinstance(M, BlockLinearOperator):
+    #         return LinearOperator.__add__(self, M)
 
-        assert M.  domain is self.  domain
-        assert M.codomain is self.codomain
+    #     assert M.  domain is self.  domain
+    #     assert M.codomain is self.codomain
 
-        for ij in set(self._blocks.keys()) | set(M._blocks.keys()):
+    #     for ij in set(self._blocks.keys()) | set(M._blocks.keys()):
 
-            Mij = M[ij]
-            if Mij is None:
-                continue
+    #         Mij = M[ij]
+    #         if Mij is None:
+    #             continue
 
-            Bij = self[ij]
-            if Bij is None:
-                self[ij] = Mij.copy()
-            else:
-                Bij += Mij
+    #         Bij = self[ij]
+    #         if Bij is None:
+                # Need to investigate: Removing .copy() here causes
+                # M = BlockLinearOperator(W, W, blocks=[[M1, M2], [M3, None]])
+                # A = BlockLinearOperator(W, W)
+                # A += M
+                # A -= 2*M
+                # assert np.allclose(A.blocks[0][0]._data, -(M1)._data,  rtol=1e-14, atol=1e-14 )
+                # to fail. Possible explanation "-= 2*M" caues the entries of A to be multiplied as well, hence the result would be 0.
+    #             self[ij] = Mij.copy()
+    #         else:
+    #             Bij += Mij
 
-        return self
+    #     return self
 
     # ...
-    def __isub__(self, M):
-        if not isinstance(M, BlockLinearOperator):
-            return LinearOperator.__sub__(self, M)
+    # def __isub__(self, M):
+    #     if not isinstance(M, BlockLinearOperator):
+    #         return LinearOperator.__sub__(self, M)
 
-        assert M.  domain is self.  domain
-        assert M.codomain is self.codomain
+    #     assert M.  domain is self.  domain
+    #     assert M.codomain is self.codomain
 
-        for ij in set(self._blocks.keys()) | set(M._blocks.keys()):
+    #     for ij in set(self._blocks.keys()) | set(M._blocks.keys()):
 
-            Mij = M[ij]
-            if Mij is None:
-                continue
+    #         Mij = M[ij]
+    #         if Mij is None:
+    #             continue
 
-            Bij = self[ij]
-            if Bij is None:
-                self[ij] = -Mij
-            else:
-                Bij -= Mij
+    #         Bij = self[ij]
+    #         if Bij is None:
+    #             self[ij] = -Mij
+    #         else:
+    #             Bij -= Mij
 
-        return self
+    #     return self
             
     # ...
     def topetsc(self):
@@ -1284,7 +1292,8 @@ class BlockLinearOperator(LinearOperator):
 
         if not all(isinstance(b, (StencilMatrix, StencilInterfaceMatrix)) for b in self._blocks.values()):
             for b in self._blocks.values():
-                b.set_backend(backend)
+                if getattr(b, "set_backend", None) is not None:
+                    b.set_backend(backend)
             return
 
         block_shape = (self.n_block_rows, self.n_block_cols)

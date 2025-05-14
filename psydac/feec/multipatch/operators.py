@@ -472,6 +472,9 @@ class ConformingProjection_V0(FemLinearOperator):
                     storage_fn)
                 save_npz(storage_fn, self._sparse_matrix)
 
+    def copy(self):
+        raise NotImplementedError
+
     def set_homogenous_bc(self, boundary, rhs=None):
         domain = self.symbolic_domain
         Vh = self.fem_domain
@@ -720,6 +723,9 @@ class ConformingProjection_V1(FemLinearOperator):
                     "[ConformingProjection_V1] storing operator sparse matrix in " +
                     storage_fn)
                 save_npz(storage_fn, self._sparse_matrix)
+
+    def copy(self):
+        raise NotImplementedError
 
     def set_homogenous_bc(self, boundary):
         domain = self.symbolic_domain
@@ -1011,6 +1017,9 @@ class HodgeOperator(FemLinearOperator):
             # matrices are not stored, we will probably compute them later
             pass
 
+    def copy(self):
+        raise NotImplementedError
+
     def to_sparse_matrix(self):
         """
         the Hodge matrix is the patch-wise multi-patch mass matrix
@@ -1098,6 +1107,9 @@ class BrokenGradient_2D(FemLinearOperator):
     def transpose(self, conjugate=False):
         # todo (MCP): define as the dual differential operator
         return BrokenTransposedGradient_2D(self.fem_domain, self.fem_codomain)
+    
+    def copy(self):
+        return BrokenGradient_2D(self.fem_domain, self.fem_codomain)
 
 # ==============================================================================
 
@@ -1116,6 +1128,9 @@ class BrokenTransposedGradient_2D(FemLinearOperator):
     def transpose(self, conjugate=False):
         # todo (MCP): discard
         return BrokenGradient_2D(self.fem_codomain, self.fem_domain)
+    
+    def copy(self):
+        return BrokenTransposedGradient_2D(self.fem_domain, self.fem_codomain)
 
 
 # ==============================================================================
@@ -1132,6 +1147,9 @@ class BrokenScalarCurl_2D(FemLinearOperator):
     def transpose(self, conjugate=False):
         return BrokenTransposedScalarCurl_2D(
             V1h=self.fem_domain, V2h=self.fem_codomain)
+    
+    def copy(self):
+        return BrokenScalarCurl_2D(self.fem_domain, self.fem_codomain)
 
 
 # ==============================================================================
@@ -1148,6 +1166,9 @@ class BrokenTransposedScalarCurl_2D(FemLinearOperator):
 
     def transpose(self, conjugate=False):
         return BrokenScalarCurl_2D(V1h=self.fem_codomain, V2h=self.fem_domain)
+    
+    def copy(self):
+        return BrokenTransposedScalarCurl_2D(self.fem_domain, self.fem_codomain)
 
 
 # ==============================================================================
