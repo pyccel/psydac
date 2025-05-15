@@ -52,6 +52,7 @@ from psydac.linalg.block      import BlockVectorSpace
 from psydac.fem.vector        import VectorFemSpace
 
 #==============================================================================
+#TODO: Remove once it is implemented in SymPDE
 def get_max_logical_partial_derivatives(expr, F=None):
     if F is None:
         Fs = (list(expr.atoms(ScalarFunction)) +
