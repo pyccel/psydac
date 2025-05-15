@@ -318,7 +318,7 @@ class ExprKernel(SplBasic):
                     nderiv = max(nderiv, max(d.values()))
         else:
             Fs = [get_atom_derivatives(a) for a in atoms]
-            d = get_max_partial_derivatives(expr)
+            d = get_max_partial_derivatives(expr, Fs)
             nderiv = max(nderiv, max(d.values()))
 
         self._max_nderiv = nderiv
