@@ -445,6 +445,42 @@ class LinearOperator(ABC):
         assert out.space == self.codomain
         out += self.dot(v)
 
+    def dot_inner(self, v, w):
+        """
+        Compute the inner product of (self @ v) with w, without a temporary.
+
+        This is equivalent to self.dot(v).inner(w), but avoids the creation of
+        a temporary vector because the result of self.dot(v) is stored in a
+        local work array. If self is a positive-definite operator, this
+        operation is a (weighted) inner product.
+
+        Parameters
+        ----------
+        v : Vector
+            The vector to which the linear operator (self) is applied. It must
+            belong to the domain of self.
+
+        w : Vector
+            The second vector in the inner product. It must belong to the
+            codomain of self.
+
+        Returns
+        -------
+        float | complex
+            The result of the inner product between (self @ v) and w. If the
+            field of self is real, this is a real number. If the field of self
+            is complex, this is a complex number.
+        """
+        assert isinstance(v, Vector)
+        assert isinstance(w, Vector)
+        assert v.space is self.domain
+        assert w.space is self.codomain
+
+        if not hasattr(self, '_work'):
+            self._work = self.codomain.zeros()
+
+        return self.dot(v, out=self._work).inner(w)
+
 #===============================================================================
 class ZeroOperator(LinearOperator):
     """
