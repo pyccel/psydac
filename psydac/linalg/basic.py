@@ -267,32 +267,51 @@ class LinearOperator(ABC):
     @abstractmethod
     def domain(self):
         """ The domain of the linear operator - an element of Vectorspace """
-        pass
 
     @property
     @abstractmethod
     def codomain(self):
         """ The codomain of the linear operator - an element of Vectorspace """
-        pass
 
     @property
     @abstractmethod
     def dtype(self):
-        pass
+        """ The data type of the coefficients of the linear operator,
+        upon convertion to matrix.
+        """
 
     @abstractmethod
     def tosparse(self):
-        pass
+        """ Convert to a sparse matrix in any of the formats supported by scipy.sparse."""
 
     @abstractmethod
     def toarray(self):
         """ Convert to Numpy 2D array. """
-        pass
 
     @abstractmethod
     def dot(self, v, out=None):
-        """ Apply linear operator to Vector v. Result is written to Vector out, if provided."""
-        pass
+        """ Apply the LinearOperator self to the Vector v.
+
+        The result is written to the Vector out, if provided.
+
+        Parameters
+        ----------
+        v : Vector
+            The vector to which the linear operator (self) is applied. It must
+            belong to the domain of self.
+
+        out : Vector
+            The vector in which the result of the operation is stored. It must
+            belong to the codomain of self. If out is None, a new vector is
+            created and returned.
+
+        Returns
+        -------
+        Vector
+            The result of the operation. If out is None, a new vector is
+            returned. Otherwise, the result is stored in out and out is
+            returned.
+        """
 
     @abstractmethod
     def transpose(self, conjugate=False):
@@ -301,7 +320,6 @@ class LinearOperator(ABC):
 
         If conjugate is True, return the Hermitian transpose.
         """
-        pass
 
     # TODO: check if we should add a copy method!!!
 
@@ -335,7 +353,32 @@ class LinearOperator(ABC):
         return self * c
 
     def __matmul__(self, B):
-        """ Creates an object of the class ComposedLinearOperator. """
+        """
+        Matrix multiplication using the @ operator.
+
+        If B is a LinearOperator, create a ComposedLinearOperator object.
+        This is simplified to self if B is an IdentityOperator, and to a
+        ZeroOperator if B is a ZeroOperator.
+
+        If B is a Vector, the @ operator is treated as a matrix-vector
+        multiplication and returns the result of self.dot(B).
+
+        Parameters
+        ----------
+        B : LinearOperator | Vector
+            The object to be multiplied with self. If B is a LinearOperator,
+            its codomain must be equal to the domain of self. If B is a Vector,
+            it must belong to the domain of self.
+
+        Returns
+        -------
+        LinearOperator | Vector
+            If B is a LinearOperator, return a ComposedLinearOperator object,
+            or a simplification to self or a ZeroOperator. In all cases the
+            resulting LinearOperator has the same domain as self and the same
+            codomain as B. If B is a Vector, return the result of self.dot(B),
+            which is a Vector belonging to the codomain of self.
+        """
         assert isinstance(B, (LinearOperator, Vector))
         if isinstance(B, LinearOperator):
             assert self.domain == B.codomain
@@ -380,7 +423,6 @@ class LinearOperator(ABC):
     #-------------------------------------
     # Methods with default implementation
     #-------------------------------------
-
     @property
     def T(self):
         """ Calls transpose method to return the transpose of self. """
