@@ -1005,6 +1005,59 @@ def test_x0update(solver):
     assert A_inv.get_options('x0') is x
 
 #===============================================================================
+def test_dot_inner():
+
+    n1, n2 = 4, 7
+    p1, p2 = 2, 3
+    P1, P2 = False, False
+
+    V = get_StencilVectorSpace([n1, n2], [p1, p2], [P1, P2])
+    M = get_positive_definite_StencilMatrix(V)
+    N = get_positive_definite_StencilMatrix(V)
+
+    U1 = BlockVectorSpace(V, V)
+    U2 = BlockVectorSpace(V, V, V)
+    A  = BlockLinearOperator(U1, U2, ((M, None),
+                                      (M,    N),
+                                      (None, N)))
+
+    b = A.domain.zeros()
+    c = A.codomain.zeros()
+
+    # Set the values of b and c randomly from a uniform distribution over the
+    # interval [0, 1)
+    rng = np.random.default_rng(seed=42)
+    for bj in b:
+        Vj = bj.space
+        rng.random(size=Vj.shape, dtype=Vj.dtype, out=bj._data)
+    for ci in c:
+        Vi = ci.space
+        rng.random(size=Vi.shape, dtype=Vi.dtype, out=ci._data)
+
+    # Create a work vector for the dot product, needed to compare results
+    work_vec = A.codomain.zeros()
+
+    # Result of dot product is a temporary vector, which is allocated and then
+    # discarded. This is the default behavior of the dot method.
+    r0 = A.dot(b).inner(c)
+
+    # Result of dot product is stored in work_vec and used in the next line
+    A.dot(b, out=work_vec)
+    r1 = work_vec.inner(c)
+
+    # Result of dot product is stored in work_vec and used in the same line
+    r2 = A.dot(b, out=work_vec).inner(c)
+
+    # Calling the dot_inner method, which uses an internal work vector to store
+    # the result of the dot product, and then uses it for the inner product.
+    r3 = A.dot_inner(b, c)
+
+    # Check if the results are equal
+    assert r0 == r1
+    assert r0 == r2
+    assert r0 == r3
+
+#===============================================================================
 # SCRIPT FUNCTIONALITY
 #===============================================================================
 if __name__ == "__main__":
