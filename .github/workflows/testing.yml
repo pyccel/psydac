@@ -66,6 +66,7 @@ jobs:
       - name: Install non-Python dependencies on macOS
         if: matrix.os == 'macos-14'
         run: |
+          brew install make
           brew install open-mpi
           brew install hdf5-mpi
           brew install libomp
