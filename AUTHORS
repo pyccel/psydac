@@ -1,16 +1,22 @@
 Maintainers
 -----------
-* Yaman Güçlü <yaman.guclu@gmail.com> (administrator, owner)
-* Ahmed Ratnani <ratnaniahmed@gmail.com> (owner)
-* Said Hadjout
+* Yaman Güçlü <yaman.guclu@gmail.com> (original author, project lead)
+* Martin Campos Pinto <martin.campos-pinto@ipp.mpg.de>
+* Ahmed Ratnani <ratnaniahmed@gmail.com> (original author)
 
 Contributors
 ------------
-* Jalal Lakhlili
-* Martin Campos Pinto
-* Antoine Lavandier
-* David Schneller
+* Said Hadjout (original author)
 * Julian Owezarek
+* Antoine Lavandier
 * Tom Caruso
 * Elena Moral Sánchez
+* Paul Rigor
+* Frederik Schnack
+* David Schneller
 * Valentin Carlier
+* Stefan Possanner
+* Jalal Lakhlili (original author)
+* William Barham
+* Max Lindqvist
+* Emily Bourne
