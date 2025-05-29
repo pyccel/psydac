@@ -80,6 +80,7 @@ jobs:
             ln -s ${gfort_path} ${folder}/gfortran
           fi
           echo "MPI_OPTS=--oversubscribe" >> $GITHUB_ENV
+          echo "/opt/homebrew/opt/make/libexec/gnubin" >> $GITHUB_PATH
 
       - name: Print information on MPI and HDF5 libraries
         run: |
