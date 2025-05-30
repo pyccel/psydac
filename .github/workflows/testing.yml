@@ -66,6 +66,7 @@ jobs:
       - name: Install non-Python dependencies on macOS
         if: matrix.os == 'macos-14'
         run: |
+          brew install make
           brew install open-mpi
           brew install hdf5-mpi
           brew install libomp
@@ -79,6 +80,7 @@ jobs:
             ln -s ${gfort_path} ${folder}/gfortran
           fi
           echo "MPI_OPTS=--oversubscribe" >> $GITHUB_ENV
+          echo "/opt/homebrew/opt/make/libexec/gnubin" >> $GITHUB_PATH
 
       - name: Print information on MPI and HDF5 libraries
         run: |
@@ -111,7 +113,7 @@ jobs:
       - if: steps.cache-petsc.outputs.cache-hit != 'true'
         name: Download a specific release of PETSc
         run: |
-          git clone --depth 1 --branch v3.22.2 https://gitlab.com/petsc/petsc.git
+          git clone --depth 1 --branch v3.23.2 https://gitlab.com/petsc/petsc.git
 
       - if: steps.cache-petsc.outputs.cache-hit != 'true'
         name: Install PETSc with complex support
