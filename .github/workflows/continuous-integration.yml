@@ -115,7 +115,7 @@ jobs:
       - if: steps.cache-petsc.outputs.cache-hit != 'true'
         name: Download a specific release of PETSc
         run: |
-          git clone --depth 1 --branch v3.22.2 https://gitlab.com/petsc/petsc.git
+          git clone --depth 1 --branch v3.23.3 https://gitlab.com/petsc/petsc.git
 
       - if: steps.cache-petsc.outputs.cache-hit != 'true'
         name: Install PETSc with complex support
@@ -284,7 +284,7 @@ jobs:
       - if: steps.cache-petsc.outputs.cache-hit != 'true'
         name: Download a specific release of PETSc
         run: |
-          git clone --depth 1 --branch v3.22.2 https://gitlab.com/petsc/petsc.git
+          git clone --depth 1 --branch v3.23.3 https://gitlab.com/petsc/petsc.git
 
       - if: steps.cache-petsc.outputs.cache-hit != 'true'
         name: Install PETSc with complex support
@@ -383,7 +383,7 @@ jobs:
           echo "Psydac location for this branch"
           pip show psydac
           pip uninstall psydac -y
-          python -m pip install ".[test]" --no-cache-dir
+          python -m pip install ".[phys]" --no-cache-dir
           echo "Psydac location after installing struphy"
           pip show psydac
           
