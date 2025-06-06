@@ -328,10 +328,10 @@ def test_block_serial_dimension( ndim, p, P1, P2, P3, dtype ):
     Y[1] = y2
 
     # Test dot product
-    exact_dot = x1.dot(y1)+x2.dot(y2)
+    exact_inner = V.inner(x1, y1) + V.inner(x2, y2)
 
     assert X.dtype == dtype
-    assert np.allclose(X.dot(Y), exact_dot,  rtol=1e-14, atol=1e-14 )
+    assert np.allclose(W.inner(X, Y), exact_inner,  rtol=1e-14, atol=1e-14 )
 
     # Test axpy product
     axpy_exact = X + np.pi * cst * Y
@@ -372,8 +372,8 @@ def test_block_serial_dimension( ndim, p, P1, P2, P3, dtype ):
 
     M = BlockLinearOperator(W, W, blocks=[[M1, M2], [M3, None]])
 
-    Y[0]=M1.dot(x1)+M2.dot(x2)
-    Y[1]=M3.dot(x1)
+    Y[0] = M1.dot(x1) + M2.dot(x2)
+    Y[1] = M3.dot(x1)
 
     assert M.dtype == dtype
     assert np.allclose((M.dot(X)).toarray(), Y.toarray(),  rtol=1e-14, atol=1e-14 )

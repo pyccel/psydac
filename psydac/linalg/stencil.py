@@ -214,6 +214,56 @@ class StencilVectorSpace(VectorSpace):
         """
         return StencilVector(self)
 
+    #...
+    def inner(self, x, y):
+        """
+        Evaluate the inner vector product between two vectors of this space V.
+
+        If the field of V is real, compute the classical scalar product.
+        If the field of V is complex, compute the classical sesquilinear
+        product with linearity on the second vector.
+
+        TODO [YG 01.05.2025]: Currently, the first vector is conjugated. We
+        want to reverse this behavior in order to align with the convention
+        of FEniCS.
+
+        Parameters
+        ----------
+        x : Vector
+            The first vector in the scalar product. In the case of a complex
+            field, the inner product is antilinear w.r.t. this vector (hence
+            this vector is conjugated).
+
+        y : Vector
+            The second vector in the scalar product. The inner product is
+            linear w.r.t. this vector.
+
+        Returns
+        -------
+        float | complex
+            The scalar product of the two vectors. Note that inner(x, x) is
+            a non-negative real number which is zero if and only if x = 0.
+
+        """
+
+        assert isinstance(x, StencilVector)
+        assert isinstance(y, StencilVector)
+        assert x.space is self
+        assert y.space is self
+
+        inner_func = self._inner_func
+        inner_args = (x._data, y._data, *self._inner_consts)
+
+        if self.parallel:
+            # Sometimes in the parallel case, we can get an empty vector that breaks our kernel
+            x._dot_send_data[0] = 0 if x._data.shape[0] == 0 else inner_func(*inner_args)
+            self.cart.global_comm.Allreduce((x._dot_send_data, self.mpi_type),
+                                            (x._dot_recv_data, self.mpi_type),
+                                             op=MPI.SUM )
+            return x._dot_recv_data[0]
+        else:
+            return inner_func(*inner_args)
+
     # ...
     def axpy(self, a, x, y):
         """
@@ -424,46 +474,47 @@ class StencilVector(Vector):
     def space(self):
         return self._space
 
-    #...
-    @property
-    def dtype(self):
-        return self._space.dtype
-
-    #...
-    def dot(self, v):
+    # ...
+    def toarray(self, *, order='C', with_pads=False):
         """
-        Return the inner vector product between self and v.
-
-        If the values are real, it returns the classical scalar product.
-        If the values are complex, it returns the classical sesquilinear product with linearity on the vector v.
+        Return a numpy 1D array corresponding to the given StencilVector,
+        with or without pads.
 
         Parameters
         ----------
-        v : StencilVector
-            Vector of the same space than self needed for the scalar product.
+        with_pads : bool
+            If True, include pads in output array (ignored in serial case).
+
+        order: {'C','F'}
+             Memory representation of the data ‘C’ for row-major ordering (C-style), ‘F’ column-major ordering (Fortran-style).
 
         Returns
         -------
-        null: self._space.dtype
-            Scalar containing scalar product of v and self.
+        array : numpy.ndarray
+            A copy of the data array collapsed into one dimension.
 
         """
 
-        assert isinstance(v, StencilVector)
-        assert v._space is self._space
+        # In parallel case, call different functions based on 'with_pads' flag
+        if self.space.parallel:
+            if with_pads:
+                return self._toarray_parallel_with_pads(order=order)
+            else:
+                return self._toarray_parallel_no_pads(order=order)
 
-        inner_func = self._space._inner_func
-        inner_args = (self._data, v._data, *self._space._inner_consts)
+        # In serial case, ignore 'with_pads' flag
+        return self.toarray_local(order=order)
 
-        if self._space.parallel:
-            # Sometimes in the parallel case, we can get an empty vector that breaks our kernel
-            self._dot_send_data[0] = 0 if self._data.shape[0] == 0 else inner_func(*inner_args)
-            self._space.cart.global_comm.Allreduce((self._dot_send_data, self._space.mpi_type),
-                                                   (self._dot_recv_data, self._space.mpi_type),
-                                                   op=MPI.SUM )
-            return self._dot_recv_data[0]
-        else:
-            return inner_func(*inner_args)
+    #...
+    def copy(self, out=None):
+        if self is out:
+            return self
+        w = out or StencilVector( self._space )
+        np.copyto(w._data, self._data, casting='no')
+        for axis, ext in self._space.interfaces:
+            np.copyto(w._interface_data[axis, ext], self._interface_data[axis, ext], casting='no')
+        w._sync = self._sync
+        return w
 
     #...
     def conjugate(self, out=None):
@@ -477,17 +528,6 @@ class StencilVector(Vector):
             np.conjugate(self._interface_data[axis, ext], out=out._interface_data[axis, ext], casting='no')
         out._sync = self._sync
         return out
-
-    #...
-    def copy(self, out=None):
-        if self is out:
-            return self
-        w = out or StencilVector( self._space )
-        np.copyto(w._data, self._data, casting='no')
-        for axis, ext in self._space.interfaces:
-            np.copyto(w._interface_data[axis, ext], self._interface_data[axis, ext], casting='no')
-        w._sync = self._sync
-        return w
 
     #...
     def __neg__(self):
@@ -582,38 +622,6 @@ class StencilVector(Vector):
         txt += '> data    :: {data}\n'  .format( data  = self._data  )
         txt += '> sync    :: {sync}\n'  .format( sync  = self._sync  )
         return txt
-
-    # ...
-    def toarray(self, *, order='C', with_pads=False):
-        """
-        Return a numpy 1D array corresponding to the given StencilVector,
-        with or without pads.
-
-        Parameters
-        ----------
-        with_pads : bool
-            If True, include pads in output array.
-
-        order: {'C','F'}
-             Memory representation of the data ‘C’ for row-major ordering (C-style), ‘F’ column-major ordering (Fortran-style).
-
-        Returns
-        -------
-        array : numpy.ndarray
-            A copy of the data array collapsed into one dimension.
-
-        """
-
-
-        # In parallel case, call different functions based on 'with_pads' flag
-        if self.space.parallel:
-            if with_pads:
-                return self._toarray_parallel_with_pads(order=order)
-            else:
-                return self._toarray_parallel_no_pads(order=order)
-
-        # In serial case, ignore 'with_pads' flag
-        return self.toarray_local(order=order)
 
     # ...
     def toarray_local(self , *, order='C'):
