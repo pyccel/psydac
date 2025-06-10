@@ -75,12 +75,14 @@ def test_fake_matrix_free(n1, n2, p1, p2):
     tol = 1e-10
     y = S.dot(v)
     x = O.dot(v)
-    print(f'error = {np.linalg.norm( (x - y).toarray() )}')
-    assert np.linalg.norm( (x - y).toarray() ) < tol
-    O.dot(v, out=x)
-    print(f'error = {np.linalg.norm( (x - y).toarray() )}')
-    assert np.linalg.norm( (x - y).toarray() ) < tol
+    print(f'error = {norm2(x-y)}')
+    norm2 = lambda v: np.sqrt(v.inner(v))
+    assert norm2(x-y) < tol
 
+    O.dot(v, out=x)
+    print(f'error = {norm2(x-y)}')
+    # assert np.linalg.norm( (x - y).toarray() ) < tol
+    assert norm2(x-y) < tol
 @pytest.mark.parametrize('solver', ['cg', 'pcg', 'bicg', 'minres', 'lsmr'])
 
 def test_solvers_matrix_free(solver):
@@ -117,7 +119,8 @@ def test_solvers_matrix_free(solver):
     # Apply inverse and check
     y = A_inv @ x
     error = np.linalg.norm( (b - y).toarray())
-    assert np.linalg.norm( (b - y).toarray() ) < tol
+    norm2 = lambda v: np.sqrt(v.inner(v))
+    assert norm2(b-y) < tol
 
 #===============================================================================
 # SCRIPT FUNCTIONALITY

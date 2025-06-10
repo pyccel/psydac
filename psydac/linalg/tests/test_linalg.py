@@ -1,5 +1,6 @@
 import pytest
 import numpy as np
+    
 
 from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 from psydac.linalg.basic import LinearOperator, ZeroOperator, IdentityOperator, ComposedLinearOperator, SumLinearOperator, PowerLinearOperator, ScaledLinearOperator
@@ -786,8 +787,11 @@ def test_operator_evaluation(n1, n2, p1, p2):
     b1 = ( B**1 @ u ).toarray()
     b2 = ( B**2 @ u ).toarray()
     assert np.array_equal(uarr, b0)
-    assert np.linalg.norm( np.dot(Bmat, uarr) - b1 ) < 1e-10
-    assert np.linalg.norm( np.dot(Bmat, np.dot(Bmat, uarr)) - b2 ) < 1e-10
+    # Define 2-norm of vector using inner
+    norm2 = lambda v: np.sqrt(v.inner(v))
+
+    assert norm2(np.dot(Bmat, uarr) - b1) < 1e-10
+    assert norm2( np.dot(Bmat, np.dot(Bmat, uarr)) - b2) < 1e-10
 
     bi0 = ( B_ILO**0 @ u ).toarray()
     bi1 = ( B_ILO**1 @ u ).toarray()
@@ -798,8 +802,11 @@ def test_operator_evaluation(n1, n2, p1, p2):
     assert np.array_equal(uarr, bi0)
     bi12 = np.linalg.solve(Bmat, uarr)
     bi22 = np.linalg.solve(Bmat, bi12)
-    assert np.linalg.norm( (Bmat @ bi12) - uarr ) < tol
-    assert np.linalg.norm( (Bmat @ bi22) - bi12 ) < error_est * tol
+    # Define 2-norm of vector using inner
+    norm2 = lambda v: np.sqrt(v.inner(v))
+
+    assert norm2((Bmat @ bi12) - uarr) < tol
+    assert norm2(  (Bmat @ bi22) - bi12 ) < error_est * tol
 
     zeros = U.zeros().toarray()
     z0 = ( Z**0 @ u ).toarray()
@@ -816,8 +823,12 @@ def test_operator_evaluation(n1, n2, p1, p2):
     s1 = ( S**1 @ v ).toarray()
     s2 = ( S**2 @ v ).toarray()
     assert np.array_equal(varr, s0)
-    assert np.linalg.norm( np.dot(Smat, varr) - s1 ) < 1e-10
-    assert np.linalg.norm( np.dot(Smat, np.dot(Smat, varr)) - s2 ) < 1e-10
+    # Define 2-norm of vector using inner
+    norm2 = lambda v: np.sqrt(v.inner(v))
+
+    assert norm2( np.dot(Smat, np.dot(Smat, varr)) - s2 ) < 1e-10
+    assert norm2(np.dot(Smat, np.dot(Smat, varr)) - s2 ) < 1e-10
+
 
     si0 = ( S_ILO**0 @ v ).toarray()
     si1 = ( S_ILO**1 @ v ).toarray()
@@ -828,8 +839,13 @@ def test_operator_evaluation(n1, n2, p1, p2):
     assert np.array_equal(varr, si0)
     si12 = np.linalg.solve(Smat, varr)
     si22 = np.linalg.solve(Smat, si12)
-    assert np.linalg.norm( (Smat @ si12) - varr ) < tol
-    assert np.linalg.norm( (Smat @ si22) - si12 ) < error_est * tol
+    
+    # Define 2-norm of vector using inner
+    norm2 = lambda v: np.sqrt(v.inner(v))
+
+    assert norm2((Smat @ si12) - varr ) < tol
+    assert norm2( (Smat @ si22) - si12 ) < error_est * tol
+
 
     i0 = ( I**0 @ v ).toarray()
     i1 = ( I**1 @ v ).toarray()
@@ -845,8 +861,11 @@ def test_operator_evaluation(n1, n2, p1, p2):
     sum2 = Sum2 @ v
     u_approx = B @ (0.5*(sum1 - 2*B@u))
     v_approx = S @ (0.5*(sum2 - 2*S@v))
-    assert np.linalg.norm( (u_approx - u).toarray() ) < tol
-    assert np.linalg.norm( (v_approx - v).toarray() ) < tol
+    # Define 2-norm of vector using inner
+    norm2 = lambda v: np.sqrt(v.inner(v))
+
+    assert norm2((u_approx - u)) < tol
+    assert norm2( (v_approx - v)) < tol
 
     ### 2.3 CompLO tests
     C1 = B @ (-B)
@@ -864,7 +883,10 @@ def test_operator_evaluation(n1, n2, p1, p2):
     H4 = 2 * (S**1 @ S**0)
     H5 = ZV @ I
     H = H1 @ ( H2 + H3 - H4 + H5 ).T
-    assert np.linalg.norm( (H @ v).toarray() - v.toarray() ) < 10 * tol
+    # Define 2-norm of vector using inner
+    norm2 = lambda v: np.sqrt(v.inner(v))
+
+    assert norm2((H @ v)- v) < 10 * tol
 
     ### 2.5 InverseLO test
 
@@ -894,17 +916,20 @@ def test_operator_evaluation(n1, n2, p1, p2):
     # Several break-criteria in the LSMR algorithm require different way to determine success
     # than asserting rnorm < tol, as that is not required. Even though it should?
 
-    assert np.linalg.norm( (S @ xs_cg - v).toarray() ) < tol
-    assert np.linalg.norm( (S @ xs_pcg - v).toarray() ) < tol
-    assert np.linalg.norm( (S @ xs_bicg - v).toarray() ) < tol
-    assert S_lsmr.get_success() == True
-    assert np.linalg.norm( (S @ xs_mr - v).toarray() ) < tol
+    # Define 2-norm of vector using inner
+    norm2 = lambda v: np.sqrt(v.inner(v))
 
-    assert np.linalg.norm( (B @ xb_cg - u).toarray() ) < tol
-    assert np.linalg.norm( (B @ xb_pcg - u).toarray() ) < tol
-    assert np.linalg.norm( (B @ xb_bicg - u).toarray() ) < tol
+    assert norm2((S @ xs_cg - v)) < tol
+    assert norm2( (S @ xs_pcg - v)) < tol
+    assert norm2((S @ xs_bicg - v)) < tol
+    assert S_lsmr.get_success() == True
+    assert norm2((S @ xs_mr - v)) < tol
+    assert norm2((B @ xb_cg - u)) < tol
+    assert norm2((B @ xb_pcg - u)) < tol
+    assert norm2((B @ xb_bicg - u)) < tol
     assert B_lsmr.get_success() == True
-    assert np.linalg.norm( (B @ xb_mr - u).toarray() ) < tol
+    assert norm2((B @ xb_mr - u)) < tol
+
 
 #===============================================================================
 
