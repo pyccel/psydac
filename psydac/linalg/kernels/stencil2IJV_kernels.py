@@ -1,5 +1,8 @@
 # coding: utf-8
 
+from typing import TypeVar
+
+T = TypeVar('T', float, complex)
 
 #========================================================================================================
 def stencil2IJV_1d_C(A:'T[:,:]', Ib:'int64[:]', Jb:'int64[:]', Vb:'T[:]', rowmapb:'int64[:]',

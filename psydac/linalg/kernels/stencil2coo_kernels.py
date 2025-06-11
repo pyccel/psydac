@@ -4,6 +4,9 @@
 #TODO avoid using The expensive modulo operator % in the non periodic case to make the methods faster
 #!!!!!!!!!!!!!
 
+from typing import TypeVar
+
+T = TypeVar('T', float, complex)
 
 #__all__ = ['stencil2coo_1d_C','stencil2coo_1d_F','stencil2coo_2d_C','stencil2coo_2d_F', 'stencil2coo_3d_C', 'stencil2coo_3d_F']
 

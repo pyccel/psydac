@@ -1,4 +1,6 @@
+from typing import TypeVar
 
+T = TypeVar('T', float, complex)
 
 def matvec_1d(mat00:'T[:,:]', x0:'T[:]', out0:'T[:]', starts: 'int64[:]', nrows: 'int64[:]', nrows_extra: 'int64[:]',
                   dm:'int64[:]', cm:'int64[:]', pad_imp:'int64[:]', ndiags:'int64[:]', gpads: 'int64[:]'):
