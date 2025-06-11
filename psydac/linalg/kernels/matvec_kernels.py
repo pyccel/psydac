@@ -1,7 +1,5 @@
-from pyccel.decorators import template
 
 
-@template(name='T', types=[float, complex])
 def matvec_1d(mat00:'T[:,:]', x0:'T[:]', out0:'T[:]', starts: 'int64[:]', nrows: 'int64[:]', nrows_extra: 'int64[:]',
                   dm:'int64[:]', cm:'int64[:]', pad_imp:'int64[:]', ndiags:'int64[:]', gpads: 'int64[:]'):
 
@@ -38,7 +36,6 @@ def matvec_1d(mat00:'T[:,:]', x0:'T[:]', out0:'T[:]', starts: 'int64[:]', nrows:
 
 
 
-@template(name='T', types=[float, complex])
 def matvec_2d(mat00:'T[:,:,:,:]', x0:'T[:,:]', out0:'T[:,:]', starts:'int64[:]', nrows:'int64[:]', nrows_extra:'int64[:]',
                   dm:'int64[:]', cm:'int64[:]', pad_imp:'int64[:]', ndiags:'int64[:]', gpads: 'int64[:]'):
 
@@ -104,7 +101,6 @@ def matvec_2d(mat00:'T[:,:,:,:]', x0:'T[:,:]', out0:'T[:,:]', starts:'int64[:]',
                 out0[pxm1 + i1, pxm2 + i2] = v00
 
 
-@template(name='T', types=[float, complex])
 def matvec_3d(mat00:'T[:,:,:,:,:,:]', x0:'T[:,:,:]', out0:'T[:,:,:]', starts:'int64[:]', nrows:'int64[:]', nrows_extra:'int64[:]',
                   dm:'int64[:]', cm:'int64[:]', pad_imp:'int64[:]', ndiags:'int64[:]', gpads: 'int64[:]'):
 

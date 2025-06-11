@@ -1,7 +1,5 @@
-from pyccel.decorators import template
 
 #========================================================================================================
-@template(name='T', types=[float, complex])
 def transpose_1d(M  : "T[:,:]",
                  Mt : "T[:,:]",
                  n  : "int64[:]",
@@ -35,7 +33,6 @@ def transpose_1d(M  : "T[:,:]",
     return
 
 #========================================================================================================
-@template(name='T', types=[float, complex])
 def transpose_2d(M  : "T[:,:,:,:]",
                  Mt : "T[:,:,:,:]",
                  n  : "int64[:]",
@@ -79,7 +76,6 @@ def transpose_2d(M  : "T[:,:,:,:]",
     return
 
 #========================================================================================================
-@template(name='T', types=[float, complex])
 def transpose_3d(M  : "T[:,:,:,:,:,:]",
                  Mt : "T[:,:,:,:,:,:]",
                  n  : "int64[:]",
@@ -131,7 +127,6 @@ def transpose_3d(M  : "T[:,:,:,:,:,:]",
     return
 
 #========================================================================================================
-@template(name='T', types=[float, complex])
 def interface_transpose_1d(M  : "T[:,:]",
                            Mt : "T[:,:]",
                            n  : "int64[:]",
@@ -168,7 +163,6 @@ def interface_transpose_1d(M  : "T[:,:]",
     return
 
 #========================================================================================================
-@template(name='T', types=[float, complex])
 def interface_transpose_2d(M  : "T[:,:,:,:]",
                            Mt : "T[:,:,:,:]",
                            n  : "int64[:]",
@@ -214,7 +208,6 @@ def interface_transpose_2d(M  : "T[:,:,:,:]",
     return
 
 #========================================================================================================
-@template(name='T', types=[float, complex])
 def interface_transpose_3d(M  : "T[:,:,:,:,:,:]",
                            Mt : "T[:,:,:,:,:,:]",
                            n  : "int64[:]",
