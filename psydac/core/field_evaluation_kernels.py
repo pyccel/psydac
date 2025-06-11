@@ -12,7 +12,7 @@ def eval_fields_3d_no_weights(nc1: int, nc2: int, nc3: int, f_p1: int, f_p2: int
                               f_p3: int, k1: int, k2: int, k3: int, global_basis_1: 'float[:,:,:,:]',
                               global_basis_2: 'float[:,:,:,:]', global_basis_3: 'float[:,:,:,:]',
                               global_spans_1: 'int[:]', global_spans_2: 'int[:]', global_spans_3: 'int[:]',
-                              glob_arr_coeff: 'T', out_fields: 'T'):
+                              glob_arr_coeff: 'T[:,:,:,:]', out_fields: 'T[:,:,:,:]'):
     """
     Parameters
     ----------
@@ -97,8 +97,8 @@ def eval_fields_3d_no_weights(nc1: int, nc2: int, nc3: int, f_p1: int, f_p2: int
 
 def eval_fields_2d_no_weights(nc1: int, nc2: int, f_p1: int, f_p2: int, k1: int, k2: int,
                               global_basis_1: 'float[:,:,:,:]', global_basis_2: 'float[:,:,:,:]',
-                              global_spans_1: 'int[:]', global_spans_2: 'int[:]', glob_arr_coeff: 'T',
-                              out_fields: 'T'):
+                              global_spans_1: 'int[:]', global_spans_2: 'int[:]', glob_arr_coeff: 'T[:,:,:]',
+                              out_fields: 'T[:,:,:]'):
     """
     Parameters
     ----------
@@ -163,8 +163,8 @@ def eval_fields_2d_no_weights(nc1: int, nc2: int, f_p1: int, f_p2: int, k1: int,
 def eval_fields_1d_no_weights(nc1: int, f_p1: int, k1: int,
                               global_basis_1: 'float[:,:,:,:]',
                               global_spans_1: 'int[:]', 
-                              glob_arr_coeff: 'T',
-                              out_fields: 'T'):
+                              glob_arr_coeff: 'T[:,:]',
+                              out_fields: 'T[:,:]'):
     """
     Parameters
     ----------
@@ -209,7 +209,7 @@ def eval_fields_3d_irregular_no_weights(np1: int, np2: int, np3: int, f_p1: int,
                                         f_p3: int, cell_index_1: 'int[:]', cell_index_2: 'int[:]', cell_index_3 : 'int[:]',
                                         global_basis_1: 'float[:,:,:]', global_basis_2: 'float[:,:,:]', global_basis_3: 'float[:,:,:]',
                                         global_spans_1: 'int[:]', global_spans_2: 'int[:]', global_spans_3: 'int[:]',
-                                        glob_arr_coeff: 'T', out_fields: 'T'):
+                                        glob_arr_coeff: 'T[:,:,:,:]', out_fields: 'T[:,:,:,:]'):
     """
     Parameters
     ----------
@@ -292,8 +292,8 @@ def eval_fields_3d_irregular_no_weights(np1: int, np2: int, np3: int, f_p1: int,
 def eval_fields_2d_irregular_no_weights(np1: int, np2: int, f_p1: int, f_p2: int,
                                         cell_index_1: 'int[:]', cell_index_2: 'int[:]',
                                         global_basis_1: 'float[:,:,:]', global_basis_2: 'float[:,:,:]',
-                                        global_spans_1: 'int[:]', global_spans_2: 'int[:]', glob_arr_coeff: 'T',
-                                        out_fields: 'T'):
+                                        global_spans_1: 'int[:]', global_spans_2: 'int[:]', glob_arr_coeff: 'T[:,:,:]',
+                                        out_fields: 'T[:,:,:]'):
     """
     Parameters
     ----------
@@ -359,8 +359,8 @@ def eval_fields_1d_irregular_no_weights(np1: int, f_p1: int,
                                         cell_index_1: 'int[:]',
                                         global_basis_1: 'float[:,:,:]',
                                         global_spans_1: 'int[:]', 
-                                        glob_arr_coeff: 'T',
-                                        out_fields: 'T'):
+                                        glob_arr_coeff: 'T[:,:]',
+                                        out_fields: 'T[:,:]'):
     """
     Parameters
     ----------
@@ -408,8 +408,8 @@ def eval_fields_3d_weighted(nc1: int, nc2: int, nc3: int, f_p1: int, f_p2: int,
                             f_p3: int, k1: int, k2: int, k3: int, global_basis_1: 'float[:,:,:,:]',
                             global_basis_2: 'float[:,:,:,:]', global_basis_3: 'float[:,:,:,:]',
                             global_spans_1: 'int[:]', global_spans_2: 'int[:]', global_spans_3: 'int[:]',
-                            glob_arr_coeff: 'T', global_arr_weights: 'float[:,:,:]',
-                            out_fields: 'T'):
+                            glob_arr_coeff: 'T[:,:,:,:]', global_arr_weights: 'float[:,:,:]',
+                            out_fields: 'T[:,:,:,:]'):
     """
     Parameters
     ----------
@@ -517,8 +517,8 @@ def eval_fields_3d_weighted(nc1: int, nc2: int, nc3: int, f_p1: int, f_p2: int,
 
 def eval_fields_2d_weighted(nc1: int, nc2: int, f_p1: int, f_p2: int, k1: int, k2: int,
                             global_basis_1: 'float[:,:,:,:]', global_basis_2: 'float[:,:,:,:]',
-                            global_spans_1: 'int[:]', global_spans_2: 'int[:]', global_arr_coeff: 'T',
-                            global_arr_weights: 'float[:,:]', out_fields: 'T'):
+                            global_spans_1: 'int[:]', global_spans_2: 'int[:]', global_arr_coeff: 'T[:,:,:]',
+                            global_arr_weights: 'float[:,:]', out_fields: 'T[:,:,:]'):
     """
     Parameters
     ----------
@@ -605,8 +605,8 @@ def eval_fields_2d_weighted(nc1: int, nc2: int, f_p1: int, f_p2: int, k1: int, k
 
 def eval_fields_1d_weighted(nc1: int, f_p1: int, k1: int, 
                             global_basis_1: 'float[:,:,:,:]',
-                            global_spans_1: 'int[:]', global_arr_coeff: 'T',
-                            global_arr_weights: 'float[:]', out_fields: 'T'):
+                            global_spans_1: 'int[:]', global_arr_coeff: 'T[:,:]',
+                            global_arr_weights: 'float[:]', out_fields: 'T[:,:]'):
     """
     Parameters
     ----------
@@ -676,8 +676,8 @@ def eval_fields_3d_irregular_weighted(np1: int, np2: int, np3: int, f_p1: int, f
                                       f_p3: int, cell_index_1: 'int[:]', cell_index_2: 'int[:]', cell_index_3 : 'int[:]',
                                       global_basis_1: 'float[:,:,:]', global_basis_2: 'float[:,:,:]', global_basis_3: 'float[:,:,:]',
                                       global_spans_1: 'int[:]', global_spans_2: 'int[:]', global_spans_3: 'int[:]',
-                                      glob_arr_coeff: 'T', global_arr_weights: 'float[:,:,:]',
-                                      out_fields: 'T'):
+                                      glob_arr_coeff: 'T[:,:,:,:]', global_arr_weights: 'float[:,:,:]',
+                                      out_fields: 'T[:,:,:,:]'):
     """
     Parameters
     ----------
@@ -779,8 +779,8 @@ def eval_fields_3d_irregular_weighted(np1: int, np2: int, np3: int, f_p1: int, f
 def eval_fields_2d_irregular_weighted(np1: int, np2: int, f_p1: int, f_p2: int,
                                       cell_index_1: 'int[:]', cell_index_2: 'int[:]', global_basis_1: 'float[:,:,:]',
                                       global_basis_2: 'float[:,:,:]', global_spans_1: 'int[:]', global_spans_2: 'int[:]',
-                                      global_arr_coeff: 'T', global_arr_weights: 'float[:,:]',
-                                      out_fields: 'T'):
+                                      global_arr_coeff: 'T[:,:,:]', global_arr_weights: 'float[:,:]',
+                                      out_fields: 'T[:,:,:]'):
     """
     Parameters
     ----------
@@ -864,8 +864,8 @@ def eval_fields_2d_irregular_weighted(np1: int, np2: int, f_p1: int, f_p2: int,
 def eval_fields_1d_irregular_weighted(np1: int, f_p1: int, 
                                       cell_index_1: 'int[:]', global_basis_1: 'float[:,:,:]',
                                       global_spans_1: 'int[:]', 
-                                      global_arr_coeff: 'T', global_arr_weights: 'float[:]',
-                                      out_fields: 'T'):
+                                      global_arr_coeff: 'T[:,:]', global_arr_weights: 'float[:]',
+                                      out_fields: 'T[:,:]'):
     """
     Parameters
     ----------
@@ -927,8 +927,8 @@ def eval_fields_1d_irregular_weighted(np1: int, f_p1: int,
 def eval_jac_det_3d(nc1: int, nc2: int, nc3: int, f_p1: int, f_p2: int, f_p3: int, k1: int, k2: int, k3: int,
                     global_basis_1: 'float[:,:,:,:]', global_basis_2: 'float[:,:,:,:]',
                     global_basis_3: 'float[:,:,:,:]', global_spans_1: 'int[:]', global_spans_2: 'int[:]',
-                    global_spans_3: 'int[:]', global_arr_coeff_x: 'T', global_arr_coeff_y: 'T',
-                    global_arr_coeff_z: 'T', jac_det: 'T'):
+                    global_spans_3: 'int[:]', global_arr_coeff_x: 'T[:,:,:]', global_arr_coeff_y: 'T[:,:,:]',
+                    global_arr_coeff_z: 'T[:,:,:]', jac_det: 'T[:,:,:]'):
 
     """
     Parameters
@@ -1086,8 +1086,8 @@ def eval_jac_det_3d(nc1: int, nc2: int, nc3: int, f_p1: int, f_p2: int, f_p3: in
 
 def eval_jac_det_2d(nc1: int, nc2: int, f_p1: int, f_p2: int, k1: int, k2: int, global_basis_1: 'float[:,:,:,:]',
                     global_basis_2: 'float[:,:,:,:]', global_spans_1: 'int[:]', global_spans_2: 'int[:]',
-                    global_arr_coeff_x: 'T', global_arr_coeff_y: 'T',
-                    jac_det: 'T'):
+                    global_arr_coeff_x: 'T[:,:]', global_arr_coeff_y: 'T[:,:]',
+                    jac_det: 'T[:,:]'):
     """
     Parameters
     ----------
@@ -1191,9 +1191,9 @@ def eval_jac_det_irregular_3d(np1: int, np2: int, np3: int, f_p1: int, f_p2: int
                               f_p3: int, cell_index_1: 'int[:]', cell_index_2: 'int[:]', cell_index_3 : 'int[:]',
                               global_basis_1: 'float[:,:,:]', global_basis_2: 'float[:,:,:]',
                               global_basis_3: 'float[:,:,:]', global_spans_1: 'int[:]', global_spans_2: 'int[:]',
-                              global_spans_3: 'int[:]', global_arr_coeff_x: 'T',
-                              global_arr_coeff_y: 'T', global_arr_coeff_z: 'T',
-                              jac_det: 'T'):
+                              global_spans_3: 'int[:]', global_arr_coeff_x: 'T[:,:,:]',
+                              global_arr_coeff_y: 'T[:,:,:]', global_arr_coeff_z: 'T[:,:,:]',
+                              jac_det: 'T[:,:,:]'):
     """
     Parameters
     ----------
@@ -1338,8 +1338,8 @@ def eval_jac_det_irregular_3d(np1: int, np2: int, np3: int, f_p1: int, f_p2: int
 
 def eval_jac_det_irregular_2d(np1: int, np2: int, f_p1: int, f_p2: int, cell_index_1: 'int[:]',
                               cell_index_2: 'int[:]', global_basis_1: 'float[:,:,:]', global_basis_2: 'float[:,:,:]',
-                              global_spans_1: 'int[:]', global_spans_2: 'int[:]', global_arr_coeff_x: 'T',
-                              global_arr_coeff_y: 'T', jac_det: 'T'):
+                              global_spans_1: 'int[:]', global_spans_2: 'int[:]', global_arr_coeff_x: 'T[:,:]',
+                              global_arr_coeff_y: 'T[:,:]', jac_det: 'T[:,:]'):
     """
     Parameters
     ----------
@@ -1434,9 +1434,9 @@ def eval_jac_det_3d_weights(nc1: int, nc2: int, nc3: int, f_p1: int, f_p2: int, 
                             k1: int, k2: int, k3: int, global_basis_1: 'float[:,:,:,:]',
                             global_basis_2: 'float[:,:,:,:]', global_basis_3: 'float[:,:,:,:]',
                             global_spans_1: 'int[:]', global_spans_2: 'int[:]', global_spans_3: 'int[:]',
-                            global_arr_coeff_x: 'T', global_arr_coeff_y: 'T',
-                            global_arr_coeff_z: 'T', global_arr_coeff_weights: 'float[:,:,:]',
-                            jac_det: 'T'):
+                            global_arr_coeff_x: 'T[:,:,:]', global_arr_coeff_y: 'T[:,:,:]',
+                            global_arr_coeff_z: 'T[:,:,:]', global_arr_coeff_weights: 'float[:,:,:]',
+                            jac_det: 'T[:,:,:]'):
 
     """
     Parameters
@@ -1660,9 +1660,9 @@ def eval_jac_det_3d_weights(nc1: int, nc2: int, nc3: int, f_p1: int, f_p2: int, 
 
 def eval_jac_det_2d_weights(nc1: int, nc2: int, f_p1: int, f_p2: int, k1: int, k2: int,
                             global_basis_1: 'float[:,:,:,:]', global_basis_2: 'float[:,:,:,:]',
-                            global_spans_1: 'int[:]', global_spans_2: 'int[:]', global_arr_coeff_x: 'T',
-                            global_arr_coeff_y: 'T', global_arr_coeff_weights: 'float[:,:]',
-                            jac_det: 'T'):
+                            global_spans_1: 'int[:]', global_spans_2: 'int[:]', global_arr_coeff_x: 'T[:,:]',
+                            global_arr_coeff_y: 'T[:,:]', global_arr_coeff_weights: 'float[:,:]',
+                            jac_det: 'T[:,:]'):
     """
     Parameters
     ----------
@@ -1817,9 +1817,9 @@ def eval_jac_det_irregular_3d_weights(np1: int, np2: int, np3: int, f_p1: int, f
                                       f_p3: int, cell_index_1: 'int[:]', cell_index_2: 'int[:]', cell_index_3 : 'int[:]',
                                       global_basis_1: 'float[:,:,:]', global_basis_2: 'float[:,:,:]',
                                       global_basis_3: 'float[:,:,:]', global_spans_1: 'int[:]', global_spans_2: 'int[:]',
-                                      global_spans_3: 'int[:]', global_arr_coeff_x: 'T',
-                                      global_arr_coeff_y: 'T', global_arr_coeff_z: 'T',
-                                      global_arr_coeff_weights: 'float[:,:, :]', jac_det: 'T'):
+                                      global_spans_3: 'int[:]', global_arr_coeff_x: 'T[:,:,:]',
+                                      global_arr_coeff_y: 'T[:,:,:]', global_arr_coeff_z: 'T[:,:,:]',
+                                      global_arr_coeff_weights: 'float[:,:, :]', jac_det: 'T[:,:,:]'):
     """
     Parameters
     ----------
@@ -2016,9 +2016,9 @@ def eval_jac_det_irregular_2d_weights(np1: int, np2: int, f_p1: int, f_p2: int,
                                       cell_index_1: 'int[:]', cell_index_2: 'int[:]',
                                       global_basis_1: 'float[:,:,:]', global_basis_2: 'float[:,:,:]',
                                       global_spans_1: 'int[:]', global_spans_2: 'int[:]',
-                                      global_arr_coeff_x: 'T', global_arr_coeff_y: 'T',
+                                      global_arr_coeff_x: 'T[:,:]', global_arr_coeff_y: 'T[:,:]',
                                       global_arr_coeff_weights: 'float[:,:]',
-                                      jac_det: 'T'):
+                                      jac_det: 'T[:,:]'):
     """
     Parameters
     ----------
