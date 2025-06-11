@@ -19,6 +19,7 @@ from sympde.topology.derivatives import get_atom_derivatives
 from sympde.topology.derivatives import get_index_derivatives
 from sympde.topology.derivatives import get_atom_logical_derivatives
 from sympde.topology.derivatives import get_index_logical_derivatives
+from sympde.topology.derivatives import get_index_derivatives_atom, get_index_logical_derivatives_atom
 from sympde.topology             import LogicalExpr
 from sympde.topology             import SymbolicExpr
 from sympde.core                 import Constant
@@ -54,6 +55,71 @@ __all__ = (
     'select_loops',
     'variables',
 )
+
+#==============================================================================
+def get_max_partial_derivatives(expr, logical=False, F=None):
+    """ 
+    TODO: Remove once it is implemented in SymPDE and combine the get_index(_logical)_derivatives_atom funcitons there
+
+    This function determines the maximum order of partial derivatives for each coordinate in an expression.
+
+    Parameters
+    ----------
+    expr : Expr (SymPy expression)
+        The expression to analyze for partial derivatives.
+
+    logical : bool, optional
+        If True, it considers logical coordinates (x1, x2, x3); otherwise, it considers physical coordinates (x, y, z).
+    
+    F : atom (SymPy expression with no subexpressions) or list of atoms, optional
+        If provided, it restricts the analysis to the specified atom(s). Otherwise, it uses all atoms that are contained in expr.
+
+    Returns
+    -------
+    d : dict
+        A dictionary with keys ('x1', 'x2', 'x3') for logical or ('x', 'y', 'z') for physical coordinates and their corresponding maximum order of partial derivatives.
+    """
+
+    if logical:
+        d = {'x1':0, 'x2':0, 'x3':0}
+
+        if F is None:
+            Fs = (list(expr.atoms(ScalarFunction)) +
+                list(expr.atoms(VectorFunction)) +
+                list(expr.atoms(IndexedVectorFunction)))
+
+            indices = []
+            for F in Fs:
+                indices += get_index_logical_derivatives_atom(expr, F)
+        elif isinstance(F, list):
+            indices = []
+            for a in F:
+                indices += get_index_logical_derivatives_atom(expr, a)
+        else:
+            indices = get_index_logical_derivatives_atom(expr, F)
+
+    else:
+        d = {'x':0, 'y':0, 'z':0}
+
+        if F is None:
+            Fs = (list(expr.atoms(ScalarFunction)) +
+                list(expr.atoms(VectorFunction)) +
+                list(expr.atoms(IndexedVectorFunction)))
+
+            indices = []
+            for F in Fs:
+                indices += get_index_derivatives_atom(expr, F)
+        elif isinstance(F, list):
+            indices = []
+            for a in F:
+                indices += get_index_derivatives_atom(expr, a)
+        else:
+            indices = get_index_derivatives_atom(expr, F)
+            
+    for dd in indices:
+        for k,v in dd.items():
+            if v > d[k]: d[k] = v
+    return d
 
 #==============================================================================
 def random_string( n ):

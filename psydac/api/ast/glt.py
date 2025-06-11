@@ -26,7 +26,7 @@ from sympde.topology.space       import ScalarFunction
 from sympde.topology.space       import VectorFunction
 from sympde.topology.space       import IndexedVectorFunction
 from sympde.topology.derivatives import _partial_derivatives
-from sympde.topology.derivatives import _logical_partial_derivatives, get_index_derivatives_atom, get_atom_derivatives
+from sympde.topology.derivatives import _logical_partial_derivatives, get_atom_derivatives
 from sympde.topology             import LogicalExpr
 from sympde.topology             import SymbolicExpr
 from sympde.calculus.matrices    import SymbolicDeterminant
@@ -42,34 +42,11 @@ from .utilities  import build_pythran_types_header, variables
 from .utilities  import build_pyccel_type_annotations
 from .utilities  import is_mapping
 from .utilities  import math_atoms_as_str
+from .utilities  import get_max_partial_derivatives
 from .evaluation import EvalArrayMapping, EvalArrayField
 
 from psydac.fem.vector  import MultipatchFemSpace
 from .nodes             import Zeros
-
-#==============================================================================
-#TODO: Remove once it is implemented in SymPDE
-def get_max_partial_derivatives(expr, F=None):
-    if F is None:
-        Fs = (list(expr.atoms(ScalarFunction)) +
-              list(expr.atoms(VectorFunction)) +
-              list(expr.atoms(IndexedVectorFunction)))
-
-        indices = []
-        for F in Fs:
-            indices += get_index_derivatives_atom(expr, F)
-    elif isinstance(F, list):
-        indices = []
-        for a in F:
-            indices += get_index_derivatives_atom(expr, a)
-    else:
-        indices = get_index_derivatives_atom(expr, F)
-
-    d = {'x':0, 'y':0, 'z':0}
-    for dd in indices:
-        for k,v in dd.items():
-            if v > d[k]: d[k] = v
-    return d
 
 #==============================================================================
 class GltKernel(SplBasic):
@@ -360,11 +337,11 @@ class GltKernel(SplBasic):
                 for i_col in range(0, n_cols):
                     d_atoms  = _atomic(expr[i_row,i_col], cls=atoms_types)
                     Fs = [get_atom_derivatives(a) for a in d_atoms]
-                    d = get_max_partial_derivatives(expr[i_row,i_col], Fs)
+                    d = get_max_partial_derivatives(expr[i_row,i_col], logical=False, F=Fs)
                     nderiv = max(nderiv, max(d.values()))
         else:
             Fs = [get_atom_derivatives(a) for a in atoms]
-            d = get_max_partial_derivatives(expr, Fs)
+            d = get_max_partial_derivatives(expr, logical=False, F=Fs)
             nderiv = max(nderiv, max(d.values()))
 
         self._max_nderiv = nderiv
