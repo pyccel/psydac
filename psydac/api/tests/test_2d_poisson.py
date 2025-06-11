@@ -140,6 +140,26 @@ def test_poisson_2d_dir0_1234(backend):
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #------------------------------------------------------------------------------
+@pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
+def test_poisson_2d_dir0_1234_deg_1(backend):
+
+    solution = sin(pi*x)*sin(pi*y)
+    f        = 2*pi**2*sin(pi*x)*sin(pi*y)
+
+    dir_zero_boundary    = get_boundaries(1, 2, 3, 4)
+    dir_nonzero_boundary = get_boundaries()
+
+    l2_error, h1_error = run_poisson_2d(solution, f, dir_zero_boundary,
+            dir_nonzero_boundary, ncells=[2**3, 2**3], degree=[1, 1],
+            comm=MPI.COMM_WORLD, backend=backend)
+
+    expected_l2_error =  0.00641311942118027
+    expected_h1_error =  0.25129833101800847
+
+    assert( abs(l2_error - expected_l2_error) < 1.e-7)
+    assert( abs(h1_error - expected_h1_error) < 1.e-7)
+
+#------------------------------------------------------------------------------
 def test_poisson_2d_dir0_234_neu0_1():
 
     solution = cos(0.5*pi*x)*sin(pi*y)
@@ -423,6 +443,27 @@ def test_poisson_2d_dir0_1234_parallel(backend):
 
     expected_l2_error =  2.6130834310750093e-05
     expected_h1_error =  0.0032076762540615743
+
+    assert( abs(l2_error - expected_l2_error) < 1.e-7)
+    assert( abs(h1_error - expected_h1_error) < 1.e-7)
+
+#------------------------------------------------------------------------------
+@pytest.mark.parallel
+@pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
+def test_poisson_2d_dir0_1234_parallel_deg_1(backend):
+
+    solution = sin(pi*x)*sin(pi*y)
+    f        = 2*pi**2*sin(pi*x)*sin(pi*y)
+
+    dir_zero_boundary    = get_boundaries(1, 2, 3, 4)
+    dir_nonzero_boundary = get_boundaries()
+
+    l2_error, h1_error = run_poisson_2d(solution, f, dir_zero_boundary,
+            dir_nonzero_boundary, ncells=[2**4, 2**4], degree=[1, 1],
+            comm=MPI.COMM_WORLD, backend=backend)
+
+    expected_l2_error =  0.0016055850037463594
+    expected_h1_error =  0.12584691318701388
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
