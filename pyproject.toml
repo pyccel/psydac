@@ -31,7 +31,8 @@ dependencies = [
 
     # Our packages from PyPi
     'sympde == 0.19.2',
-    'pyccel >= 1.11.2',
+#    'pyccel @ https://github.com/pyccel/pyccel/archive/refs/heads/devel.zip',
+    'pyccel @ git+https://github.com/pyccel/pyccel.git@devel',
     'gelato == 0.12',
 
     # In addition, we depend on mpi4py and h5py (MPI version).

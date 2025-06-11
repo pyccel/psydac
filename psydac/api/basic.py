@@ -259,7 +259,8 @@ class BasicCodeGen:
         accelerators   = ["openmp"] if self.backend["openmp"] else []
         _PYCCEL_FOLDER = self.backend['folder']
 
-        from pyccel.epyccel import epyccel
+        # from pyccel.epyccel import epyccel
+        from pyccel import epyccel
         fmod = epyccel(mod,
                        accelerators = accelerators,
                        compiler    = compiler,

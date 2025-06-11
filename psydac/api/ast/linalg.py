@@ -415,7 +415,8 @@ class LinearOperatorDot(SplBasic):
         _PYCCEL_FOLDER = backend['folder']
         accelerators   = ["openmp"] if backend["openmp"] else []
 
-        from pyccel.epyccel import epyccel
+        # from pyccel.epyccel import epyccel
+        from pyccel import epyccel
 
         fmod = epyccel(mod,
                        accelerators = accelerators,
