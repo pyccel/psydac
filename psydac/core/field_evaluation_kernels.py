@@ -1,5 +1,7 @@
 import numpy as np
+from typing import TypeVar
 
+T = TypeVar('T', float, complex)
 # =============================================================================
 # Field evaluation functions
 # =============================================================================
