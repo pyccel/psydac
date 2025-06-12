@@ -1,6 +1,7 @@
 import re
 import string
 import random
+from itertools import chain
 
 from sympy import Symbol, IndexedBase, Indexed, Idx
 from sympy import Mul, Pow, Function, Tuple
@@ -81,44 +82,26 @@ def get_max_partial_derivatives(expr, logical=False, F=None):
     """
 
     if logical:
-        d = {'x1':0, 'x2':0, 'x3':0}
-
-        if F is None:
-            Fs = (list(expr.atoms(ScalarFunction)) +
-                list(expr.atoms(VectorFunction)) +
-                list(expr.atoms(IndexedVectorFunction)))
-
-            indices = []
-            for F in Fs:
-                indices += get_index_logical_derivatives_atom(expr, F)
-        elif isinstance(F, list):
-            indices = []
-            for a in F:
-                indices += get_index_logical_derivatives_atom(expr, a)
-        else:
-            indices = get_index_logical_derivatives_atom(expr, F)
-
+        d = {'x1': 0, 'x2': 0, 'x3': 0}
+        get_index = get_index_logical_derivatives_atom
     else:
-        d = {'x':0, 'y':0, 'z':0}
+        d = {'x': 0, 'y': 0, 'z': 0}
+        get_index = get_index_derivatives_atom
 
-        if F is None:
-            Fs = (list(expr.atoms(ScalarFunction)) +
-                list(expr.atoms(VectorFunction)) +
-                list(expr.atoms(IndexedVectorFunction)))
+    if F is None:
+        F = (list(expr.atoms(ScalarFunction)) +
+             list(expr.atoms(VectorFunction)) +
+             list(expr.atoms(IndexedVectorFunction)))
+    elif not hasattr(F, '__iter__'):
+        F = [F]
 
-            indices = []
-            for F in Fs:
-                indices += get_index_derivatives_atom(expr, F)
-        elif isinstance(F, list):
-            indices = []
-            for a in F:
-                indices += get_index_derivatives_atom(expr, a)
-        else:
-            indices = get_index_derivatives_atom(expr, F)
-            
+    indices = chain.from_iterable(get_index(expr, Fi) for Fi in F)
+
     for dd in indices:
-        for k,v in dd.items():
-            if v > d[k]: d[k] = v
+        for k, v in dd.items():
+            if v > d[k]:
+                d[k] = v
+
     return d
 
 #==============================================================================
