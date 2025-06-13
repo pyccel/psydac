@@ -626,14 +626,13 @@ class StencilVector(Vector):
     # ...
     def toarray_local(self , *, order='C'):
         """ return the local array without the padding"""
-
-        idx = tuple( slice(m*p,-m*p) for p,m in zip(self.pads, self.space.shifts) )
+        idx = tuple( slice(m*p,-m*p) if p != 0 else slice(0, None) for p,m in zip(self.pads, self.space.shifts) )
         return self._data[idx].flatten( order=order)
 
     # ...
     def _toarray_parallel_no_pads(self, order='C'):
         a         = np.zeros( self.space.npts, self.dtype )
-        idx_from  = tuple( slice(m*p,-m*p) for p,m in zip(self.pads, self.space.shifts) )
+        idx_from  = tuple( slice(m*p,-m*p) if p != 0 else slice(0, None) for p,m in zip(self.pads, self.space.shifts) )
         idx_to    = tuple( slice(s,e+1) for s,e in zip(self.starts,self.ends) )
         a[idx_to] = self._data[idx_from]
         return a.flatten( order=order)
@@ -664,6 +663,9 @@ class StencilVector(Vector):
 
                 p = pads[direction]
 
+                if p == 0:
+                    continue
+
                 # Left-most process: copy data from left to right
                 if coord == 0:
                     idx_from = tuple(
@@ -689,7 +691,7 @@ class StencilVector(Vector):
                     a[idx_to] = a[idx_from]
 
         # Step 3: remove ghost regions from global array
-        idx = tuple( slice(p,-p) for p in pads )
+        idx = tuple( slice(p,-p) if p != 0 else slice(0, None) for p in pads  )
         out = a[idx]
 
         # Step 4: return flattened array
@@ -776,6 +778,9 @@ class StencilVector(Vector):
             periodic = self._space.periods[direction]
             p        = self._space.pads   [direction] * self._space.shifts[direction]
 
+            if p == 0:
+                continue
+
             idx_front = [slice(None)] * direction
             idx_back  = [slice(None)] * (ndim-direction-1)
 
@@ -820,6 +825,10 @@ class StencilVector(Vector):
 
             p        = self._space.pads  [direction]
             m        = self._space.shifts[direction]
+
+            if p == 0:
+                continue
+
             idx_from = tuple(idx_front + [slice(-m*p,None) if (-m*p+p)!=0 else slice(-m*p,None)] + idx_back)
             self._data[idx_from] = 0.
             idx_from = tuple(idx_front + [slice(0,m*p)] + idx_back)
@@ -834,6 +843,9 @@ class StencilVector(Vector):
             periodic = self._space.periods[direction]
             p        = self._space.pads   [direction]
             m        = self._space.shifts [direction]
+
+            if p == 0:
+                continue
 
             if periodic:
                 idx_front = [slice(None)] * direction
@@ -1355,6 +1367,10 @@ class StencilMatrix(LinearOperator):
 
             p        = self._codomain.pads   [direction]
             m        = self._codomain.shifts[direction]
+
+            if p == 0:
+                continue
+
             idx_from = tuple( idx_front + [ slice(-m*p,None) if (-m*p+p)!=0 else slice(-m*p,None)] + idx_back )
             self._data[idx_from] = 0.
             idx_from = tuple( idx_front + [ slice(0,m*p)] + idx_back )
@@ -1369,6 +1385,9 @@ class StencilMatrix(LinearOperator):
             periodic = self._codomain.periods[direction]
             p        = self._codomain.pads   [direction]
             m        = self._codomain.shifts[direction]
+
+            if p == 0:
+                continue
 
             if periodic:
                 idx_front = [slice(None)]*direction
@@ -1548,7 +1567,7 @@ class StencilMatrix(LinearOperator):
         pp = [np.int64(compute_diag_len(p,mj,mi)-(p+1)) for p,mi,mj in zip(self._pads, cm, dm)]
 
         # Range of data owned by local process (no ghost regions)
-        local = tuple( [slice(mi*p,-mi*p) for p,mi in zip(cpads, cm)] + [slice(None)] * nd )
+        local = tuple( [slice(mi*p,-mi*p) if p != 0 else slice(p, None) for p,mi in zip(cpads, cm)] + [slice(None)] * nd )
         size  = self._data[local].size
 
         # COO storage
@@ -1680,6 +1699,9 @@ class StencilMatrix(LinearOperator):
 
             periodic = self._codomain.periods[direction]
             p        = self._codomain.pads   [direction]
+
+            if p == 0:
+                continue
 
             idx_front = [slice(None)]*direction
             idx_back  = [slice(None)]*(ndim-direction-1 + ndim)
@@ -2598,7 +2620,7 @@ class StencilInterfaceMatrix(LinearOperator):
         cols = []
         data = []
         # Range of data owned by local process (no ghost regions)
-        local = tuple( [slice(m*p,-m*p) for m,p in zip(cm, pp)] + [slice(None)] * nd )
+        local = tuple( [slice(m*p,-m*p) if p != 0 else slice(0, None) for m,p in zip(cm, pp)] + [slice(None)] * nd )
         pp = [compute_diag_len(p,mj,mi)-(p+1) for p,mi,mj in zip(self._pads, cm, dm)]
 
         for (index,value) in np.ndenumerate( self._data[local] ):
@@ -2657,6 +2679,9 @@ class StencilInterfaceMatrix(LinearOperator):
         ndim     = self._codomain.ndim
         periodic = self._codomain.periods[direction]
         p        = self._codomain.pads   [direction]
+
+        if p == 0:
+            return    
 
         idx_front = [slice(None)] * direction
         idx_back  = [slice(None)] * (ndim-direction-1)

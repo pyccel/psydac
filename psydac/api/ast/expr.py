@@ -22,7 +22,6 @@ from sympde.topology.space       import VectorFunction
 from sympde.topology.space       import IndexedVectorFunction
 from sympde.topology.derivatives import _partial_derivatives
 from sympde.topology.derivatives import _logical_partial_derivatives
-from sympde.topology.derivatives import get_max_partial_derivatives
 from sympde.topology.derivatives import get_atom_derivatives
 from sympde.topology.derivatives import get_index_derivatives
 from sympde.topology             import LogicalExpr
@@ -34,6 +33,7 @@ from .utilities  import random_string
 from .utilities  import build_pythran_types_header, variables
 from .utilities  import build_pyccel_type_annotations
 from .utilities  import math_atoms_as_str
+from .utilities  import get_max_partial_derivatives
 
 from psydac.fem.vector import MultipatchFemSpace
 from .nodes            import Zeros
@@ -306,15 +306,19 @@ class ExprKernel(SplBasic):
                                 cls = IndexedVariable )
 
         # ... TODO add it as a method to basic class
-        nderiv = 1
+        nderiv = 0
+
         if isinstance(expr, Matrix):
             n_rows, n_cols = expr.shape
             for i_row in range(0, n_rows):
                 for i_col in range(0, n_cols):
-                    d = get_max_partial_derivatives(expr[i_row,i_col])
+                    d_atoms  = _atomic(expr[i_row,i_col], cls=atoms_types)
+                    Fs = [get_atom_derivatives(a) for a in d_atoms]
+                    d = get_max_partial_derivatives(expr[i_row,i_col], logical=False, F=Fs)
                     nderiv = max(nderiv, max(d.values()))
         else:
-            d = get_max_partial_derivatives(expr)
+            Fs = [get_atom_derivatives(a) for a in atoms]
+            d = get_max_partial_derivatives(expr, logical=False, F=Fs)
             nderiv = max(nderiv, max(d.values()))
 
         self._max_nderiv = nderiv
