@@ -13,9 +13,9 @@ authors         = [
     {name = "Psydac development team", email = "psydac@googlegroups.com"}
 ]
 maintainers = [
-    {name = "Yaman Güçlü"  , email = "yaman.guclu@gmail.com"},
+    {name = "Yaman Güçlü", email = "yaman.guclu@gmail.com"},
+    {name = "Martin Campos Pinto", email = "martin.campos-pinto@ipp.mpg.de"},
     {name = "Ahmed Ratnani", email = "ratnaniahmed@gmail.com"},
-    {name = "Said Hadjout"},
 ]
 keywords     = ["FEM", "IGA", "B-spline", "NURBS"]
 classifiers  = ["Programming Language :: Python :: 3"]
