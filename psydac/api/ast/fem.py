@@ -360,7 +360,7 @@ class AST(object):
                     
                     Fs = [get_atom_logical_derivatives(a) for a in atoms]
                     d = get_max_partial_derivatives(terminal_expr[i_row,i_col], logical=True, F=Fs)
-                    nderiv      = max(nderiv, max(d.values()))
+                    nderiv = max(nderiv, max(d.values()))
 
         else:
             atoms       = _atomic(terminal_expr, cls=atoms_types+_logical_partial_derivatives)
