@@ -67,13 +67,13 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
     # PARAMETERS
     #---------------------------------------------------------------------------
 
-    if solver in ['bicg', 'bicgstab', 'pbicgstab', 'lsmr']:
+    if solver in ['bicg', 'bicgstab', 'lsmr']:
         if dtype==complex:
             diagonals = [1-10j,6+9j,3+5j]
         else:
             diagonals = [1,6,3]
             
-        if solver == 'pbicgstab' and dtype == complex:
+        if solver == 'bicgstab' and pc != None and dtype == complex:
             # pbicgstab only works for real matrices
             return
     elif solver == 'gmres':
