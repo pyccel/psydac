@@ -68,8 +68,8 @@ def get_max_partial_derivatives(expr, logical=False, F=None):
 
     Parameters
     ----------
-    expr : Expr (SymPy expression)
-        The expression to analyze for partial derivatives.
+    expr : sympy.Expr
+        The SymPDE expression to analyze for partial derivatives.
 
     logical : bool, optional
         If True, it considers logical coordinates (x1, x2, x3); otherwise, it considers physical coordinates (x, y, z).
