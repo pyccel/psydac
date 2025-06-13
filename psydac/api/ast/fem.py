@@ -377,7 +377,7 @@ class AST(object):
 
             Fs = [get_atom_logical_derivatives(a) for a in atoms]
             d = get_max_partial_derivatives(terminal_expr, logical=True, F=Fs)
-            nderiv      = max(nderiv, max(d.values()))
+            nderiv = max(nderiv, max(d.values()))
 
             terminal_expr     = Matrix([[terminal_expr]])
 
