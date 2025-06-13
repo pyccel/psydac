@@ -40,8 +40,8 @@ def inverse(A, solver, **kwargs):
         function (e.g. a matrix-vector product A*p).
 
     solver : str
-        Preferred iterative solver. Options are: 'cg', 'pcg', 'bicg',
-        'bicgstab', 'pbicgstab', 'minres', 'lsmr', 'gmres'.
+        Preferred iterative solver. Options are: 'cg', 'bicg',
+        'bicgstab', 'minres', 'lsmr', 'gmres'.
 
     Returns
     -------
