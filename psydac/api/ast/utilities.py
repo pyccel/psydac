@@ -72,8 +72,11 @@ def get_max_partial_derivatives(expr, logical=False, F=None):
     logical : bool, optional
         If True, it considers logical coordinates (x1, x2, x3); otherwise, it considers physical coordinates (x, y, z).
     
-    F : atom (SymPy expression with no subexpressions) or list of atoms, optional
-        If provided, it restricts the analysis to the specified atom(s). Otherwise, it uses all atoms that are contained in expr.
+    F : sympy.Atom | list[sympy.Atom], optional
+        If provided, it restricts the analysis to the specified atom(s). Otherwise,
+        it uses all atoms of default types that are contained in `expr`. The default
+        types represent elements of function spaces in SymPDE: `ScalarFunction`,
+        `VectorFunction`, and `IndexedVectorFunction`.
 
     Returns
     -------
