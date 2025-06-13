@@ -335,7 +335,7 @@ class GltKernel(SplBasic):
             n_rows, n_cols = expr.shape
             for i_row in range(0, n_rows):
                 for i_col in range(0, n_cols):
-                    d_atoms  = _atomic(expr[i_row,i_col], cls=atoms_types)
+                    d_atoms = _atomic(expr[i_row,i_col], cls=atoms_types)
                     Fs = [get_atom_derivatives(a) for a in d_atoms]
                     d = get_max_partial_derivatives(expr[i_row,i_col], logical=False, F=Fs)
                     nderiv = max(nderiv, max(d.values()))
