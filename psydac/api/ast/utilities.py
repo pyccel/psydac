@@ -59,10 +59,12 @@ __all__ = (
 
 #==============================================================================
 def get_max_partial_derivatives(expr, logical=False, F=None):
-    """ 
-    TODO: Remove once it is implemented in SymPDE and combine the get_index(_logical)_derivatives_atom funcitons there
+    """
+    Compute the maximum order of partial derivatives for each coordinate in an expression.
 
-    This function determines the maximum order of partial derivatives for each coordinate in an expression.
+    TODO
+    ----
+    Move to SymPDE and combine the `get_index(_logical)_derivatives_atom` functions there.
 
     Parameters
     ----------
