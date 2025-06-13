@@ -63,8 +63,8 @@ def test_fake_matrix_free(n1, n2, p1, p2):
     m2 = n1+1
     q1 = p1 # using same degrees because both spaces must have same padding for now
     q2 = p2 
-    V1 = get_StencilVectorSpace(n1, n2, p1, p2, P1, P2)
-    V2 = get_StencilVectorSpace(m1, m2, q1, q2, P1, P2)
+    V1 = get_StencilVectorSpace([n1, n2], [p1, p2], [P1, P2])
+    V2 = get_StencilVectorSpace([m1, m2], [q1, q2], [P1, P2])
     S = get_random_StencilMatrix(codomain=V2, domain=V1)
     O = MatrixFreeLinearOperator(codomain=V2, domain=V1, dot=lambda v: S @ v)
 
@@ -93,7 +93,7 @@ def test_solvers_matrix_free(solver):
     p2 = 2
     P1 = False
     P2 = False
-    V = get_StencilVectorSpace(n1, n2, p1, p2, P1, P2)
+    V = get_StencilVectorSpace([n1, n2], [p1, p2], [P1, P2])
     A_SM = get_positive_definite_StencilMatrix(V)
     assert_pos_def(A_SM)
     AT_SM = A_SM.transpose()

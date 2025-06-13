@@ -41,13 +41,12 @@ def compute_global_starts_ends(domain_decomposition, npts):
 
     return global_starts, global_ends
 
-def get_StencilVectorSpace(n1, n2, p1, p2, P1, P2):
-    npts = [n1, n2]
-    pads = [p1, p2]
-    periods = [P1, P2]
+def get_StencilVectorSpace(npts, pads, periods):
+    assert len(npts) == len(pads) == len(periods)
+    shifts = [1] * len(npts)
     D = DomainDecomposition(npts, periods=periods)
     global_starts, global_ends = compute_global_starts_ends(D, npts)
-    C = CartDecomposition(D, npts, global_starts, global_ends, pads=pads, shifts=[1,1])
+    C = CartDecomposition(D, npts, global_starts, global_ends, pads=pads, shifts=shifts)
     V = StencilVectorSpace(C)
     return V
 
@@ -95,7 +94,7 @@ def test_square_stencil_basic(n1, n2, p1, p2, P1=False, P2=False):
     ###
 
     # Initiate StencilVectorSpace
-    V = get_StencilVectorSpace(n1, n2, p1, p2, P1, P2)
+    V = get_StencilVectorSpace([n1, n2], [p1, p2], [P1, P2])
     
     # Initiate Linear Operators
     Z = ZeroOperator(V, V)
@@ -281,7 +280,7 @@ def test_square_block_basic(n1, n2, p1, p2, P1=False, P2=False):
     # 3. Test special cases
 
     # Initiate StencilVectorSpace
-    V = get_StencilVectorSpace(n1, n2, p1, p2, P1, P2)
+    V = get_StencilVectorSpace([n1, n2], [p1, p2], [P1, P2])
        
     # Initiate Linear Operators
     Z = ZeroOperator(V, V)    
@@ -450,8 +449,8 @@ def test_in_place_operations(n1, n2, p1, p2, P1=False, P2=False):
     # testing __imul__ although not explicitly implemented (in the LinearOperator class)
 
     # Initiate StencilVectorSpace
-    V = get_StencilVectorSpace(n1, n2, p1, p2, P1, P2)
-    Vc = get_StencilVectorSpace(n1, n2, p1, p2, P1, P2)
+    V  = get_StencilVectorSpace([n1, n2], [p1, p2], [P1, P2])
+    Vc = get_StencilVectorSpace([n1, n2], [p1, p2], [P1, P2])
     Vc._dtype = complex
     v = StencilVector(V)
     vc = StencilVector(Vc)
@@ -545,9 +544,9 @@ def test_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
     # 2. For both B and S, check whether all possible combinations of the transpose and the inverse behave as expected
 
     # Initiate StencilVectorSpace
-    V = get_StencilVectorSpace(n1, n2, p1, p2, P1, P2)
-    V2 = get_StencilVectorSpace(n1, n2, p1, p2, P1, P2)
-    W = get_StencilVectorSpace(n1+2, n2, p1, p2+1, P1, P2)
+    V  = get_StencilVectorSpace([n1, n2], [p1, p2], [P1, P2])
+    V2 = get_StencilVectorSpace([n1, n2], [p1, p2], [P1, P2])
+    W  = get_StencilVectorSpace([n1+2, n2], [p1, p2+1], [P1, P2])
     
     # Initiate positive definite StencilMatrices for which the cg inverse works (necessary for certain tests)
     S = StencilMatrix(V, V)
@@ -711,7 +710,7 @@ def test_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
 def test_positive_definite_matrix(n1, n2, p1, p2):
     P1 = False
     P2 = False
-    V = get_StencilVectorSpace(n1, n2, p1, p2, P1, P2)
+    V = get_StencilVectorSpace([n1, n2], [p1, p2], [P1, P2])
     S = get_positive_definite_StencilMatrix(V)
 
     assert_pos_def(S)
@@ -754,7 +753,7 @@ def test_operator_evaluation(n1, n2, p1, p2):
     P2 = False
 
     # Initiate StencilVectorSpace V
-    V = get_StencilVectorSpace(n1, n2, p1, p2, P1, P2)
+    V = get_StencilVectorSpace([n1, n2], [p1, p2], [P1, P2])
     
     # Initiate positive definite StencilMatrices for which the cg inverse works (necessary for certain tests)
     S = get_positive_definite_StencilMatrix(V)
@@ -944,7 +943,7 @@ def test_internal_storage():
     p2=1
     P1=False
     P2=False
-    V = get_StencilVectorSpace(n1, n2, p1, p2, P1, P2)
+    V = get_StencilVectorSpace([n1, n2], [p1, p2], [P1, P2])
     U1 = BlockVectorSpace(V, V)
     U2 = BlockVectorSpace(V, V, V)
 
@@ -995,7 +994,7 @@ def test_x0update(solver):
     p2 = 2
     P1 = False
     P2 = False
-    V = get_StencilVectorSpace(n1, n2, p1, p2, P1, P2)
+    V = get_StencilVectorSpace([n1, n2], [p1, p2], [P1, P2])
     A = get_positive_definite_StencilMatrix(V)
     assert_pos_def(A)
     b = StencilVector(V)
@@ -1029,6 +1028,59 @@ def test_x0update(solver):
     # Apply inverse using out=x0 and check for updated x0
     x = A_inv.dot(b, out=b)
     assert A_inv.get_options('x0') is x
+
+#===============================================================================
+def test_dot_inner():
+
+    n1, n2 = 4, 7
+    p1, p2 = 2, 3
+    P1, P2 = False, False
+
+    V = get_StencilVectorSpace([n1, n2], [p1, p2], [P1, P2])
+    M = get_positive_definite_StencilMatrix(V)
+    N = get_positive_definite_StencilMatrix(V)
+
+    U1 = BlockVectorSpace(V, V)
+    U2 = BlockVectorSpace(V, V, V)
+    A  = BlockLinearOperator(U1, U2, ((M, None),
+                                      (M,    N),
+                                      (None, N)))
+
+    b = A.domain.zeros()
+    c = A.codomain.zeros()
+
+    # Set the values of b and c randomly from a uniform distribution over the
+    # interval [0, 1)
+    rng = np.random.default_rng(seed=42)
+    for bj in b:
+        Vj = bj.space
+        rng.random(size=Vj.shape, dtype=Vj.dtype, out=bj._data)
+    for ci in c:
+        Vi = ci.space
+        rng.random(size=Vi.shape, dtype=Vi.dtype, out=ci._data)
+
+    # Create a work vector for the dot product, needed to compare results
+    work_vec = A.codomain.zeros()
+
+    # Result of dot product is a temporary vector, which is allocated and then
+    # discarded. This is the default behavior of the dot method.
+    r0 = A.dot(b).inner(c)
+
+    # Result of dot product is stored in work_vec and used in the next line
+    A.dot(b, out=work_vec)
+    r1 = work_vec.inner(c)
+
+    # Result of dot product is stored in work_vec and used in the same line
+    r2 = A.dot(b, out=work_vec).inner(c)
+
+    # Calling the dot_inner method, which uses an internal work vector to store
+    # the result of the dot product, and then uses it for the inner product.
+    r3 = A.dot_inner(b, c)
+
+    # Check if the results are equal
+    assert r0 == r1
+    assert r0 == r2
+    assert r0 == r3
 
 #===============================================================================
 # SCRIPT FUNCTIONALITY
