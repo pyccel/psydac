@@ -663,10 +663,8 @@ class StencilVector(Vector):
 
                 p = pads[direction]
 
-                # ------- Fixing issue #489 --------#
                 if p == 0:
                     continue
-                # ----------------------------------#
 
                 # Left-most process: copy data from left to right
                 if coord == 0:
@@ -780,10 +778,8 @@ class StencilVector(Vector):
             periodic = self._space.periods[direction]
             p        = self._space.pads   [direction] * self._space.shifts[direction]
 
-            # ------- Fixing issue #489 --------#
             if p == 0:
                 continue
-            # ----------------------------------#
 
             idx_front = [slice(None)] * direction
             idx_back  = [slice(None)] * (ndim-direction-1)
@@ -830,10 +826,8 @@ class StencilVector(Vector):
             p        = self._space.pads  [direction]
             m        = self._space.shifts[direction]
 
-            # ------- Fixing issue #489 --------#
             if p == 0:
                 continue
-            # ----------------------------------#
 
             idx_from = tuple(idx_front + [slice(-m*p,None) if (-m*p+p)!=0 else slice(-m*p,None)] + idx_back)
             self._data[idx_from] = 0.
@@ -850,10 +844,8 @@ class StencilVector(Vector):
             p        = self._space.pads   [direction]
             m        = self._space.shifts [direction]
 
-            # ------- Fixing issue #489 --------#
             if p == 0:
                 continue
-            # ----------------------------------#
 
             if periodic:
                 idx_front = [slice(None)] * direction
@@ -1376,10 +1368,8 @@ class StencilMatrix(LinearOperator):
             p        = self._codomain.pads   [direction]
             m        = self._codomain.shifts[direction]
 
-            # ------- Fixing issue #489 --------#
             if p == 0:
                 continue
-            # ----------------------------------#
 
             idx_from = tuple( idx_front + [ slice(-m*p,None) if (-m*p+p)!=0 else slice(-m*p,None)] + idx_back )
             self._data[idx_from] = 0.
@@ -1396,10 +1386,8 @@ class StencilMatrix(LinearOperator):
             p        = self._codomain.pads   [direction]
             m        = self._codomain.shifts[direction]
 
-            # ------- Fixing issue #489 --------#
             if p == 0:
                 continue
-            # ----------------------------------#
 
             if periodic:
                 idx_front = [slice(None)]*direction
@@ -1712,10 +1700,8 @@ class StencilMatrix(LinearOperator):
             periodic = self._codomain.periods[direction]
             p        = self._codomain.pads   [direction]
 
-            # ------- Fixing issue #489 --------#
             if p == 0:
                 continue
-            # ----------------------------------#
 
             idx_front = [slice(None)]*direction
             idx_back  = [slice(None)]*(ndim-direction-1 + ndim)
@@ -2694,10 +2680,8 @@ class StencilInterfaceMatrix(LinearOperator):
         periodic = self._codomain.periods[direction]
         p        = self._codomain.pads   [direction]
 
-        # ------- Fixing issue #489 --------#
         if p == 0:
             return    
-        # ----------------------------------#
 
         idx_front = [slice(None)] * direction
         idx_back  = [slice(None)] * (ndim-direction-1)
