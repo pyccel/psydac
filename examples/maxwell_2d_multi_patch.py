@@ -81,7 +81,7 @@ def run_maxwell_2d(uex, f, alpha, domain, ncells, degree, k=None, kappa=None, co
 
     equation_h.assemble()
     jacobi_pc = equation_h.linear_system.lhs.diagonal(inverse=True)
-    equation_h.set_solver('pcg', pc=jacobi_pc, tol=1e-8, info=True)
+    equation_h.set_solver('cg', pc=jacobi_pc, tol=1e-8, info=True)
 
     timing   = {}
     t0       = time.time()
