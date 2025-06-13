@@ -1,6 +1,7 @@
 import re
 import string
 import random
+from itertools import chain
 
 from sympy import Symbol, IndexedBase, Indexed, Idx
 from sympy import Mul, Pow, Function, Tuple
@@ -19,6 +20,7 @@ from sympde.topology.derivatives import get_atom_derivatives
 from sympde.topology.derivatives import get_index_derivatives
 from sympde.topology.derivatives import get_atom_logical_derivatives
 from sympde.topology.derivatives import get_index_logical_derivatives
+from sympde.topology.derivatives import get_index_derivatives_atom, get_index_logical_derivatives_atom
 from sympde.topology             import LogicalExpr
 from sympde.topology             import SymbolicExpr
 from sympde.core                 import Constant
@@ -54,6 +56,58 @@ __all__ = (
     'select_loops',
     'variables',
 )
+
+#==============================================================================
+def get_max_partial_derivatives(expr, logical=False, F=None):
+    """
+    Compute the maximum order of partial derivatives for each coordinate in an expression.
+
+    TODO
+    ----
+    Move to SymPDE and combine the `get_index(_logical)_derivatives_atom` functions there.
+
+    Parameters
+    ----------
+    expr : sympy.Expr
+        The SymPDE expression to analyze for partial derivatives.
+
+    logical : bool, optional
+        If True, it considers logical coordinates (x1, x2, x3); otherwise, it considers physical coordinates (x, y, z).
+    
+    F : sympy.Atom | list[sympy.Atom], optional
+        If provided, it restricts the analysis to the specified atom(s). Otherwise,
+        it uses all atoms of default types that are contained in `expr`. The default
+        types represent elements of function spaces in SymPDE: `ScalarFunction`,
+        `VectorFunction`, and `IndexedVectorFunction`.
+
+    Returns
+    -------
+    d : dict[str, int]
+        A dictionary with keys ('x1', 'x2', 'x3') for logical or ('x', 'y', 'z') for physical coordinates and their corresponding maximum order of partial derivatives.
+    """
+
+    if logical:
+        d = {'x1': 0, 'x2': 0, 'x3': 0}
+        get_index = get_index_logical_derivatives_atom
+    else:
+        d = {'x': 0, 'y': 0, 'z': 0}
+        get_index = get_index_derivatives_atom
+
+    if F is None:
+        F = (list(expr.atoms(ScalarFunction)) +
+             list(expr.atoms(VectorFunction)) +
+             list(expr.atoms(IndexedVectorFunction)))
+    elif not hasattr(F, '__iter__'):
+        F = [F]
+
+    indices = chain.from_iterable(get_index(expr, Fi) for Fi in F)
+
+    for dd in indices:
+        for k, v in dd.items():
+            if v > d[k]:
+                d[k] = v
+
+    return d
 
 #==============================================================================
 def random_string( n ):

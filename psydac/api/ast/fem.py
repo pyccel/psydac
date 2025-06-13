@@ -11,7 +11,7 @@ from sympde.expr                 import LinearForm, BilinearForm, Functional
 from sympde.topology.basic       import Boundary, Interface
 from sympde.topology             import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType, UndefinedSpaceType, IdentityMapping
 from sympde.topology.space       import ScalarFunction, VectorFunction, IndexedVectorFunction
-from sympde.topology.derivatives import _logical_partial_derivatives, get_max_logical_partial_derivatives
+from sympde.topology.derivatives import _logical_partial_derivatives, get_atom_logical_derivatives
 from sympde.topology.mapping     import InterfaceMapping
 from sympde.calculus.core        import is_zero, PlusInterfaceOperator
 
@@ -44,7 +44,7 @@ from .nodes import AndNode, StrictLessThanNode, WhileLoop, NotNode
 from .nodes import GlobalThreadStarts, GlobalThreadEnds, GlobalThreadSizes
 from .nodes import Allocate, Array
 from .nodes import Block, ParallelBlock
-
+from .utilities  import get_max_partial_derivatives
 
 from psydac.api.ast.utilities import variables
 from psydac.api.utilities     import flatten
@@ -339,7 +339,7 @@ class AST(object):
         fields               = expand_hdiv_hcurl(fields)
         kwargs['nquads']     = nquads
         atoms_types          = (ScalarFunction, VectorFunction, IndexedVectorFunction)
-        nderiv               = 1
+        nderiv               = 0
         terminal_expr        = terminal_expr.expr
 
         if isinstance(terminal_expr, (ImmutableDenseMatrix, Matrix)):
@@ -347,8 +347,6 @@ class AST(object):
             atomic_expr_field = {f:[] for f in fields}
             for i_row in range(0, n_rows):
                 for i_col in range(0, n_cols):
-                    d           = get_max_logical_partial_derivatives(terminal_expr[i_row,i_col])
-                    nderiv      = max(nderiv, max(d.values()))
                     atoms       = _atomic(terminal_expr[i_row, i_col], cls=atoms_types+_logical_partial_derivatives)
                     #--------------------------------------------------------------------
                     # TODO [YG, 05.02.2021]: create 'get_test_function' and use it below:
@@ -359,10 +357,12 @@ class AST(object):
                         a = _atomic(f, cls=atoms_types)
                         assert len(a) == 1
                         atomic_expr_field[a[0]].append(f)
+                    
+                    Fs = [get_atom_logical_derivatives(a) for a in atoms]
+                    d = get_max_partial_derivatives(terminal_expr[i_row,i_col], logical=True, F=Fs)
+                    nderiv = max(nderiv, max(d.values()))
 
         else:
-            d           = get_max_logical_partial_derivatives(terminal_expr)
-            nderiv      = max(nderiv, max(d.values()))
             atoms       = _atomic(terminal_expr, cls=atoms_types+_logical_partial_derivatives)
             #--------------------------------------------------------------------
             # TODO [YG, 05.02.2021]: create 'get_test_function' and use it below:
@@ -374,6 +374,10 @@ class AST(object):
                 a = _atomic(f, cls=atoms_types)
                 assert len(a) == 1
                 atomic_expr_field[a[0]].append(f)
+
+            Fs = [get_atom_logical_derivatives(a) for a in atoms]
+            d = get_max_partial_derivatives(terminal_expr, logical=True, F=Fs)
+            nderiv = max(nderiv, max(d.values()))
 
             terminal_expr     = Matrix([[terminal_expr]])
 
