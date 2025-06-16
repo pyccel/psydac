@@ -34,6 +34,7 @@ from sympde.topology.space       import ScalarFunction, VectorFunction, IndexedV
 from sympde.topology.derivatives import get_atom_logical_derivatives
 from sympde.topology.derivatives import _logical_partial_derivatives
 from sympde.topology.derivatives import get_index_logical_derivatives
+from sympde.topology.derivatives import get_max_logical_partial_derivatives
 from sympde.calculus.core        import PlusInterfaceOperator
 
 from psydac.api.basic        import BasicDiscrete
@@ -243,9 +244,6 @@ class DiscreteBilinearForm(BasicDiscrete):
                  symbolic_mapping=None,
                  fast_assembly=False):
         
-        # to be removed asap: True for enabling second derivatives (FEEC bilinear forms will fail), False for disabling second derivatives
-        self._second_derivatives = False
-
         if not isinstance(expr, sym_BilinearForm):
             raise TypeError('> Expecting a symbolic BilinearForm')
 
@@ -384,11 +382,14 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         # BasicDiscrete generates the assembly code and sets the following attributes that are used afterwards:
         # self._func, self._free_args, self._max_nderiv and self._backend
+        # If fast_assembly == True: Instead of generating, pyccelizing and saving the assembly code, store import information in
+        # self._imports_string
         BasicDiscrete.__init__(self, expr, kernel_expr, comm=comm, root=0, discrete_space=discrete_space,
                        nquads=nquads, is_rational_mapping=is_rational_mapping, mapping=symbolic_mapping,
                        mapping_space=mapping_space, num_threads=self._num_threads, backend=assembly_backend,
                        fast_assembly=fast_assembly)
         
+        # If fast_assembly == True, broadcast the import information (sqrt, sin, pi, ...) to all processes
         if (comm is not None) and (comm.size > 1) and (fast_assembly==True):
             if comm.rank != 0:
                 self._imports_string = None
@@ -455,28 +456,18 @@ class DiscreteBilinearForm(BasicDiscrete):
             grid   = trial_grid
         )
 
-        # temporary feature that allows to choose either old or new assembly to verify whether the new assembly works
+        # new feature that allows to choose either old or new assembly to verify whether the new assembly works
         assert isinstance(fast_assembly, bool)
         self._fast_assembly = fast_assembly
 
         # Allocate the output matrix, if needed
         self.allocate_matrices(linalg_backend)
 
-        #from psydac.api.tests.allocate_matrix_bug import fix_bug
-        #self._fix_bug = fix_bug
-        # ----- Uncomment only for the u*f // f*u test case -----
-        #if fix_bug:
-        #    mat = StencilMatrix(self._matrix.domain, self._matrix.codomain)
-        #    self._matrix = mat
-        #    self._global_matrices = [mat._data, ]
-
-        #print(self._global_matrices[0].shape)
-        # -------------------------------------------------------
-
         # Determine whether OpenMP instructions were generated
         with_openmp = (assembly_backend['name'] == 'pyccel' and assembly_backend['openmp']) if assembly_backend else False
 
         # Construct the arguments to be passed to the assemble() function, which is stored in self._func
+        # If fast_assembly == True: First generate the assembly file
         if self._fast_assembly == True:
             # no openmp support yet
             self._args, self._threads_args = self.construct_arguments_generate_assembly_file()
@@ -575,17 +566,6 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         else:
             args = self._args
-        # ----- Uncomment only for the u*f // f*u test case -----
-        #if self._fix_bug:
-        #    if self._fast_assembly == True:
-        #        if self._mapping_option == 'Bspline':
-        #            args = (*args[0:28], *self._global_matrices, *args[29:])
-        #        else:
-        #            args = (*args[0:15], *self._global_matrices, *args[16:])
-        #    else:
-        #        args = (*args[:-1], *self._global_matrices)
-        # -------------------------------------------------------
-#        args = args + self._element_loop_starts + self._element_loop_ends
 
         if reset:
             reset_arrays(*self.global_matrices)
@@ -790,7 +770,13 @@ class DiscreteBilinearForm(BasicDiscrete):
 '''
         return code
 
-    def make_file(self, temps, ordered_stmts, field_derivatives, mult, *args, mapping_option=None):
+    def make_file(self, temps, ordered_stmts, field_derivatives, max_logical_derivative, mult, *args, mapping_option=None):
+        """
+        Part of the sum factorization implementation.
+        Generates the correct assembly file and returns the name of the corresponding python file.
+        Used at the end of construct_arguments_generate_assembly_file(), before eventually pyccelizing said file.
+        
+        """
 
         # ----- field strings -----
         basis_args_block = [f'global_test_basis_'+'{field}'+f'_{i+1} : "float64[:,:,:,:]"' for i in range(3)]
@@ -1034,7 +1020,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         
         KEYS = KEYS_2 + KEYS_3
 
-        if (mapping_option == 'Bspline') and self._second_derivatives:
+        if (mapping_option == 'Bspline') and (max_logical_derivative == 2):
             D2_1 = '\n'
             spaces1 = '                            '
             spaces2 = spaces1 + '            '
@@ -1183,7 +1169,6 @@ class DiscreteBilinearForm(BasicDiscrete):
     def read_BilinearForm(self):
         
         a = self.expr
-        verbose = False
 
         domain = a.domain
         mapping_option = 'Bspline' if isinstance(self._mapping, SplineMapping) else None
@@ -1191,16 +1176,11 @@ class DiscreteBilinearForm(BasicDiscrete):
         tests  = a.test_functions
         trials = a.trial_functions
         fields = a.fields
-        if verbose: print(f'In readBF: tests: {tests}')
-        if verbose: print(f'In readBF: trials: {trials}')
-        if verbose: print(f'In readBF: fields: {fields}')
 
         texpr  = TerminalExpr(a, domain)[0]
-        if verbose: print(f'In readBF: texpr: {texpr}')
 
         atoms_types = (ScalarFunction, VectorFunction, IndexedVectorFunction)
         atoms       = _atomic(texpr, cls=atoms_types+_logical_partial_derivatives)
-        if verbose: print(f'In readBF: atoms: {atoms}')
 
         test_atoms  = {}
         for v in tests:
@@ -1226,18 +1206,9 @@ class DiscreteBilinearForm(BasicDiscrete):
             else:
                 field_atoms[f] = []
 
-        if verbose: print(f'In readBF: test_atoms: {test_atoms}')
-        if verbose: print(f'In readBF: trial_atoms: {trial_atoms}')
-        if verbose: print(f'In readBF: field_atoms: {field_atoms}')
-
         # u in trials is not get_atom_logical_derivative(a) for a in atoms and atom in trials
-
         for a in atoms:
             atom = get_atom_logical_derivatives(a)
-            if hasattr(atom, 'base'):
-                if verbose: print(f'In readBF: atom.__class__: {atom.__class__} --- atom.base.__class__: {atom.base.__class__}')
-            else:
-                if verbose: print(f'In readBF: atom.__class__: {atom.__class__}')
             if not ((isinstance(atom, Indexed) and isinstance(atom.base, Mapping)) or (isinstance(atom, IndexedVectorFunction))):
                 if atom in tests:
                     test_atoms[tests[0]].append(a) # apparently previously atom instead of tests[0]
@@ -1265,18 +1236,36 @@ class DiscreteBilinearForm(BasicDiscrete):
                             break
                 else:
                     raise NotImplementedError(f"atoms of type {str(a)} are not supported")
-            if verbose: print(f'In readBF: test_atoms: {test_atoms}')
-            if verbose: print(f'In readBF: trial_atoms: {trial_atoms}')
-            if verbose: print(f'In readBF: field_atoms: {field_atoms}')
 
+        # ----- Julian O. 11.06.25 -----
+        # When dealing with a DiscreteBilinearForm depending on two or more free FemFields,
+        # the order of the dictionary `field_derivatives` must be the same as the order
+        # of the free FemFields as in `self._free_args`.
+        # For some reason, the order of all appearing "atoms" in a BilinearForm (trial function, test function, free fields, .?.)
+        # as obtained in the __init__ of AST
+        #       atoms               = terminal_expr.expr.atoms(ScalarFunction, VectorFunction)
+        # is random and changes from code execution to code execution.
+        # This order of atoms however determines the order of the free FemFields appearing in `self._free_args`.
+        # In particular, this order only sometimes matches the order of `field_derivatives`, which results in wrong matrices.
+        #
+        # Below is the old version of the code the follows:
+        #field_derivatives = {}
+        #for key in field_atoms:
+        #    sym_key = SymbolicExpr(key)
+        #    field_derivatives[sym_key] = {}
+        #    for f in field_atoms[key]:
+        #        field_derivatives[sym_key][SymbolicExpr(f)] = get_index_logical_derivatives(f)
+        # ------------------------------
+        n_free_fields = len(self._free_args)
         field_derivatives = {}
-        for key in field_atoms:
-            sym_key = SymbolicExpr(key)
-            field_derivatives[sym_key] = {}
-            for f in field_atoms[key]:
-                field_derivatives[sym_key][SymbolicExpr(f)] = get_index_logical_derivatives(f)
-        
-        if verbose: print(f'In readBF: field_derivatives: {field_derivatives}')
+        for n in range(n_free_fields):
+            for key in field_atoms:
+                field_name = str(key.base) if hasattr(key, 'base') else str(key)
+                if field_name == self._free_args[n]:
+                    sym_key = SymbolicExpr(key)
+                    field_derivatives[sym_key] = {}
+                    for f in field_atoms[key]:
+                        field_derivatives[sym_key][SymbolicExpr(f)] = get_index_logical_derivatives(f)
 
         syme = False
         if syme:
@@ -1288,8 +1277,6 @@ class DiscreteBilinearForm(BasicDiscrete):
             sym_test_atoms  = {k:[SymbolicExpr(ai) for ai in a] for k,a in test_atoms.items()}
             sym_trial_atoms = {k:[SymbolicExpr(ai) for ai in a] for k,a in trial_atoms.items()}
             sym_expr        = SymbolicExpr(texpr.expr)
-        if verbose: print(f'In readBF: sym_test_atoms: {sym_test_atoms}')
-        if verbose: print(f'In readBF: sym_trial_atoms: {sym_trial_atoms}')
 
         trials_subs = {ui:0 for u in sym_trial_atoms for ui in sym_trial_atoms[u]}
         tests_subs  = {vi:0 for v in sym_test_atoms  for vi in sym_test_atoms[v]}
@@ -1337,6 +1324,17 @@ class DiscreteBilinearForm(BasicDiscrete):
         nv                  = len(set(test_components))
 
         expr = self.kernel_expr.expr
+
+        if isinstance(expr, (ImmutableDenseMatrix, Matrix)):
+            shape = expr.shape
+            logical_max_derivatives = []
+            for k1 in range(shape[0]):
+                for k2 in range(shape[1]):
+                    logical_max_derivatives.append(get_max_logical_partial_derivatives(expr[k1,k2]))
+            max_logical_derivative = max([max([value for value in dic.values()]) for dic in logical_max_derivatives])
+        else:
+            max_logical_derivative = max([value for value in get_max_logical_partial_derivatives(expr).values()])
+
         if isinstance(expr, (ImmutableDenseMatrix, Matrix)):
             g_mat_information_false = []
             shape = expr.shape
@@ -1387,7 +1385,7 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         temps = tuple(Assign(a,b) for a,b in temps)
 
-        return temps, ordered_stmts, ordered_sub_exprs_keys, mapping_option, field_derivatives, g_mat_information_false, g_mat_information_true
+        return temps, ordered_stmts, ordered_sub_exprs_keys, mapping_option, field_derivatives, g_mat_information_false, g_mat_information_true, max_logical_derivative
 
     def construct_arguments_generate_assembly_file(self):
         """
@@ -1410,7 +1408,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         """
         verbose = False
 
-        temps, ordered_stmts, ordered_sub_exprs_keys, mapping_option, field_derivatives, g_mat_information_false, g_mat_information_true = self.read_BilinearForm()
+        temps, ordered_stmts, ordered_sub_exprs_keys, mapping_option, field_derivatives, g_mat_information_false, g_mat_information_true, max_logical_derivative = self.read_BilinearForm()
 
         blocks              = ordered_stmts.keys()
         block_list          = list(blocks)
@@ -1418,16 +1416,9 @@ class DiscreteBilinearForm(BasicDiscrete):
         test_components     = [block[1] for block in block_list]
         trial_dim           = len(set(trial_components))
         test_dim            = len(set(test_components))
-        
-        if verbose: print(f'blocks: {blocks}')
-        if verbose: print(f'block_list: {block_list}')
-        if verbose: print(f'trial_components: {trial_components}')
-        if verbose: print(f'test_components: {test_components}')
-        if verbose: print(f'trial_dim: {trial_dim}')
-        if verbose: print(f'test_dim: {test_dim}')
 
         d = 3
-        assert d == 3 # dim 3 assembly method
+        assert d == 3  # dim 3 assembly method
         nu = trial_dim # dim of trial function; 1 (scalar) or 3 (vector)
         nv = test_dim  # dim of trial function; 1 (scalar) or 3 (vector)
 
@@ -1533,15 +1524,16 @@ class DiscreteBilinearForm(BasicDiscrete):
 
             n_expr = len(ordered_stmts[block])
 
-            #test_trial_1 = np.zeros((n_element_1, k1, test_v_p1 + 1, trial_u_p1 + 1, 2, 2), dtype='float64')
-            #test_trial_2 = np.zeros((n_element_2, k2, test_v_p2 + 1, trial_u_p2 + 1, 2, 2), dtype='float64')
-            #test_trial_3 = np.zeros((n_element_3, k3, test_v_p3 + 1, trial_u_p3 + 1, 2, 2), dtype='float64')
+            max_block_trial_x1_derivative = max(x1_trial_keys[block])
+            max_block_trial_x2_derivative = max(x2_trial_keys[block])
+            max_block_trial_x3_derivative = max(x3_trial_keys[block])
+            max_block_test_x1_derivative = max(x1_test_keys[block])
+            max_block_test_x2_derivative = max(x2_test_keys[block])
+            max_block_test_x3_derivative = max(x3_test_keys[block])
 
-            test_trial_1 = np.zeros((n_element_1, k1, test_v_p1 + 1, trial_u_p1 + 1, 3, 3), dtype='float64')
-            test_trial_2 = np.zeros((n_element_2, k2, test_v_p2 + 1, trial_u_p2 + 1, 3, 3), dtype='float64')
-            test_trial_3 = np.zeros((n_element_3, k3, test_v_p3 + 1, trial_u_p3 + 1, 3, 3), dtype='float64')
-
-            r = 3 if self._second_derivatives else 2
+            test_trial_1 = np.zeros((n_element_1, k1, test_v_p1 + 1, trial_u_p1 + 1, max_block_trial_x1_derivative+1, max_block_test_x1_derivative+1), dtype='float64')
+            test_trial_2 = np.zeros((n_element_2, k2, test_v_p2 + 1, trial_u_p2 + 1, max_block_trial_x2_derivative+1, max_block_test_x2_derivative+1), dtype='float64')
+            test_trial_3 = np.zeros((n_element_3, k3, test_v_p3 + 1, trial_u_p3 + 1, max_block_trial_x3_derivative+1, max_block_test_x3_derivative+1), dtype='float64')
 
             for k_1 in range(n_element_1):
                 for q_1 in range(k1):
@@ -1549,8 +1541,8 @@ class DiscreteBilinearForm(BasicDiscrete):
                         for j_1 in range(trial_u_p1 + 1):
                             trial   = global_basis_u_1[k_1, j_1, :, q_1]
                             test    = global_basis_v_1[k_1, i_1, :, q_1]
-                            for alpha_1 in range(r):
-                                for beta_1 in range(r):
+                            for alpha_1 in range(max_block_trial_x1_derivative+1): # r):
+                                for beta_1 in range(max_block_test_x1_derivative+1): # r):
                                     test_trial_1[k_1, q_1, i_1, j_1, alpha_1, beta_1] = trial[alpha_1] * test[beta_1]
 
             for k_2 in range(n_element_2):
@@ -1559,8 +1551,8 @@ class DiscreteBilinearForm(BasicDiscrete):
                         for j_2 in range(trial_u_p2 + 1):
                             trial   = global_basis_u_2[k_2, j_2, :, q_2]
                             test    = global_basis_v_2[k_2, i_2, :, q_2]
-                            for alpha_2 in range(r):
-                                for beta_2 in range(r):
+                            for alpha_2 in range(max_block_trial_x2_derivative+1): # r):
+                                for beta_2 in range(max_block_test_x2_derivative+1): # r):
                                     test_trial_2[k_2, q_2, i_2, j_2, alpha_2, beta_2] = trial[alpha_2] * test[beta_2]
 
             for k_3 in range(n_element_3):
@@ -1569,8 +1561,8 @@ class DiscreteBilinearForm(BasicDiscrete):
                         for j_3 in range(trial_u_p3 + 1):
                             trial   = global_basis_u_3[k_3, j_3, :, q_3]
                             test    = global_basis_v_3[k_3, i_3, :, q_3]
-                            for alpha_3 in range(r):
-                                for beta_3 in range(r):
+                            for alpha_3 in range(max_block_trial_x3_derivative+1): # r):
+                                for beta_3 in range(max_block_test_x3_derivative+1): # r):
                                     test_trial_3[k_3, q_3, i_3, j_3, alpha_3, beta_3] = trial[alpha_3] * test[beta_3]
 
             test_trial_1s[block] = test_trial_1
@@ -1605,7 +1597,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         args = tuple(np.int64(a) if isinstance(a, int) else a for a in args)
         threads_args = tuple(np.int64(a) if isinstance(a, int) else a for a in threads_args)
 
-        file_id = self.make_file(temps, ordered_stmts, field_derivatives, mult, test_v_p, trial_u_p, keys_1, keys_2, keys_3, mapping_option=mapping_option)
+        file_id = self.make_file(temps, ordered_stmts, field_derivatives, max_logical_derivative, mult, test_v_p, trial_u_p, keys_1, keys_2, keys_3, mapping_option=mapping_option)
 
         # Store the current directory and add it to the variable `sys.path`
         # to imitate Python's import behavior

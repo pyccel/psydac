@@ -145,8 +145,11 @@ class BasicCodeGen:
 
         if ast:
             if fast_assembly == False:
+                # If we're using the old assembly implementation: Generate, pyccelize and save the assembly file.
                 self._save_code(self._generate_code(), backend=self.backend['name'])
             else:
+                # Else: Obtain necessary import from psydac_ast.expr and store them in self._imports_string
+                # This string will be used in the generation of the new assembly file.
                 psydac_ast = self.ast
                 parser_settings = {
                     'dim'    : psydac_ast.dim,
