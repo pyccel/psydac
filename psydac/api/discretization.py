@@ -549,17 +549,17 @@ def discretize(a, *args, **kwargs):
         domain  = domain_h.domain
         dim     = domain.dim
 
+        # The current implementation of the sum factorization algorithm does not support openMP parallelization
+        # It is not properly tested, whether this way of excluding openMP parallelized code from using the sum factorization algorithm works.
         backend = kwargs.get('backend')# or None
-        #print(f'backend: {backend}')
         assembly_backend = kwargs.get('assembly_backend')# or None
-        #print(f'assembly_backend: {assembly_backend}')
         assembly_backend = backend or assembly_backend
-        #print(f'assembly_backend: {assembly_backend}')
         openmp = False if assembly_backend is None else assembly_backend.get('openmp')
-        #print(f'openmp: {openmp}')
 
+        # Set fast_assembly to True if domain.dim==3, a is a symbolic BilinearForm and the code is not openMP parallelized ...
         if (((isinstance(a, sym_BilinearForm)) and (dim == 3))) and not openmp:
-            if not (kwargs.get('fast_assembly') == False): # enable test cases
+            # ... unless we already explicitely set fast_assembly to False! (For test cases, or in case of a newly encountered bug)
+            if not (kwargs.get('fast_assembly') == False):
                 kwargs['fast_assembly'] = True
         mapping = domain_h.domain.mapping
         kwargs['symbolic_mapping'] = mapping

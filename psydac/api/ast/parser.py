@@ -111,17 +111,23 @@ def parse(expr, settings, backend=None, fast_assembly=False):
     Parameters
     ----------
 
-    expr: <Psydac Ast>
+    expr : Psydac Ast
         psydac ast node
 
-    settings : <dict>
-        dictionary that continas number of dimension, mappings and target if provided
+    settings : dict
+        dictionary that contains number of dimension, mappings and target if provided
+
+    fast_assembly : bool
+        This method is used to obtain the imports string when using the sum factorization matrix assembly algorithm
 
     Returns
     -------
 
     ast : Pyccel Ast
-        pyccel abstract syntax tree that can be translated into a Python code
+        pyccel abstract syntax tree that can be translated into a Python code. Only if not fast_assembly
+
+    imports_string : str
+        string containing information about methods that need to be imported inside the assembly file. Only if fast_assembly
 
     """
     psy_parser = Parser(settings, backend)

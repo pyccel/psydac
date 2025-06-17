@@ -21,27 +21,25 @@ except:
     base_dir = os.path.join(base_dir, '..', '..', '..')
     mesh_dir = os.path.join(base_dir, 'mesh')
 
-"""
-With PR #448, matrices corresponding to bilinear forms on 3D domains are being assembled using a so called sum factorization algorithm.
-Unless explicitely using the old algorithm, this happens automatically, and hence all old tests passing should indicate that the implementation of the sum factorization algorithm has been successful.
-Nonetheless, there are various difficulties in the implementation, and possibly not all of them are accounted for in the existing tests.
 
-This file is designed to test such "difficult" edge cases - for mapped (Bspline & analytical) and parametric domains:
+#With PR #448, matrices corresponding to bilinear forms on 3D domains are being assembled using a so called sum factorization algorithm.
+#Unless explicitely using the old algorithm, this happens automatically, and hence all old tests passing should indicate that the implementation of the sum factorization algorithm has been successful.
+#Nonetheless, there are various difficulties in the implementation, and possibly not all of them are accounted for in the existing tests.
 
-Such "difficult" edge cases are:
+#This file is designed to test such "difficult" edge cases - for mapped (Bspline & analytical) and parametric domains:
 
-1. bilinear forms on different spaces
-2. (FemField / analytical / ...) weight functions
-3. high derivatives (>=2)
-4. (multiple) free FemFields
-5. complicated expressions
-6. uncommen (numpy) functions that need be imported correctly in the assembly file (here in the weight function)
+#Such "difficult" edge cases are:
 
-These tests also return old and new discretization and assembly times.
+#1. bilinear forms on different spaces
+#2. (FemField / analytical / ...) weight functions
+#3. high derivatives (>=2)
+#4. (multiple) free FemFields
+#5. complicated expressions
+#6. uncommen (numpy) functions that need be imported correctly in the assembly file (here in the weight function)
 
-Most of the time, being close to the "old matrix" (generated using the old assembly algorithm) will be the requirement to pass the test, as the old implementation has not caused problems in a long time and is considered to function properly.
+#These tests also return old and new discretization and assembly times.
 
-"""
+#Most of the time, being close to the "old matrix" (generated using the old assembly algorithm) will be the requirement to pass the test, as the old implementation has not caused problems in a long time and is considered to function properly.
 
 @pytest.mark.parametrize('mapping', ('None', 'Analytical', 'Bspline'))
 def test_assembly(mapping):

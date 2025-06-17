@@ -105,6 +105,7 @@ class DiscreteEquation(BasicDiscrete):
 
         self._lhs = discretize(expr.lhs, domain, trial_test, **kwargs)
         # ...
+        # fast_assembly (sum factorization algorithm) is currently not supported for LinearForms (the rhs)
         if 'fast_assembly' in kwargs:
             kwargs.pop('fast_assembly')
         self._rhs = discretize(expr.rhs, domain, test_space, **kwargs)

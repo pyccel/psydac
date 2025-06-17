@@ -8,9 +8,8 @@ import random
 import importlib
 import os
 import sys
-#import inspect
-
 import numpy as np
+#import inspect
 
 from sympy                  import ImmutableDenseMatrix, Matrix, Symbol, sympify
 from sympy.tensor.indexed   import Indexed, IndexedBase
@@ -179,6 +178,7 @@ def extract_stencil_mats(mats):
     return new_mats
 
 def id_generator(size=8, chars=string.ascii_lowercase + string.digits):
+    """Creates an 8 digit random string used in file names."""
     return ''.join(random.choice(chars) for _ in range(size))
 #==============================================================================
 class DiscreteBilinearForm(BasicDiscrete):
@@ -230,6 +230,10 @@ class DiscreteBilinearForm(BasicDiscrete):
 
     symbolic_mapping : Sympde.topology.Mapping, optional
         The symbolic mapping which defines the physical domain of the bilinear form.
+
+    fast_assembly : bool
+        If True (as decided in discretization.py/discretize()), an implementation 
+        of the sum factorization algorithm will be used to assemble the corresponding matrix.
 
     See Also
     --------
@@ -456,7 +460,6 @@ class DiscreteBilinearForm(BasicDiscrete):
             grid   = trial_grid
         )
 
-        # new feature that allows to choose either old or new assembly to verify whether the new assembly works
         assert isinstance(fast_assembly, bool)
         self._fast_assembly = fast_assembly
 
@@ -605,6 +608,7 @@ class DiscreteBilinearForm(BasicDiscrete):
 
     @property
     def _assembly_template_head(self):
+        """A template for the 'head' of the assembly function. Only used with the sum factorization algorithm."""
         code = '''def assemble_matrix({MAPPING_PART_1}
 {SPAN}                    {MAPPING_PART_2}
                     global_x1 : "float64[:,:]", global_x2 : "float64[:,:]", global_x3 : "float64[:,:]", 
@@ -622,6 +626,7 @@ class DiscreteBilinearForm(BasicDiscrete):
     
     @property
     def _assembly_template_body_bspline(self):
+        """A template for the 'body' of the assembly function (when using a spline mapping). Only used with the sum factorization algorithm."""
         code = '''
     arr_coeffs_x = zeros((1 + test_mapping_p1, 1 + test_mapping_p2, 1 + test_mapping_p3), dtype='float64')
     arr_coeffs_y = zeros((1 + test_mapping_p1, 1 + test_mapping_p2, 1 + test_mapping_p3), dtype='float64')
@@ -711,6 +716,7 @@ class DiscreteBilinearForm(BasicDiscrete):
     
     @property 
     def _assembly_template_body_analytic(self):
+        """A template for the 'body' of the assembly function (when using an analytic or no mapping). Only used with the sum factorization algorithm."""
         code = '''
     local_x1 = zeros_like(global_x1[0,:])
     local_x2 = zeros_like(global_x2[0,:])
@@ -746,6 +752,7 @@ class DiscreteBilinearForm(BasicDiscrete):
     
     @property
     def _assembly_template_loop(self):
+        """A template for the 'loop' of the assembly function. Only used with the sum factorization algorithm."""
         code = '''
             {A2}[:] = 0.0
             for k_2 in range(n_element_2):
@@ -772,7 +779,7 @@ class DiscreteBilinearForm(BasicDiscrete):
 
     def make_file(self, temps, ordered_stmts, field_derivatives, max_logical_derivative, mult, *args, mapping_option=None):
         """
-        Part of the sum factorization implementation.
+        Part of the sum factorization algorithm implementation.
         Generates the correct assembly file and returns the name of the corresponding python file.
         Used at the end of construct_arguments_generate_assembly_file(), before eventually pyccelizing said file.
         
@@ -1167,7 +1174,13 @@ class DiscreteBilinearForm(BasicDiscrete):
         return file_id
 
     def read_BilinearForm(self):
+        """
+        Part of the sum factorization algorithm implementation.
+        Used at the beginning of construct_arguments_generate_assembly_file().
+        It's output determines both the design of the assembly function, and the arguments passed to it.
         
+        """
+
         a = self.expr
 
         domain = a.domain
@@ -1355,6 +1368,9 @@ class DiscreteBilinearForm(BasicDiscrete):
             g_mat_information_false = []
             g_mat_information_true = []
 
+        # Julian O. 17.06.25: Back when I added this unreadably comment below I did not write a test for this problem.
+        #                     Eventually it might be interesting to remove everything related to `g_mat_information_false/true`
+        #                     and see where errors occur.
         #'''
         #1, 1: expr[1,1] = F0*sqrt(x1**2*(x1*cos(2*pi*x3) + 2)**2*(sin(pi*x2)**2 + cos(pi*x2)**2)**2*(sin(2*pi*x3)**2 + cos(2*pi*x3)**2)**2)*(pi*(x1*cos(2*pi*x3) + 2)*
         #(-2*pi*x1*sin(pi*x2)*sin(2*pi*x3)*dx1(v1[1]) - sin(pi*x2)*cos(2*pi*x3)*dx3(v1[1]))*cos(pi*x2)*w2[1] - pi*(x1*cos(2*pi*x3) + 2)*(-2*pi*x1*sin(2*pi*x3)*cos(pi*x2)*dx1(v1[1]) - 
@@ -1389,25 +1405,17 @@ class DiscreteBilinearForm(BasicDiscrete):
 
     def construct_arguments_generate_assembly_file(self):
         """
-        Collect the arguments used in the assembly method.
-
-        Parameters # no openmp support for now
-        ----------
-        #with_openmp : bool
-        # If set to True we collect some extra arguments used in the assembly method
+        Collect the arguments used in the assembly method, and generate and possibly pyccelize the assembly function.
 
         Returns
         -------
-        
         args: tuple
-         The arguments passed to the assembly method.
+            The arguments passed to the assembly method.
 
-        threads_args: None # for now, used to be tuple
-          #Extra arguments used in the assembly method in case with_openmp=True.
+        threads_args: None
+            None as openMP parallelization is not supported by this implementation.
 
         """
-        verbose = False
-
         temps, ordered_stmts, ordered_sub_exprs_keys, mapping_option, field_derivatives, g_mat_information_false, g_mat_information_true, max_logical_derivative = self.read_BilinearForm()
 
         blocks              = ordered_stmts.keys()
@@ -1855,7 +1863,7 @@ class DiscreteBilinearForm(BasicDiscrete):
             for k1 in range(shape[0]):
                 for k2 in range(shape[1]):
                     if expr[k1,k2].is_zero:
-                            continue
+                        continue
 
                     if isinstance(test_fem_space, VectorFemSpace):
                         ts_space = test_fem_space.get_refined_space(ncells).coeff_space.spaces[k1]
@@ -2195,7 +2203,7 @@ class DiscreteLinearForm(BasicDiscrete):
             nquads = nquads,
             grid   = test_grid
         )
-
+        verbose = False
         # Allocate the output vector, if needed
         self.allocate_matrices()
 
@@ -2298,7 +2306,7 @@ class DiscreteLinearForm(BasicDiscrete):
 
         # TODO : uncomment this line when the conjugate is applied on the dot product in the complex case
         # self._vector.conjugate(out=self._vector)
-
+        verbose = False
         if self._vector:
             self._vector.ghost_regions_in_sync = False
 

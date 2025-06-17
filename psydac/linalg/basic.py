@@ -696,6 +696,7 @@ class ScaledLinearOperator(LinearOperator):
         return None
 
     def set_scalar(self, c):
+        """ Modifies the scalar with which this LinearOperator is multiplied. E.g. for updating the stepsize."""
         self._scalar = c
 
     def toarray(self):
@@ -835,6 +836,7 @@ class SumLinearOperator(LinearOperator):
             for a in self._addends:
                 a.dot(v, out=out2)
                 out += out2
+                # idot is not implemented. The above altered implementation makes sure no unnecessary temporaries are created.
                 #a.idot(v, out=out)
             return out
         else:
@@ -842,6 +844,7 @@ class SumLinearOperator(LinearOperator):
             for a in self._addends:
                 a.dot(v, out=out2)
                 out += out2
+                # idot is not implemented. The above altered implementation makes sure no unnecessary temporaries are created.
                 #a.idot(v, out=out)
             return out
 

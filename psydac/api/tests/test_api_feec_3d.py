@@ -115,6 +115,7 @@ def run_maxwell_3d_scipy(logical_domain, mapping, e_ex, b_ex, ncells, degree, pe
     domain_h = discretize(domain, ncells=ncells, periodic=periodic, comm=MPI.COMM_WORLD)
     derham_h = discretize(derham, domain_h, degree=degree, multiplicity = [mult,mult,mult])
 
+    # Julian O. 17.06.25 temporary change to investigate bug on maxOS via GitHub tests
     a1_h = discretize(a1, domain_h, (derham_h.V1, derham_h.V1)) # , backend=PSYDAC_BACKEND_GPYCCEL)
     a2_h = discretize(a2, domain_h, (derham_h.V2, derham_h.V2)) # , backend=PSYDAC_BACKEND_GPYCCEL)
 
@@ -210,6 +211,7 @@ def run_maxwell_3d_stencil(logical_domain, mapping, e_ex, b_ex, ncells, degree, 
     domain_h = discretize(domain, ncells=ncells, periodic=periodic, comm=MPI.COMM_WORLD)
     derham_h = discretize(derham, domain_h, degree=degree, multiplicity = [mult,mult,mult])
 
+    # Julian O. 17.06.25 temporary change to investigate bug on maxOS via GitHub tests
     a1_h = discretize(a1, domain_h, (derham_h.V1, derham_h.V1)) # , backend=PSYDAC_BACKEND_GPYCCEL)
     a2_h = discretize(a2, domain_h, (derham_h.V2, derham_h.V2)) # , backend=PSYDAC_BACKEND_GPYCCEL)
 

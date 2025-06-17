@@ -61,6 +61,11 @@ class BasicCodeGen:
         The backend used to accelerate the computing kernels.
         The content of the dictionary can be found in psydac/api/settings.py.
 
+    fast_assembly: bool
+        When using the new sum factorization algorithm for the assembly of matrices,
+        an object of this class should not generate, pyccelize and store assembly code,
+        but rather only provide self._imports_string.
+
     """
     def __init__(self, expr, *, folder=None, comm=None, root=None, discrete_space=None,
                        kernel_expr=None, nquads=None, is_rational_mapping=None, mapping=None,
