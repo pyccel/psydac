@@ -126,20 +126,19 @@ class ConjugateGradient(InverseLinearOperator):
         self._options = {"x0":x0, "pc":pc, "tol":tol, "maxiter":maxiter, "verbose":verbose, "recycle":recycle}
         
         super().__init__(A, **self._options)
-        
-        if pc is None:
-            self._options['pc'] = IdentityOperator(self.domain)
-        else:
-            assert isinstance(pc, LinearOperator)
-            
-        # Initialize temporary vectors based on whether preconditioner is used
-        if pc is None:
+    
+        if pc is None: 
             self._tmps = {key: self.domain.zeros() for key in ("v", "r", "p")}
-        else:
-            self._tmps = {key: self.domain.zeros() for key in ("v", "r", "p", "s")}
+            
+        else: 
+            assert isinstance(pc, LinearOperator)
+            tmps_codomain = {key: self.codomain.zeros() for key in ("p", "s")}
+            tmps_domain = {key: self.domain.zeros() for key in ("v", "r")}
+            self._tmps = {**tmps_codomain, **tmps_domain}
+            
         self._info = None
 
-    def solve(self, b, out=None):
+    def solve_without_pc(self, b, out=None):
         """
         Conjugate gradient algorithm for solving linear system Ax=b.
         Only working if A is an hermitian and positive-definite linear operator.
@@ -149,7 +148,7 @@ class ConjugateGradient(InverseLinearOperator):
         Parameters
         ----------
         b : psydac.linalg.basic.Vector
-            Right-hand-side vector of linear system. Individual entries b[i] need
+            Right-hand-side vector of linear system Ax = b. Individual entries b[i] need
             not be accessed, but b has 'shape' attribute and provides 'copy()' and
             'inner(p)' functions (b.inner(p) is the vector inner product b*p); moreover,
             scalar multiplication and sum operations are available.
@@ -174,7 +173,6 @@ class ConjugateGradient(InverseLinearOperator):
         codomain = self._codomain
         options = self._options
         x0 = options["x0"]
-        pc = options["pc"]
         tol = options["tol"]
         maxiter = options["maxiter"]
         verbose = options["verbose"]
@@ -182,8 +180,6 @@ class ConjugateGradient(InverseLinearOperator):
         
         assert isinstance(b, Vector)
         assert b.space is domain
-
-        assert isinstance(pc, LinearOperator)
 
         # First guess of solution
         if out is not None:
@@ -201,17 +197,8 @@ class ConjugateGradient(InverseLinearOperator):
         A.dot(x, out=v)
         b.copy(out=r)
         r -= v
-
-        if pc is None:
-            # Standard CG
-            am = r.inner(r).real
-            r.copy(out=p)
-        else:
-            # Preconditioned CG
-            s = self._tmps["s"]
-            pc.dot(r, out=s)
-            am = s.inner(r)
-            s.copy(out=p)
+        am = r.inner(r).real
+        r.copy(out=p)
 
         tol_sqr = tol**2
 
@@ -234,19 +221,9 @@ class ConjugateGradient(InverseLinearOperator):
             x.mul_iadd(l, p)  # this is x += l*p
             r.mul_iadd(-l, v) # this is r -= l*v
 
-            if pc is None:
-                # Standard CG
-                am1 = r.inner(r).real
-                p  *= (am1/am)
-                p  += r
-            else:
-                # Preconditioned CG
-                s = self._tmps["s"]
-                pc.dot(r, out=s)
-                am1 = s.inner(r)
-                s.mul_iadd((am1/am), p)
-                s, p = p, s
-
+            am1 = r.inner(r).real
+            p  *= (am1/am)
+            p  += r
             am  = am1
             if verbose:
                 print(template.format(m, sqrt(am)))
@@ -262,7 +239,122 @@ class ConjugateGradient(InverseLinearOperator):
 
         return x
 
+    def solve_with_pc(self, b, out=None):
+        """
+        Preconditioned Conjugate Gradient (PCG) solves the symetric positive definte
+        system Ax = b. It assumes that pc.dot(r) returns the solution to Ps = r,
+        where P is positive definite.
+        Info can be accessed using get_info(), see :func:~`basic.InverseLinearOperator.get_info`.
+
+        Parameters
+        ----------
+        b : psydac.linalg.stencil.StencilVector
+            Right-hand-side vector of linear system.
+
+        out : psydac.linalg.basic.Vector | NoneType
+            The output vector, or None (optional).
+
+        Returns
+        -------
+        x : psydac.linalg.basic.Vector
+            Numerical solution of the linear system. To check the convergence of the solver,
+            use the method InverseLinearOperator.get_info().
+
+        """
+
+        A = self._A
+        domain = self._domain
+        codomain = self._codomain
+        options = self._options
+        x0 = options["x0"]
+        pc = options["pc"]
+        tol = options["tol"]
+        maxiter = options["maxiter"]
+        verbose = options["verbose"]
+        recycle = options["recycle"]
+
+        assert isinstance(b, Vector)
+        assert b.space is domain
+    
+        assert isinstance(pc, LinearOperator)
+
+        # First guess of solution
+        if out is not None:
+            assert isinstance(out, Vector)
+            assert out.space is codomain
+
+        x = x0.copy(out=out)
+
+        # Extract local storage
+        v = self._tmps["v"]
+        r = self._tmps["r"]
+        p = self._tmps["p"]
+        s = self._tmps["s"]
+
+        # First values
+        A.dot(x, out=v)
+        b.copy(out=r)
+        r       -= v
+        nrmr_sqr = r.inner(r).real
+        pc.dot(r, out=s)
+        am       = s.inner(r)
+        s.copy(out=p)
+
+        tol_sqr  = tol**2
+
+        if verbose:
+            print( "Pre-conditioned CG solver:" )
+            print( "+---------+---------------------+")
+            print( "+ Iter. # | L2-norm of residual |")
+            print( "+---------+---------------------+")
+            template = "| {:7d} | {:19.2e} |"
+            print( template.format(1, sqrt(nrmr_sqr)))
+
+        # Iterate to convergence
+        for k in range(2, maxiter+1):
+
+            if nrmr_sqr < tol_sqr:
+                k -= 1
+                break
+
+            v  = A.dot(p, out=v)
+            l  = am / v.inner(p)
+
+            x.mul_iadd(l, p) # this is x += l*p
+            r.mul_iadd(-l, v) # this is r -= l*v
+
+            nrmr_sqr = r.inner(r).real
+            pc.dot(r, out=s)
+
+            am1 = s.inner(r)
+
+            # we are computing p = (am1 / am) * p + s by using axpy on s and exchanging the arrays
+            s.mul_iadd((am1/am), p)
+            s, p = p, s
+
+            am  = am1
+
+            if verbose:
+                print( template.format(k, sqrt(nrmr_sqr)))
+
+        if verbose:
+            print( "+---------+---------------------+")
+
+        # Convergence information
+        self._info = {'niter': k, 'success': nrmr_sqr < tol_sqr, 'res_norm': sqrt(nrmr_sqr) }
+
+        if recycle:
+            x.copy(out=self._options["x0"])
+
+        return x
+
     def dot(self, b, out=None):
+        options = self._options
+        pc = options["pc"]
+        if pc is None:
+            self.solve = self.solve_without_pc
+        else:
+            self.solve = self.solve_with_pc
         return self.solve(b, out=out)
 
 #===============================================================================
@@ -502,24 +594,21 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
         super().__init__(A, **self._options)
         
         if pc is None:
-            self._options['pc'] = IdentityOperator(self.domain)
-        else:
-            assert isinstance(pc, LinearOperator)
-            
-        # Initialize temporary vectors based on whether preconditioner is used
-        if pc is None:
             self._tmps = {key: self.domain.zeros() for key in ("v", "r", "p", "vr", "r0")}
         else:
+            assert isinstance(pc, LinearOperator)
+
             self._tmps = {key: self.domain.zeros() for key in ("v", "r", "s", "t", 
-                                                          "vp", "rp", "sp", "tp",
-                                                          "pp", "av", "app", "osp", 
-                                                          "rp0")}
+                                                      "vp", "rp", "sp", "tp",
+                                                      "pp", "av", "app", "osp", 
+                                                      "rp0")}
         self._info = None
 
-    def solve(self, b, out=None):
+    def solve_without_pc(self, b, out=None):
         """
         Biconjugate gradient stabilized method (BCGSTAB) algorithm for solving linear system Ax=b.
         Implementation from [1], page 175.
+        ToDo: Add optional preconditioner
 
         Parameters
         ----------
@@ -553,6 +642,154 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
         domain = self._domain
         codomain = self._codomain
         options = self._options
+        x0 = options["x0"]
+        tol = options["tol"]
+        maxiter = options["maxiter"]
+        verbose = options["verbose"]
+        recycle = options["recycle"]
+
+        assert isinstance(b, Vector)
+        assert b.space is domain
+
+        # First guess of solution
+        if out is not None:
+            assert isinstance(out, Vector)
+            assert out.space is codomain
+
+        x = x0.copy(out=out)
+
+        # Extract local storage
+        v = self._tmps["v"]
+        r = self._tmps["r"]
+        p = self._tmps["p"]
+        vr = self._tmps["vr"]
+        r0 = self._tmps["r0"]
+
+        # First values
+        A.dot(x, out=v)
+        b.copy(out=r)
+        r -= v
+        #r = b - A.dot(x)
+        r.copy(out=p)
+        v *= 0.0
+        vr *= 0.0
+
+        r.copy(out=r0)
+
+        res_sqr = r.inner(r).real
+        tol_sqr = tol ** 2
+
+        if verbose:
+            print("BiCGSTAB solver:")
+            print("+---------+---------------------+")
+            print("+ Iter. # | L2-norm of residual |")
+            print("+---------+---------------------+")
+            template = "| {:7d} | {:19.2e} |"
+
+        # Iterate to convergence
+        for m in range(1, maxiter + 1):
+
+            if res_sqr < tol_sqr:
+                m -= 1
+                break
+
+            # -----------------------
+            # MATRIX-VECTOR PRODUCTS
+            # -----------------------
+            v = A.dot(p, out=v)
+            # -----------------------
+
+            # c := (r0, r)
+            c = r0.inner(r)
+
+            # a := (r0, r) / (r0, v)
+            a = c / (r0.inner(v))
+
+            # r := r - a*v
+            r.mul_iadd(-a, v)
+
+            # vr :=  A*r
+            vr = A.dot(r, out=vr)
+
+            # w := (r, A*r) / (A*r, A*r)
+            w = r.inner(vr) / vr.inner(vr)
+
+            # -----------------------
+            # SOLUTION UPDATE
+            # -----------------------
+            # x := x + a*p +w*r
+            x.mul_iadd(a, p)
+            x.mul_iadd(w, r)
+            # -----------------------
+
+            # r := r - w*A*r
+            r.mul_iadd(-w, vr)
+
+            # ||r||_2 := (r, r)
+            res_sqr = r.inner(r).real
+
+            if res_sqr < tol_sqr:
+                break
+
+            # b := a / w * (r0, r)_{m+1} / (r0, r)_m
+            b = r0.inner(r) * a / (c * w)
+
+            # p := r + b*p- b*w*v
+            p *= b
+            p += r
+            p.mul_iadd(-b * w, v)
+
+            if verbose:
+                print(template.format(m, sqrt(res_sqr)))
+
+        if verbose:
+            print("+---------+---------------------+")
+
+        # Convergence information
+        self._info = {'niter': m, 'success': res_sqr < tol_sqr, 'res_norm': sqrt(res_sqr)}
+
+        if recycle:
+            x.copy(out=self._options["x0"])
+
+        return x
+
+    def solve_with_pc(self, b, out=None):
+        """
+        Preconditioned biconjugate gradient stabilized method (PBCGSTAB) algorithm for solving linear system Ax=b.
+        Implementation from [1], page 251.
+
+        Parameters
+        ----------
+        b : psydac.linalg.basic.Vector
+            Right-hand-side vector of linear system. Individual entries b[i] need
+            not be accessed, but b has 'shape' attribute and provides 'copy()' and
+            'inner(p)' functions (b.inner(p) is the vector inner product b*p); moreover,
+            scalar multiplication and sum operations are available.
+        out : psydac.linalg.basic.Vector | NoneType
+            The output vector, or None (optional).
+        
+        Returns
+        -------
+        x : psydac.linalg.basic.Vector
+            Numerical solution of linear system. To check the convergence of the solver,
+            use the method InverseLinearOperator.get_info().
+        
+        info : dict
+            Dictionary containing convergence information:
+              - 'niter'    = (int) number of iterations
+              - 'success'  = (boolean) whether convergence criteria have been met
+              - 'res_norm' = (float) 2-norm of residual vector r = A*x - b.
+        
+        References
+        ----------
+        [1] A. Maister, Numerik linearer Gleichungssysteme, Springer ed. 2015.
+        
+        """
+
+        A = self._A
+        domain = self._domain
+        codomain = self._codomain
+        options = self._options
         pc = options["pc"]
         x0 = options["x0"]
         tol = options["tol"]
@@ -565,196 +802,134 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
 
         assert isinstance(pc, LinearOperator)
 
-        # First guess of solution
+        # first guess of solution
         if out is not None:
             assert isinstance(out, Vector)
-            assert out.space is codomain
-
-        x = x0.copy(out=out)
-
-        # Extract local storage
-        if pc is None:
-            v = self._tmps["v"]
-            r = self._tmps["r"]
-            p = self._tmps["p"]
-            vr = self._tmps["vr"]
-            r0 = self._tmps["r0"]
-
-            # First values
-            A.dot(x, out=v)
-            b.copy(out=r)
-            r -= v
-            r.copy(out=p)
-            v *= 0.0
-            vr *= 0.0
-
-            r.copy(out=r0)
-
-            res_sqr = r.inner(r).real
-            tol_sqr = tol ** 2
-
-            if verbose:
-                print("BiCGSTAB solver:")
-                print("+---------+---------------------+")
-                print("+ Iter. # | L2-norm of residual |")
-                print("+---------+---------------------+")
-                template = "| {:7d} | {:19.2e} |"
-
-            # Iterate to convergence
-            for m in range(1, maxiter + 1):
-                if res_sqr < tol_sqr:
-                    m -= 1
-                    break
-
-                # MATRIX-VECTOR PRODUCTS
-                v = A.dot(p, out=v)
-
-                # c := (r0, r)
-                c = r0.inner(r)
-
-                # a := (r0, r) / (r0, v)
-                a = c / (r0.inner(v))
-
-                # r := r - a*v
-                r.mul_iadd(-a, v)
-
-                # vr :=  A*r
-                vr = A.dot(r, out=vr)
-
-                # w := (r, A*r) / (A*r, A*r)
-                w = r.inner(vr) / vr.inner(vr)
-
-                # SOLUTION UPDATE
-                # x := x + a*p +w*r
-                x.mul_iadd(a, p)
-                x.mul_iadd(w, r)
-
-                # r := r - w*A*r
-                r.mul_iadd(-w, vr)
-
-                # ||r||_2 := (r, r)
-                res_sqr = r.inner(r).real
-
-                if res_sqr < tol_sqr:
-                    break
-
-                # b := a / w * (r0, r)_{m+1} / (r0, r)_m
-                b = r0.inner(r) * a / (c * w)
-
-                # p := r + b*p- b*w*v
-                p *= b
-                p += r
-                p.mul_iadd(-b * w, v)
-
-                if verbose:
-                    print(template.format(m, sqrt(res_sqr)))
-
+            assert out.space == codomain
+            out *= 0
+            if x0 is None:
+                x = out
+            else:
+                assert x0.shape == (A.shape[0],)
+                out += x0
+                x = out
         else:
-            # Extract local storage for preconditioned version
-            v = self._tmps['v']
-            r = self._tmps['r']
-            s = self._tmps['s']
-            t = self._tmps['t']
+            if x0 is None:
+                x = b.copy()
+                x *= 0.0
+            else:
+                assert x0.shape == (A.shape[0],)
+                x = x0.copy()
 
-            vp = self._tmps['vp']
-            rp = self._tmps['rp']
-            pp = self._tmps['pp']
-            sp = self._tmps['sp']
-            tp = self._tmps['tp']
+        # preconditioner (must have a .solve method)
+        assert isinstance(pc, LinearOperator)
 
-            av = self._tmps['av']
-            app = self._tmps['app']
-            osp = self._tmps['osp']
+        # extract temporary vectors
+        v = self._tmps['v']
+        r = self._tmps['r']
+        s = self._tmps['s']
+        t = self._tmps['t']
 
-            # First values: r = b - A @ x, rp = pp = PC @ r, rhop = |rp|^2
-            A.dot(x, out=v)
-            b.copy(out=r)
-            r -= v
+        vp = self._tmps['vp']
+        rp = self._tmps['rp']
+        pp = self._tmps['pp']
+        sp = self._tmps['sp']
+        tp = self._tmps['tp']
 
-            pc.dot(r, out=rp)
-            rp.copy(out=pp)
+        av = self._tmps['av']
 
-            rhop = rp.inner(rp)
+        app = self._tmps['app']
+        osp = self._tmps['osp']
 
-            # Save initial residual vector rp0
-            rp0 = self._tmps['rp0']
-            rp.copy(out=rp0)
+        # first values: r = b - A @ x, rp = pp = PC @ r, rhop = |rp|^2
+        A.dot(x, out=v)
+        b.copy(out=r)
+        r -= v
 
-            # Squared residual norm and squared tolerance
+        pc.dot(r, out=rp)
+        rp.copy(out=pp)
+
+        rhop = rp.inner(rp)
+
+        # save initial residual vector rp0
+        rp0 = self._tmps['rp0']
+        rp.copy(out=rp0)
+
+        # squared residual norm and squared tolerance
+        res_sqr = r.inner(r).real
+        tol_sqr = tol**2
+
+        if verbose:
+            print("Pre-conditioned BICGSTAB solver:")
+            print("+---------+---------------------+")
+            print("+ Iter. # | L2-norm of residual |")
+            print("+---------+---------------------+")
+            template = "| {:7d} | {:19.2e} |"
+
+        # iterate to convergence or maximum number of iterations
+        niter = 0
+
+        while res_sqr > tol_sqr and niter < maxiter:
+
+            # v = A @ pp, vp = PC @ v, alphap = rhop/(vp.rp0)
+            A.dot(pp, out=v)
+            pc.dot(v, out=vp)
+            alphap = rhop / vp.inner(rp0)
+
+            # s = r - alphap*v, sp = PC @ s
+            r.copy(out=s)
+            v.copy(out=av)
+            av *= alphap
+            s -= av
+            pc.dot(s, out=sp)
+
+            # t = A @ sp, tp = PC @ t, omegap = (tp.sp)/(tp.tp)
+            A.dot(sp, out=t)
+            pc.dot(t, out=tp)
+            omegap = tp.inner(sp) / tp.inner(tp)
+
+            # x = x + alphap*pp + omegap*sp
+            pp.copy(out=app)
+            sp.copy(out=osp)
+            app *= alphap
+            osp *= omegap
+            x += app
+            x += osp
+
+            # r = s - omegap*t, rp = sp - omegap*tp
+            s.copy(out=r)
+            t *= omegap
+            r -= t
+
+            sp.copy(out=rp)
+            tp *= omegap
+            rp -= tp
+
+            # rhop_new = rp.rp0, betap = (alphap*rhop_new)/(omegap*rhop)
+            rhop_new = rp.inner(rp0)
+            betap = (alphap*rhop_new) / (omegap*rhop)
+            rhop = 1*rhop_new
+
+            # pp = rp + betap*(pp - omegap*vp)
+            vp *= omegap
+            pp -= vp
+            pp *= betap
+            pp += rp
+
+            # new residual norm
             res_sqr = r.inner(r).real
-            tol_sqr = tol**2
+
+            niter += 1
 
             if verbose:
-                print("Pre-conditioned BICGSTAB solver:")
-                print("+---------+---------------------+")
-                print("+ Iter. # | L2-norm of residual |")
-                print("+---------+---------------------+")
-                template = "| {:7d} | {:19.2e} |"
-
-            # Iterate to convergence or maximum number of iterations
-            niter = 0
-
-            while res_sqr > tol_sqr and niter < maxiter:
-                # v = A @ pp, vp = PC @ v, alphap = rhop/(vp.rp0)
-                A.dot(pp, out=v)
-                pc.dot(v, out=vp)
-                alphap = rhop / vp.inner(rp0)
-
-                # s = r - alphap*v, sp = PC @ s
-                r.copy(out=s)
-                v.copy(out=av)
-                av *= alphap
-                s -= av
-                pc.dot(s, out=sp)
-
-                # t = A @ sp, tp = PC @ t, omegap = (tp.sp)/(tp.tp)
-                A.dot(sp, out=t)
-                pc.dot(t, out=tp)
-                omegap = tp.inner(sp) / tp.inner(tp)
-
-                # x = x + alphap*pp + omegap*sp
-                pp.copy(out=app)
-                sp.copy(out=osp)
-                app *= alphap
-                osp *= omegap
-                x += app
-                x += osp
-
-                # r = s - omegap*t, rp = sp - omegap*tp
-                s.copy(out=r)
-                t *= omegap
-                r -= t
-
-                sp.copy(out=rp)
-                tp *= omegap
-                rp -= tp
-
-                # rhop_new = rp.rp0, betap = (alphap*rhop_new)/(omegap*rhop)
-                rhop_new = rp.inner(rp0)
-                betap = (alphap*rhop_new) / (omegap*rhop)
-                rhop = 1*rhop_new
-
-                # pp = rp + betap*(pp - omegap*vp)
-                vp *= omegap
-                pp -= vp
-                pp *= betap
-                pp += rp
-
-                # New residual norm
-                res_sqr = r.inner(r).real
-
-                niter += 1
-
-                if verbose:
-                    print(template.format(niter, sqrt(res_sqr)))
+                print(template.format(niter, sqrt(res_sqr)))
 
         if verbose:
             print("+---------+---------------------+")
 
-        # Convergence information
-        self._info = {'niter': niter if pc is not None else m, 
-                     'success': res_sqr < tol_sqr, 
-                     'res_norm': sqrt(res_sqr)}
+        # convergence information
+        self._info = {'niter': niter, 'success': res_sqr <
+                tol_sqr, 'res_norm': sqrt(res_sqr)}
 
         if recycle:
             x.copy(out=self._options["x0"])
@@ -762,6 +937,12 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
         return x
 
     def dot(self, b, out=None):
+        options = self._options
+        pc = options["pc"]
+        if pc is None:
+            self.solve = self.solve_without_pc
+        else:
+            self.solve = self.solve_with_pc
         return self.solve(b, out=out)
 
 #===============================================================================
