@@ -80,10 +80,10 @@ def test_assembly(mapping):
             _ldim        = 3
             _pdim        = 3
 
-        map = HalfSquareTorusMapping3D('M')
+        M = HalfSquareTorusMapping3D('M')
         logical_domain = Cube('C', bounds1=(0.3,1), bounds2=(0,np.pi), bounds3=(0,1))
 
-        domain = map(logical_domain)
+        domain = M(logical_domain)
         derham = Derham(domain)
 
         domain_h = discretize(domain, ncells=ncells, periodic=periodic)

@@ -115,8 +115,8 @@ def run_maxwell_3d_scipy(logical_domain, mapping, e_ex, b_ex, ncells, degree, pe
     domain_h = discretize(domain, ncells=ncells, periodic=periodic, comm=MPI.COMM_WORLD)
     derham_h = discretize(derham, domain_h, degree=degree, multiplicity = [mult,mult,mult])
 
-    a1_h = discretize(a1, domain_h, (derham_h.V1, derham_h.V1), backend=PSYDAC_BACKEND_GPYCCEL)
-    a2_h = discretize(a2, domain_h, (derham_h.V2, derham_h.V2), backend=PSYDAC_BACKEND_GPYCCEL)
+    a1_h = discretize(a1, domain_h, (derham_h.V1, derham_h.V1)) # , backend=PSYDAC_BACKEND_GPYCCEL)
+    a2_h = discretize(a2, domain_h, (derham_h.V2, derham_h.V2)) # , backend=PSYDAC_BACKEND_GPYCCEL)
 
     # StencilMatrix objects
     M1 = a1_h.assemble().tosparse().tocsc()
@@ -210,8 +210,8 @@ def run_maxwell_3d_stencil(logical_domain, mapping, e_ex, b_ex, ncells, degree, 
     domain_h = discretize(domain, ncells=ncells, periodic=periodic, comm=MPI.COMM_WORLD)
     derham_h = discretize(derham, domain_h, degree=degree, multiplicity = [mult,mult,mult])
 
-    a1_h = discretize(a1, domain_h, (derham_h.V1, derham_h.V1), backend=PSYDAC_BACKEND_GPYCCEL)
-    a2_h = discretize(a2, domain_h, (derham_h.V2, derham_h.V2), backend=PSYDAC_BACKEND_GPYCCEL)
+    a1_h = discretize(a1, domain_h, (derham_h.V1, derham_h.V1)) # , backend=PSYDAC_BACKEND_GPYCCEL)
+    a2_h = discretize(a2, domain_h, (derham_h.V2, derham_h.V2)) # , backend=PSYDAC_BACKEND_GPYCCEL)
 
     # StencilMatrix objects
     M1 = a1_h.assemble()

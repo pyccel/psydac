@@ -15,14 +15,12 @@ from    psydac.cad.geometry         import Geometry
 from    psydac.fem.basic            import FemField
 from    psydac.mapping.discrete     import SplineMapping
 
-"""
-Extensive tests for the new sum factorization algorithm.
-Too expensive to turn directly into unit tests, hence there exists
-test_sum_factorization_assembly_3d.py
 
-This file can be used to test the assembly of one's own custom 3d bilinear forms.
+#Extensive tests for the new sum factorization algorithm.
+#Too expensive to turn directly into unit tests, hence there exists
+#test_sum_factorization_assembly_3d.py
 
-"""
+#This file can be used to test the assembly of one's own custom 3d bilinear forms.
 
 def make_half_hollow_torus_geometry_3d(ncells, degree, comm=None):
 
