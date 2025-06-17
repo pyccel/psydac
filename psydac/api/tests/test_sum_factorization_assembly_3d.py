@@ -3,11 +3,11 @@ import  pytest
 import  time
 import  numpy   as      np
 
-from    sympy   import  sin
+from    sympy   import  sin, sqrt, pi, Abs
 
 from    sympde.calculus             import dot, cross, grad, curl, div, laplace
 from    sympde.expr                 import BilinearForm, integral
-from    sympde.topology             import elements_of, Cube, Mapping, ScalarFunctionSpace, VectorFunctionSpace, Domain, Derham
+from    sympde.topology             import element_of, elements_of, Cube, Mapping, ScalarFunctionSpace, VectorFunctionSpace, Domain, Derham
 
 from    psydac.api.discretization   import discretize
 from    psydac.api.settings         import PSYDAC_BACKEND_GPYCCEL
@@ -30,12 +30,12 @@ This file is designed to test such "difficult" edge cases - for mapped (Bspline 
 
 Such "difficult" edge cases are:
 
-1. bilinear forms between different spaces
+1. bilinear forms on different spaces
 2. (FemField / analytical / ...) weight functions
 3. high derivatives (>=2)
 4. (multiple) free FemFields
 5. complicated expressions
-6. uncommen (numpy) functions that need be imported correctly in the assembly file
+6. uncommen (numpy) functions that need be imported correctly in the assembly file (here in the weight function)
 
 These tests also return old and new discretization and assembly times.
 
@@ -44,10 +44,10 @@ Most of the time, being close to the "old matrix" (generated using the old assem
 """
 
 @pytest.mark.parametrize('mapping', ('None', 'Analytical', 'Bspline'))
-def test_free_FemFields(mapping):
+def test_assembly(mapping):
 
-    ncells      = [5, 2, 4]
-    degree      = [2, 1, 3]
+    ncells      = [17, 15, 16]
+    degree      = [2, 4, 3]
     periodic    = [False, True, False]
 
     backend = PSYDAC_BACKEND_GPYCCEL
@@ -89,6 +89,9 @@ def test_free_FemFields(mapping):
         domain_h = discretize(domain, ncells=ncells, periodic=periodic)
         derham_h = discretize(derham, domain_h, degree=degree)
 
+    x, y, z = domain.coordinates
+    weight  = 1 + sqrt(Abs(x*y**2 + z)) + abs(sin(x-2*y + pi + np.pi))
+
     V0  = derham.V0
     V0h = derham_h.V0
     V1  = derham.V1
@@ -98,33 +101,29 @@ def test_free_FemFields(mapping):
     V3  = derham.V3
     V3h = derham_h.V3
 
-    Vsh     = ScalarFunctionSpace('Vsh', domain, kind='h1')
-    Vshh    = discretize(Vsh, domain_h, degree=degree)
+    Vs      = ScalarFunctionSpace('Vsh', domain)
+    Vsh     = discretize(Vs, domain_h, degree=degree)
     Vvc     = VectorFunctionSpace('Vvc', domain, kind='hcurl')
     Vvch    = discretize(Vvc, domain_h, degree=degree)
     Vvd     = VectorFunctionSpace('Vvd', domain, kind='hdiv')
     Vvdh    = discretize(Vvd, domain_h, degree=degree)
-    Vsl     = ScalarFunctionSpace('Vsl', domain, kind='l2')
-    Vslh    = discretize(Vsl, domain_h, degree=degree)
 
     u1, u2, F01, F02, F03 = elements_of(V0, names='u1, u2, F01, F02, F03')
     v1, v2, F11, F12, F13 = elements_of(V1, names='v1, v2, F11, F12, F13')
     w1, w2, F21, F22, F23 = elements_of(V2, names='w1, w2, F21, F22, F23')
     f1, f2, F31, F32, F33 = elements_of(V3, names='f1, f2, F31, F32, F33')
 
-    fsh1, fsh2, Fsh1, Fsh2, Fsh3 = elements_of(Vsh, names='fsh1, fsh2, Fsh1, Fsh2, Fsh3')
+    fs1,  fs2,  Fs1,  Fs2,  Fs3  = elements_of(Vs,  names='fs1,  fs2,  Fs1,  Fs2,  Fs3')
     fvc1, fvc2, Fvc1, Fvc2, Fvc3 = elements_of(Vvc, names='fvc1, fvc2, Fvc1, Fvc2, Fvc3')
     fvd1, fvd2, Fvd1, Fvd2, Fvd3 = elements_of(Vvd, names='fvd1, fvd2, Fvd1, Fvd2, Fvd3')
-    fsl1, fsl2, Fsl1, Fsl2, Fsl3 = elements_of(Vsl, names='fsl1, fsl2, Fsl1, Fsl2, Fsl3')
 
     spaces = {'V0': {'Vh':V0h,  'funcs':[u1, u2]},
               'V1': {'Vh':V1h,  'funcs':[v1, v2]},
               'V2': {'Vh':V2h,  'funcs':[w1, w2]},
               'V3': {'Vh':V3h,  'funcs':[f1, f2]},
-              'Vsh':{'Vh':Vshh, 'funcs':[fsh1, fsh2]},
+              'Vs': {'Vh':Vsh,  'funcs':[fs1, fs2]},
               'Vvc':{'Vh':Vvch, 'funcs':[fvc1, fvc2]},
-              'Vvd':{'Vh':Vvdh, 'funcs':[fvd1, fvd2]},
-              'Vsl':{'Vh':Vslh, 'funcs':[fsl1, fsl2]}}
+              'Vvd':{'Vh':Vvdh, 'funcs':[fvd1, fvd2]}}
     
     rng = np.random.default_rng(seed=42)
 
@@ -136,27 +135,52 @@ def test_free_FemFields(mapping):
     F12_coeffs = V1h.coeff_space.zeros()
     for block in F12_coeffs.blocks:
         rng.random(size=block._data.shape, dtype='float64', out=block._data)
+    F21_coeffs = V2h.coeff_space.zeros()
+    for block in F21_coeffs.blocks:
+        rng.random(size=block._data.shape, dtype='float64', out=block._data)
 
     F01_field   = FemField(V0h, F01_coeffs)
     F11_field   = FemField(V1h, F11_coeffs)
     F12_field   = FemField(V1h, F12_coeffs)
+    F21_field   = FemField(V2h, F21_coeffs)
 
-    bilinear_forms = {  'Q':            {'trial' :'V1', 'test':'V1',
-                                         'expr'  :dot(cross(F11, v1), cross(F11, v2)),
-                                         'fields':[F11_field, ]},
-                            
-                        'equilibrium':  {'trial' :'V1', 'test':'V1',
-                                         'expr'  :dot(cross(F11, v1), cross(v2, F12)),
-                                         'fields':[F11_field, F12_field]},
-
-                        'Elena':        {'trial' :'V1', 'test':'V1',
-                                         'expr'  :dot(F01*v1, v2),
-                                         'fields':[F01_field, ]}
+    bilinear_forms = {  # one and two free FemFields without derivatives (with derivatives in seperate test)
+                        # complicated expressions
+                        'Q'             :{'trial' :'V1', 'test':'V1',
+                                          'expr'  :dot(cross(F11, v1), cross(F11, v2)),
+                                          'fields':[F11_field, ]},
+                        'equilibrium'   :{'trial' :'V1', 'test':'V1',
+                                          'expr'  :dot(cross(F11, v1), cross(v2, F12)),
+                                          'fields':[F11_field, F12_field]},
+                        'Elena'         :{'trial' :'V1', 'test':'V1',
+                                          'expr'  :dot(F01*v1, v2),
+                                          'fields':[F01_field, ]},
+                        # weight function, free FemField, different spaces
+                        'dot(grad(u),v)':{'trial' :'V0', 'test':'V1',
+                                          'expr'  :dot(grad(u1), v2)*F01*weight,
+                                          'fields':[F01_field, ]},
+                        'dot(curl(v),w)':{'trial' :'V1', 'test':'V2',
+                                          'expr'  :dot(curl(v1), F21)*div(w2)*weight,
+                                          'fields':[F21_field, ]},
+                        # high derivatives, not FEEC
+                        'bilaplace'     :{'trial' :'Vs', 'test':'Vs',
+                                          'expr'  :laplace(fs1)*laplace(fs2)}
                      }
     
-    int_0 = lambda expr: integral(domain, expr)
+    # test all BFs
+    bilinear_form_strings_to_test   = list(bilinear_forms.keys())
+
+    # or only a subset
+    # bilinear_form_strings_to_test   = ['bilaplace', 'divgrad']
+
+    bilinear_forms_to_test          = {}
+    for name in bilinear_form_strings_to_test:
+        bilinear_forms_to_test[name] = bilinear_forms[name]
     
-    for bf_name, bf_data in bilinear_forms.items():
+    int_0 = lambda expr: integral(domain, expr)
+    print()
+    
+    for bf_name, bf_data in bilinear_forms_to_test.items():
 
         trial_space = spaces[bf_data['trial']]
         Vh          = trial_space['Vh']
@@ -165,7 +189,8 @@ def test_free_FemFields(mapping):
         Wh          = test_space ['Vh']
         v           = test_space['funcs'][1]
         expr        = bf_data['expr']
-        fields      = bf_data['fields']
+        if 'fields' in bf_data.keys():
+            fields      = bf_data['fields']
 
         a = BilinearForm((u, v), int_0(expr))
 
@@ -195,13 +220,29 @@ def test_free_FemFields(mapping):
             t0      = time.time()
             A       = ah.assemble(F11=fields[0], F12=fields[1])
             t1      = time.time()
-        elif bf_name == 'Elena':
+        elif bf_name in ('Elena', 'dot(grad(u),v)'):
             t0_old  = time.time()
             A_old   = ah_old.assemble(F01=fields[0])
             t1_old  = time.time()
             
             t0      = time.time()
             A       = ah.assemble(F01=fields[0])
+            t1      = time.time()
+        elif bf_name == 'dot(curl(v),w)':
+            t0_old  = time.time()
+            A_old   = ah_old.assemble(F21=fields[0])
+            t1_old  = time.time()
+            
+            t0      = time.time()
+            A       = ah.assemble(F21=fields[0])
+            t1      = time.time()
+        else:
+            t0_old  = time.time()
+            A_old   = ah_old.assemble()
+            t1_old  = time.time()
+            
+            t0      = time.time()
+            A       = ah.assemble()
             t1      = time.time()
             
         assembly_time_old   = t1_old - t0_old
@@ -215,90 +256,213 @@ def test_free_FemFields(mapping):
         err         = np.linalg.norm(A_old_arr - A_arr)
         rel_err     = err / A_old_norm
 
-        assert rel_err < 1e-12 # arbitrary rel. error bound (How to test better?)
-
         print(f' >>> Mapping: {mapping}')
         print(f' >>> BilinearForm: {bf_name}')
         print(f' >>> Discretization in: Old {discretization_time_old:.3g} \t\t || New {discretization_time:.3g} \t\t || Old/New {discretization_time_old/discretization_time:.3g}')
         print(f' >>> Assembly in: Old {assembly_time_old:.3g} \t \t || New {assembly_time:.3g} \t\t || Old/New {assembly_time_old/assembly_time:.3g}')
         print(f' >>>      Error: {err:.3g}')
         print(f' >>> Rel. Error: {rel_err:.3g}')
-        print(f' >>>      Norms: ||A_old|| = {A_old_norm:.3g} \t\t || ||A|| = {A_norm:.3g}')
+        print(f' >>>      Norms: ||A_old|| = {A_old_norm:.3g} \t\t ||A|| = {A_norm:.3g}')
         print()
 
-'''
-@pytest.mark.parametrize('geometry', ('collela_3d.h5', 'identity_3d.h5'))
-def _test_bspline_mapping(geometry):
-    comm    = MPI.COMM_WORLD
+        assert rel_err < 1e-12 # arbitrary rel. error bound (How to test better?)
+
+@pytest.mark.xfail
+def test_allocate_matrix_bug():
+    """
+    This test is related to Issue #504.
+
+    The bilinear form 
+    (V0 x V3) ni (u, f) mapsto int_{Omega} u*f
+    should be the transpose of the bilinear form
+    (V3 x V0) ni (f, u) mapsto int_{Omega} u*f
+    but is not.
+    """
+
+    ncells      = [15, 16, 17]
+    degree      = [4, 3, 2]
+    periodic    = [False, True, False]
+
     backend = PSYDAC_BACKEND_GPYCCEL
 
-    filename = os.path.join(mesh_dir, geometry)
-
-    domain = Domain.from_file(filename=filename)
+    domain = Cube('C', bounds1=(0,1), bounds2=(0,1), bounds3=(0,1))
     derham = Derham(domain)
 
-    domain_h = discretize(domain, filename=filename, comm=comm)
-    derham_h = discretize(derham, domain_h, degree=domain.mapping.get_callable_mapping().space.degree)
+    domain_h = discretize(domain, ncells=ncells, periodic=periodic)
+    derham_h = discretize(derham, domain_h, degree=degree)
 
-    fs = lambda x, y, z: 1
-    fv = (fs, fs, fs)
+    P0, _, _, P3 = derham_h.projectors()
+
+    V0  = derham.V0
+    V0h = derham_h.V0
+    V3  = derham.V3
+    V3h = derham_h.V3
+
+    u = element_of(V0, name='u')
+    f = element_of(V3, name='f')
+
+    fun = lambda x, y, z : 1
+    u_coeffs = P0(fun).coeffs
+    f_coeffs = P3(fun).coeffs
+
+    a0 = BilinearForm((u, f), integral(domain, u*f))
+    a1 = BilinearForm((f, u), integral(domain, u*f))
+
+    a0h = discretize(a0, domain_h, (V0h, V3h), backend=backend, fast_assembly=False)
+    a1h = discretize(a1, domain_h, (V3h, V0h), backend=backend, fast_assembly=False)
+
+    A0  = a0h.assemble()
+    A1  = a1h.assemble()
+    A1T = A1.T
+
+    # Clearly, it should hold A1T = A0, and further ||A0|| = ||A1||.
+    A0arr  = A0.toarray()
+    A1arr  = A1.toarray()
+    A1Tarr = A1T.toarray()
+
+    diff1 = np.linalg.norm(A0arr - A1Tarr)
+    diff2 = np.linalg.norm(A0arr) - np.linalg.norm(A1arr)
+
+    print(f' || A0 - A1.T || = {diff1:.3g}')
+    print(f' ||A0|| - ||A1|| = {diff2:.3g}')
+
+    # Further, the following integral should evaluate to 1. 
+    # This however is only the case for the second integral, 
+    # independent on whether one uses the new or old assembly algorithm.
+
+    print(f' 1 =? {A0.dot_inner(u_coeffs, f_coeffs)}')
+    print(f' 1 =? {A1.dot_inner(f_coeffs, u_coeffs)}')
+
+    assert diff1 <= 1e-12 # arbitrary error bound
+    assert diff2 <= 1e-12 # arbitrary error bound
+
+#@pytest.mark.xfail
+def test_free_FemField_derivatives():
+    """
+    These particular bilinear forms, when using a constant 1-vector coefficient vector for the free FemFields, 
+    causes problems in a different test file of mine.
+    In particular, the assembled matrices used to have really small norms (~e-13).
+    That is probably due to the constant 1-vector corresponding to a constant function,
+    which means that all appearing derivatives of free FemFields are 0.
+
+    When using meaningful free FemFields, these dubious observations disappeared.
+    
+    """
+
+    ncells      = [5, 2, 4]
+    degree      = [2, 1, 3]
+    periodic    = [False, False, False]
+
+    backend = PSYDAC_BACKEND_GPYCCEL
+
+    domain = Cube('C', bounds1=(0,1), bounds2=(0,1), bounds3=(0,1))
+    derham = Derham(domain)
+
+    domain_h = discretize(domain, ncells=ncells, periodic=periodic)
+    derham_h = discretize(derham, domain_h, degree=degree)
 
     P0, P1, P2, P3 = derham_h.projectors()
 
-    fs0 = P0(fs).coeffs
-    fv1 = P1(fv).coeffs
-    fv2 = P2(fv).coeffs
-    fs3 = P3(fs).coeffs
+    V0      = derham.V0
+    V0h     = derham_h.V0
+    V1      = derham.V1
+    V1h     = derham_h.V1
+    V2      = derham.V2
+    V2h     = derham_h.V2
 
-    V0 = derham.V0
-    V1 = derham.V1
-    V2 = derham.V2
-    V3 = derham.V3
+    u           = element_of (V0, name= 'u')
+    v, F1       = elements_of(V1, names='v, F1')
+    w1, w2, F2  = elements_of(V2, names='w1, w2, F2')
 
-    V0h = derham_h.V0
-    V1h = derham_h.V1
-    V2h = derham_h.V2
-    V3h = derham_h.V3
+    u_func = lambda x, y, z: x + y + z
+    u_coeffs = P0(u_func).coeffs
 
-    u0, v0 = elements_of(V0, names='u0, v0')
-    u1, v1 = elements_of(V1, names='u1, v1')
-    u2, v2 = elements_of(V2, names='u2, v2')
-    u3, v3 = elements_of(V3, names='u3, v3')
+    v_1 = lambda x, y, z: 1
+    v_2 = lambda x, y, z: 1
+    v_3 = lambda x, y, z: 1
+    v_func = (v_1, v_2, v_3)
+    v_coeffs = P1(v_func).coeffs
 
-    a0 = BilinearForm((u0, v0), integral(domain, u0*v0))
-    a1 = BilinearForm((u1, v1), integral(domain, dot(u1, v1)))
-    a2 = BilinearForm((u2, v2), integral(domain, dot(u2, v2)))
-    a3 = BilinearForm((u3, v3), integral(domain, u3*v3))
+    w_1 = lambda x, y, z: x
+    w_2 = lambda x, y, z: y
+    w_3 = lambda x, y, z: z
+    w_func = (w_1, w_2, w_3)
+    w_coeffs = P2(w_func).coeffs
 
-    t0 = time.time()
-    a0h = discretize(a0, domain_h, (V0h, V0h), backend=backend)
-    t1 = time.time()
-    print(f'a0 discretized in {t1-t0:.3g}s')
-    t0 = time.time()
-    a1h = discretize(a1, domain_h, (V1h, V1h), backend=backend)
-    t1 = time.time()
-    print(f'a1 discretized in {t1-t0:.3g}s')
-    t0 = time.time()
+    dubious_observations = False
+
+    if dubious_observations:
+        F1_coeffs = V1h.coeff_space.zeros()
+        F2_coeffs = V2h.coeff_space.zeros()
+        for block in F1_coeffs.blocks:
+            block._data = np.ones(block._data.shape, dtype='float64')
+        for block in F2_coeffs.blocks:
+            block._data = np.ones(block._data.shape, dtype='float64')
+        F1_FF = FemField(V1h, F1_coeffs)
+        F2_FF = FemField(V2h, F2_coeffs)
+    else:
+        F1_1 = lambda x, y, z: z
+        F1_2 = lambda x, y, z: x
+        F1_3 = lambda x, y, z: y
+        F1_func = (F1_1, F1_2, F1_3)
+        F1_FF = P1(F1_func)
+
+        F2_FF = FemField(V2h, w_coeffs.copy())
+
+    # with the above choices (dubious_observation = False): 
+    # a0 reduces to 3*int_{Omega}x+y+z with Omega being the unit square. Expected value: 4.5
+    a0 = BilinearForm((u, v), integral(domain, dot(grad(u), curl(F1)) * dot(v, F1)))
+    # a1 reduces to 9* ----------------------------------------- " -------------------- 13.5
+    a1 = BilinearForm((u, w2), integral(domain, dot(grad(u), F2)*div(w2)*div(F2)))
+    # a2 reduces to 3* ----------------------------------------- " --------------------- 4.5
+    a2 = BilinearForm((w1, w2), integral(domain, dot(curl(F1), w1)*div(w2)))
+
+    a0h_old = discretize(a0, domain_h, (V0h, V1h), backend=backend, fast_assembly=False)
+    a1h_old = discretize(a1, domain_h, (V0h, V2h), backend=backend, fast_assembly=False)
+    a2h_old = discretize(a2, domain_h, (V2h, V2h), backend=backend, fast_assembly=False)
+
+    a0h = discretize(a0, domain_h, (V0h, V1h), backend=backend)
+    a1h = discretize(a1, domain_h, (V0h, V2h), backend=backend)
     a2h = discretize(a2, domain_h, (V2h, V2h), backend=backend)
-    t1 = time.time()
-    print(f'a2 discretized in {t1-t0:.3g}s')
-    t0 = time.time()
-    a3h = discretize(a3, domain_h, (V3h, V3h), backend=backend)
-    t1 = time.time()
-    print(f'a3 discretized in {t1-t0:.3g}s')
 
-    t0 = time.time()
-    M0 = a0h.assemble()
-    M1 = a1h.assemble()
-    M2 = a2h.assemble()
-    M3 = a3h.assemble()
-    t1 = time.time()
-    print(f'Matrices assembled in {t1-t0:.3g}s')
+    bfs = [(a0h_old, a0h), (a1h_old, a1h), (a2h_old, a2h)]
+    print()
 
-    v0 = M0.dot_inner(fs0, fs0)
-    v1 = M1.dot_inner(fv1, fv1)
-    v2 = M2.dot_inner(fv2, fv2)
-    v3 = M3.dot_inner(fs3, fs3)
+    for i, (ah_old, ah) in enumerate(bfs):
 
-    print(v0, v1, v2, v3)
-'''
+        if i in (0, 2):
+            A_old   = ah_old.assemble(F1=F1_FF)
+            A       = ah.assemble(F1=F1_FF)
+        else:
+            A_old   = ah_old.assemble(F2=F2_FF)
+            A       = ah.assemble(F2=F2_FF)
+
+        if i == 0:
+            value_old   = A_old.dot_inner(u_coeffs, v_coeffs)
+            value       = A.dot_inner(u_coeffs, v_coeffs)
+        elif i == 1:
+            value_old   = A_old.dot_inner(u_coeffs, w_coeffs)
+            value       = A.dot_inner(u_coeffs, w_coeffs)
+        else:
+            value_old   = A_old.dot_inner(w_coeffs, w_coeffs)
+            value       = A.dot_inner(w_coeffs, w_coeffs)
+
+        A_old_arr   = A_old.toarray()
+        A_arr       = A.toarray()
+        A_old_norm  = np.linalg.norm(A_old_arr)
+        A_norm      = np.linalg.norm(A_arr)
+
+        err         = np.linalg.norm(A_old_arr - A_arr)
+        rel_err     = err / A_old_norm
+
+        print(f' i = {i}')
+        print(f' >>>      Error: {err:.3g}')
+        print(f' >>> Rel. Error: {rel_err:.3g}')
+        print(f' >>>      Norms: ||A_old|| = {A_old_norm:.3g} \t\t ||A|| = {A_norm:.3g}')
+        print()
+
+        # arbitrary tolerance
+        tol = 1e-12
+        if not dubious_observations:
+            assert abs(value-value_old) < tol
+            assert rel_err              < tol

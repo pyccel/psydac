@@ -15,6 +15,15 @@ from    psydac.cad.geometry         import Geometry
 from    psydac.fem.basic            import FemField
 from    psydac.mapping.discrete     import SplineMapping
 
+"""
+Extensive tests for the new sum factorization algorithm.
+Too expensive to turn directly into unit tests, hence there exists
+test_sum_factorization_assembly_3d.py
+
+This file can be used to test the assembly of one's own custom 3d bilinear forms.
+
+"""
+
 def make_half_hollow_torus_geometry_3d(ncells, degree, comm=None):
 
     if comm is not None:
@@ -119,9 +128,9 @@ def make_collela_geometry_3d(ncells, degree, eps, comm=None):
 
 def build_matrices(mapping_option, verbose, backend, comm):
 
-    ncells      = [5, 2, 4] # [12, 8, 16]
-    degree      = [2, 1, 3] # [2, 4, 3]
-    periodic    = [False, True, False]
+    ncells      = [16, 16, 16] # [5, 2, 4] # [12, 8, 16]
+    degree      = [3, 3, 3] # [2, 1, 3] # [2, 4, 3]
+    periodic    = [False]*3 # [False, True, False]
     eps         = 0.1
 
     mpi_rank = comm.Get_rank() if comm is not None else 0
@@ -225,13 +234,20 @@ def build_matrices(mapping_option, verbose, backend, comm):
         block._data = np.ones(block._data.shape, dtype="float64")
 
     F0_field  = FemField(V0h, F0_field_coeffs)
-    F1_field  = FemField(V1h, F1_field_coeffs)
+    #F1_field  = FemField(V1h, F1_field_coeffs)
     F1_field2 = FemField(V1h, F1_field_coeffs2)
     F2_field  = FemField(V2h, F2_field_coeffs)
     F3_field  = FemField(V3h, F3_field_coeffs)
     Fs_field  = FemField(Vsh, Fs_field_coeffs)
     Fvc_field = FemField(Vvch, Fvc_field_coeffs)
     Fvd_field = FemField(Vvdh, Fvd_field_coeffs)
+
+    _, P1, _, _ = derham_h.projectors()
+    F11_1 = lambda x, y, z: z
+    F11_2 = lambda x, y, z: x
+    F11_3 = lambda x, y, z: y
+    F11_func = (F11_1, F11_2, F11_3)
+    F1_field = P1(F11_func)
 
     spaces = {'V0':{'Vh':V0h, 'funcs':[u1, u2]},
               'V1':{'Vh':V1h, 'funcs':[v1, v2]},
@@ -405,7 +421,7 @@ def build_matrices(mapping_option, verbose, backend, comm):
     standard_test_indices = [0, 1, 4, 5, 8, 9, 10, 11, 12, 14, 18, 19, 20, 23, 24]
 
     test_indices = standard_test_indices
-    # test_indices = [9, ]
+    # test_indices = [24, ]
 
     bilinear_forms_to_test = [bilinear_form_strings[i] for i in test_indices]
 
@@ -466,13 +482,8 @@ def build_matrices(mapping_option, verbose, backend, comm):
                     t1 = time.time()
                     c1 = fields[0].coeffs
                     c2 = fields[1].coeffs
-                    #print(f'c1 norm: {np.linalg.norm(c1.toarray())}')
-                    #print(f'c2 norm: {np.linalg.norm(c2.toarray())}')
-                    #equil = fields[0].coeffs.inner(A_old @ fields[1].coeffs)
                     equil = c1.inner(A_old @ c2)
-                    #equil_T = c2.inner(A_old @ c1)
                     print(f'old equil: {equil}')
-                    #print(f'old equil_T: {equil_T}')
                 else:
                     raise NotImplementedError('This special case must still be taken care of.')
         else:
@@ -506,20 +517,13 @@ def build_matrices(mapping_option, verbose, backend, comm):
                 t1 = time.time()
             else:
                 if field_spaces == ['V1', 'V1']:
-                    #from psydac.api.tests.assemble_4srahtxb import assemble_matrix
-                    #a_h._func = assemble_matrix
                     t0 = time.time()
                     A_new = a_h.assemble(F1=fields[0], F12=fields[1])
                     t1 = time.time()
                     c1 = fields[0].coeffs
                     c2 = fields[1].coeffs
-                    #print(f'c1 norm: {np.linalg.norm(c1.toarray())}')
-                    #print(f'c2 norm: {np.linalg.norm(c2.toarray())}')
-                    #equil = fields[0].coeffs.inner(A_new @ fields[1].coeffs)
                     equil = c1.inner(A_new @ c2)
-                    #equil_T = c2.inner(A_new @ c1)
                     print(f'new equil: {equil}')
-                    #print(f'new equil_T: {equil_T}')
                     print()
                 else:
                     raise NotImplementedError('This special case must still be taken care of.')
@@ -531,36 +535,21 @@ def build_matrices(mapping_option, verbose, backend, comm):
 
         A_old_arr = A_old.toarray()
         A_new_arr = A_new.toarray()
-        #A_new_T_arr = A_new.T.toarray()
         A_old_norm = np.linalg.norm(A_old_arr)
         A_new_norm = np.linalg.norm(A_new_arr)
-        #A_new_T_norm = np.linalg.norm(A_new_T_arr)
-        #A_old_norm = np.linalg.norm(A_old.toarray())
-        #A_new_norm = np.linalg.norm(A_new.toarray())
         err = np.linalg.norm(A_old_arr - A_new_arr)
-        #err_T = np.linalg.norm(A_old_arr - A_new_T_arr)
-        #err = np.linalg.norm((A_old-A_new).toarray())
         rel_err = err / A_old_norm
 
-        if verbose: #  and (mpi_rank == 0):
+        if verbose:
             print(f' >>> MPI rank       : {comm.Get_rank()} ')
             print(f' >>> Mapping Option : {mapping_option} ')
             print(f' >>> BF {bf} ')
             print(f' >>> Discretization in: Old {disc_time_old:.3g}\t\t|| New {disc_time_new:.3g} ')
             print(f' >>> Assembly in:       Old {time_old:.3g}\t\t|| New {time_new:.3g}\t\t|| Old/New {time_old/time_new:.3g} ')
             print(f' >>>      Error:            {err:.3g} ')
-            #print(f' >>> Err. T.   :            {err_T:.3g}')
             print(f' >>> Rel. Error:            {rel_err:.3g} ')
             print(f' >>> Norm      : {A_old_norm:.7g} & {A_new_norm:.7g}')
             print()
-
-        #import sys
-        #np.set_printoptions(threshold=sys.maxsize)
-        #print(A_old_arr)
-        #print()
-        #print()
-        #print()
-        #print(A_new_arr)
         
         # must investigate these cases further
         if not bf in ('Fvc test', 'u*f', 'field_derivative_F1', 'field_derivative_F2', 'equilibrium'):

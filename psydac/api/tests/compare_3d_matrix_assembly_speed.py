@@ -25,8 +25,14 @@ Executing this file will add new tables to the api/README.md file in which we ke
 Estimated runtime: 300s + 230s + 60s = ~10min
 
 """
-print('Expected runtime: 10min')
-print()
+
+comm = MPI.COMM_WORLD
+backend = PSYDAC_BACKEND_GPYCCEL
+mpi_rank = comm.rank
+
+if mpi_rank == 0:
+    print('Expected runtime: 10min')
+    print()
 
 class HalfHollowTorusMapping3D(Mapping):
     _expressions = {'x': '(R + r * x1 * cos(2*pi*x3)) * cos(pi*x2)',
@@ -76,9 +82,6 @@ def make_half_hollow_torus_geometry_3d(ncells, degree, comm=None):
     geometry.export(f'geometry/files/{name}.h5')
 
     return f'geometry/files/{name}.h5'
-
-comm = MPI.COMM_WORLD
-backend = PSYDAC_BACKEND_GPYCCEL
 
 # ---------- 1 ----------
 t0_1_glob = time.time()
@@ -160,29 +163,31 @@ ass_time_H1_new_d = [ass_time_H1_new[i][0] for i, _ in enumerate(degree_list)]
 ass_time_Hcurl_old_d = [ass_time_Hcurl_old[i][0] for i, _ in enumerate(degree_list2)]
 ass_time_Hcurl_new_d = [ass_time_Hcurl_new[i][0] for i, _ in enumerate(degree_list2)]
 
-plt.plot(d, ass_time_H1_old_d, '--.', label=f'old Algorithm')
-plt.plot(d, ass_time_H1_new_d, '--.', label=f'new Algorithm')
-plt.title(r'Assembly times for the $H^1(\Omega)$ mass matrix')
-plt.legend()
-plt.yscale('log')
-plt.ylabel('Wallclock Time [s]')
-plt.xlabel('d - [d, d, d] Bspline degrees')
-plt.xticks(d)
-plt.savefig(f'figures/H1_{datetime_file}.png')
-plt.clf()
+if mpi_rank == 0:
+    plt.plot(d, ass_time_H1_old_d, '--.', label=f'old Algorithm')
+    plt.plot(d, ass_time_H1_new_d, '--.', label=f'new Algorithm')
+    plt.title(r'Assembly times for the $H^1(\Omega)$ mass matrix')
+    plt.legend()
+    plt.yscale('log')
+    plt.ylabel('Wallclock Time [s]')
+    plt.xlabel('d - [d, d, d] Bspline degrees')
+    plt.xticks(d)
+    plt.savefig(f'figures/H1_{datetime_file}.png')
+    plt.clf()
 
-plt.plot(d2, ass_time_Hcurl_old_d, '--.', label=f'old Algorithm')
-plt.plot(d2, ass_time_Hcurl_new_d, '--.', label=f'new Algorithm')
-plt.title(r'Assembly times for the $H(curl;\Omega)$ mass matrix')
-plt.legend()
-plt.yscale('log')
-plt.ylabel('Wallclock Time [s]')
-plt.xlabel('d - [d, d, d] Bspline degrees')
-plt.xticks(d2)
-plt.savefig(f'figures/Hcurl_{datetime_file}.png')
+    plt.plot(d2, ass_time_Hcurl_old_d, '--.', label=f'old Algorithm')
+    plt.plot(d2, ass_time_Hcurl_new_d, '--.', label=f'new Algorithm')
+    plt.title(r'Assembly times for the $H(curl;\Omega)$ mass matrix')
+    plt.legend()
+    plt.yscale('log')
+    plt.ylabel('Wallclock Time [s]')
+    plt.xlabel('d - [d, d, d] Bspline degrees')
+    plt.xticks(d2)
+    plt.savefig(f'figures/Hcurl_{datetime_file}.png')
 
 t1_1_glob = time.time()
-print(f'Part 1 out of 3 done after {(t1_1_glob-t0_1_glob)/60:.2g}min')
+if mpi_rank == 0:
+    print(f'Part 1 out of 3 done after {(t1_1_glob-t0_1_glob)/60:.2g}min')
 # -----------------------
 
 # ---------- 2 ----------
@@ -306,7 +311,8 @@ t1 = time.time()
 new_ass_23 = t1-t0
 
 t1_2_glob = time.time()
-print(f'Part 2 out of 3 done after {(t1_2_glob-t0_2_glob)/60:.2g}min')
+if mpi_rank == 0:
+    print(f'Part 2 out of 3 done after {(t1_2_glob-t0_2_glob)/60:.2g}min')
 # -----------------------
 
 # ---------- 3 ----------
@@ -561,7 +567,8 @@ t1 = time.time()
 new_ass_36 = t1-t0
 
 t1_3_glob = time.time()
-print(f'Part 3 out of 3 done after {(t1_3_glob-t0_3_glob)/60:.2g}min')
+if mpi_rank == 0:
+    print(f'Part 3 out of 3 done after {(t1_3_glob-t0_3_glob)/60:.2g}min')
 # -----------------------
 
 template = '''| Test case | old assembly | new assembly | old discretization | new discretization |
@@ -596,6 +603,7 @@ txt += template.format(old_ass_21=old_ass_21, new_ass_21=new_ass_21, old_disc_21
                        old_ass_36=old_ass_36, new_ass_36=new_ass_36, old_disc_36=old_disc_36, new_disc_36=new_disc_36)
 txt += '\n\n'
 
-f = open('../README.md', 'a')
-f.writelines(txt)
-f.close()
+if mpi_rank == 0:
+    f = open('../README.md', 'a')
+    f.writelines(txt)
+    f.close()
