@@ -1808,7 +1808,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                     trd = trial_degree[j]
                     pads[i,j][:] = np.array([td, trd]).max(axis=0)
         else:
-            pads = test_degree
+            pads = np.maximum(test_degree, trial_degree)
 
         if self._matrix is None and (is_broken or isinstance(expr, (ImmutableDenseMatrix, Matrix))):
             self._matrix = BlockLinearOperator(trial_space, test_space)
