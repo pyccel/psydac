@@ -3,7 +3,7 @@ import  pytest
 import  time
 import  numpy   as      np
 
-from    sympy   import  sin, sqrt, pi, Abs
+from    sympy   import  sin, sqrt, pi, Abs, cos, tan
 
 from    sympde.calculus             import dot, cross, grad, curl, div, laplace
 from    sympde.expr                 import BilinearForm, integral
@@ -464,3 +464,42 @@ def test_free_FemField_derivatives():
         if not dubious_observations:
             assert abs(value-value_old) < tol
             assert rel_err              < tol
+
+def test_assembly_free_FemFields():
+
+    backend = PSYDAC_BACKEND_GPYCCEL
+
+    domain = Cube(bounds1=(2626,3179), bounds2=(-138, 138), bounds3=(-760.3, 69))
+    derham = Derham(domain)
+    V0 = derham.V0
+    V1 = derham.V1
+
+    u = element_of(V1, name='u')
+    v = element_of(V1, name='v')
+    p = element_of(V0, name='p')
+
+    p_call = lambda xi,yi,zi: np.cos(2*np.pi*(xi-2626)/553) + np.tan(2*np.pi*(zi+760.3)/(5*829.3))
+    x,y,z = domain.coordinates
+    p_sym = cos(2*np.pi*(x-2626)/553) + tan(2*np.pi*(z+760.3)/(5*829.3))
+
+    a_sym = BilinearForm((u, v), integral(domain, p_sym*dot(u, v)))
+    a_fem = BilinearForm((u, v), integral(domain, p*dot(u, v)))
+
+    ncells = (11, 1, 17)
+    degree = (3, 1, 4)
+    domain_h = discretize(domain, ncells=ncells, periodic=(False, True, False))
+    derham_h = discretize(derham, domain_h, degree=degree)
+    V1_h = derham_h.V1
+    P0 = derham_h.projectors()[0]
+
+    p_fem = P0(p_call)
+    
+    a_sym_h = discretize(a_sym, domain_h, (V1_h, V1_h), backend=backend)
+    a_fem_h = discretize(a_fem, domain_h, (V1_h, V1_h), backend=backend)
+
+    A_sym = a_sym_h.assemble()
+    A_fem = a_fem_h.assemble(p=p_fem)
+    
+    diff = (A_sym-A_fem).tosparse()
+
+    assert abs(diff.data).max() < 4e-2
