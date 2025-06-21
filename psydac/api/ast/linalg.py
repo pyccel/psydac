@@ -411,7 +411,7 @@ class LinearOperatorDot(SplBasic):
 
         # ... convert python to fortran using pyccel
         compiler_family       = backend['compiler_family']
-        fflags         = backend['flags']
+        flags         = backend['flags']
         _PYCCEL_FOLDER = backend['folder']
         accelerators   = ["openmp"] if backend["openmp"] else []
 
@@ -421,7 +421,7 @@ class LinearOperatorDot(SplBasic):
         fmod = epyccel(mod,
                        accelerators = accelerators,
                        compiler_family     = compiler_family,
-                       fflags       = fflags,
+                       flags       = flags,
                        comm         = self.comm,
                        bcast        = True,
                        folder       = _PYCCEL_FOLDER,
