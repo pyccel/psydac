@@ -413,13 +413,13 @@ class LinearOperatorDot(SplBasic):
         compiler_family       = backend['compiler_family']
         flags         = backend['flags']
         _PYCCEL_FOLDER = backend['folder']
-        accelerators   = ["openmp"] if backend["openmp"] else []
+        openmp = True if backend["openmp"] else False
 
         # from pyccel.epyccel import epyccel
         from pyccel import epyccel
 
         fmod = epyccel(mod,
-                       accelerators = accelerators,
+                       openmp = openmp,
                        compiler_family     = compiler_family,
                        flags       = flags,
                        comm         = self.comm,

@@ -11,7 +11,7 @@ def test_epyccel_flags():
     kwargs = {'language'     : 'fortran',
               'compiler_family' : backend['compiler_family'],
               'flags'       : backend['flags'],
-              'accelerators' : ['openmp'] if backend['openmp'] else [],
+              'openmp' : True if backend['openmp'] else False,
               'verbose'      : True,
               }
 

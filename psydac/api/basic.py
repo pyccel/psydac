@@ -256,13 +256,13 @@ class BasicCodeGen:
         # ... convert python to fortran using pyccel
         compiler_family       = self.backend['compiler_family']
         flags         = self.backend['flags']
-        accelerators   = ["openmp"] if self.backend["openmp"] else []
+        openmp   = True if self.backend["openmp"] else False
         _PYCCEL_FOLDER = self.backend['folder']
 
         # from pyccel.epyccel import epyccel
         from pyccel import epyccel
         fmod = epyccel(mod,
-                       accelerators = accelerators,
+                       openmp = openmp,
                        compiler_family    = compiler_family,
                        flags      = flags,
                        comm        = self.comm,
