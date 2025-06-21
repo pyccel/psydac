@@ -254,7 +254,7 @@ class BasicCodeGen:
     def _compile_pyccel(self, mod, verbose=False):
 
         # ... convert python to fortran using pyccel
-        compiler       = self.backend['compiler']
+        compiler_family       = self.backend['compiler_family']
         fflags         = self.backend['flags']
         accelerators   = ["openmp"] if self.backend["openmp"] else []
         _PYCCEL_FOLDER = self.backend['folder']
@@ -263,7 +263,7 @@ class BasicCodeGen:
         from pyccel import epyccel
         fmod = epyccel(mod,
                        accelerators = accelerators,
-                       compiler    = compiler,
+                       compiler_family    = compiler_family,
                        fflags      = fflags,
                        comm        = self.comm,
                        bcast       = True,
