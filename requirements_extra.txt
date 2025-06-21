@@ -5,5 +5,5 @@
 # HDF5_MPI="ON"
 # HDF5_DIR=/usr/lib/x86_64-linux-gnu/hdf5/openmpi
 #
-h5py==3.13.0
+h5py
 --no-binary h5py
