@@ -8,7 +8,7 @@ version         = "0.1"
 description     = "Python package for isogeometric analysis (IGA)"
 readme          = "README.md"
 requires-python = ">= 3.9"
-license         = "MIT"
+license         = {file = "LICENSE"}
 authors         = [
     {name = "Psydac development team", email = "psydac@googlegroups.com"}
 ]
@@ -40,7 +40,7 @@ dependencies = [
     # python3 -m pip install requirements.txt
     # python3 -m pip install .
     'mpi4py',
-    'h5py==3.13.0',
+    'h5py',
 
     # When pyccel is run in parallel with MPI, it uses tblib to pickle
     # tracebacks, which allows mpi4py to broadcast exceptions
