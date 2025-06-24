@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name            = "psydac"
-version         = "2.4.3.dev0"
+version         = "2.4.4.dev0"
 description     = "Python package for isogeometric analysis (IGA)"
 readme          = "README.md"
 requires-python = ">= 3.10"
@@ -30,7 +30,7 @@ dependencies = [
     'pyevtk',
 
     # Our packages from PyPi
-    'pyccel >= 1.11.2',
+    'pyccel >= 1.11.2, < 2.0',
 
     # In addition, we depend on mpi4py and h5py (MPI version).
     # Since h5py must be built from source, we run the commands
