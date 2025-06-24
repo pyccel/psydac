@@ -960,9 +960,13 @@ def test_internal_storage():
     assert np.array_equal( y2_1.toarray(), y2_2.toarray() ) & np.array_equal( y2_2.toarray(), y2_3.toarray() )
 
 #===============================================================================
-@pytest.mark.parametrize('solver', ['cg', 'cg', 'bicg', 'minres', 'lsmr'])
-
-def test_x0update(solver):
+@pytest.mark.parametrize("solver, needs_pc", [
+    ('cg',     True),
+    ('bicg',   False),
+    ('minres', False),
+    ('lsmr',   False)
+])
+def test_x0update(solver, needs_pc):
     n1 = 4
     n2 = 3
     p1 = 5
@@ -979,10 +983,8 @@ def test_x0update(solver):
 
     # Create Inverse
     tol = 1e-6
-    if solver == 'cg' and pc!= None: # implies solver is pcg 
-        A_inv = inverse(A, solver, pc=A.diagonal(inverse=True), tol=tol)
-    else:
-        A_inv = inverse(A, solver, tol=tol)
+    pc = A.diagonal(inverse=True) if needs_pc else None
+    A_inv = inverse(A, solver, pc=pc, tol=tol)
 
     # Check whether x0 is not None
     x0_init = A_inv.get_options("x0")

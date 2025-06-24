@@ -144,7 +144,7 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
     assert np.array_equal(xh.toarray(), solvh_x0.toarray())
     assert xh is not solvh_x0
 
-    if (solver != 'cg' or (solver == 'cg' and pc == None)):
+    if (solver != 'cg' or (solver == 'cg' and 'pc' in locals() and pc == None)):
         # PCG only works with operators with diagonal
         xc = solv2 @ be2
         solv2_x0 = solv2._options["x0"]
@@ -157,7 +157,7 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
     b2 = A @ x2
     bt = A.T @ xt
     bh = A.H @ xh
-    if solver != 'cg' and pc!= None:
+    if solver != 'cg' and 'pc' in locals() and pc!= None:
         bc = A @ A @ xc
 
     err = b - be
@@ -169,7 +169,7 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
     errh = bh - beh
     errh_norm = np.linalg.norm( errh.toarray() )
 
-    if  (solver != 'cg' or (solver == 'cg' and pc == None)):
+    if  (solver != 'cg' or (solver == 'cg' and 'pc' in locals() and pc == None)):
         errc = bc - be2
         errc_norm = np.linalg.norm( errc.toarray() )
 
