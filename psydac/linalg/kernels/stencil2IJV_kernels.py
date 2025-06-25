@@ -1,9 +1,10 @@
 # coding: utf-8
-from pyccel.decorators import template
 
+from typing import TypeVar
+
+T = TypeVar('T', float, complex)
 
 #========================================================================================================
-@template(name='T', types=[float, complex])
 def stencil2IJV_1d_C(A:'T[:,:]', Ib:'int64[:]', Jb:'int64[:]', Vb:'T[:]', rowmapb:'int64[:]',
                      cnl1:'int64', dng1:'int64', cs1:'int64', cp1:'int64', cm1:'int64',
                      dsh:'int64[:]', csh:'int64[:]', dgs1:'int64[:]', dge1:'int64[:]', 
@@ -60,7 +61,6 @@ def stencil2IJV_1d_C(A:'T[:,:]', Ib:'int64[:]', Jb:'int64[:]', Vb:'T[:]', rowmap
     return nnz_rows, nnz
 
 #========================================================================================================
-@template(name='T', types=[float, complex])
 def stencil2IJV_2d_C(A:'T[:,:,:,:]', Ib:'int64[:]', Jb:'int64[:]', Vb:'T[:]', rowmapb:'int64[:]',
                      cnl1:'int64', cnl2:'int64', dng1:'int64', dng2:'int64', cs1:'int64', 
                      cs2:'int64', cp1:'int64', cp2:'int64', cm1:'int64', cm2:'int64',
@@ -135,7 +135,6 @@ def stencil2IJV_2d_C(A:'T[:,:,:,:]', Ib:'int64[:]', Jb:'int64[:]', Vb:'T[:]', ro
     return nnz_rows, nnz
 
 #========================================================================================================
-@template(name='T', types=[float, complex])
 def stencil2IJV_3d_C(A:'T[:,:,:,:,:,:]', Ib:'int64[:]', Jb:'int64[:]', Vb:'T[:]', rowmapb:'int64[:]',
                      cnl1:'int64', cnl2:'int64', cnl3:'int64', dng1:'int64', dng2:'int64', dng3:'int64', 
                      cs1:'int64', cs2:'int64', cs3:'int64', cp1:'int64', cp2:'int64', cp3:'int64', 

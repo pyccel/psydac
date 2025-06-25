@@ -5,6 +5,7 @@
 from pyccel.decorators import pure
 from numpy import shape, abs
 import numpy as np
+from typing import Final
 
 # Auxiliary functions needed for the bsplines kernels.
 @pure
@@ -26,19 +27,16 @@ def matmul(a: 'float[:,:]', b: 'float[:,:]', c: 'float[:,:]'):
 
     sh_a = shape(a)
     sh_b = shape(b)
-    
-    if sh_a[0] == 0 or sh_a[1] == 0 or sh_b[0] == 0 or sh_b[1] == 0:
-        c[:, :] = 0.
-    else:
-        c[:, :] = 0.
-        for i in range(sh_a[0]):
-            for j in range(sh_b[1]):
-                for k in range(sh_a[1]):
-                    c[i, j] += a[i, k] * b[k, j] 
+
+    c[:, :] = 0.
+    for i in range(sh_a[0]):
+        for j in range(sh_b[1]):
+            for k in range(sh_a[1]):
+                c[i, j] += a[i, k] * b[k, j] 
                 
                 
 @pure
-def sum_vec(a: 'float[:]') -> float:
+def sum_vec(a: 'Final[float[:]]') -> float:
     """
     Sum the elements of a 1D vector.
 
@@ -59,7 +57,7 @@ def sum_vec(a: 'float[:]') -> float:
         
         
 @pure
-def min_vec(a: 'float[:]') -> float:
+def min_vec(a: 'Final[float[:]]') -> float:
     """
     Compute the minimum a 1D vector.
 
@@ -81,7 +79,7 @@ def min_vec(a: 'float[:]') -> float:
 
 
 @pure
-def max_vec(a: 'float[:]') -> float:
+def max_vec(a: 'Final[float[:]]') -> float:
     """
     Compute the maximum a 1D vector.
 
@@ -103,7 +101,7 @@ def max_vec(a: 'float[:]') -> float:
 
 
 @pure
-def max_vec_int(a: 'int[:]') -> int:
+def max_vec_int(a: 'Final[int[:]]') -> int:
     """
     Compute the maximum a 1D vector.
 
@@ -237,10 +235,12 @@ def basis_funs_p(knots: 'float[:]', degree: int, x: float, span: int, out: 'floa
     .. [1] L. Piegl and W. Tiller. The NURBS Book, 2nd ed.,
         Springer-Verlag Berlin Heidelberg GmbH, 1997.
     """
+    out[0] = 1.0
+    if degree == 0:
+        return
     left = np.zeros(degree, dtype=float)
     right = np.zeros(degree, dtype=float)
 
-    out[0] = 1.0
     for j in range(degree):
         left[j]  = x - knots[span - j]
         right[j] = knots[span + 1 + j] - x
@@ -395,6 +395,8 @@ def basis_funs_all_ders_p(knots: 'float[:]', degree: int, x: float, span: int, n
     .. [1] L. Piegl and W. Tiller. The NURBS Book, 2nd ed.,
         Springer-Verlag Berlin Heidelberg GmbH, 1997.
     """
+    sh_a  = np.empty(2)
+    sh_b  = np.empty(2)
     left  = np.empty(degree)
     right = np.empty(degree)
     ndu   = np.empty((degree+1, degree+1))
@@ -443,7 +445,14 @@ def basis_funs_all_ders_p(knots: 'float[:]', degree: int, x: float, span: int, n
 
             a[s2, j1:j2 + 1] = (a[s1, j1:j2 + 1] - a[s1, j1 - 1:j2]) * ndu[pk + 1, rk + j1:rk + j2 + 1]
             # temp_d[:, :] = np.matmul(a[s2:s2 + 1, j1:j2 + 1], ndu[rk + j1:rk + j2 + 1, pk: pk + 1])
-            matmul(a[s2:s2 + 1, j1:j2 + 1], ndu[rk + j1:rk + j2 + 1, pk: pk + 1],temp_d[:, :])
+            
+            sh_a[:] = shape(a[s2:s2 + 1, j1:j2 + 1])
+            sh_b[:] = shape(ndu[rk + j1:rk + j2 + 1, pk: pk + 1])
+            
+            if sh_a[0] == 0 or sh_a[1] == 0 or sh_b[0] == 0 or sh_b[1] == 0:
+                temp_d[:, :] = 0.
+            else:
+                matmul(a[s2:s2 + 1, j1:j2 + 1], ndu[rk + j1:rk + j2 + 1, pk: pk + 1],temp_d[:, :])
             d+= temp_d[0, 0]
             if r <= pk:
                a[s2, k] = - a[s1, k - 1] * ndu[pk + 1, r]
@@ -738,7 +747,7 @@ def histopolation_matrix_p(knots: 'float[:]', degree: int, periodic: bool, norma
 
 
 # =============================================================================
-def merge_sort(a: 'float[:]') -> 'float[:]':
+def merge_sort(a: 'float[:]'):
     """Performs a 'in place' merge sort of the input list
 
     Parameters

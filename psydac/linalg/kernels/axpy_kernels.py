@@ -1,7 +1,8 @@
-from pyccel.decorators import template
+from typing import TypeVar
+
+T = TypeVar('T', float, complex)
 
 #========================================================================================================
-@template(name='T', types=[float, complex])
 def axpy_1d(alpha: 'T', x: 'T[:]', y: 'T[:]'):
     """
     Kernel for computing y = alpha * x + y.
@@ -19,7 +20,6 @@ def axpy_1d(alpha: 'T', x: 'T[:]', y: 'T[:]'):
         y[i1] += alpha * x[i1]
 
 #========================================================================================================
-@template(name='T', types=[float, complex])
 def axpy_2d(alpha: 'T', x: 'T[:,:]', y: 'T[:,:]'):
     """
     Kernel for computing y = alpha * x + y.
@@ -38,7 +38,6 @@ def axpy_2d(alpha: 'T', x: 'T[:,:]', y: 'T[:,:]'):
             y[i1, i2] += alpha * x[i1, i2]
 
 #========================================================================================================
-@template(name='T', types=[float, complex])
 def axpy_3d(alpha: 'T', x: 'T[:,:,:]', y: 'T[:,:,:]'):
     """
     Kernel for computing y = alpha * x + y.
