@@ -9,7 +9,7 @@ from sympde.topology import Derham
 from psydac.api.settings import PSYDAC_BACKENDS
 from psydac.feec.pull_push import pull_2d_h1, pull_2d_hcurl, pull_2d_l2
 
-from psydac.feec.multipatch.api import discretize
+from psydac.api.discretization import discretize
 from psydac.feec.multipatch.utilities import time_count  
 from psydac.linalg.utilities import array_to_psydac
 from psydac.fem.basic import FemField

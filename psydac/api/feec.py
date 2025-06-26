@@ -1,7 +1,6 @@
 import os
 
 from sympde.topology.mapping import Mapping
-from sympde.topology.space   import ScalarFunction
 
 from psydac.api.basic              import BasicDiscrete
 from psydac.feec.derivatives       import Derivative_1D, Gradient_2D, Gradient_3D
@@ -15,20 +14,15 @@ from psydac.feec.pull_push         import pull_3d_h1, pull_3d_hcurl, pull_3d_hdi
 from psydac.fem.basic              import FemSpace
 from psydac.fem.vector             import VectorFemSpace
 
-from psydac.feec.multipatch.operators import BrokenGradient_2D
-from psydac.feec.multipatch.operators import BrokenScalarCurl_2D
-from psydac.feec.multipatch.operators import Multipatch_Projector_H1
-from psydac.feec.multipatch.operators import Multipatch_Projector_Hcurl
-from psydac.feec.multipatch.operators import Multipatch_Projector_L2
-from psydac.feec.multipatch.operators import ConformingProjection_V0
-from psydac.feec.multipatch.operators import ConformingProjection_V1
+from psydac.feec.multipatch.derivatives import BrokenGradient_2D
+from psydac.feec.multipatch.derivatives import BrokenScalarCurl_2D
+from psydac.feec.multipatch.projectors import Multipatch_Projector_H1
+from psydac.feec.multipatch.projectors import Multipatch_Projector_Hcurl
+from psydac.feec.multipatch.projectors import Multipatch_Projector_L2
+from psydac.feec.multipatch.projectors import ConformingProjection_V0
+from psydac.feec.multipatch.projectors import ConformingProjection_V1
 from psydac.feec.multipatch.fem_linear_operators import IdLinearOperator
 
-from sympde.expr.expr import LinearForm, integral
-from sympde.calculus  import dot
-from sympde.topology  import element_of
-
-from psydac.api.settings import PSYDAC_BACKENDS
 
 __all__ = ('DiscreteDerham', 'DiscreteDerhamMultipatch',)
 
@@ -305,11 +299,10 @@ class DiscreteDerhamMultipatch(DiscreteDerham):
     
     def __init__(self, *, mapping, domain_h, spaces, sequence=None):
 
-
-        dim = len(spaces) - 1
+        dim           = len(spaces) - 1
+        self._spaces  = tuple(spaces)
         self._dim     = dim
         self._mapping = mapping
-        self._spaces  = tuple(spaces)
         self._domain_h = domain_h
 
         if sequence:
@@ -351,14 +344,30 @@ class DiscreteDerhamMultipatch(DiscreteDerham):
     def sequence(self):
         return self._sequence
 
-    # ...
     @property
-    def broken_derivatives_as_operators(self):
+    def H1vec(self):
+        raise NotImplementedError('Not implemented for Multipatch de Rham sequences.')
+
+    @property
+    def spaces(self):
+        """Spaces of the proper de Rham sequence (excluding Hvec)."""
+        return self._spaces
+
+    @property
+    def mapping(self):
+        """The mapping from the logical space to the physical space."""
+        return self._mapping
+
+    @property
+    def callable_mapping(self):
+        raise NotImplementedError('Not implemented for Multipatch de Rham sequences.')
+
+    @property
+    def derivatives(self):
         return self._broken_diff_ops
 
-    # ...
     @property
-    def broken_derivatives_as_matrices(self):
+    def derivatives_as_matrices(self):
         return tuple(b_diff.matrix for b_diff in self._broken_diff_ops)
 
     #--------------------------------------------------------------------------
@@ -412,8 +421,8 @@ class DiscreteDerhamMultipatch(DiscreteDerham):
         elif self.dim == 3:
             raise NotImplementedError("3D projectors are not available")
 
-        #--------------------------------------------------------------------------
-    def conforming_projection(self, space, hom_bc=False, backend_language="python", load_dir=None):
+    #--------------------------------------------------------------------------
+    def conforming_projection(self, space, p_moments=-1, hom_bc=False, backend_language="python", load_dir=None):
         """
         return the conforming projectors of the broken multi-patch space
 
@@ -465,10 +474,10 @@ class DiscreteDerhamMultipatch(DiscreteDerham):
 
         elif self.dim == 2:
             if space == 'V0':
-                cP = ConformingProjection_V0(self.V0, self._domain_h, hom_bc=hom_bc, backend_language=backend_language, storage_fn=storage_fn)
+                cP = ConformingProjection_V0(self.V0, self._domain_h, p_moments=p_moments, hom_bc=hom_bc, backend_language=backend_language, storage_fn=storage_fn)
             elif space == 'V1':
                 if self.sequence[1] == 'hcurl':
-                    cP = ConformingProjection_V1(self.V1, self._domain_h, hom_bc=hom_bc, backend_language=backend_language, storage_fn=storage_fn)
+                    cP = ConformingProjection_V1(self.V1, self._domain_h, p_moments=p_moments, hom_bc=hom_bc, backend_language=backend_language, storage_fn=storage_fn)
                 else:
                     raise NotImplementedError('2D sequence with H-div not available yet')
 
@@ -481,52 +490,3 @@ class DiscreteDerhamMultipatch(DiscreteDerham):
             raise NotImplementedError("3D projectors are not available")
 
         return cP
-
-    def get_dual_dofs(self, space, f, backend_language="python", return_format='stencil_array'):
-        """
-        return the dual dofs tilde_sigma_i(f) = < Lambda_i, f >_{L2} i = 1, .. dim(V^k)) of a given function f, as a stencil array or numpy array
-
-        Parameters
-        ----------
-        space : <str>
-          The space of the dual dofs
-
-        f : <sympy.Expr>
-         The function used for evaluation
-
-        backend_language: <str>
-          The backend used to accelerate the code
-
-        return_format: <str>
-         The format of the dofs, can be 'stencil_array' or 'numpy_array'
-
-        Returns
-        -------
-        tilde_f:<Vector|ndarray>
-         The dual dofs
-        """
-        if space == 'V0':
-            Vh = self.V0
-        elif space == 'V1':
-            Vh = self.V1
-        elif space == 'V2':
-            Vh = self.V2
-        else:
-            raise NotImplementedError("The space of kind {} is not available".format(space))
-
-        V  = Vh.symbolic_space
-        v  = element_of(V, name='v')
-
-        if isinstance(v, ScalarFunction):
-            expr   = f*v
-        else:
-            expr   = dot(f,v)
-
-        l        = LinearForm(v, integral( V.domain, expr))
-        lh       = discretize(l, self._domain_h, Vh, backend=PSYDAC_BACKENDS[backend_language])
-        tilde_f  = lh.assemble()
-
-        if return_format == 'numpy_array':
-            return tilde_f.toarray()
-        else:
-            return tilde_f

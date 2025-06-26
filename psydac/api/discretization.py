@@ -625,11 +625,11 @@ def discretize(a, *args, **kwargs):
     elif isinstance(a, BasicFunctionSpace):
         return discretize_space(a, *args, **kwargs)
         
-    elif isinstance(a, Derham):
+    elif isinstance(a, Derham)and not a.V0.is_broken:
         return discretize_derham(a, *args, **kwargs)
 
-    elif isinstance(expr, Derham) and expr.V0.is_broken:
-        return discretize_derham_multipatch(expr, *args, **kwargs)
+    elif isinstance(a, Derham) and a.V0.is_broken:
+        return discretize_derham_multipatch(a, *args, **kwargs)
 
     elif isinstance(a, Domain):
         return discretize_domain(a, *args, **kwargs)
