@@ -564,8 +564,7 @@ def construct_h1_conforming_projection(Vh, reg_orders=0, p_moments=-1, hom_bc=Fa
 
     # moment corrections perpendicular to interfaces
     # assume same moments everywhere
-    gamma = get_1d_moment_correction(
-        Vh.spaces[0].spaces[0], p_moments=p_moments)
+    gamma = get_1d_moment_correction(Vh.spaces[0].spaces[0], p_moments=p_moments)
 
     domain = Vh.symbolic_space.domain
     ndim = 2

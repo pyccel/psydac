@@ -625,7 +625,7 @@ def discretize(a, *args, **kwargs):
     elif isinstance(a, BasicFunctionSpace):
         return discretize_space(a, *args, **kwargs)
         
-    elif isinstance(a, Derham)and not a.V0.is_broken:
+    elif isinstance(a, Derham) and not a.V0.is_broken:
         return discretize_derham(a, *args, **kwargs)
 
     elif isinstance(a, Derham) and a.V0.is_broken:

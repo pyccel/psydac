@@ -8,11 +8,9 @@ from scipy.sparse.linalg import inv
 from sympde.topology import element_of, elements_of
 from sympde.topology.space import ScalarFunction
 from sympde.calculus import dot
-from sympde.expr.expr import LinearForm, BilinearForm
+from sympde.expr.expr import BilinearForm
 from sympde.expr.expr import integral
 
-
-from psydac.api.discretization import discretize
 from psydac.api.settings import PSYDAC_BACKENDS
 
 from psydac.feec.derivatives import Gradient_2D, ScalarCurl_2D
@@ -129,6 +127,7 @@ class HodgeOperator(FemLinearOperator):
         the Hodge matrix is the patch-wise multi-patch mass matrix
         it is not stored by default but assembled on demand
         """
+        from psydac.api.discretization import discretize
 
         if self._matrix is None:
             Vh = self.fem_domain
@@ -145,8 +144,7 @@ class HodgeOperator(FemLinearOperator):
                 expr = dot(u, v)
 
             a = BilinearForm((u, v), integral(domain, expr))
-            ah = discretize(a, self._domain_h, [
-                            Vh, Vh], backend=PSYDAC_BACKENDS[self._backend_language])
+            ah = discretize(a, self._domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS[self._backend_language])
 
             self._matrix = ah.assemble()  # Mass matrix in stencil format
             self._sparse_matrix = self._matrix.tosparse()

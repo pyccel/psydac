@@ -14,6 +14,7 @@ from psydac.feec.pull_push         import pull_3d_h1, pull_3d_hcurl, pull_3d_hdi
 from psydac.fem.basic              import FemSpace
 from psydac.fem.vector             import VectorFemSpace
 
+from psydac.feec.multipatch.operators import HodgeOperator
 from psydac.feec.multipatch.derivatives import BrokenGradient_2D
 from psydac.feec.multipatch.derivatives import BrokenScalarCurl_2D
 from psydac.feec.multipatch.projectors import Multipatch_Projector_H1
@@ -22,7 +23,6 @@ from psydac.feec.multipatch.projectors import Multipatch_Projector_L2
 from psydac.feec.multipatch.projectors import ConformingProjection_V0
 from psydac.feec.multipatch.projectors import ConformingProjection_V1
 from psydac.feec.multipatch.fem_linear_operators import IdLinearOperator
-
 
 __all__ = ('DiscreteDerham', 'DiscreteDerhamMultipatch',)
 
@@ -345,6 +345,10 @@ class DiscreteDerhamMultipatch(DiscreteDerham):
         return self._sequence
 
     @property
+    def domain_h(self):
+        return self._domain_h
+
+    @property
     def H1vec(self):
         raise NotImplementedError('Not implemented for Multipatch de Rham sequences.')
 
@@ -369,6 +373,10 @@ class DiscreteDerhamMultipatch(DiscreteDerham):
     @property
     def derivatives_as_matrices(self):
         return tuple(b_diff.matrix for b_diff in self._broken_diff_ops)
+
+    @property
+    def derivatives_as_sparse_matrices(self):
+        return tuple(b_diff.tosparse for b_diff in self._broken_diff_ops)
 
     #--------------------------------------------------------------------------
     def projectors(self, *, kind='global', nquads=None):
@@ -422,7 +430,7 @@ class DiscreteDerhamMultipatch(DiscreteDerham):
             raise NotImplementedError("3D projectors are not available")
 
     #--------------------------------------------------------------------------
-    def conforming_projection(self, space, p_moments=-1, hom_bc=False, backend_language="python", load_dir=None):
+    def conforming_projection(self, space=None, p_moments=-1, hom_bc=False, load_dir=None):
         """
         return the conforming projectors of the broken multi-patch space
 
@@ -433,9 +441,6 @@ class DiscreteDerhamMultipatch(DiscreteDerham):
 
         hom_bc: <bool>
           Apply homogenous boundary conditions if True
-
-        backend_language: <str>
-          The backend used to accelerate the code
 
         load_dir: <str|None>
           Filename for storage in sparse matrix format
@@ -474,15 +479,22 @@ class DiscreteDerhamMultipatch(DiscreteDerham):
 
         elif self.dim == 2:
             if space == 'V0':
-                cP = ConformingProjection_V0(self.V0, self._domain_h, p_moments=p_moments, hom_bc=hom_bc, backend_language=backend_language, storage_fn=storage_fn)
+                cP = ConformingProjection_V0(self.V0, p_moments=p_moments, hom_bc=hom_bc, storage_fn=storage_fn)
             elif space == 'V1':
                 if self.sequence[1] == 'hcurl':
-                    cP = ConformingProjection_V1(self.V1, self._domain_h, p_moments=p_moments, hom_bc=hom_bc, backend_language=backend_language, storage_fn=storage_fn)
+                    cP = ConformingProjection_V1(self.V1, p_moments=p_moments, hom_bc=hom_bc, storage_fn=storage_fn)
                 else:
                     raise NotImplementedError('2D sequence with H-div not available yet')
 
             elif space == 'V2':
                 cP = IdLinearOperator(self.V2)  # no storage needed!
+
+            elif space == None and self.sequence[1] == 'hcurl': 
+                cP0 = ConformingProjection_V0(self.V0, p_moments=p_moments, hom_bc=hom_bc, storage_fn=storage_fn)
+                cP1 = ConformingProjection_V1(self.V1, p_moments=p_moments, hom_bc=hom_bc, storage_fn=storage_fn)
+                cP2 = IdLinearOperator(self.V2)  # no storage needed!
+
+                return cP0, cP1, cP2
             else:
                 raise ValueError('Invalid value for "space" argument: {}'.format(space))
 
@@ -490,3 +502,52 @@ class DiscreteDerhamMultipatch(DiscreteDerham):
             raise NotImplementedError("3D projectors are not available")
 
         return cP
+
+    #--------------------------------------------------------------------------
+    def hodge_operator(self, space=None, backend_language='python', load_dir=None):
+        """
+        return the conforming projectors of the broken multi-patch space
+
+        Parameters
+        ----------
+        space : <str>
+          The space of the projector
+
+        backend_language: <str>
+          The backend used to accelerate the code
+
+        load_dir: <str|None>
+          Filename for storage in sparse matrix format
+
+        Returns
+        -------
+        H: <FemLinearOperator>
+          The Hodge operator
+
+        """
+
+        H = None
+        if self.dim == 1:
+            raise NotImplementedError("1D Hodges are not available")
+
+        elif self.dim == 2:
+            if space == 'V0':
+                H = HodgeOperator(self.V0, self.domain_h, backend_language=backend_language, load_dir=load_dir, load_space_index=0)
+            elif space == 'V1':
+                H = HodgeOperator(self.V1, self.domain_h, backend_language=backend_language, load_dir=load_dir, load_space_index=1)
+            elif space == 'V2':
+                H = HodgeOperator(self.V2, self.domain_h, backend_language=backend_language, load_dir=load_dir, load_space_index=2)
+
+            elif space == None and self.sequence[1] == 'hcurl': 
+                H0 = HodgeOperator(self.V0, self.domain_h, backend_language=backend_language, load_dir=load_dir, load_space_index=0)
+                H1 = HodgeOperator(self.V1, self.domain_h, backend_language=backend_language, load_dir=load_dir, load_space_index=1)
+                H2 = HodgeOperator(self.V2, self.domain_h, backend_language=backend_language, load_dir=load_dir, load_space_index=2)
+
+                return H0, H1, H2
+            else:
+                raise ValueError('Invalid value for "space" argument: {}'.format(space))
+
+        elif self.dim == 3:
+            raise NotImplementedError("3D Hodgesa are not available")
+
+        return H
