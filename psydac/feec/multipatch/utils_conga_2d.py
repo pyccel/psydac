@@ -10,10 +10,14 @@ from psydac.api.settings import PSYDAC_BACKENDS
 from psydac.feec.pull_push import pull_2d_h1, pull_2d_hcurl, pull_2d_l2
 
 from psydac.feec.multipatch.api import discretize
-from psydac.feec.multipatch.utilities import time_count  # , export_sol, import_sol
+from psydac.feec.multipatch.utilities import time_count  
 from psydac.linalg.utilities import array_to_psydac
 from psydac.fem.basic import FemField
 from psydac.fem.plotting_utilities import get_plotting_grid, get_grid_quad_weights, get_grid_vals
+
+from scipy.sparse import kron, block_diag
+from psydac.core.bsplines import collocation_matrix, histopolation_matrix
+from psydac.linalg.solvers import inverse
 
 
 # commuting projections on the physical domain (should probably be in the
@@ -82,6 +86,142 @@ def get_kind(space='V*'):
     else:
         raise ValueError(space)
     return kind
+
+# ===============================================================================
+def get_K0_and_K0_inv(V0h, uniform_patches=False):
+    """
+    Compute the change of basis matrices K0 and K0^{-1} in V0h.
+
+    With
+    K0_ij = sigma^0_i(B_j) = B_jx(n_ix) * B_jy(n_iy)
+    where sigma_i is the geometric (interpolation) dof
+    and B_j is the tensor-product B-spline
+    """
+    if uniform_patches:
+        print(' [[WARNING -- hack in get_K0_and_K0_inv: using copies of 1st-patch matrices in every patch ]] ')
+
+    V0 = V0h.symbolic_space   # VOh is FemSpace
+    domain = V0.domain
+    K0_blocks = []
+    K0_inv_blocks = []
+    for k, D in enumerate(domain.interior):
+        if uniform_patches and k > 0:
+            K0_k = K0_blocks[0].copy()
+            K0_inv_k = K0_inv_blocks[0].copy()
+
+        else:
+            V0_k = V0h.spaces[k]  # fem space on patch k: (TensorFemSpace)
+            K0_k_factors = [None, None]
+            for d in [0, 1]:
+                # 1d fem space alond dim d (SplineSpace)
+                V0_kd = V0_k.spaces[d]
+                K0_k_factors[d] = collocation_matrix(
+                    knots=V0_kd.knots,
+                    degree=V0_kd.degree,
+                    periodic=V0_kd.periodic,
+                    normalization=V0_kd.basis,
+                    xgrid=V0_kd.greville
+                )
+            K0_k = kron(*K0_k_factors)
+            K0_k.eliminate_zeros()
+            K0_inv_k = inv(K0_k.tocsc())
+            K0_inv_k.eliminate_zeros()
+
+        K0_blocks.append(K0_k)
+        K0_inv_blocks.append(K0_inv_k)
+    K0 = block_diag(K0_blocks)
+    K0_inv = block_diag(K0_inv_blocks)
+    return K0, K0_inv
+
+
+# ===============================================================================
+def get_K1_and_K1_inv(V1h, uniform_patches=False):
+    """
+    Compute the change of basis matrices K1 and K1^{-1} in Hcurl space V1h.
+
+    With
+    K1_ij = sigma^1_i(B_j) = int_{e_ix}(M_jx) * B_jy(n_iy)
+    if i = horizontal edge [e_ix, n_iy] and j = (M_jx o B_jy)  x-oriented MoB spline
+    or
+    = B_jx(n_ix) * int_{e_iy}(M_jy)
+    if i = vertical edge [n_ix, e_iy]  and  j = (B_jx o M_jy)  y-oriented BoM spline
+    (above, 'o' denotes tensor-product for functions)
+    """
+    if uniform_patches:
+        print(' [[WARNING -- hack in get_K1_and_K1_inv: using copies of 1st-patch matrices in every patch ]] ')
+
+    V1 = V1h.symbolic_space   # V1h is FemSpace
+    domain = V1.domain
+    K1_blocks = []
+    K1_inv_blocks = []
+    for k, D in enumerate(domain.interior):
+        if uniform_patches and k > 0:
+            K1_k = K1_blocks[0].copy()
+            K1_inv_k = K1_inv_blocks[0].copy()
+
+        else:
+            # fem space on patch k:
+            V1_k = V1h.spaces[k]
+            K1_k_blocks = []
+            for c in [0, 1]:    # dim of component
+                # fem space for comp. dc (TensorFemSpace)
+                V1_kc = V1_k.spaces[c]
+                K1_kc_factors = [None, None]
+                for d in [0, 1]:    # dim of variable
+                    # 1d fem space for comp c alond dim d (SplineSpace)
+                    V1_kcd = V1_kc.spaces[d]
+                    if c == d:
+                        K1_kc_factors[d] = histopolation_matrix(
+                            knots=V1_kcd.knots,
+                            degree=V1_kcd.degree,
+                            periodic=V1_kcd.periodic,
+                            normalization=V1_kcd.basis,
+                            xgrid=V1_kcd.ext_greville
+                        )
+                    else:
+                        K1_kc_factors[d] = collocation_matrix(
+                            knots=V1_kcd.knots,
+                            degree=V1_kcd.degree,
+                            periodic=V1_kcd.periodic,
+                            normalization=V1_kcd.basis,
+                            xgrid=V1_kcd.greville
+                        )
+                K1_kc = kron(*K1_kc_factors)
+                K1_kc.eliminate_zeros()
+                K1_k_blocks.append(K1_kc)
+            K1_k = block_diag(K1_k_blocks)
+            K1_k.eliminate_zeros()
+            K1_inv_k = inv(K1_k.tocsc())
+            K1_inv_k.eliminate_zeros()
+
+        K1_blocks.append(K1_k)
+        K1_inv_blocks.append(K1_inv_k)
+
+    K1 = block_diag(K1_blocks)
+    K1_inv = block_diag(K1_inv_blocks)
+    return K1, K1_inv
+
+# ===============================================================================
+
+
+def ortho_proj_Hcurl(EE, V1h, domain_h, M1, backend_language='python'):
+    """
+    return orthogonal projection of E on V1h, given M1 the mass matrix
+    """
+    assert isinstance(EE, Tuple)
+    V1 = V1h.symbolic_space
+    v = element_of(V1, name='v')
+    l = LinearForm(v, integral(V1.domain, dot(v, EE)))
+    lh = discretize(
+        l,
+        domain_h,
+        V1h,
+        backend=PSYDAC_BACKENDS[backend_language])
+    b = lh.assemble()
+    M1_inv = inverse(M1.mat(), 'pcg', pc='jacobi', tol=1e-10)
+    sol_coeffs = M1_inv @ b
+
+    return FemField(V1h, coeffs=sol_coeffs)
 
 
 # ===============================================================================

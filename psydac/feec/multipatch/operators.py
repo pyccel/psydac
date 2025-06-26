@@ -3,32 +3,30 @@
 # Conga operators on piecewise (broken) de Rham sequences
 
 from sympy import Tuple
-from mpi4py import MPI
 import os
 import numpy as np
 
 from scipy.sparse import save_npz, load_npz
-from scipy.sparse import kron, block_diag
+from scipy.sparse import block_diag
 from scipy.sparse.linalg import inv
 
-from sympde.topology import Boundary, Interface, Union
+from sympde.topology import Boundary, Interface
 from sympde.topology import element_of, elements_of
 from sympde.topology.space import ScalarFunction
-from sympde.calculus import grad, dot, inner, rot, div
-from sympde.calculus import laplace, bracket, convect
-from sympde.calculus import jump, avg, Dn, minus, plus
+from sympde.calculus import dot
+from sympde.calculus import Dn, minus, plus
 from sympde.expr.expr import LinearForm, BilinearForm
 from sympde.expr.expr import integral
 
-from psydac.core.bsplines import collocation_matrix, histopolation_matrix
+from psydac.core.bsplines import quadrature_grid, basis_ders_on_quad_grid, find_spans, elements_spans, cell_index, basis_ders_on_irregular_grid
 
 from psydac.api.discretization import discretize
-from psydac.api.essential_bc import apply_essential_bc_stencil
 from psydac.api.settings import PSYDAC_BACKENDS
 from psydac.linalg.block import BlockVectorSpace, BlockVector, BlockLinearOperator
 from psydac.linalg.stencil import StencilVector, StencilMatrix, StencilInterfaceMatrix
-from psydac.linalg.solvers import inverse
 from psydac.fem.basic import FemField
+from psydac.fem.splines import SplineSpace
+from psydac.utilities.quadratures import gauss_legendre
 
 
 from psydac.feec.global_projectors import Projector_H1, Projector_Hcurl, Projector_L2
@@ -36,8 +34,14 @@ from psydac.feec.derivatives import Gradient_2D, ScalarCurl_2D
 from psydac.feec.multipatch.fem_linear_operators import FemLinearOperator
 
 
+from scipy.sparse import eye as sparse_eye
+from scipy.sparse import csr_matrix
+from scipy.special import comb
+
+
 def get_patch_index_from_face(domain, face):
-    """ Return the patch index of subdomain/boundary
+    """
+    Return the patch index of subdomain/boundary
 
     Parameters
     ----------
@@ -69,205 +73,1110 @@ def get_patch_index_from_face(domain, face):
     return i
 
 
-def get_interface_from_corners(corner1, corner2, domain):
-    """ Return the interface between two corners from two different patches that correspond to a single (physical) vertex.
+class Local2GlobalIndexMap:
+    def __init__(self, ndim, n_patches, n_components):
+        self._shapes = [None] * n_patches
+        self._ndofs = [None] * n_patches
+        self._ndim = ndim
+        self._n_patches = n_patches
+        self._n_components = n_components
+
+    def set_patch_shapes(self, patch_index, *shapes):
+        assert len(shapes) == self._n_components
+        assert all(len(s) == self._ndim for s in shapes)
+        self._shapes[patch_index] = shapes
+        self._ndofs[patch_index] = sum(np.prod(s) for s in shapes)
+
+    def get_index(self, k, d, cartesian_index):
+        """ Return a global scalar index.
+
+            Parameters
+            ----------
+            k : int
+             The patch index.
+
+            d : int
+              The component of a scalar field in the system of equations.
+
+            cartesian_index: tuple[int]
+              Multi index [i1, i2, i3 ...]
+
+            Returns
+            -------
+            I : int
+             The global scalar index.
+        """
+        sizes = [np.prod(s) for s in self._shapes[k][:d]]
+        Ipc = np.ravel_multi_index(
+            cartesian_index, dims=self._shapes[k][d], order='C')
+        Ip = sum(sizes) + Ipc
+        I = sum(self._ndofs[:k]) + Ip
+        return I
+
+
+def knots_to_insert(coarse_grid, fine_grid, tol=1e-14):
+    """knot insertion for refinement of a 1d spline space."""
+    intersection = coarse_grid[(
+        np.abs(fine_grid[:, None] - coarse_grid) < tol).any(0)]
+    assert abs(intersection - coarse_grid).max() < tol
+    T = fine_grid[~(np.abs(coarse_grid[:, None] - fine_grid) < tol).any(0)]
+    return T
+
+
+def get_corners(domain, boundary_only):
+    """
+    Given the domain, extract the vertices on their respective domains with local coordinates.
 
     Parameters
     ----------
-    corner1 : <Sympde.topology.Corner>
-     The first corner of the 2D interface
+    domain: <Geometry>
+     The discrete domain of the projector
 
-    corner2 : <Sympde.topology.Corner>
-     The second corner of the 2D interface
-
-    domain : <Sympde.topology.Domain>
-     The Symbolic domain
-
-    Returns
-    -------
-    interface: <Sympde.topology.Interface|None>
-     The interface between two vertices
+    boundary_only : <bool>
+     Only return vertices that lie on a boundary
 
     """
+    cos = domain.corners
+    patches = domain.interior.args
+    bd = domain.boundary
 
-    interface = []
-    interfaces = domain.interfaces
+    corner_data = dict()
 
-    if not isinstance(interfaces, Union):
-        interfaces = (interfaces,)
+    if boundary_only:
+        for co in cos:
 
-    for i in interfaces:
-        if i.plus.domain in [corner1.domain, corner2.domain]:
-            if i.minus.domain in [corner1.domain, corner2.domain]:
-                interface.append(i)
+            corner_data[co] = dict()
+            c = False
+            for cb in co.corners:
+                axis = set()
+                # check if corner boundary is part of the domain boundary
+                for cbbd in cb.args:
+                    if bd.has(cbbd):
+                        c = True
 
-    bd1 = corner1.boundaries
-    bd2 = corner2.boundaries
+                p_ind = patches.index(cb.domain)
+                c_coord = cb.coordinates
+                corner_data[co][p_ind] = c_coord
 
-    new_interface = []
+            if not c:
+                corner_data.pop(co)
 
-    for i in interface:
-        if i.minus in bd1 + bd2:
-            if i.plus in bd2 + bd1:
-                new_interface.append(i)
-
-    if len(new_interface) == 1:
-        return new_interface[0]
-    if len(new_interface) > 1:
-        raise ValueError(
-            'found more than one interface for the corners {} and {}'.format(
-                corner1, corner2))
-    return None
-
-
-def get_row_col_index(corner1, corner2, interface, axis, V1, V2):
-    """ Return the row and column index of a corner in the StencilInterfaceMatrix
-        for dofs of H1 type spaces
-
-    Parameters
-    ----------
-    corner1 : <Sympde.topology.Corner>
-     The first corner of the 2D interface
-
-    corner2 : <Sympde.topology.Corner>
-     The second corner of the 2D interface
-
-    interface : <Sympde.topology.Interface|None>
-     The interface between the two corners
-
-    axis    : <int|None>
-     Axis of the interface
-
-    V1      : <FemSpace>
-     Test Space
-
-    V2      : <FemSpace>
-     Trial Space
-
-    Returns
-    -------
-    index: <list>
-     The StencilInterfaceMatrix index of the corner, it has the form (i1, i2, k1, k2) in 2D,
-     where (i1, i2) identifies the row and (k1, k2) the diagonal.
-    """
-    start = V1.coeff_space.starts
-    end = V1.coeff_space.ends
-    degree = V2.degree
-    start_end = (start, end)
-
-    row = [None] * len(start)
-    col = [0] * len(start)
-
-    assert corner1.boundaries[0].axis == corner2.boundaries[0].axis
-
-    for bd in corner1.boundaries:
-        row[bd.axis] = start_end[(bd.ext + 1) // 2][bd.axis]
-
-    if interface is None and corner1.domain != corner2.domain:
-        bd = [i for i in corner1.boundaries if i.axis == axis][0]
-        if bd.ext == 1:
-            row[bd.axis] = degree[bd.axis]
-
-    if interface is None:
-        return row + col
-
-    axis = interface.axis
-
-    if interface.minus.domain == corner1.domain:
-        if interface.minus.ext == -1:
-            row[axis] = 0
-        else:
-            row[axis] = degree[axis]
     else:
-        if interface.plus.ext == -1:
-            row[axis] = 0
-        else:
-            row[axis] = degree[axis]
+        for co in cos:
+            corner_data[co] = dict()
+            for cb in co.corners:
+                p_ind = patches.index(cb.domain)
+                c_coord = cb.coordinates
+                corner_data[co][p_ind] = c_coord
 
-    if interface.minus.ext == interface.plus.ext:
-        pass
-    elif interface.minus.domain == corner1.domain:
-        if interface.minus.ext == -1:
-            col[axis] = degree[axis]
-        else:
-            col[axis] = -degree[axis]
-    else:
-        if interface.plus.ext == -1:
-            col[axis] = degree[axis]
-        else:
-            col[axis] = -degree[axis]
-
-    return row + col
+    return corner_data
 
 
-# ===============================================================================
-def allocate_interface_matrix(corners, test_space, trial_space):
-    """ Allocate the interface matrix for a vertex shared by two patches
+def construct_extension_operator_1D(domain, codomain):
+    """
+    Compute the matrix of the extension operator on the interface.
 
     Parameters
     ----------
-    corners: <list>
-     The patch corners corresponding to the common shared vertex
+    domain  :     1d spline space on the interface (coarse grid)
+    codomain    :   1d spline space on the interface (fine grid)
+    """
 
-    test_space: <FemSpace>
-     The test space
+    from psydac.core.bsplines import hrefinement_matrix
+    ops = []
 
-    trial_space: <FemSpace>
-     The trial space
+    assert domain.ncells <= codomain.ncells
+
+    Ts = knots_to_insert(domain.breaks, codomain.breaks)
+    P = hrefinement_matrix(Ts, domain.degree, domain.knots)
+
+    if domain.basis == 'M':
+        assert codomain.basis == 'M'
+        P = np.diag(
+            1 / codomain._scaling_array) @ P @ np.diag(domain._scaling_array)
+
+    return csr_matrix(P)
+
+
+def construct_restriction_operator_1D(
+        coarse_space_1d, fine_space_1d, E, p_moments=-1):
+    """
+    Compute the matrix of the (moment preserving) restriction operator on the interface.
+
+    Parameters
+    ----------
+    coarse_space_1d  :     1d spline space on the interface (coarse grid)
+    fine_space_1d    :     1d spline space on the interface (fine grid)
+    E                :     Extension matrix
+    p_moments        :     Amount of moments to be preserved
+    """
+    n_c = coarse_space_1d.nbasis
+    n_f = fine_space_1d.nbasis
+    R = np.zeros((n_c, n_f))
+
+    if coarse_space_1d.basis == 'B':
+
+        #map V^+ to V^+_0
+        T = np.zeros((n_f, n_f))
+        for i in range(n_f):
+            for j in range(n_f):
+                T[i, j] = int(i == j) - E[i, 0] * int(0 == j) - E[i, -1] * int(n_f - 1 == j)
+
+        cf_mass_mat = calculate_mixed_mass_matrix(coarse_space_1d, fine_space_1d).transpose()
+        c_mass_mat = calculate_mass_matrix(coarse_space_1d)
+
+        if p_moments > 0:
+            # L^2 projection from V^+_0 to V^-
+            R[:, 1:-1] = np.linalg.solve(c_mass_mat, cf_mass_mat[:, 1:-1])
+            gamma = get_1d_moment_correction(coarse_space_1d, p_moments=p_moments)
+            n = len(gamma)  
+
+            # maps V^- to V^+_0 in a moment preserving way
+            T2 = np.eye(n_c)
+            T2[0, 0] = T2[-1, -1] = 0
+            T2[1:n+1, 0] += gamma
+            T2[-(n+1):-1, -1] += gamma[::-1]
+
+            # maps V^+ to V^- in a moment preserving way
+            R = T2 @ R @ T        
+
+        else: 
+            R[1:-1, 1:-1] = np.linalg.solve(c_mass_mat[1:-1, 1:-1], cf_mass_mat[1:-1, 1:-1])
+            R = R @ T
+    
+        # add the degrees of freedom of T back
+        R[0, 0] += 1
+        R[-1, -1] += 1
+
+    else:
+
+        cf_mass_mat = calculate_mixed_mass_matrix(coarse_space_1d, fine_space_1d).transpose()
+        c_mass_mat = calculate_mass_matrix(coarse_space_1d)
+
+        # The pure L^2 projection is already moment preserving
+        R = np.linalg.solve(c_mass_mat, cf_mass_mat)
+
+    return R
+
+
+def get_extension_restriction(coarse_space_1d, fine_space_1d, p_moments=-1):
+    """
+    Calculate the extension and restriction matrices for refining along an interface.
+
+    Parameters
+    ----------
+
+    coarse_space_1d : SplineSpace
+        Spline space of the coarse space.
+
+    fine_space_1d : SplineSpace
+        Spline space of the fine space.
+
+    p_moments : {int}
+        Amount of moments to be preserved.
 
     Returns
     -------
-    mat: <StencilInterfaceMatrix>
-     The interface matrix shared by two patches
+    E_1D : numpy array
+        Extension matrix.
+
+    R_1D : numpy array
+        Restriction matrix.
+
+    ER_1D : numpy array
+        Extension-restriction matrix.
     """
-    bi, bj = list(zip(*corners))
-    permutation = np.arange(bi[0].domain.dim)
+    matching_interfaces = (coarse_space_1d.ncells == fine_space_1d.ncells)
+    assert (coarse_space_1d.degree == fine_space_1d.degree) 
+    assert (coarse_space_1d.basis == fine_space_1d.basis)
+    spl_type = coarse_space_1d.basis
 
-    flips = []
-    k = 0
-    while k < len(bi):
-        c1 = np.array(bi[k].coordinates)
-        c2 = np.array(bj[k].coordinates)[permutation]
-        flips.append(
-            np.array([-1 if d1 != d2 else 1 for d1, d2 in zip(c1, c2)]))
+    if not matching_interfaces:
+        grid = np.linspace(fine_space_1d.breaks[0], fine_space_1d.breaks[-1], coarse_space_1d.ncells + 1)
+        coarse_space_1d_k_plus = SplineSpace(
+            degree=fine_space_1d.degree,
+            grid=grid,
+            basis=fine_space_1d.basis)
 
-        if np.sum(abs(flips[0] - flips[-1])) != 0:
-            prod = [f1 * f2 for f1, f2 in zip(flips[0], flips[-1])]
-            while -1 in prod:
-                i1 = prod.index(-1)
-                if -1 in prod[i1 + 1:]:
-                    i2 = i1 + 1 + prod[i1 + 1:].index(-1)
-                    prod = prod[i2 + 1:]
-                    permutation[i1], permutation[i2] = permutation[i2], permutation[i1]
-                    k = -1
-                    flips = []
+        E_1D = construct_extension_operator_1D(
+            domain=coarse_space_1d_k_plus, codomain=fine_space_1d)
+
+        
+        R_1D = construct_restriction_operator_1D(
+            coarse_space_1d_k_plus, fine_space_1d, E_1D, p_moments)
+        
+        ER_1D = E_1D @ R_1D
+
+        assert np.allclose(R_1D @ E_1D, np.eye(coarse_space_1d.nbasis), 1e-12, 1e-12)
+
+    else:
+        ER_1D = R_1D = E_1D = sparse_eye(
+            fine_space_1d.nbasis, format="lil")
+
+    return E_1D, R_1D, ER_1D
+
+
+# Didn't find this utility in the code base.
+def calculate_mass_matrix(space_1d):
+    """
+    Calculate the mass-matrix of a 1d spline-space.
+
+    Parameters
+    ----------
+
+    space_1d : SplineSpace
+        Spline space of the fine space.
+
+    Returns
+    -------
+
+    Mass_mat : numpy array
+        Mass matrix.
+    """
+    Nel = space_1d.ncells
+    deg = space_1d.degree
+    knots = space_1d.knots
+    spl_type = space_1d.basis
+
+    u, w = gauss_legendre(deg + 1)
+
+    nquad = len(w)
+    quad_x, quad_w = quadrature_grid(space_1d.breaks, u, w)
+
+    basis = basis_ders_on_quad_grid(knots, deg, quad_x, 0, spl_type)
+    spans = elements_spans(knots, deg)
+
+    Mass_mat = np.zeros((space_1d.nbasis, space_1d.nbasis))
+
+    for ie1 in range(Nel):  # loop on cells
+        for il1 in range(deg + 1):  # loops on basis function in each cell
+            for il2 in range(deg + 1):  # loops on basis function in each cell
+                val = 0.
+
+                for q1 in range(nquad):  # loops on quadrature points
+                    v0 = basis[ie1, il1, 0, q1]
+                    w0 = basis[ie1, il2, 0, q1]
+                    val += quad_w[ie1, q1] * v0 * w0
+
+                locind1 = il1 + spans[ie1] - deg
+                locind2 = il2 + spans[ie1] - deg
+                Mass_mat[locind1, locind2] += val
+
+    return Mass_mat
+
+
+# Didn't find this utility in the code base.
+def calculate_mixed_mass_matrix(domain_space, codomain_space):
+    """
+    Calculate the mixed mass-matrix of two 1d spline-spaces on the same domain.
+
+    Parameters
+    ----------
+
+    domain_space : SplineSpace
+        Spline space of the domain space.
+
+    codomain_space : SplineSpace
+        Spline space of the codomain space.
+
+    Returns
+    -------
+
+    Mass_mat : numpy array
+        Mass matrix.
+    """
+    if domain_space.nbasis > codomain_space.nbasis:
+        coarse_space = codomain_space
+        fine_space = domain_space
+    else:
+        coarse_space = domain_space
+        fine_space = codomain_space
+
+    deg = coarse_space.degree
+    knots = coarse_space.knots
+    spl_type = coarse_space.basis
+    breaks = coarse_space.breaks
+
+    fdeg = fine_space.degree
+    fknots = fine_space.knots
+    fbreaks = fine_space.breaks
+    fspl_type = fine_space.basis
+    fNel = fine_space.ncells
+
+    assert spl_type == fspl_type
+    assert deg == fdeg
+    assert ((knots[0] == fknots[0]) and (knots[-1] == fknots[-1]))
+
+    u, w = gauss_legendre(deg + 1)
+
+    nquad = len(w)
+    quad_x, quad_w = quadrature_grid(fbreaks, u, w)
+
+    fine_basis = basis_ders_on_quad_grid(fknots, fdeg, quad_x, 0, spl_type)
+    coarse_basis = [
+        basis_ders_on_irregular_grid(
+            knots, deg, q, cell_index(breaks, q), 0, spl_type) for q in quad_x]
+
+    fine_spans = elements_spans(fknots, deg)
+    coarse_spans = [find_spans(knots, deg, q[0])[0] for q in quad_x]
+
+    Mass_mat = np.zeros((fine_space.nbasis, coarse_space.nbasis))
+
+    for ie1 in range(fNel):  # loop on cells
+        for il1 in range(deg + 1):  # loops on basis function in each cell
+            for il2 in range(deg + 1):  # loops on basis function in each cell
+                val = 0.
+
+                for q1 in range(nquad):  # loops on quadrature points
+                    v0 = fine_basis[ie1, il1, 0, q1]
+                    w0 = coarse_basis[ie1][q1, il2, 0]
+                    val += quad_w[ie1, q1] * v0 * w0
+
+                locind1 = il1 + fine_spans[ie1] - deg
+                locind2 = il2 + coarse_spans[ie1] - deg
+                Mass_mat[locind1, locind2] += val
+
+    return Mass_mat
+
+
+def calculate_poly_basis_integral(space_1d, p_moments=-1):
+    """
+    Calculate the "mixed mass-matrix" of a 1d spline-space with polynomials.
+
+    Parameters
+    ----------
+
+    space_1d : SplineSpace
+        Spline space of the fine space.
+
+    p_moments : Int
+        Amount of moments to be preserved.
+
+    Returns
+    -------
+
+    Mass_mat : numpy array
+        Mass matrix.
+    """
+
+    Nel = space_1d.ncells
+    deg = space_1d.degree
+    knots = space_1d.knots
+    spl_type = space_1d.basis
+    breaks = space_1d.breaks
+    enddom = breaks[-1]
+    begdom = breaks[0]
+    denom = enddom - begdom
+    order = max(p_moments + 1, deg + 1)
+    u, w = gauss_legendre(order)
+
+    nquad = len(w)
+    quad_x, quad_w = quadrature_grid(space_1d.breaks, u, w)
+
+    coarse_basis = basis_ders_on_quad_grid(knots, deg, quad_x, 0, spl_type)
+    spans = elements_spans(knots, deg)
+
+    Mass_mat = np.zeros((p_moments + 1, space_1d.nbasis))
+
+    for ie1 in range(Nel):  # loop on cells
+        for pol in range(p_moments + 1):  # loops on basis function in each cell
+            for il2 in range(deg + 1):  # loops on basis function in each cell
+                val = 0.
+
+                for q1 in range(nquad):  # loops on quadrature points
+                    v0 = coarse_basis[ie1, il2, 0, q1]
+                    x = quad_x[ie1, q1]
+                    # val += quad_w[ie1, q1] * v0 * ((enddom-x)/denom)**pol
+                    val += quad_w[ie1, q1] * v0 * \
+                        comb(p_moments, pol) * ((enddom - x) / denom)**(p_moments - pol) * ((x - begdom) / denom)**pol
+                locind2 = il2 + spans[ie1] - deg
+                Mass_mat[pol, locind2] += val
+
+    return Mass_mat
+
+
+def get_1d_moment_correction(space_1d, p_moments=-1):
+    """
+    Calculate the coefficients for the one-dimensional moment correction.
+
+    Parameters
+    ----------
+    patch_space : SplineSpace
+        1d spline space.
+
+    p_moments  : int
+        Number of moments to be preserved.
+
+    Returns
+    -------
+    gamma : array
+        Moment correction coefficients without the conformity factor.
+    """
+
+    if p_moments < 0:
+        return None
+
+    if space_1d.ncells <= p_moments + 1:
+        print("Careful, the correction term is currently not independent of the mesh.")
+
+    if p_moments >= 0:
+        # to preserve moments of degree p we need 1+p conforming basis functions in the patch (the "interior" ones)
+        # and for the given regularity constraint, there are
+        # local_shape[conf_axis]-2*(1+reg) such conforming functions
+        p_max = space_1d.nbasis - 3
+        if p_max < p_moments:
+            print(
+                " ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** **")
+            print(" **         WARNING -- WARNING -- WARNING ")
+            print(
+                f" ** conf. projection imposing C0 smoothness on scalar space along this axis :")
+            print(
+                f" ** there are not enough dofs in a patch to preserve moments of degree {p_moments} !")
+            print(f" ** Only able to preserve up to degree --> {p_max} <-- ")
+            print(
+                " ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** **")
+            p_moments = p_max
+
+        Mass_mat = calculate_poly_basis_integral(space_1d, p_moments)
+        gamma = np.linalg.solve(Mass_mat[:, 1:p_moments + 2], Mass_mat[:, 0])
+
+    return gamma
+
+
+def construct_h1_conforming_projection(Vh, reg_orders=0, p_moments=-1, hom_bc=False):
+    """
+    Construct the conforming projection for a scalar space for a given regularity (0 continuous, -1 discontinuous).
+
+    Parameters
+    ----------
+    Vh : TensorFemSpace
+        Finite Element Space coming from the discrete de Rham sequence.
+
+    reg_orders :  (int)
+        Regularity in each space direction -1 or 0.
+
+    p_moments : (int)
+        Number of moments to be preserved.
+
+    hom_bc : (bool)
+        Homogeneous boundary conditions.
+
+    Returns
+    -------
+    cP : scipy.sparse.csr_array
+        Conforming projection as a sparse matrix.
+    """
+
+    dim_tot = Vh.nbasis
+
+    # fully discontinuous space
+    if reg_orders < 0:
+        return sparse_eye(dim_tot, format="lil")
+
+    # moment corrections perpendicular to interfaces
+    # assume same moments everywhere
+    gamma = get_1d_moment_correction(
+        Vh.spaces[0].spaces[0], p_moments=p_moments)
+
+    domain = Vh.symbolic_space.domain
+    ndim = 2
+    n_components = 1
+    n_patches = len(domain)
+
+    l2g = Local2GlobalIndexMap(ndim, len(domain), n_components)
+    for k in range(n_patches):
+        Vk = Vh.spaces[k]
+        # T is a TensorFemSpace and S is a 1D SplineSpace
+        shapes = [S.nbasis for S in Vk.spaces]
+        l2g.set_patch_shapes(k, shapes)
+
+    # P vertex
+    # vertex correction matrix
+    Proj_vertex = sparse_eye(dim_tot, format="lil") 
+
+    corner_indices = set()
+    corners = get_corners(domain, False)
+
+    def get_vertex_index_from_patch(patch, coords):
+        nbasis0 = Vh.spaces[patch].spaces[coords[0]].nbasis - 1
+        nbasis1 = Vh.spaces[patch].spaces[coords[1]].nbasis - 1
+
+        # patch local index
+        multi_index = [None] * ndim
+        multi_index[0] = 0 if coords[0] == 0 else nbasis0
+        multi_index[1] = 0 if coords[1] == 0 else nbasis1
+
+        # global index
+        return l2g.get_index(patch, 0, multi_index)
+
+    def vertex_moment_indices(axis, coords, patch, p_moments):
+        if coords[axis] == 0:
+            return range(1, p_moments + 2)
+        else:
+            return range(Vh.spaces[patch].spaces[coords[axis]].nbasis - 1 - 1,
+                         Vh.spaces[patch].spaces[coords[axis]].nbasis - 1 - p_moments - 2, -1)
+
+    # loop over all vertices
+    for (bd, co) in corners.items():
+        # len(co)=#v is the number of adjacent patches at a vertex
+        corr = len(co)
+
+        for patch1 in co:
+            # local vertex coordinates in patch1
+            coords1 = co[patch1]
+            # global index
+            ig = get_vertex_index_from_patch(patch1, coords1)
+
+            corner_indices.add(ig)
+
+            for patch2 in co:
+                # local vertex coordinates in patch2
+                coords2 = co[patch2]
+
+                # global index
+                jg = get_vertex_index_from_patch(patch2, coords2)
+
+                # conformity constraint
+                Proj_vertex[jg, ig] = 1 / corr
+
+                if patch1 == patch2:
+                    continue
+
+                if p_moments == -1:
+                    continue
+
+                # moment corrections from patch1 to patch2
+                axis = 0
+                d = 1
+                multi_index_p = [None] * ndim
+
+                d_moment_index = vertex_moment_indices(
+                    d, coords2, patch2, p_moments)
+                axis_moment_index = vertex_moment_indices(
+                    axis, coords2, patch2, p_moments)
+
+                for pd in range(0, p_moments + 1):
+                    multi_index_p[d] = d_moment_index[pd]
+
+                    for p in range(0, p_moments + 1):
+                        multi_index_p[axis] = axis_moment_index[p]
+
+                        pg = l2g.get_index(patch2, 0, multi_index_p)
+                        Proj_vertex[pg, ig] += - 1 / \
+                            corr * gamma[p] * gamma[pd]
+
+            if p_moments == -1:
+                continue
+
+            # moment corrections from patch1 to patch1
+            axis = 0
+            d = 1
+            multi_index_p = [None] * ndim
+
+            d_moment_index = vertex_moment_indices(
+                d, coords1, patch1, p_moments)
+            axis_moment_index = vertex_moment_indices(
+                axis, coords1, patch1, p_moments)
+
+            for pd in range(0, p_moments + 1):
+                multi_index_p[d] = d_moment_index[pd]
+
+                for p in range(0, p_moments + 1):
+                    multi_index_p[axis] = axis_moment_index[p]
+
+                    pg = l2g.get_index(patch1, 0, multi_index_p)
+                    Proj_vertex[pg, ig] += (1 - 1 / corr) * \
+                        gamma[p] * gamma[pd]
+
+    # boundary conditions
+    corners = get_corners(domain, True)
+    if hom_bc:
+        for (bd, co) in corners.items():
+            for patch1 in co:
+
+                # local vertex coordinates in patch2
+                coords1 = co[patch1]
+
+                # global index
+                ig = get_vertex_index_from_patch(patch1, coords1)
+
+                for patch2 in co:
+
+                    # local vertex coordinates in patch2
+                    coords2 = co[patch2]
+
+                    # global index
+                    jg = get_vertex_index_from_patch(patch2, coords2)
+
+                    # conformity constraint
+                    Proj_vertex[jg, ig] = 0
+
+                    if patch1 == patch2:
+                        continue
+
+                    if p_moments == -1:
+                        continue
+
+                    # moment corrections from patch1 to patch2
+                    axis = 0
+                    d = 1
+                    multi_index_p = [None] * ndim
+
+                    d_moment_index = vertex_moment_indices(
+                        d, coords2, patch2, p_moments)
+                    axis_moment_index = vertex_moment_indices(
+                        axis, coords2, patch2, p_moments)
+
+                    for pd in range(0, p_moments + 1):
+                        multi_index_p[d] = d_moment_index[pd]
+
+                        for p in range(0, p_moments + 1):
+                            multi_index_p[axis] = axis_moment_index[p]
+
+                            pg = l2g.get_index(patch2, 0, multi_index_p)
+                            Proj_vertex[pg, ig] = 0
+
+                if p_moments == -1:
+                    continue
+
+                # moment corrections from patch1 to patch1
+                axis = 0
+                d = 1
+                multi_index_p = [None] * ndim
+
+                d_moment_index = vertex_moment_indices(
+                    d, coords1, patch1, p_moments)
+                axis_moment_index = vertex_moment_indices(
+                    axis, coords1, patch1, p_moments)
+
+                for pd in range(0, p_moments + 1):
+                    multi_index_p[d] = d_moment_index[pd]
+
+                    for p in range(0, p_moments + 1):
+                        multi_index_p[axis] = axis_moment_index[p]
+
+                        pg = l2g.get_index(patch1, 0, multi_index_p)
+                        Proj_vertex[pg, ig] = gamma[p] * gamma[pd]
+
+    # P edge
+    # edge correction matrix
+    Proj_edge = sparse_eye(dim_tot, format="lil")
+
+    Interfaces = domain.interfaces
+    if isinstance(Interfaces, Interface):
+        Interfaces = (Interfaces, )
+
+    def get_edge_index(j, axis, ext, space, k):
+        multi_index = [None] * ndim
+        multi_index[axis] = 0 if ext == - 1 else space.spaces[axis].nbasis - 1
+        multi_index[1 - axis] = j
+        return l2g.get_index(k, 0, multi_index)
+
+    def edge_moment_index(p, i, axis, ext, space, k):
+        multi_index = [None] * ndim
+        multi_index[1 - axis] = i
+        multi_index[axis] = p + 1 if ext == - \
+            1 else space.spaces[axis].nbasis - 1 - p - 1
+        return l2g.get_index(k, 0, multi_index)
+
+    def get_mu_plus(j, fine_space):
+        mu_plus = np.zeros(fine_space.nbasis)
+        for p in range(p_moments + 1):
+            if j == 0:
+                mu_plus[p + 1] = gamma[p]
+            else:
+                mu_plus[j - (p + 1)] = gamma[p]
+        return mu_plus
+
+    def get_mu_minus(j, coarse_space, fine_space, R):
+        mu_plus = np.zeros(fine_space.nbasis)
+        mu_minus = np.zeros(coarse_space.nbasis)
+
+        if j == 0:
+            mu_minus[0] = 1
+            for p in range(p_moments + 1):
+                mu_plus[p + 1] = gamma[p]
+        else:
+            mu_minus[-1] = 1
+            for p in range(p_moments + 1):
+                mu_plus[-1 - (p + 1)] = gamma[p]
+
+        for m in range(coarse_space.nbasis):
+            for l in range(fine_space.nbasis):
+                mu_minus[m] += R[m, l] * mu_plus[l]
+
+            if j == 0:
+                mu_minus[m] -= R[m, 0]
+            else:
+                mu_minus[m] -= R[m, -1]
+
+        return mu_minus
+
+    # loop over all interfaces
+    for I in Interfaces:
+        axis = I.axis
+        direction = I.ornt
+        # for now assume the interfaces are along the same direction
+        assert direction == 1
+        k_minus = get_patch_index_from_face(domain, I.minus)
+        k_plus = get_patch_index_from_face(domain, I.plus)
+
+        I_minus_ncells = Vh.spaces[k_minus].ncells
+        I_plus_ncells = Vh.spaces[k_plus].ncells
+
+        # logical directions normal to interface
+        if I_minus_ncells <= I_plus_ncells:
+            k_fine, k_coarse = k_plus, k_minus
+            fine_axis, coarse_axis = I.plus.axis, I.minus.axis
+            fine_ext, coarse_ext = I.plus.ext, I.minus.ext
+
+        else:
+            k_fine, k_coarse = k_minus, k_plus
+            fine_axis, coarse_axis = I.minus.axis, I.plus.axis
+            fine_ext, coarse_ext = I.minus.ext, I.plus.ext
+
+        # logical directions along the interface
+        d_fine = 1 - fine_axis
+        d_coarse = 1 - coarse_axis
+
+        space_fine = Vh.spaces[k_fine]
+        space_coarse = Vh.spaces[k_coarse]
+
+        coarse_space_1d = space_coarse.spaces[d_coarse]
+        fine_space_1d = space_fine.spaces[d_fine]
+        E_1D, R_1D, ER_1D = get_extension_restriction(
+            coarse_space_1d, fine_space_1d, p_moments=p_moments)
+
+        # Projecting coarse basis functions
+        for j in range(coarse_space_1d.nbasis):
+            jg = get_edge_index(
+                j,
+                coarse_axis,
+                coarse_ext,
+                space_coarse,
+                k_coarse)
+
+            if (not corner_indices.issuperset({jg})):
+
+                Proj_edge[jg, jg] = 1 / 2
+
+                for p in range(p_moments + 1):
+                    pg = edge_moment_index(
+                        p, j, coarse_axis, coarse_ext, space_coarse, k_coarse)
+                    Proj_edge[pg, jg] += 1 / 2 * gamma[p]
+
+                for i in range(fine_space_1d.nbasis):
+                    ig = get_edge_index(
+                        i, fine_axis, fine_ext, space_fine, k_fine)
+                    Proj_edge[ig, jg] = 1 / 2 * E_1D[i, j]
+
+                    for p in range(p_moments + 1):
+                        pg = edge_moment_index(
+                            p, i, fine_axis, fine_ext, space_fine, k_fine)
+                        Proj_edge[pg, jg] += -1 / 2 * gamma[p] * E_1D[i, j]
+            else:
+                mu_minus = get_mu_minus(
+                    j, coarse_space_1d, fine_space_1d, R_1D)
+
+                for p in range(p_moments + 1):
+                    for m in range(coarse_space_1d.nbasis):
+                        pg = edge_moment_index(
+                            p, m, coarse_axis, coarse_ext, space_coarse, k_coarse)
+                        Proj_edge[pg, jg] += 1 / 2 * gamma[p] * mu_minus[m]
+
+                for i in range(1, fine_space_1d.nbasis - 1):
+                    ig = get_edge_index(
+                        i, fine_axis, fine_ext, space_fine, k_fine)
+                    Proj_edge[ig, jg] = 1 / 2 * E_1D[i, j]
+
+                    for p in range(p_moments + 1):
+                        pg = edge_moment_index(
+                            p, i, fine_axis, fine_ext, space_fine, k_fine)
+                        for m in range(coarse_space_1d.nbasis):
+                            Proj_edge[pg, jg] += -1 / 2 * \
+                                gamma[p] * E_1D[i, m] * mu_minus[m]
+
+        # Projecting fine basis functions
+        for j in range(fine_space_1d.nbasis):
+            jg = get_edge_index(j, fine_axis, fine_ext, space_fine, k_fine)
+
+            if (not corner_indices.issuperset({jg})):
+                for i in range(fine_space_1d.nbasis):
+                    ig = get_edge_index(
+                        i, fine_axis, fine_ext, space_fine, k_fine)
+                    Proj_edge[ig, jg] = 1 / 2 * ER_1D[i, j]
+
+                    for p in range(p_moments + 1):
+                        pg = edge_moment_index(
+                            p, i, fine_axis, fine_ext, space_fine, k_fine)
+                        Proj_edge[pg, jg] += 1 / 2 * gamma[p] * ER_1D[i, j]
+
+                for i in range(coarse_space_1d.nbasis):
+                    ig = get_edge_index(
+                        i, coarse_axis, coarse_ext, space_coarse, k_coarse)
+                    Proj_edge[ig, jg] = 1 / 2 * R_1D[i, j]
+
+                    for p in range(p_moments + 1):
+                        pg = edge_moment_index(
+                            p, i, coarse_axis, coarse_ext, space_coarse, k_coarse)
+                        Proj_edge[pg, jg] += - 1 / 2 * gamma[p] * R_1D[i, j]
+            else:
+                mu_plus = get_mu_plus(j, fine_space_1d)
+
+                for i in range(1, fine_space_1d.nbasis - 1):
+                    ig = get_edge_index(
+                        i, fine_axis, fine_ext, space_fine, k_fine)
+                    Proj_edge[ig, jg] = 1 / 2 * ER_1D[i, j]
+
+                    for p in range(p_moments + 1):
+                        pg = edge_moment_index(
+                            p, i, fine_axis, fine_ext, space_fine, k_fine)
+
+                        for m in range(fine_space_1d.nbasis):
+                            Proj_edge[pg, jg] += 1 / 2 * \
+                                gamma[p] * ER_1D[i, m] * mu_plus[m]
+
+                for i in range(1, coarse_space_1d.nbasis - 1):
+                    ig = get_edge_index(
+                        i, coarse_axis, coarse_ext, space_coarse, k_coarse)
+                    Proj_edge[ig, jg] = 1 / 2 * R_1D[i, j]
+
+                    for p in range(p_moments + 1):
+                        pg = edge_moment_index(
+                            p, i, coarse_axis, coarse_ext, space_coarse, k_coarse)
+
+                        for m in range(fine_space_1d.nbasis):
+                            Proj_edge[pg, jg] += - 1 / 2 * \
+                                gamma[p] * R_1D[i, m] * mu_plus[m]
+
+    # boundary condition
+    if hom_bc:
+        for bn in domain.boundary:
+            k = get_patch_index_from_face(domain, bn)
+            space_k = Vh.spaces[k]
+            axis = bn.axis
+
+            d = 1 - axis
+            ext = bn.ext
+            space_k_1d = space_k.spaces[d]
+
+            for i in range(0, space_k_1d.nbasis):
+                ig = get_edge_index(i, axis, ext, space_k, k)
+                Proj_edge[ig, ig] = 0
+
+                if (i != 0 and i != space_k_1d.nbasis - 1):
+                    for p in range(p_moments + 1):
+
+                        pg = edge_moment_index(p, i, axis, ext, space_k, k)
+                        Proj_edge[pg, ig] = gamma[p]
                 else:
-                    break
+                    #if corner_indices.issuperset({ig}):
+                    mu_minus = get_mu_minus(
+                        i, space_k_1d, space_k_1d, np.eye(
+                            space_k_1d.nbasis))
 
-        k += 1
+                    for p in range(p_moments + 1):
+                        for m in range(space_k_1d.nbasis):
+                            pg = edge_moment_index(
+                                p, m, axis, ext, space_k, k)
+                            Proj_edge[pg, ig] = gamma[p] * mu_minus[m]
 
-    assert all(abs(flips[0] - i).sum() == 0 for i in flips)
-    cs = list(zip(*[i.coordinates for i in bi]))
-    axis = [all(i[0] == j for j in i) for i in cs].index(True)
-    ext = 1 if cs[axis][0] == 1 else -1
-    s = test_space.get_assembly_grids(
-    )[axis].spans[-1 if ext == 1 else 0] - test_space.degree[axis]
+                    if not corner_indices.issuperset({ig}):
+                        corner_indices.add(ig)
+                        multi_index = [None] * ndim
 
-    mat = StencilInterfaceMatrix(
-        trial_space.coeff_space,
-        test_space.coeff_space,
-        s,
-        s,
-        axis,
-        flip=flips[0],
-        permutation=list(permutation))
-    return mat
+                        for p in range(p_moments + 1):
+                            multi_index[axis] = p + 1 if ext == - \
+                                1 else space_k.spaces[axis].nbasis - 1 - p - 1
+                            for pd in range(p_moments + 1):
+                                multi_index[1 - axis] = pd + \
+                                    1 if i == 0 else space_k.spaces[1 - axis].nbasis - 1 - pd - 1
+                                pg = l2g.get_index(k, 0, multi_index)
+                                Proj_edge[pg, ig] = gamma[p] * gamma[pd]
 
-# ===============================================================================
-# The following operators are not compatible with the changes in the Stencil format
-# and their datatype does not allow for non-matching interfaces, but they might be
-# useful for future implementations
-# ===============================================================================
+    return Proj_edge @ Proj_vertex
+
+
+def construct_hcurl_conforming_projection(Vh, reg_orders=0, p_moments=-1, hom_bc=False):
+    """
+    Construct the conforming projection for a vector Hcurl space for a given regularity (0 continuous, -1 discontinuous).
+
+    Parameters
+    ----------
+    Vh : TensorFemSpace
+        Finite Element Space coming from the discrete de Rham sequence.
+
+    reg_orders :  (int)
+        Regularity in each space direction -1 or 0.
+
+    p_moments : (int)
+        Number of polynomial moments to be preserved.
+
+    hom_bc : (bool)
+        Tangential homogeneous boundary conditions.
+
+    Returns
+    -------
+    cP : scipy.sparse.csr_array
+        Conforming projection as a sparse matrix.
+    """
+
+    dim_tot = Vh.nbasis
+
+    # fully discontinuous space
+    if reg_orders < 0:
+        return sparse_eye(dim_tot, format="lil")
+
+    # moment corrections perpendicular to interfaces
+    # should be in the V^0 spaces
+    gamma = [get_1d_moment_correction(
+        Vh.spaces[0].spaces[1 - d].spaces[d], p_moments=p_moments) for d in range(2)]
+
+    domain = Vh.symbolic_space.domain
+    ndim = 2
+    n_components = 2
+    n_patches = len(domain)
+
+    l2g = Local2GlobalIndexMap(ndim, len(domain), n_components)
+    for k in range(n_patches):
+        Vk = Vh.spaces[k]
+        # T is a TensorFemSpace and S is a 1D SplineSpace
+        shapes = [[S.nbasis for S in T.spaces] for T in Vk.spaces]
+        l2g.set_patch_shapes(k, *shapes)
+
+    # P edge
+    # edge correction matrix
+    Proj_edge = sparse_eye(dim_tot, format="lil")
+
+    Interfaces = domain.interfaces
+    if isinstance(Interfaces, Interface):
+        Interfaces = (Interfaces, )
+
+    def get_edge_index(j, axis, ext, space, k):
+        multi_index = [None] * ndim
+        multi_index[axis] = 0 if ext == - \
+            1 else space.spaces[1 - axis].spaces[axis].nbasis - 1
+        multi_index[1 - axis] = j
+        return l2g.get_index(k, 1 - axis, multi_index)
+
+    def edge_moment_index(p, i, axis, ext, space, k):
+        multi_index = [None] * ndim
+        multi_index[1 - axis] = i
+        multi_index[axis] = p + 1 if ext == - \
+            1 else space.spaces[1 - axis].spaces[axis].nbasis - 1 - p - 1
+        return l2g.get_index(k, 1 - axis, multi_index)
+    
+    # loop over all interfaces
+    for I in Interfaces:
+        direction = I.ornt
+        # for now assume the interfaces are along the same direction
+        assert direction == 1
+        k_minus = get_patch_index_from_face(domain, I.minus)
+        k_plus = get_patch_index_from_face(domain, I.plus)
+
+        # logical directions normal to interface
+        minus_axis, plus_axis = I.minus.axis, I.plus.axis
+        # logical directions along the interface
+        d_minus, d_plus = 1 - minus_axis, 1 - plus_axis
+        I_minus_ncells = Vh.spaces[k_minus].spaces[d_minus].ncells[d_minus]
+        I_plus_ncells = Vh.spaces[k_plus].spaces[d_plus].ncells[d_plus]
+
+        # logical directions normal to interface
+        if I_minus_ncells <= I_plus_ncells:
+            k_fine, k_coarse = k_plus, k_minus
+            fine_axis, coarse_axis = I.plus.axis, I.minus.axis
+            fine_ext, coarse_ext = I.plus.ext, I.minus.ext
+
+        else:
+            k_fine, k_coarse = k_minus, k_plus
+            fine_axis, coarse_axis = I.minus.axis, I.plus.axis
+            fine_ext, coarse_ext = I.minus.ext, I.plus.ext
+
+        # logical directions along the interface
+        d_fine = 1 - fine_axis
+        d_coarse = 1 - coarse_axis
+
+        space_fine = Vh.spaces[k_fine]
+        space_coarse = Vh.spaces[k_coarse]
+
+        coarse_space_1d = space_coarse.spaces[d_coarse].spaces[d_coarse]
+        fine_space_1d = space_fine.spaces[d_fine].spaces[d_fine]
+        E_1D, R_1D, ER_1D = get_extension_restriction(
+            coarse_space_1d, fine_space_1d, p_moments=p_moments)
+
+        # Projecting coarse basis functions
+        for j in range(coarse_space_1d.nbasis):
+            jg = get_edge_index(
+                j,
+                coarse_axis,
+                coarse_ext,
+                space_coarse,
+                k_coarse)
+
+            Proj_edge[jg, jg] = 1 / 2
+
+            for p in range(p_moments + 1):
+                pg = edge_moment_index(
+                    p, j, coarse_axis, coarse_ext, space_coarse, k_coarse)
+                Proj_edge[pg, jg] += 1 / 2 * gamma[d_coarse][p]
+
+            for i in range(fine_space_1d.nbasis):
+                ig = get_edge_index(i, fine_axis, fine_ext, space_fine, k_fine)
+                Proj_edge[ig, jg] = 1 / 2 * E_1D[i, j]
+
+                for p in range(p_moments + 1):
+                    pg = edge_moment_index(
+                        p, i, fine_axis, fine_ext, space_fine, k_fine)
+                    Proj_edge[pg, jg] += -1 / 2 * gamma[d_fine][p] * E_1D[i, j]
+
+        # Projecting fine basis functions
+        for j in range(fine_space_1d.nbasis):
+            jg = get_edge_index(j, fine_axis, fine_ext, space_fine, k_fine)
+
+            for i in range(fine_space_1d.nbasis):
+                ig = get_edge_index(i, fine_axis, fine_ext, space_fine, k_fine)
+                Proj_edge[ig, jg] = 1 / 2 * ER_1D[i, j]
+
+                for p in range(p_moments + 1):
+                    pg = edge_moment_index(
+                        p, i, fine_axis, fine_ext, space_fine, k_fine)
+                    Proj_edge[pg, jg] += 1 / 2 * gamma[d_fine][p] * ER_1D[i, j]
+
+            for i in range(coarse_space_1d.nbasis):
+                ig = get_edge_index(
+                    i, coarse_axis, coarse_ext, space_coarse, k_coarse)
+                Proj_edge[ig, jg] = 1 / 2 * R_1D[i, j]
+
+                for p in range(p_moments + 1):
+                    pg = edge_moment_index(
+                        p, i, coarse_axis, coarse_ext, space_coarse, k_coarse)
+                    Proj_edge[pg, jg] += - 1 / 2 * \
+                        gamma[d_coarse][p] * R_1D[i, j]
+
+    # boundary condition
+    for bn in domain.boundary:
+        k = get_patch_index_from_face(domain, bn)
+        space_k = Vh.spaces[k]
+        axis = bn.axis
+
+        if not hom_bc:
+            continue
+
+        d = 1 - axis
+        ext = bn.ext
+        space_k_1d = space_k.spaces[d].spaces[d]
+
+        for i in range(0, space_k_1d.nbasis):
+            ig = get_edge_index(i, axis, ext, space_k, k)
+            Proj_edge[ig, ig] = 0
+
+            for p in range(p_moments + 1):
+
+                pg = edge_moment_index(p, i, axis, ext, space_k, k)
+                Proj_edge[pg, ig] = gamma[d][p]
+
+    return Proj_edge
+
 
 
 class ConformingProjection_V0(FemLinearOperator):
@@ -280,14 +1189,11 @@ class ConformingProjection_V0(FemLinearOperator):
     V0h: <FemSpace>
      The discrete space
 
-    domain_h: <Geometry>
-     The discrete domain of the projector
+    p_moments: <int>
+        Number of polynomial moments to be preserved in the projection.
 
     hom_bc : <bool>
      Apply homogenous boundary conditions if True
-
-    backend_language: <str>
-     The backend used to accelerate the code
 
     storage_fn:
      filename to store/load the operator sparse matrix
@@ -299,9 +1205,8 @@ class ConformingProjection_V0(FemLinearOperator):
     def __init__(
             self,
             V0h,
-            domain_h,
+            p_moments=-1,
             hom_bc=False,
-            backend_language='python',
             storage_fn=None):
 
         FemLinearOperator.__init__(self, fem_domain=V0h)
@@ -311,205 +1216,17 @@ class ConformingProjection_V0(FemLinearOperator):
         self.symbolic_domain = domain
 
         if storage_fn and os.path.exists(storage_fn):
-            print(
-                "[ConformingProjection_V0] loading operator sparse matrix from " +
-                storage_fn)
+            print("[ConformingProjection_V0] loading operator sparse matrix from " + storage_fn)
             self._sparse_matrix = load_npz(storage_fn)
 
         else:
-            # assemble the operator matrix
-            u, v = elements_of(V0, names='u, v')
-            expr = u * v  # dot(u,v)
-
-            Interfaces = domain.interfaces  # note: interfaces does not include the boundary
-            # this penalization is for an H1-conforming space
-            expr_I = (plus(u) - minus(u)) * (plus(v) - minus(v))
-
-            a = BilinearForm((u, v), integral(domain, expr) +
-                             integral(Interfaces, expr_I))
-            # print('[[ forcing python backend for ConformingProjection_V0]] ')
-            # backend_language = 'python'
-            ah = discretize(
-                a, domain_h, [
-                    V0h, V0h], backend=PSYDAC_BACKENDS[backend_language])
-
-            # self._A = ah.assemble()
-            self._A = ah.forms[0]._matrix
-
-            spaces = self._A.domain.spaces
-
-            if isinstance(Interfaces, Interface):
-                Interfaces = (Interfaces, )
-
-            for b1 in self._A.blocks:
-                for A in b1:
-                    if A is None:
-                        continue
-                    A[:, :, :, :] = 0
-
-            indices = [slice(None, None)] * domain.dim + [0] * domain.dim
-
-            for i in range(len(self._A.blocks)):
-                self._A[i, i][tuple(indices)] = 1
-
-            for I in Interfaces:
-
-                axis = I.axis
-                i_minus = get_patch_index_from_face(domain, I.minus)
-                i_plus = get_patch_index_from_face(domain, I.plus)
-
-                sp_minus = spaces[i_minus]
-                sp_plus = spaces[i_plus]
-
-                s_minus = sp_minus.starts[axis]
-                e_minus = sp_minus.ends[axis]
-
-                s_plus = sp_plus.starts[axis]
-                e_plus = sp_plus.ends[axis]
-
-                d_minus = V0h.spaces[i_minus].degree[axis]
-                d_plus = V0h.spaces[i_plus].degree[axis]
-
-                indices = [slice(None, None)] * domain.dim + [0] * domain.dim
-
-                minus_ext = I.minus.ext
-                plus_ext = I.plus.ext
-
-                if minus_ext == 1:
-                    indices[axis] = e_minus
-                else:
-                    indices[axis] = s_minus
-                self._A[i_minus, i_minus][tuple(indices)] = 1 / 2
-
-                if plus_ext == 1:
-                    indices[axis] = e_plus
-                else:
-                    indices[axis] = s_plus
-
-                self._A[i_plus, i_plus][tuple(indices)] = 1 / 2
-
-                if plus_ext == minus_ext:
-                    if minus_ext == 1:
-                        indices[axis] = d_minus
-                    else:
-                        indices[axis] = s_minus
-
-                    self._A[i_minus, i_plus][tuple(indices)] = 1 / 2
-
-                    if plus_ext == 1:
-                        indices[axis] = d_plus
-                    else:
-                        indices[axis] = s_plus
-
-                    self._A[i_plus, i_minus][tuple(indices)] = 1 / 2
-
-                else:
-                    if minus_ext == 1:
-                        indices[axis] = d_minus
-                    else:
-                        indices[axis] = s_minus
-
-                    if plus_ext == 1:
-                        indices[domain.dim + axis] = d_plus
-                    else:
-                        indices[domain.dim + axis] = -d_plus
-
-                    self._A[i_minus, i_plus][tuple(indices)] = 1 / 2
-
-                    if plus_ext == 1:
-                        indices[axis] = d_plus
-                    else:
-                        indices[axis] = s_plus
-
-                    if minus_ext == 1:
-                        indices[domain.dim + axis] = d_minus
-                    else:
-                        indices[domain.dim + axis] = -d_minus
-
-                    self._A[i_plus, i_minus][tuple(indices)] = 1 / 2
-
-            domain = domain.logical_domain
-            corner_blocks = {}
-            for c in domain.corners:
-                for b1 in c.corners:
-                    i = get_patch_index_from_face(domain, b1.domain)
-                    for b2 in c.corners:
-                        j = get_patch_index_from_face(domain, b2.domain)
-                        if (i, j) in corner_blocks:
-                            corner_blocks[i, j] += [(b1, b2)]
-                        else:
-                            corner_blocks[i, j] = [(b1, b2)]
-
-            for c in domain.corners:
-                if len(c) == 2:
-                    continue
-                for b1 in c.corners:
-                    i = get_patch_index_from_face(domain, b1.domain)
-                    for b2 in c.corners:
-                        j = get_patch_index_from_face(domain, b2.domain)
-                        interface = get_interface_from_corners(b1, b2, domain)
-                        axis = None
-                        if self._A[i, j] is None:
-                            self._A[i, j] = allocate_interface_matrix(
-                                corner_blocks[i, j], V0h.spaces[i], V0h.spaces[j])
-
-                        if i != j and self._A[i, j]:
-                            axis = self._A[i, j]._dim
-                        index = get_row_col_index(
-                            b1, b2, interface, axis, V0h.spaces[i], V0h.spaces[j])
-                        self._A[i, j][tuple(index)] = 1 / len(c)
-
-            if hom_bc:
-                for bn in domain.boundary:
-                    self.set_homogenous_bc(bn)
-
-            self._matrix = self._A
-            self._sparse_matrix = self._matrix.tosparse()  # self._sparse_matrix
+         
+            self._sparse_matrix = construct_h1_conforming_projection(V0h, reg_orders=0, p_moments=p_moments, hom_bc=hom_bc)
 
             if storage_fn:
-                print(
-                    "[ConformingProjection_V0] storing operator sparse matrix in " +
-                    storage_fn)
+                print("[ConformingProjection_V0] storing operator sparse matrix in " + storage_fn)
                 save_npz(storage_fn, self._sparse_matrix)
 
-    def set_homogenous_bc(self, boundary, rhs=None):
-        domain = self.symbolic_domain
-        Vh = self.fem_domain
-        if domain.mapping:
-            domain = domain.logical_domain
-        if boundary.mapping:
-            boundary = boundary.logical_domain
-
-        corners = domain.corners
-        i = get_patch_index_from_face(domain, boundary)
-        if rhs:
-            apply_essential_bc_stencil(
-                rhs[i], axis=boundary.axis, ext=boundary.ext, order=0)
-        for j in range(len(domain)):
-            if self._A[i, j] is None:
-                continue
-            apply_essential_bc_stencil(
-                self._A[i, j], axis=boundary.axis, ext=boundary.ext, order=0)
-
-        for c in corners:
-            faces = [f for b in c.corners for f in b.boundaries]
-            if len(c) == 2:
-                continue
-            if boundary in faces:
-                for b1 in c.corners:
-                    i = get_patch_index_from_face(domain, b1.domain)
-                    for b2 in c.corners:
-                        j = get_patch_index_from_face(domain, b2.domain)
-                        interface = get_interface_from_corners(b1, b2, domain)
-                        axis = None
-                        if i != j:
-                            axis = self._A[i, j].dim
-                        index = get_row_col_index(
-                            b1, b2, interface, axis, Vh.spaces[i], Vh.spaces[j])
-                        self._A[i, j][tuple(index)] = 0.
-
-                        if i == j and rhs:
-                            rhs[i][tuple(index[:2])] = 0.
 
 # ===============================================================================
 
@@ -525,14 +1242,11 @@ class ConformingProjection_V1(FemLinearOperator):
     V1h: <FemSpace>
      The discrete space
 
-    domain_h: <Geometry>
-     The discrete domain of the projector
+    p_moments: <int>
+        Number of polynomial moments to be preserved in the projection.
 
     hom_bc : <bool>
      Apply homogenous boundary conditions if True
-
-    backend_language: <str>
-     The backend used to accelerate the code
 
     storage_fn:
      filename to store/load the operator sparse matrix
@@ -544,9 +1258,8 @@ class ConformingProjection_V1(FemLinearOperator):
     def __init__(
             self,
             V1h,
-            domain_h,
+            p_moments=-1,
             hom_bc=False,
-            backend_language='python',
             storage_fn=None):
 
         FemLinearOperator.__init__(self, fem_domain=V1h)
@@ -556,367 +1269,17 @@ class ConformingProjection_V1(FemLinearOperator):
         self.symbolic_domain = domain
 
         if storage_fn and os.path.exists(storage_fn):
-            print(
-                "[ConformingProjection_V1] loading operator sparse matrix from " +
-                storage_fn)
+            print("[ConformingProjection_V1] loading operator sparse matrix from " + storage_fn)
             self._sparse_matrix = load_npz(storage_fn)
 
         else:
-            # assemble the operator matrix
-            u, v = elements_of(V1, names='u, v')
-            expr = dot(u, v)
-            #
-            Interfaces = domain.interfaces  # note: interfaces does not include the boundary
-            # this penalization is for an H1-conforming space
-            expr_I = dot(plus(u) - minus(u), plus(v) - minus(v))
-
-            a = BilinearForm((u, v), integral(domain, expr) +
-                             integral(Interfaces, expr_I))
-            # print('[[ forcing python backend for ConformingProjection_V1]] ')
-            # backend_language = 'python'
-            ah = discretize(
-                a, domain_h, [
-                    V1h, V1h], backend=PSYDAC_BACKENDS[backend_language])
-            #
-            # # self._A = ah.assemble()
-            self._A = ah.forms[0]._matrix
-            # C1 = V1h.coeff_space
-            # self._A = BlockLinearOperator(C1, C1)
-
-            for b1 in self._A.blocks:
-                for b2 in b1:
-                    if b2 is None:
-                        continue
-                    for b3 in b2.blocks:
-                        for A in b3:
-                            if A is None:
-                                continue
-                            A[:, :, :, :] = 0
-
-            spaces = self._A.domain.spaces
-
-            if isinstance(Interfaces, Interface):
-                Interfaces = (Interfaces, )
-
-            indices = [slice(None, None)] * domain.dim + [0] * domain.dim
-
-            for i in range(len(self._A.blocks)):
-                self._A[i, i][0, 0][tuple(indices)] = 1
-                self._A[i, i][1, 1][tuple(indices)] = 1
-
-            # empty list if no interfaces ?
-            if Interfaces is not None:
-
-                for I in Interfaces:
-
-                    i_minus = get_patch_index_from_face(domain, I.minus)
-                    i_plus = get_patch_index_from_face(domain, I.plus)
-
-                    indices = [slice(None, None)] * \
-                        domain.dim + [0] * domain.dim
-
-                    sp1 = spaces[i_minus]
-                    sp2 = spaces[i_plus]
-
-                    s11 = sp1.spaces[0].starts[I.axis]
-                    e11 = sp1.spaces[0].ends[I.axis]
-                    s12 = sp1.spaces[1].starts[I.axis]
-                    e12 = sp1.spaces[1].ends[I.axis]
-
-                    s21 = sp2.spaces[0].starts[I.axis]
-                    e21 = sp2.spaces[0].ends[I.axis]
-                    s22 = sp2.spaces[1].starts[I.axis]
-                    e22 = sp2.spaces[1].ends[I.axis]
-
-                    d11 = V1h.spaces[i_minus].spaces[0].degree[I.axis]
-                    d12 = V1h.spaces[i_minus].spaces[1].degree[I.axis]
-
-                    d21 = V1h.spaces[i_plus].spaces[0].degree[I.axis]
-                    d22 = V1h.spaces[i_plus].spaces[1].degree[I.axis]
-
-                    s_minus = [s11, s12]
-                    e_minus = [e11, e12]
-
-                    s_plus = [s21, s22]
-                    e_plus = [e21, e22]
-
-                    d_minus = [d11, d12]
-                    d_plus = [d21, d22]
-
-                    minus_ext = I.minus.ext
-                    plus_ext = I.plus.ext
-
-                    axis = I.axis
-                    for k in range(domain.dim):
-                        if k == I.axis:
-                            continue
-
-                        if minus_ext == 1:
-                            indices[axis] = e_minus[k]
-                        else:
-                            indices[axis] = s_minus[k]
-                        self._A[i_minus, i_minus][k, k][tuple(indices)] = 1 / 2
-
-                        if plus_ext == 1:
-                            indices[axis] = e_plus[k]
-                        else:
-                            indices[axis] = s_plus[k]
-
-                        self._A[i_plus, i_plus][k, k][tuple(indices)] = 1 / 2
-
-                        if plus_ext == minus_ext:
-                            if minus_ext == 1:
-                                indices[axis] = d_minus[k]
-                            else:
-                                indices[axis] = s_minus[k]
-
-                            self._A[i_minus, i_plus][k, k][tuple(
-                                indices)] = 1 / 2 * I.direction
-
-                            if plus_ext == 1:
-                                indices[axis] = d_plus[k]
-                            else:
-                                indices[axis] = s_plus[k]
-
-                            self._A[i_plus, i_minus][k, k][tuple(
-                                indices)] = 1 / 2 * I.direction
-
-                        else:
-                            if minus_ext == 1:
-                                indices[axis] = d_minus[k]
-                            else:
-                                indices[axis] = s_minus[k]
-
-                            if plus_ext == 1:
-                                indices[domain.dim + axis] = d_plus[k]
-                            else:
-                                indices[domain.dim + axis] = -d_plus[k]
-
-                            self._A[i_minus, i_plus][k, k][tuple(
-                                indices)] = 1 / 2 * I.direction
-
-                            if plus_ext == 1:
-                                indices[axis] = d_plus[k]
-                            else:
-                                indices[axis] = s_plus[k]
-
-                            if minus_ext == 1:
-                                indices[domain.dim + axis] = d_minus[k]
-                            else:
-                                indices[domain.dim + axis] = -d_minus[k]
-
-                            self._A[i_plus, i_minus][k, k][tuple(
-                                indices)] = 1 / 2 * I.direction
-
-            if hom_bc:
-                for bn in domain.boundary:
-                    self.set_homogenous_bc(bn)
-
-            self._matrix = self._A
-            self._sparse_matrix = self._matrix.tosparse()
+            
+            self._sparse_matrix = construct_hcurl_conforming_projection(V1h, reg_orders=0, p_moments=p_moments, hom_bc=hom_bc)
 
             if storage_fn:
-                print(
-                    "[ConformingProjection_V1] storing operator sparse matrix in " +
-                    storage_fn)
+                print("[ConformingProjection_V1] storing operator sparse matrix in " + storage_fn)
                 save_npz(storage_fn, self._sparse_matrix)
 
-    def set_homogenous_bc(self, boundary):
-        domain = self.symbolic_domain
-        Vh = self.fem_domain
-
-        i = get_patch_index_from_face(domain, boundary)
-        axis = boundary.axis
-        ext = boundary.ext
-        for j in range(len(domain)):
-            if self._A[i, j] is None:
-                continue
-            apply_essential_bc_stencil(
-                self._A[i, j][1 - axis, 1 - axis], axis=axis, ext=ext, order=0)
-
-
-# ===============================================================================
-def get_K0_and_K0_inv(V0h, uniform_patches=False):
-    """
-    Compute the change of basis matrices K0 and K0^{-1} in V0h.
-
-    With
-    K0_ij = sigma^0_i(B_j) = B_jx(n_ix) * B_jy(n_iy)
-    where sigma_i is the geometric (interpolation) dof
-    and B_j is the tensor-product B-spline
-    """
-    if uniform_patches:
-        print(' [[WARNING -- hack in get_K0_and_K0_inv: using copies of 1st-patch matrices in every patch ]] ')
-
-    V0 = V0h.symbolic_space   # VOh is FemSpace
-    domain = V0.domain
-    K0_blocks = []
-    K0_inv_blocks = []
-    for k, D in enumerate(domain.interior):
-        if uniform_patches and k > 0:
-            K0_k = K0_blocks[0].copy()
-            K0_inv_k = K0_inv_blocks[0].copy()
-
-        else:
-            V0_k = V0h.spaces[k]  # fem space on patch k: (TensorFemSpace)
-            K0_k_factors = [None, None]
-            for d in [0, 1]:
-                # 1d fem space alond dim d (SplineSpace)
-                V0_kd = V0_k.spaces[d]
-                K0_k_factors[d] = collocation_matrix(
-                    knots=V0_kd.knots,
-                    degree=V0_kd.degree,
-                    periodic=V0_kd.periodic,
-                    normalization=V0_kd.basis,
-                    xgrid=V0_kd.greville
-                )
-            K0_k = kron(*K0_k_factors)
-            K0_k.eliminate_zeros()
-            K0_inv_k = inv(K0_k.tocsc())
-            K0_inv_k.eliminate_zeros()
-
-        K0_blocks.append(K0_k)
-        K0_inv_blocks.append(K0_inv_k)
-    K0 = block_diag(K0_blocks)
-    K0_inv = block_diag(K0_inv_blocks)
-    return K0, K0_inv
-
-
-# ===============================================================================
-def get_K1_and_K1_inv(V1h, uniform_patches=False):
-    """
-    Compute the change of basis matrices K1 and K1^{-1} in Hcurl space V1h.
-
-    With
-    K1_ij = sigma^1_i(B_j) = int_{e_ix}(M_jx) * B_jy(n_iy)
-    if i = horizontal edge [e_ix, n_iy] and j = (M_jx o B_jy)  x-oriented MoB spline
-    or
-    = B_jx(n_ix) * int_{e_iy}(M_jy)
-    if i = vertical edge [n_ix, e_iy]  and  j = (B_jx o M_jy)  y-oriented BoM spline
-    (above, 'o' denotes tensor-product for functions)
-    """
-    if uniform_patches:
-        print(' [[WARNING -- hack in get_K1_and_K1_inv: using copies of 1st-patch matrices in every patch ]] ')
-
-    V1 = V1h.symbolic_space   # V1h is FemSpace
-    domain = V1.domain
-    K1_blocks = []
-    K1_inv_blocks = []
-    for k, D in enumerate(domain.interior):
-        if uniform_patches and k > 0:
-            K1_k = K1_blocks[0].copy()
-            K1_inv_k = K1_inv_blocks[0].copy()
-
-        else:
-            # fem space on patch k:
-            V1_k = V1h.spaces[k]
-            K1_k_blocks = []
-            for c in [0, 1]:    # dim of component
-                # fem space for comp. dc (TensorFemSpace)
-                V1_kc = V1_k.spaces[c]
-                K1_kc_factors = [None, None]
-                for d in [0, 1]:    # dim of variable
-                    # 1d fem space for comp c alond dim d (SplineSpace)
-                    V1_kcd = V1_kc.spaces[d]
-                    if c == d:
-                        K1_kc_factors[d] = histopolation_matrix(
-                            knots=V1_kcd.knots,
-                            degree=V1_kcd.degree,
-                            periodic=V1_kcd.periodic,
-                            normalization=V1_kcd.basis,
-                            xgrid=V1_kcd.ext_greville
-                        )
-                    else:
-                        K1_kc_factors[d] = collocation_matrix(
-                            knots=V1_kcd.knots,
-                            degree=V1_kcd.degree,
-                            periodic=V1_kcd.periodic,
-                            normalization=V1_kcd.basis,
-                            xgrid=V1_kcd.greville
-                        )
-                K1_kc = kron(*K1_kc_factors)
-                K1_kc.eliminate_zeros()
-                K1_k_blocks.append(K1_kc)
-            K1_k = block_diag(K1_k_blocks)
-            K1_k.eliminate_zeros()
-            K1_inv_k = inv(K1_k.tocsc())
-            K1_inv_k.eliminate_zeros()
-
-        K1_blocks.append(K1_k)
-        K1_inv_blocks.append(K1_inv_k)
-
-    K1 = block_diag(K1_blocks)
-    K1_inv = block_diag(K1_inv_blocks)
-    return K1, K1_inv
-
-
-# #===============================================================================
-# def get_M_and_M_inv(Vh, subdomains_h, is_scalar, backend_language='python'):
-#     """
-#     compute the mass matrix M and M^{-1} in multipatch space Vh
-#     DOES NOT WORK -- SHOULD WE HAVE THE POSSIBILITY OF DOING THAT ?
-#     """
-#     from pprint import pprint
-#
-#     V = Vh.symbolic_space   # VOh is FemSpace
-#     domain = V.domain
-#     M_blocks = []
-#     M_inv_blocks = []
-#
-#     # print('type(domain_h) = ', type(domain_h))
-#     #
-#     # print('type(domain_h._patches) = ', type(domain_h._patches))
-#     # print('len(domain_h._patches) = ', len(domain_h._patches))
-#     #
-#     # mappings = domain_h.mappings
-#     # print('type(mappings) = ', type(mappings))
-#     # print('len(mappings) = ', len(mappings))
-#     #
-#     # mappings_list = list(mappings.values())
-#     # print('len(mappings_list) = ', len(mappings_list))
-#     #
-#     # print('type(mappings_list[0]) = ', type(mappings_list[0]))
-#
-#     for k, Dh_k in enumerate(subdomains_h):
-#
-#         print('k = ', k)
-#         print('type(Dh_k) = ', type(Dh_k))
-#         # print('Dh = ', Dh)
-#         D_k = domain.interior[k]
-#
-#     # exit()
-#
-#     # for k, D in enumerate(domain.interior):
-#
-#         V_k = V.spaces[k]
-#         Vh_k = Vh.spaces[k]
-#
-#         # print(type(domain_h))
-#         #
-#         # pprint(dir(domain_h))
-#         #
-#         #
-#         # print(len(domain_h._patches))
-#         # exit()
-#         # Dh_k = domain_h.spaces[k]  # fem space on patch k: (TensorFemSpace)
-#         u, v = elements_of(V_k, names='u, v')
-#         if is_scalar:
-#             expr   = u*v
-#         else:
-#             expr   = dot(u,v)
-#         a_k = BilinearForm((u,v), integral(D_k, expr))
-#         a_kh = discretize(a_k, Dh_k, [Vh_k, Vh_k], backend=PSYDAC_BACKENDS[backend_language])   # 'pyccel-gcc'])
-#
-#         M_k = a_kh.assemble().toarray()
-#         M_k.eliminate_zeros()
-#         M_inv_k = inv(M_k.tocsc())
-#         M_inv_k.eliminate_zeros()
-#
-#         M_blocks.append(M_k)
-#         M_inv_blocks.append(M_inv_k)
-#     M = block_diag(M_blocks)
-#     M_inv = block_diag(M_inv_blocks)
-#     return M, M_inv
 
 # ===============================================================================
 class HodgeOperator(FemLinearOperator):
@@ -1148,30 +1511,6 @@ class BrokenTransposedScalarCurl_2D(FemLinearOperator):
 
     def transpose(self, conjugate=False):
         return BrokenScalarCurl_2D(V1h=self.fem_codomain, V2h=self.fem_domain)
-
-
-# ==============================================================================
-
-# def multipatch_Moments_Hcurl(f, V1h, domain_h):
-
-def ortho_proj_Hcurl(EE, V1h, domain_h, M1, backend_language='python'):
-    """
-    return orthogonal projection of E on V1h, given M1 the mass matrix
-    """
-    assert isinstance(EE, Tuple)
-    V1 = V1h.symbolic_space
-    v = element_of(V1, name='v')
-    l = LinearForm(v, integral(V1.domain, dot(v, EE)))
-    lh = discretize(
-        l,
-        domain_h,
-        V1h,
-        backend=PSYDAC_BACKENDS[backend_language])
-    b = lh.assemble()
-    M1_inv = inverse(M1.mat(), 'pcg', pc='jacobi', tol=1e-10)
-    sol_coeffs = M1_inv @ b
-
-    return FemField(V1h, coeffs=sol_coeffs)
 
 # ==============================================================================
 
