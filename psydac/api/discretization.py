@@ -29,7 +29,7 @@ from psydac.api.fem          import DiscreteBilinearForm
 from psydac.api.fem          import DiscreteLinearForm
 from psydac.api.fem          import DiscreteFunctional
 from psydac.api.fem          import DiscreteSumForm
-from psydac.api.feec         import DiscreteDerham
+from psydac.api.feec         import DiscreteDerham, DiscreteDerhamMultipatch
 from psydac.api.glt          import DiscreteGltExpr
 from psydac.api.expr         import DiscreteExpr
 from psydac.api.equation     import DiscreteEquation
@@ -47,6 +47,7 @@ from psydac.linalg.block     import BlockVectorSpace
 __all__ = (
     'discretize',
     'discretize_derham',
+    'discretize_derham_multipatch',
     'reduce_space_degrees',
     'discretize_space',
     'discretize_domain'
@@ -193,6 +194,23 @@ def discretize_derham(derham, domain_h, *, get_H1vec_space=False, **kwargs):
         spaces.append(Xh)
 
     return DiscreteDerham(mapping, *spaces)
+
+#==============================================================================
+def discretize_derham_multipatch(derham, domain_h, *args, **kwargs):
+
+    ldim     = derham.shape
+    mapping  = derham.spaces[0].domain.mapping
+
+    bases  = ['B'] + ldim * ['M']
+    spaces = [discretize_space(V, domain_h, *args, basis=basis, **kwargs) \
+            for V, basis in zip(derham.spaces, bases)]
+
+    return DiscreteDerhamMultipatch(
+        mapping  = mapping,
+        domain_h = domain_h,
+        spaces   = spaces,
+        sequence = [V.kind.name for V in derham.spaces]
+    )
 
 #==============================================================================
 def reduce_space_degrees(V, Vh, *, basis='B', sequence='DR'):
@@ -609,6 +627,9 @@ def discretize(a, *args, **kwargs):
         
     elif isinstance(a, Derham):
         return discretize_derham(a, *args, **kwargs)
+
+    elif isinstance(expr, Derham) and expr.V0.is_broken:
+        return discretize_derham_multipatch(expr, *args, **kwargs)
 
     elif isinstance(a, Domain):
         return discretize_domain(a, *args, **kwargs)
