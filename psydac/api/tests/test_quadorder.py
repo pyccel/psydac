@@ -1,14 +1,13 @@
 import pytest
+import numpy as np
 
-from sympde.topology import Line, Square
+from sympde.topology import Square
 from sympde.topology import ScalarFunctionSpace
 from sympde.topology import element_of
 from sympde.core     import Constant
 from sympde.expr     import BilinearForm
 from sympde.expr     import LinearForm
 from sympde.expr     import integral
-
-import numpy as np
 
 from psydac.api.discretization import discretize
 from psydac.api.settings       import PSYDAC_BACKEND_PYTHON

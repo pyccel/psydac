@@ -14,18 +14,16 @@
 #      Please note that the logical coordinates (x1, x2) correspond to the polar
 #      coordinates (r, theta), but with reversed order: hence x1=theta and x2=r
 
-from mpi4py import MPI
-from sympy import pi, cos, sin, log, exp, lambdify, symbols
-import pytest
 import os
 
-from sympde.calculus import grad, dot
-from sympde.calculus import laplace
+import pytest
+from sympy import pi, sin, log, exp, lambdify, symbols
+
+from sympde.calculus import grad, dot, inner
 from sympde.topology import ScalarFunctionSpace
 from sympde.topology import element_of
 from sympde.topology import NormalVector
 from sympde.topology import Domain
-from sympde.topology import Union
 from sympde.topology import Square
 from sympde.expr     import linearize
 from sympde.expr import BilinearForm, LinearForm, integral
@@ -201,7 +199,7 @@ def run_non_linear_poisson(filename, comm=None):
     u = element_of(V, name='u')
 
     f = -2.*exp(-u)
-    l = LinearForm( v, integral(Omega, dot(grad(v), grad(u)) - f*v ))
+    l = LinearForm( v, integral(Omega, inner(grad(v), grad(u)) - f*v ))
 
     du = element_of(V, name='du')
     dir_boundary = Omega.get_boundary(axis=0, ext=1)

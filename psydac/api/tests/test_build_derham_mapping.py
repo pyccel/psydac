@@ -1,3 +1,12 @@
+import os
+
+import pytest
+import numpy as np
+from sympy import exp, lambdify
+
+from sympde.topology.analytical_mapping import IdentityMapping
+from sympde.topology                    import Derham
+
 from psydac.mapping.discrete   import SplineMapping
 from psydac.fem.splines        import SplineSpace
 from psydac.fem.tensor         import TensorFemSpace
@@ -6,20 +15,10 @@ from psydac.api.discretization import discretize
 from psydac.cad.geometry       import Geometry
 from psydac.api.postprocessing import OutputManager, PostProcessManager
 
-from sympde.topology.analytical_mapping import IdentityMapping
-from sympde.topology                  import Cube, Derham
 
-from sympy      import exp, lambdify
-
-import pytest
-import numpy as np
-import os
-
-
-@pytest.mark.parametrize('degree', [[2], [3]])
-@pytest.mark.parametrize('ncells', [[4], [10]])
 @pytest.mark.parametrize('periodic', [[True], [False]])
-
+@pytest.mark.parametrize('ncells', [[4], [10]])
+@pytest.mark.parametrize('degree', [[2], [3]])
 def test_build_derham_spline_mapping_id_1d(degree, ncells, periodic):
     
     p1,  = degree
@@ -73,10 +72,10 @@ def test_build_derham_spline_mapping_id_1d(degree, ncells, periodic):
     #                 snapshots='all', fields=('f'))     
     #Pm.close()
 
-@pytest.mark.parametrize('degree', [[2,2], [3,4]])
-@pytest.mark.parametrize('ncells', [[5,6], [10,10]])
-@pytest.mark.parametrize('periodic', [[True,True], [True,False]])
 
+@pytest.mark.parametrize('periodic', [[True,True], [True,False]])
+@pytest.mark.parametrize('ncells', [[5,6], [10,10]])
+@pytest.mark.parametrize('degree', [[2,2], [3,4]])
 def test_build_derham_spline_mapping_id_2d(degree, ncells, periodic):
 
     p1 , p2 = degree
@@ -134,10 +133,10 @@ def test_build_derham_spline_mapping_id_2d(degree, ncells, periodic):
     os.remove("./export_sol.h5")
     os.remove("./fields_test.0000.vtu")
 
-@pytest.mark.parametrize('degree', [[2,2,2], [2,3,4]])
-@pytest.mark.parametrize('ncells', [[4,6,7], [10,10,10]])
-@pytest.mark.parametrize('periodic', [[True,True,True], [True,False,False]])
 
+@pytest.mark.parametrize('periodic', [[True,True,True], [True,False,False]])
+@pytest.mark.parametrize('ncells', [[4,6,7], [10,10,10]])
+@pytest.mark.parametrize('degree', [[2,2,2], [2,3,4]])
 def test_build_derham_spline_mapping_id_3d(degree, ncells, periodic):
 
     p1 , p2, p3  = degree
@@ -196,6 +195,7 @@ def test_build_derham_spline_mapping_id_3d(degree, ncells, periodic):
     os.remove("./export_sol.yml")
     os.remove("./export_sol.h5")
     os.remove("./fields_test.0000.vtu")
+
 
 if __name__ == '__main__':
     #test_build_derham_spline_mapping_id_1d([2], [10], [True]) 

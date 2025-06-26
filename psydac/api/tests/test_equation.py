@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 
-from sympde.topology import Line, Square
+from sympde.topology import Square
 from sympde.topology import ScalarFunctionSpace
 from sympde.topology import element_of
 from sympde.core     import Constant

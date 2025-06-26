@@ -1,32 +1,22 @@
 # -*- coding: UTF-8 -*-
 
-from sympy import pi, cos, sin
-from sympy.utilities.lambdify import implemented_function
+import pytest
+import numpy as np
+from sympy import pi, sin
+from scipy.linalg import eig as eig_solver
 
 from sympde.core import Constant
-from sympde.calculus import grad, dot, inner, cross, rot, curl, div
-from sympde.calculus import laplace, hessian
-from sympde.topology import dx1, dx2, dx3
-from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
-from sympde.topology import element_of
-from sympde.topology import Boundary, NormalVector, TangentVector
-from sympde.topology import Domain, Line, Square, Cube
-from sympde.topology import Trace, trace_0, trace_1
-from sympde.topology import Union
-from sympde.expr import BilinearForm, LinearForm, integral
-from sympde.expr import Norm
-from sympde.expr import find, EssentialBC
+from sympde.calculus import grad, inner
+from sympde.topology import dx1, dx2
+from sympde.topology import ScalarFunctionSpace
+from sympde.topology import elements_of
+from sympde.topology import Square
+from sympde.expr import BilinearForm, integral
 
 from gelato.expr import GltExpr
 
 from psydac.fem.basic   import FemField
 from psydac.api.discretization import discretize
-
-import numpy as np
-from scipy.linalg import eig as eig_solver
-from mpi4py import MPI
-import pytest
-
 
 #==============================================================================
 def run_poisson_2d_dir(ncells, degree, comm=None):
@@ -36,14 +26,11 @@ def run_poisson_2d_dir(ncells, degree, comm=None):
 
     V = ScalarFunctionSpace('V', domain)
 
-    F = element_of(V, name='F')
-
-    v = element_of(V, name='v')
-    u = element_of(V, name='u')
+    u, v = elements_of(V, names='u, v')
 
     int_0 = lambda expr: integral(domain , expr)
 
-    a = BilinearForm((v,u), int_0(dot(grad(v), grad(u))))
+    a = BilinearForm((u, v), int_0(inner(grad(u), grad(v))))
 
     glt_a = GltExpr(a)
     # ...
@@ -91,15 +78,12 @@ def run_field_2d_dir(ncells, degree, comm=None):
 
     V = ScalarFunctionSpace('V', domain)
 
-    F = element_of(V, name='F')
-
-    v = element_of(V, name='v')
-    u = element_of(V, name='u')
+    F, u, v = elements_of(V, name='F, u, v')
 
     int_0 = lambda expr: integral(domain , expr)
 
-    a  = BilinearForm((v,u), int_0(dot(grad(v), grad(u)) + F*u*v))
-    ae = BilinearForm((v,u), int_0(dot(grad(v), grad(u)) + u*v))
+    a  = BilinearForm((u, v), int_0(inner(grad(u), grad(v)) + F * u * v))
+    ae = BilinearForm((u, v), int_0(inner(grad(u), grad(v)) + u * v))
 
     glt_a  = GltExpr(a)
     glt_ae = GltExpr(ae)
@@ -155,17 +139,14 @@ def run_variable_coeff_2d_dir(ncells, degree, comm=None):
 
     V = ScalarFunctionSpace('V', domain)
 
-    F = element_of(V, name='F')
-
-    v = element_of(V, name='v')
-    u = element_of(V, name='u')
+    u, v = elements_of(V, name='u, v')
 
     c = Constant('c', real=True)
 
     int_0 = lambda expr: integral(domain , expr)
 
     expr = (1 + c*sin(pi*(x+y)))*dx1(u)*dx2(v) + (1 + c*sin(pi*(x-y)))*dx1(u)*dx2(v)
-    a = BilinearForm((v,u), int_0(expr))
+    a = BilinearForm((u, v), int_0(expr))
     glt_a = GltExpr(a)
     # ...
 

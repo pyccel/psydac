@@ -3,7 +3,7 @@
 from sympy               import pi, sin
 from scipy.sparse.linalg import spsolve
 
-from sympde.calculus import dot, div
+from sympde.calculus import inner, div
 from sympde.topology import VectorFunctionSpace, ScalarFunctionSpace
 from sympde.topology import ProductSpace
 from sympde.topology import element_of
@@ -35,8 +35,8 @@ def run_system_1_1d_dir(f0, sol, ncells, degree):
     
     int_0 = lambda expr: integral(domain , expr)
 
-    a  = BilinearForm(((p,u),(q,v)), int_0(dot(p,q) + div(q)*u + div(p)*v))
-    l  = LinearForm((q,v), int_0(f0*v))
+    a  = BilinearForm(((p, u), (q, v)), int_0(inner(p, q) + div(q) * u + div(p) * v))
+    l  = LinearForm((q, v), int_0(f0 * v))
 
     error = F-sol
     l2norm_F = Norm(error, domain, kind='l2')

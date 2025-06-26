@@ -6,7 +6,7 @@ from scipy.linalg import eig as eig_solver
 
 from sympde.calculus import grad, inner
 from sympde.topology import VectorFunctionSpace
-from sympde.topology import element_of
+from sympde.topology import elements_of
 from sympde.topology import Square
 from sympde.expr     import BilinearForm, integral
 
@@ -22,16 +22,11 @@ def run_vector_poisson_2d_dir(ncells, degree):
 
     V = VectorFunctionSpace('V', domain)
 
-    x,y = domain.coordinates
-
-    F = element_of(V, name='F')
-
-    v = element_of(V, name='v')
-    u = element_of(V, name='u')
+    u, v = elements_of(V, names='u, v')
 
     int_0 = lambda expr: integral(domain , expr)
 
-    a = BilinearForm((v,u), int_0(inner(grad(v), grad(u))))
+    a = BilinearForm((u, v), int_0(inner(grad(u), grad(v))))
 
     glt_a = GltExpr(a)
     # ...

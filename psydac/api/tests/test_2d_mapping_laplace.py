@@ -14,18 +14,15 @@
 #      Please note that the logical coordinates (x1, x2) correspond to the polar
 #      coordinates (r, theta), but with reversed order: hence x1=theta and x2=r
 
-from mpi4py import MPI
-from sympy import pi, cos, sin, symbols
-import pytest
 import os
-import numpy as np
 
-from sympde.calculus import grad, dot
-from sympde.calculus import laplace
+from sympy import pi, cos, symbols
+
+from sympde.calculus import grad, dot, inner
 from sympde.topology import ScalarFunctionSpace
 from sympde.topology import element_of
 from sympde.topology import NormalVector
-from sympde.topology import Domain,Square
+from sympde.topology import Domain
 from sympde.topology import Union
 from sympde.expr import BilinearForm, LinearForm, integral
 from sympde.expr import Norm, SemiNorm
@@ -82,7 +79,7 @@ def run_laplace_2d(filename, solution, f, dir_zero_boundary,
     nn = NormalVector('nn')
 
     # Bilinear form a: V x V --> R
-    a = BilinearForm((u, v), integral(domain, dot(grad(u), grad(v)) + u * v))
+    a = BilinearForm((u, v), integral(domain, inner(grad(u), grad(v)) + u * v))
 
     # Linear form l: V --> R
     l0 = LinearForm(v, integral(domain, f * v))

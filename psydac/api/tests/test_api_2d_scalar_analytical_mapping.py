@@ -1,7 +1,6 @@
 import numpy as np
-from mpi4py import MPI
 
-from sympde.calculus      import grad, dot
+from sympde.calculus      import grad, inner
 from sympde.topology      import ScalarFunctionSpace
 from sympde.topology      import elements_of
 from sympde.topology      import Square
@@ -28,7 +27,7 @@ def run_poisson_2d(solution, f, domain, ncells, degree, comm=None):
 
     error  = u - solution
 
-    a = BilinearForm((u,v),  integral(domain, dot(grad(u),grad(v))))
+    a = BilinearForm((u,v),  integral(domain, inner(grad(u), grad(v))))
     l = LinearForm(v, integral(domain, f*v))
 
     equation = find(u, forall=v, lhs=a(u,v), rhs=l(v), bc=bc)

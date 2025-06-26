@@ -1,14 +1,14 @@
 # -*- coding: UTF-8 -*-
 
 import os
+
 from sympy import Tuple, Matrix, symbols
 from sympy import pi, sin
 
-from sympde.calculus import grad, dot, inner
+from sympde.calculus import grad, inner
 from sympde.topology import VectorFunctionSpace
-from sympde.topology import element_of
+from sympde.topology import elements_of
 from sympde.topology import Domain
-from sympde.topology import Union
 from sympde.expr     import BilinearForm, LinearForm, integral
 from sympde.expr     import Norm, SemiNorm
 from sympde.expr     import find, EssentialBC
@@ -34,18 +34,12 @@ def run_vector_poisson_2d_dir(filename, solution, f):
 
     V = VectorFunctionSpace('V', domain)
 
-    x,y = domain.coordinates
+    u, v = elements_of(V, names='u, v')
 
-    v = element_of(V, name='v')
-    u = element_of(V, name='u')
+    int_0 = lambda expr: integral(domain, expr)
 
-    int_0 = lambda expr: integral(domain , expr)
-
-    expr = inner(grad(v), grad(u))
-    a = BilinearForm((v,u), int_0(expr))
-
-    expr = dot(f, v)
-    l = LinearForm(v, int_0(expr))
+    a = BilinearForm((u, v), int_0(inner(grad(u), grad(v))))
+    l = LinearForm(v, int_0(inner(f, v)))
 
     error  = Matrix([u[0]-solution[0], u[1]-solution[1]])
     l2norm =     Norm(error, domain, kind='l2')

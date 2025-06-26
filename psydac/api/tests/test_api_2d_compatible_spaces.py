@@ -2,15 +2,11 @@
 
 import pytest
 import numpy as np
-from sympy import pi, cos, sin, sqrt, Matrix, Tuple, lambdify
+from sympy import pi, cos, sin, Matrix, Tuple, lambdify
 from scipy.sparse.linalg import spsolve
-from scipy.sparse.linalg import gmres as sp_gmres
 from scipy.sparse.linalg import minres as sp_minres
-from scipy.sparse.linalg import cg as sp_cg
-from scipy.sparse.linalg import bicg as sp_bicg
-from scipy.sparse.linalg import bicgstab as sp_bicgstab
 
-from sympde.calculus import grad, dot, inner, div, curl, cross
+from sympde.calculus import grad, inner, div, curl, cross
 from sympde.topology import NormalVector
 from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
 from sympde.topology import ProductSpace
@@ -34,25 +30,25 @@ def run_poisson_mixed_form_2d_dir(f0, sol, ncells, degree):
     V2 = ScalarFunctionSpace('V2', domain, kind='L2')
     X  = ProductSpace(V1, V2)
 
-    x,y = domain.coordinates
+    x, y = domain.coordinates
 
     F = element_of(V2, name='F')
 
 
-    p,q = [element_of(V1, name=i) for i in ['p', 'q']]
-    u,v = [element_of(V2, name=i) for i in ['u', 'v']]
+    p, q = elements_of(V1, names='p, q')
+    u, v = elements_of(V2, names='u, v')
 
     int_0 = lambda expr: integral(domain , expr)
     
-    a  = BilinearForm(((p,u),(q,v)), int_0(dot(p,q) + div(q)*u + div(p)*v) )
-    l  = LinearForm((q,v), int_0(f0*v))
+    a  = BilinearForm(((p, u), (q, v)), int_0(inner(p, q) + div(q) * u + div(p) * v))
+    l  = LinearForm((q, v), int_0(f0 * v))
     
     # ...
     error = F-sol
     l2norm_F = Norm(error, domain, kind='l2')
 
     # ...
-    equation = find([p,u], forall=[q,v], lhs=a((p,u),(q,v)), rhs=l(q,v))
+    equation = find((p, u), forall=(q, v), lhs=a((p, u), (q, v)), rhs=l(q, v))
  
     # ... create the computational domain from a topological domain
     domain_h = discretize(domain, ncells=ncells)
@@ -103,7 +99,7 @@ def run_stokes_2d_dir(domain, f, ue, pe, *, homogeneous, ncells, degree, scipy=F
     int_0 = lambda expr: integral(domain , expr)
 
     a  = BilinearForm(((u, p), (v, q)), int_0(inner(grad(u), grad(v)) - div(u)*q - p*div(v)) )
-    l  = LinearForm((v, q), int_0(dot(f, v)))
+    l  = LinearForm((v, q), int_0(inner(f, v)))
 
     # Dirichlet boundary conditions are given in the form u = g where g may be
     # just 0 (hence homogeneous BCs are prescribed) or a symbolic expression
@@ -135,8 +131,8 @@ def run_stokes_2d_dir(domain, f, ue, pe, *, homogeneous, ncells, degree, scipy=F
         b0 = equation_h.linear_system.rhs.toarray()
 
         if not homogeneous:
-            a1 = BilinearForm(((u, p), (v, q)), integral(domain.boundary, dot(u, v)))
-            l1 = LinearForm((v, q), integral(domain.boundary, dot(ue, v)))
+            a1 = BilinearForm(((u, p), (v, q)), integral(domain.boundary, inner(u, v)))
+            l1 = LinearForm((v, q), integral(domain.boundary, inner(ue, v)))
 
             a1_h = discretize(a1, domain_h, [Xh, Xh])
             l1_h = discretize(l1, domain_h, Xh)
@@ -230,7 +226,7 @@ def run_stokes_2d_dir_petsc(domain, f, ue, pe, *, homogeneous, ncells, degree):
     int_0 = lambda expr: integral(domain , expr)
 
     a  = BilinearForm(((u, p), (v, q)), int_0(inner(grad(u), grad(v)) - div(u)*q - p*div(v)) )
-    l  = LinearForm((v, q), int_0(dot(f, v)))
+    l  = LinearForm((v, q), int_0(inner(f, v)))
 
     # Dirichlet boundary conditions are given in the form u = g where g may be
     # just 0 (hence homogeneous BCs are prescribed) or a symbolic expression
@@ -271,8 +267,8 @@ def run_stokes_2d_dir_petsc(domain, f, ue, pe, *, homogeneous, ncells, degree):
     b0 = equation_h.linear_system.rhs.topetsc()
 
     if not homogeneous:
-        a1 = BilinearForm(((u, p), (v, q)), integral(domain.boundary, dot(u, v)))
-        l1 = LinearForm((v, q), integral(domain.boundary, dot(ue, v)))
+        a1 = BilinearForm(((u, p), (v, q)), integral(domain.boundary, inner(u, v)))
+        l1 = LinearForm((v, q), integral(domain.boundary, inner(ue, v)))
 
         a1_h = discretize(a1, domain_h, [Xh, Xh])
         l1_h = discretize(l1, domain_h, Xh)
@@ -360,14 +356,14 @@ def run_maxwell_time_harmonic_2d_dir(uex, f, alpha, ncells, degree):
     F  = element_of(V, name='F')
 
     # Bilinear form a: V x V --> R
-    a   = BilinearForm((u, v), integral(domain, curl(u)*curl(v) + alpha*dot(u,v)))
+    a   = BilinearForm((u, v), integral(domain, curl(u)*curl(v) + alpha*inner(u, v)))
 
     nn   = NormalVector('nn')
     a_bc = BilinearForm((u, v), integral(domain.boundary, 1e30 * cross(u, nn) * cross(v, nn)))
 
 
     # Linear form l: V --> R
-    l = LinearForm(v, integral(domain, dot(f,v)))
+    l = LinearForm(v, integral(domain, inner(f, v)))
 
     # l2 error
     error   = Matrix([F[0]-uex[0],F[1]-uex[1]])

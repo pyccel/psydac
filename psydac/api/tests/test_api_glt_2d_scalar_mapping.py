@@ -1,19 +1,20 @@
 # -*- coding: UTF-8 -*-
 
 import os
+
+import pytest
 import numpy as np
 from scipy.linalg import eig as eig_solver
 
-from sympde.calculus import grad, dot
+from sympde.calculus import grad, inner
 from sympde.topology import ScalarFunctionSpace
-from sympde.topology import element_of
+from sympde.topology import elements_of
 from sympde.topology import Domain
 from sympde.expr     import BilinearForm, integral
 
 from gelato.expr import GltExpr
 
 from psydac.api.discretization import discretize
-import pytest
 
 # ... get the mesh directory
 try:
@@ -33,14 +34,11 @@ def run_poisson_2d_dir(filename, comm=None):
 
     V = ScalarFunctionSpace('V', domain)
 
-    x,y = domain.coordinates
-
-    v = element_of(V, name='v')
-    u = element_of(V, name='u')
+    u, v = elements_of(V, names='u, v')
 
     int_0 = lambda expr: integral(domain , expr)
 
-    a = BilinearForm((v,u), int_0(dot(grad(v), grad(u))))
+    a = BilinearForm((u, v), int_0(inner(grad(u), grad(v))))
 
     glt_a = GltExpr(a)
     # ...

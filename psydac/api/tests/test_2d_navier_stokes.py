@@ -1,19 +1,14 @@
 # -*- coding: UTF-8 -*-
 
 import os
+
 import pytest
 import numpy as np
-from sympy import pi, cos, sin, sqrt, exp, ImmutableDenseMatrix as Matrix, Tuple, lambdify
+from sympy import pi, cos, sin, exp, ImmutableDenseMatrix as Matrix, Tuple
 from scipy.sparse.linalg import spsolve
-from scipy.sparse.linalg import gmres as sp_gmres
-from scipy.sparse.linalg import minres as sp_minres
-from scipy.sparse.linalg import cg as sp_cg
-from scipy.sparse.linalg import bicg as sp_bicg
-from scipy.sparse.linalg import bicgstab as sp_bicgstab
 
-from sympde.calculus import grad, dot, inner, div, curl, cross
+from sympde.calculus import grad, inner, div
 from sympde.calculus import Transpose, laplace
-from sympde.topology import NormalVector
 from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
 from sympde.topology import ProductSpace
 from sympde.topology import element_of, elements_of
@@ -111,16 +106,16 @@ def run_time_dependent_navier_stokes_2d(filename, dt_h, nt, newton_tol=1e-4, max
     Re = 1e4
 
     Fl = lambda u,p: Re**-1*inner(grad(u), grad(v)) - div(u)*q - p*div(v) + 1e-10*p*q
-    F  = lambda u,p: dot(Transpose(grad(u))*u,v) + Fl(u,p)
+    F  = lambda u,p: inner(Transpose(grad(u))*u,v) + Fl(u,p)
     
-    l = LinearForm((v, q), integral(domain, dot(u,v)-dot(u0,v) + dt/2 * (F(u,p) + F(u0,p0)) ))
+    l = LinearForm((v, q), integral(domain, inner(u,v)-inner(u0,v) + dt/2 * (F(u,p) + F(u0,p0)) ))
     a = linearize(l, (u,p), trials=(du, dp))
 
     equation  = find((du, dp), forall=(v, q), lhs=a((du, dp), (v, q)), rhs=l(v, q), bc=bc)
 
     # Use the stokes equation to compute the initial solution
     a_stokes = BilinearForm(((du,dp),(v, q)), integral(domain, Fl(du,dp)) )
-    l_stokes = LinearForm((v, q), integral(domain, dot(v,Tuple(0,0)) ))
+    l_stokes = LinearForm((v, q), integral(domain, inner(v,Tuple(0,0)) ))
 
     equation_stokes = find((du, dp), forall=(v, q), lhs=a_stokes((du, dp), (v, q)), rhs=l_stokes(v, q), bc=bc)
 
@@ -249,12 +244,12 @@ def run_steady_state_navier_stokes_2d(domain, f, ue, pe, *, ncells, degree, mult
 
     boundary = Union(*[domain.get_boundary(**kw) for kw in get_boundaries(1,2)])
 
-    a_b = BilinearForm(((u,p),(v, q)), integral(boundary, dot(u,v)) )
-    l_b = LinearForm((v, q), integral(boundary, dot(ue, v)) )
+    a_b = BilinearForm(((u,p),(v, q)), integral(boundary, inner(u,v)) )
+    l_b = LinearForm((v, q), integral(boundary, inner(ue, v)) )
 
     equation_b = find((u, p), forall=(v, q), lhs=a_b((u, p), (v, q)), rhs=l_b(v, q))
 
-    l = LinearForm((v, q), integral(domain, dot(Transpose(grad(u))*u, v) + inner(grad(u), grad(v)) - div(u)*q - p*div(v) - dot(f, v)) )
+    l = LinearForm((v, q), integral(domain, inner(Transpose(grad(u))*u, v) + inner(grad(u), grad(v)) - div(u)*q - p*div(v) - inner(f, v)) )
     a = linearize(l, (u,p), trials=(du, dp))
 
     bc       = EssentialBC(du, 0, boundary)
@@ -357,9 +352,6 @@ def test_st_navier_stokes_2d():
     assert (ux.diff(x) + uy.diff(y)).simplify() == 0
 
     # ... Compute right-hand side
-    from sympde.calculus import laplace, grad
-    from sympde.expr     import TerminalExpr
-
     a = TerminalExpr(-mu*laplace(ue), domain)
     b = TerminalExpr(    grad(ue), domain)
     c = TerminalExpr(    grad(pe), domain)    
@@ -411,9 +403,6 @@ def test_st_navier_stokes_2d_parallel():
     assert (ux.diff(x) + uy.diff(y)).simplify() == 0
 
     # ... Compute right-hand side
-    from sympde.calculus import laplace, grad
-    from sympde.expr     import TerminalExpr
-
     a = TerminalExpr(-mu*laplace(ue), domain)
     b = TerminalExpr(    grad(ue), domain)
     c = TerminalExpr(    grad(pe), domain)

@@ -1,12 +1,10 @@
 # -*- coding: UTF-8 -*-
 
 import pytest
-
-from mpi4py import MPI
-from sympy import pi
 import numpy as np
+from sympy import pi
 
-from sympde.calculus import dot, div
+from sympde.calculus import inner, div
 from sympde.topology import VectorFunctionSpace
 from sympde.topology import element_of
 from sympde.topology import Square, IdentityMapping
@@ -19,16 +17,16 @@ def run_poisson_2d_dir(ncells, degree, comm=None):
 
     # ... abstract model
     domain  = Square()
-    mapping = IdentityMapping('M',2)
+    mapping = IdentityMapping('M', 2)
     domain  = mapping(domain)
 
     V = VectorFunctionSpace('V', domain)
 
     F = element_of(V, name='F')
     
-    x,y = domain.coordinates
+    x, y = domain.coordinates
     
-    expr = x*y+ pi*div(F) + dot(F, F)
+    expr = x * y + pi * div(F) + inner(F, F)
 
     domain_h = discretize(domain, ncells=ncells, comm=comm)
     # ...

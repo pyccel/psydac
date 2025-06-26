@@ -1,8 +1,7 @@
 # -*- coding: UTF-8 -*-
 
 from mpi4py import MPI
-from sympy import pi, cos, sin, symbols
-from sympy.utilities.lambdify import implemented_function
+from sympy import pi, sin, symbols
 import pytest
 
 from sympde.calculus import grad, dot
