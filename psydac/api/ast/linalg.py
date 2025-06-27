@@ -418,12 +418,12 @@ class LinearOperatorDot(SplBasic):
         from pyccel import epyccel
 
         fmod = epyccel(mod,
-                       openmp = openmp,
-                       compiler_family     = compiler_family,
-                       flags       = flags,
-                       comm         = self.comm,
-                       bcast        = True,
-                       folder       = _PYCCEL_FOLDER,
+                       openmp  = openmp,
+                       compiler_family = compiler_family,
+                       flags   = flags,
+                       comm    = self.comm,
+                       bcast   = True,
+                       folder  = _PYCCEL_FOLDER,
                        verbose      = verbose)
         return fmod
 
