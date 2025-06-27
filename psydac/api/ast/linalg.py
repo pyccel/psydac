@@ -424,7 +424,7 @@ class LinearOperatorDot(SplBasic):
                        comm    = self.comm,
                        bcast   = True,
                        folder  = _PYCCEL_FOLDER,
-                       verbose      = verbose)
+                       verbose = verbose)
         return fmod
 
 #==============================================================================
