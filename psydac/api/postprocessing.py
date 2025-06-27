@@ -2076,9 +2076,6 @@ class PostProcessManager:
 
             # Irregular tensor grid
             elif grid_as_arrays[0].ndim == 1:
-                if any(arr.size == 0 for arr in grid_as_arrays):
-                    raise ValueError("Empty grid array provided: all grid dimensions must contain at least one point.")
-
                 grid_type = 0
                 cell_indexes = [cell_index(breaks[i], grid_as_arrays[i]) for i in range(ldim)]
                 npts_per_cell = None
