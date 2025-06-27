@@ -410,12 +410,11 @@ class LinearOperatorDot(SplBasic):
     def _compile_pyccel(self, mod, backend, verbose=False):
 
         # ... convert python to fortran using pyccel
-        compiler_family       = backend['compiler_family']
-        flags         = backend['flags']
-        _PYCCEL_FOLDER = backend['folder']
-        openmp = True if backend["openmp"] else False
+        compiler_family = backend['compiler_family']
+        flags           = backend['flags']
+        _PYCCEL_FOLDER  = backend['folder']
+        openmp          = backend["openmp"]
 
-        # from pyccel.epyccel import epyccel
         from pyccel import epyccel
 
         fmod = epyccel(mod,
