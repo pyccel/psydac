@@ -15,28 +15,28 @@ PSYDAC_DEFAULT_FOLDER = {'name':'__psydac__'}
 PSYDAC_BACKEND_PYTHON = {'name': 'python', 'tag':'python', 'openmp':False}
 
 PSYDAC_BACKEND_GPYCCEL  = {'name': 'pyccel',
-                       'compiler': 'GNU',
+                       'compiler_family': 'GNU',
                        'flags'   : '-O3 -ffast-math',
                        'folder'  : '__gpyccel__',
                        'tag'     : 'gpyccel',
                        'openmp'  : False}
 
 PSYDAC_BACKEND_IPYCCEL  = {'name': 'pyccel',
-                       'compiler': 'intel',
+                       'compiler_family': 'intel',
                        'flags'   : '-O3',
                        'folder'  : '__ipyccel__',
                        'tag'     :'ipyccel',
                        'openmp'  : False}
 
 PSYDAC_BACKEND_PGPYCCEL = {'name': 'pyccel',
-                       'compiler': 'PGI',
+                       'compiler_family': 'PGI',
                        'flags'   : '-O3 -Munroll',
                        'folder'  : '__pgpyccel__',
                        'tag'     : 'pgpyccel',
                        'openmp'  : False}
 
 PSYDAC_BACKEND_NVPYCCEL = {'name': 'pyccel',
-                       'compiler': 'nvidia',
+                       'compiler_family': 'nvidia',
                        'flags'   : '-O3 -Munroll',
                        'folder'  : '__nvpyccel__',
                        'tag'     : 'nvpyccel',
