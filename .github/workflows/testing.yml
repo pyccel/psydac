@@ -428,7 +428,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         uses: awalsh128/cache-apt-pkgs-action@latest
         with:
-          packages: gfortran openmpi-bin libopenmpi-dev libhdf5-openmpi-dev
+          packages: gfortran openmpi-bin libopenmpi-dev libhdf5-openmpi-dev g++ liblapack3 cmake cmake-curses-gui zlib1g-dev libnetcdf-dev libnetcdff-dev
           version: 1.0
           execute_install_scripts: true
 
@@ -440,7 +440,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
-          sudo apt-get install --reinstall openmpi-bin libhdf5-openmpi-dev liblapack-dev libblas-dev
+          sudo apt-get install --reinstall openmpi-bin libhdf5-openmpi-dev liblapack-dev libblas-dev liblapack3
 
       - name: Install non-Python dependencies on macOS
         if: matrix.os == 'macos-14'
@@ -455,6 +455,9 @@ jobs:
           brew install lapack
           brew install git
           brew install pandoc
+          brew install cmake
+          brew install netcdf-fortran
+          brew install pkgconf
           GFORTRAN_HOME=$(which gfortran || true)
           echo "GFORTRAN_HOME : $GFORTRAN_HOME"
           if [[ ! -f "$GFORTRAN_HOME" ]]; then
@@ -487,7 +490,7 @@ jobs:
 
       - name: Clone struphy from GitLab #TODO: Set branch to devel
         run: |
-          git clone --branch enable-pyccel-devel https://gitlab.mpcdf.mpg.de/struphy/struphy.git $STRUPHY_DIR
+          git clone https://gitlab.mpcdf.mpg.de/struphy/struphy.git $STRUPHY_DIR
       
       - name: Install struphy
         working-directory: ${{ env.STRUPHY_DIR }}
