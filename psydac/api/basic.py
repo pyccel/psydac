@@ -254,20 +254,21 @@ class BasicCodeGen:
     def _compile_pyccel(self, mod, verbose=False):
 
         # ... convert python to fortran using pyccel
-        compiler       = self.backend['compiler']
-        fflags         = self.backend['flags']
-        accelerators   = ["openmp"] if self.backend["openmp"] else []
-        _PYCCEL_FOLDER = self.backend['folder']
+        compiler_family = self.backend['compiler_family']
+        flags           = self.backend['flags']
+        openmp          = self.backend["openmp"]
+        _PYCCEL_FOLDER  = self.backend['folder']
 
-        from pyccel.epyccel import epyccel
+        # from pyccel.epyccel import epyccel
+        from pyccel import epyccel
         fmod = epyccel(mod,
-                       accelerators = accelerators,
-                       compiler    = compiler,
-                       fflags      = fflags,
-                       comm        = self.comm,
-                       bcast       = True,
-                       folder      = _PYCCEL_FOLDER,
-                       verbose     = verbose)
+                       openmp  = openmp,
+                       compiler_family = compiler_family,
+                       flags   = flags,
+                       comm    = self.comm,
+                       bcast   = True,
+                       folder  = _PYCCEL_FOLDER,
+                       verbose = verbose)
 
         return fmod
 
