@@ -265,7 +265,8 @@ def test_assembly(mapping):
 
         assert rel_err < 1e-12 # arbitrary rel. error bound (How to test better?)
 
-@pytest.mark.xfail
+# fixed by PR #507
+#@pytest.mark.xfail
 def test_allocate_matrix_bug():
     """
     This test is related to Issue #504.
