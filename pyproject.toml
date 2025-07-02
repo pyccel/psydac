@@ -31,7 +31,7 @@ dependencies = [
 
     # Our packages from PyPi
     'sympde == 0.19.2',
-    'pyccel < 1.11.2',
+    'pyccel >= 2.0.1',
     'gelato == 0.12',
 
     # In addition, we depend on mpi4py and h5py (MPI version).
