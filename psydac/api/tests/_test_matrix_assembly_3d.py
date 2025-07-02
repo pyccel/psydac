@@ -450,7 +450,7 @@ def build_matrices(mapping_option, verbose, backend, comm):
         a = BilinearForm((u, v), int_0(expr))
 
         t0 = time.time()
-        a_h = discretize(a, domain_h, (Vh, Wh), fast_assembly=False, backend=backend)
+        a_h = discretize(a, domain_h, (Vh, Wh), sum_factorization=False, backend=backend)
         t1 = time.time()
         disc_time_old = t1-t0
 

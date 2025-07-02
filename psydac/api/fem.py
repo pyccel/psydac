@@ -231,7 +231,7 @@ class DiscreteBilinearForm(BasicDiscrete):
     symbolic_mapping : Sympde.topology.Mapping, optional
         The symbolic mapping which defines the physical domain of the bilinear form.
 
-    fast_assembly : bool
+    sum_factorization : bool
         If True (as decided in discretization.py/discretize()), an implementation 
         of the sum factorization algorithm will be used to assemble the corresponding matrix.
 
@@ -246,7 +246,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                  matrix=None, update_ghost_regions=True, backend=None,
                  linalg_backend=None, assembly_backend=None,
                  symbolic_mapping=None,
-                 fast_assembly=False):
+                 sum_factorization=False):
         
         if not isinstance(expr, sym_BilinearForm):
             raise TypeError('> Expecting a symbolic BilinearForm')
@@ -386,15 +386,15 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         # BasicDiscrete generates the assembly code and sets the following attributes that are used afterwards:
         # self._func, self._free_args, self._max_nderiv and self._backend
-        # If fast_assembly == True: Instead of generating, pyccelizing and saving the assembly code, store import information in
+        # If sum_factorization == True: Instead of generating, pyccelizing and saving the assembly code, store import information in
         # self._imports_string
         BasicDiscrete.__init__(self, expr, kernel_expr, comm=comm, root=0, discrete_space=discrete_space,
                        nquads=nquads, is_rational_mapping=is_rational_mapping, mapping=symbolic_mapping,
                        mapping_space=mapping_space, num_threads=self._num_threads, backend=assembly_backend,
-                       fast_assembly=fast_assembly)
+                       sum_factorization=sum_factorization)
         
-        # If fast_assembly == True, broadcast the import information (sqrt, sin, pi, ...) to all processes
-        if (comm is not None) and (comm.size > 1) and (fast_assembly==True):
+        # If sum_factorization == True, broadcast the import information (sqrt, sin, pi, ...) to all processes
+        if (comm is not None) and (comm.size > 1) and (sum_factorization==True):
             if comm.rank != 0:
                 self._imports_string = None
             self._imports_string = comm.bcast(self._imports_string, root=0)
@@ -460,8 +460,8 @@ class DiscreteBilinearForm(BasicDiscrete):
             grid   = trial_grid
         )
 
-        assert isinstance(fast_assembly, bool)
-        self._fast_assembly = fast_assembly
+        assert isinstance(sum_factorization, bool)
+        self._sum_factorization = sum_factorization
 
         # Allocate the output matrix, if needed
         self.allocate_matrices(linalg_backend)
@@ -470,8 +470,8 @@ class DiscreteBilinearForm(BasicDiscrete):
         with_openmp = (assembly_backend['name'] == 'pyccel' and assembly_backend['openmp']) if assembly_backend else False
 
         # Construct the arguments to be passed to the assemble() function, which is stored in self._func
-        # If fast_assembly == True: First generate the assembly file
-        if self._fast_assembly == True:
+        # If sum_factorization == True: First generate the assembly file
+        if self._sum_factorization == True:
             # no openmp support yet
             self._args, self._threads_args = self.construct_arguments_generate_assembly_file()
         else:
@@ -2743,7 +2743,7 @@ class DiscreteFunctional(BasicDiscrete):
 class DiscreteSumForm(BasicDiscrete):
 
     def __init__(self, a, kernel_expr, *args, **kwargs):
-        fast_assembly = kwargs['fast_assembly'] if 'fast_assembly' in kwargs else False
+        sum_factorization = kwargs['sum_factorization'] if 'sum_factorization' in kwargs else False
         # TODO Uncomment when the SesquilinearForm exist in SymPDE
         #if not isinstance(a, (sym_BilinearForm, sym_SesquilinearForm, sym_LinearForm, sym_Functional)):
             # raise TypeError('> Expecting a symbolic BilinearForm, SesquilinearForm, LinearForm, Functional')
@@ -2768,9 +2768,9 @@ class DiscreteSumForm(BasicDiscrete):
         for e in kernel_expr:
             if isinstance(a, sym_LinearForm):
                 kwargs['update_ghost_regions'] = False
-                if 'fast_assembly' in kwargs:
-                    kwargs.pop('fast_assembly')
-                    assert 'fast_assembly' not in kwargs
+                if 'sum_factorization' in kwargs:
+                    kwargs.pop('sum_factorization')
+                    assert 'sum_factorization' not in kwargs
                 ah = DiscreteLinearForm(a, e, *args, backend=backend, **kwargs)
                 kwargs['vector'] = ah._vector
                 operator = ah._vector
@@ -2784,17 +2784,17 @@ class DiscreteSumForm(BasicDiscrete):
 
             elif isinstance(a, sym_BilinearForm):
                 kwargs['update_ghost_regions'] = False
-                if (('fast_assembly' not in kwargs) and (fast_assembly)):
-                    ah = DiscreteBilinearForm(a, e, *args, assembly_backend=backend, fast_assembly=True, **kwargs)
+                if (('sum_factorization' not in kwargs) and (sum_factorization)):
+                    ah = DiscreteBilinearForm(a, e, *args, assembly_backend=backend, sum_factorization=True, **kwargs)
                 else:
                     ah = DiscreteBilinearForm(a, e, *args, assembly_backend=backend, **kwargs)
                 kwargs['matrix'] = ah._matrix
                 operator = ah._matrix
 
             elif isinstance(a, sym_Functional):
-                if 'fast_assembly' in kwargs:
-                    kwargs.pop('fast_assembly')
-                    assert 'fast_assembly' not in kwargs
+                if 'sum_factorization' in kwargs:
+                    kwargs.pop('sum_factorization')
+                    assert 'sum_factorization' not in kwargs
                 ah = DiscreteFunctional(a, e, *args, backend=backend, **kwargs)
 
             forms.append(ah)

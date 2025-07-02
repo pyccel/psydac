@@ -115,7 +115,7 @@ for i, degree in enumerate(degree_list):
 
     a = BilinearForm((u, v), integral(domain, u*v))
 
-    a_h = discretize(a, domain_h, (V0h, V0h), backend=backend, fast_assembly=False)
+    a_h = discretize(a, domain_h, (V0h, V0h), backend=backend, sum_factorization=False)
     
     t0_ao = time.time()
     M_o = a_h.assemble()
@@ -139,7 +139,7 @@ for i, degree in enumerate(degree_list):
 
         a = BilinearForm((u, v), integral(domain, dot(u, v)))
 
-        a_h = discretize(a, domain_h, (V1h, V1h), backend=backend, fast_assembly=False)
+        a_h = discretize(a, domain_h, (V1h, V1h), backend=backend, sum_factorization=False)
         
         t0_ao = time.time()
         M_o = a_h.assemble()
@@ -239,7 +239,7 @@ u, v    = elements_of(V, names='u, v')
 a = BilinearForm((u, v), integral(dom, dot(cross(F, u), cross(F, v))))
 
 t0 = time.time()
-ah = discretize(a, domh, (Vh, Vh), backend=backend, fast_assembly=False)
+ah = discretize(a, domh, (Vh, Vh), backend=backend, sum_factorization=False)
 t1 = time.time()
 old_disc_21 = t1-t0
 t0 = time.time()
@@ -266,7 +266,7 @@ u, v    = elements_of(V, names='u, v')
 a = BilinearForm((u, v), integral(dom, dot(u, v)*agamma))
 
 t0 = time.time()
-ah = discretize(a, domh, (Vh, Vh), backend=backend, fast_assembly=False)
+ah = discretize(a, domh, (Vh, Vh), backend=backend, sum_factorization=False)
 t1 = time.time()
 old_disc_22 = t1-t0
 t0 = time.time()
@@ -293,7 +293,7 @@ u, v    = elements_of(V, names='u, v')
 a = BilinearForm((u, v), integral(dom, dot(curl(u), curl(v))))
 
 t0 = time.time()
-ah = discretize(a, domh, (Vh, Vh), backend=backend, fast_assembly=False)
+ah = discretize(a, domh, (Vh, Vh), backend=backend, sum_factorization=False)
 t1 = time.time()
 old_disc_23 = t1-t0
 t0 = time.time()
@@ -357,7 +357,7 @@ u, v    = elements_of(V, names='u, v')
 a       = BilinearForm((u, v), integral(dom, dot(grad(u), grad(v))))
 
 t0 = time.time()
-ah = discretize(a, domh, (Vh, Vh), backend=backend, fast_assembly=False)
+ah = discretize(a, domh, (Vh, Vh), backend=backend, sum_factorization=False)
 t1 = time.time()
 old_disc_311 = t1-t0
 t0 = time.time()
@@ -384,7 +384,7 @@ u, v    = elements_of(V, names='u, v')
 a       = BilinearForm((u, v), integral(dom, dot(grad(u), grad(v))))
 
 t0 = time.time()
-ah = discretize(a, domh, (Vh, Vh), backend=backend, fast_assembly=False)
+ah = discretize(a, domh, (Vh, Vh), backend=backend, sum_factorization=False)
 t1 = time.time()
 old_disc_312 = t1-t0
 t0 = time.time()
@@ -411,7 +411,7 @@ u, v    = elements_of(V, names='u, v')
 a       = BilinearForm((u, v), integral(dom, dot(grad(u), grad(v))))
 
 t0 = time.time()
-ah = discretize(a, domh, (Vh, Vh), backend=backend, fast_assembly=False)
+ah = discretize(a, domh, (Vh, Vh), backend=backend, sum_factorization=False)
 t1 = time.time()
 old_disc_313 = t1-t0
 t0 = time.time()
@@ -438,7 +438,7 @@ u, v    = elements_of(V, names='u, v')
 a       = BilinearForm((u, v), integral(dom, dot(grad(u), grad(v))))
 
 t0 = time.time()
-ah = discretize(a, domh, (Vh, Vh), backend=backend, fast_assembly=False)
+ah = discretize(a, domh, (Vh, Vh), backend=backend, sum_factorization=False)
 t1 = time.time()
 old_disc_32 = t1-t0
 t0 = time.time()
@@ -468,7 +468,7 @@ v       = element_of(W, name='v')
 a       = BilinearForm((u, v), integral(dom, dot(grad(u), grad(v))))
 
 t0 = time.time()
-ah = discretize(a, domh, (Vh, Vh), backend=backend, fast_assembly=False)
+ah = discretize(a, domh, (Vh, Vh), backend=backend, sum_factorization=False)
 t1 = time.time()
 old_disc_33 = t1-t0
 t0 = time.time()
@@ -498,7 +498,7 @@ u, v    = elements_of(V, names='u, v')
 a       = BilinearForm((u, v), integral(dom, dot(grad(u), grad(v)) * agamma))
 
 t0 = time.time()
-ah = discretize(a, domh, (Vh, Vh), backend=backend, fast_assembly=False)
+ah = discretize(a, domh, (Vh, Vh), backend=backend, sum_factorization=False)
 t1 = time.time()
 old_disc_34 = t1-t0
 t0 = time.time()
@@ -524,7 +524,7 @@ f_field = FemField(Vh, f)
 a       = BilinearForm((u, v), integral(dom, dot(grad(u), grad(v)) * F))
 
 t0 = time.time()
-ah = discretize(a, domh, (Vh, Vh), backend=backend, fast_assembly=False)
+ah = discretize(a, domh, (Vh, Vh), backend=backend, sum_factorization=False)
 t1 = time.time()
 old_disc_35 = t1-t0
 t0 = time.time()
@@ -549,7 +549,7 @@ Vh                  = analytical_derham_h.V0
 a       = BilinearForm((u, v), integral(dom, dot(grad(u), grad(v)) * F))
 
 t0 = time.time()
-ah = discretize(a, domh, (Vh, Vh), backend=backend, fast_assembly=False)
+ah = discretize(a, domh, (Vh, Vh), backend=backend, sum_factorization=False)
 t1 = time.time()
 old_disc_36 = t1-t0
 t0 = time.time()

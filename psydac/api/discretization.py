@@ -556,11 +556,11 @@ def discretize(a, *args, **kwargs):
         assembly_backend = backend or assembly_backend
         openmp = False if assembly_backend is None else assembly_backend.get('openmp')
 
-        # Set fast_assembly to True if domain.dim==3, a is a symbolic BilinearForm and the code is not openMP parallelized ...
+        # Set sum_factorization to True if domain.dim==3, a is a symbolic BilinearForm and the code is not openMP parallelized ...
         if (((isinstance(a, sym_BilinearForm)) and (dim == 3))) and not openmp:
-            # ... unless we already explicitely set fast_assembly to False! (For test cases, or in case of a newly encountered bug)
-            if not (kwargs.get('fast_assembly') == False):
-                kwargs['fast_assembly'] = True
+            # ... unless we already explicitely set sum_factorization to False! (For test cases, or in case of a newly encountered bug)
+            if not (kwargs.get('sum_factorization') == False):
+                kwargs['sum_factorization'] = True
         mapping = domain_h.domain.mapping
         kwargs['symbolic_mapping'] = mapping
 

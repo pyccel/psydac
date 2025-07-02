@@ -193,7 +193,7 @@ def test_assembly(mapping):
         a = BilinearForm((u, v), int_0(expr))
 
         t0 = time.time()
-        ah_old = discretize(a, domain_h, (Vh, Wh), backend=backend, fast_assembly=False)
+        ah_old = discretize(a, domain_h, (Vh, Wh), backend=backend, sum_factorization=False)
         t1 = time.time()
         discretization_time_old = t1 - t0
 
@@ -307,8 +307,8 @@ def test_allocate_matrix_bug():
     a0 = BilinearForm((u, f), integral(domain, u*f))
     a1 = BilinearForm((f, u), integral(domain, u*f))
 
-    a0h = discretize(a0, domain_h, (V0h, V3h), backend=backend, fast_assembly=False)
-    a1h = discretize(a1, domain_h, (V3h, V0h), backend=backend, fast_assembly=False)
+    a0h = discretize(a0, domain_h, (V0h, V3h), backend=backend, sum_factorization=False)
+    a1h = discretize(a1, domain_h, (V3h, V0h), backend=backend, sum_factorization=False)
 
     A0  = a0h.assemble()
     A1  = a1h.assemble()
@@ -416,9 +416,9 @@ def test_free_FemField_derivatives():
     # a2 reduces to 3* ----------------------------------------- " --------------------- 4.5
     a2 = BilinearForm((w1, w2), integral(domain, dot(curl(F1), w1)*div(w2)))
 
-    a0h_old = discretize(a0, domain_h, (V0h, V1h), backend=backend, fast_assembly=False)
-    a1h_old = discretize(a1, domain_h, (V0h, V2h), backend=backend, fast_assembly=False)
-    a2h_old = discretize(a2, domain_h, (V2h, V2h), backend=backend, fast_assembly=False)
+    a0h_old = discretize(a0, domain_h, (V0h, V1h), backend=backend, sum_factorization=False)
+    a1h_old = discretize(a1, domain_h, (V0h, V2h), backend=backend, sum_factorization=False)
+    a2h_old = discretize(a2, domain_h, (V2h, V2h), backend=backend, sum_factorization=False)
 
     a0h = discretize(a0, domain_h, (V0h, V1h), backend=backend)
     a1h = discretize(a1, domain_h, (V0h, V2h), backend=backend)
