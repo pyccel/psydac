@@ -1407,6 +1407,8 @@ class DiscreteBilinearForm(BasicDiscrete):
         """
         Collect the arguments used in the assembly method, and generate and possibly pyccelize the assembly function.
 
+        Used only when sum factorization is enabled, else the method construct_arguments is called.
+
         Returns
         -------
         args: tuple
@@ -1418,35 +1420,71 @@ class DiscreteBilinearForm(BasicDiscrete):
         """
         temps, ordered_stmts, ordered_sub_exprs_keys, mapping_option, field_derivatives, g_mat_information_false, g_mat_information_true, max_logical_derivative = self.read_BilinearForm()
 
+        # Each block corresponds to a combination of trial and test function components, and thus indeed to a "block" in the matrix.
+        # Not all possible combination have to exist, e.g.,
+        # given a function space of vector valued functions V (3d) and a bilinear form a: VxV -> R, a(u, v) = (u, v)_L^2(Omega)
+        # there will be only 3 blocks on a logical domain (u[0]&v[0], u[1]&v[1], u[2]&v[2]),
+        # but up to 9 blocks on a mapped domain (e.g. u[0]&v[1], ...)
         blocks              = ordered_stmts.keys()
         block_list          = list(blocks)
         trial_components    = [block[0] for block in block_list]
         test_components     = [block[1] for block in block_list]
+        # dim = 1 corresponds to a scalar valued function, dim = 3 to a vector valued function
         trial_dim           = len(set(trial_components))
         test_dim            = len(set(test_components))
 
+        # A reminder that this implementation only supports bilinear forms on 3d domains.
         d = 3
-        assert d == 3  # dim 3 assembly method
-        nu = trial_dim # dim of trial function; 1 (scalar) or 3 (vector)
-        nv = test_dim  # dim of trial function; 1 (scalar) or 3 (vector)
+        assert d == 3
 
-        test_basis, test_degrees, spans, pads, mult = construct_test_space_arguments(self.test_basis)
-        trial_basis, trial_degrees, pads, mult      = construct_trial_space_arguments(self.trial_basis)
+        # Rename - also: establish that throughout "u" corresponds to the trial function, whereas "v" corresponds to the test function
+        nu = trial_dim # dim of trial function; 1 (scalar) or 3 (vector)
+        nv = test_dim  # dim of test function ; 1 (scalar) or 3 (vector)
+
+        # Obtain the most basic information: function values, degrees, spans, ...
+        test_basis, test_degrees, spans, pads, test_mult = construct_test_space_arguments(self.test_basis)
+        trial_basis, trial_degrees, pads, trial_mult      = construct_trial_space_arguments(self.trial_basis)
         n_elements, quads, quad_degrees             = construct_quad_grids_arguments(self.grid[0], use_weights=False)
 
+        #! pads is being overwritten. That is because already somewhere else (__init__ of StencilMatrix via self.allocate_matrices)
+        # do we assert that domain and codomain (trial and test) pads coincide!
+        # That is not strictly necessary as Valentin at some point proved in one of his branches, but currently not implemented as
+        # not required.
+
+        #! the above pads variable is multiplied by the multiplicity vector! For the remaining implementation, I need
+        # the pads vector un-multiplied
         pads = self.test_basis.space.coeff_space.pads
 
+        #! the current implementation does not work for different multiplicity vectors, in particular also because
+        # I (used to) overwrite the mult variable the same way I still overwrite the pads variable
+        mult = trial_mult
+        print(f'test_mult: {test_mult}')
+        print(f'trial mult: {trial_mult}')
+
+        # quad_degrees is the amount of quadrature points per element in each direction
+        # Clearly, this amount must coincide with the amount of basis function values stored per element in test_basis and trial_basis
         n_element_1, n_element_2, n_element_3   = n_elements
         k1, k2, k3                              = quad_degrees
 
+        # We store component wise degree and function values for trial and test function in the dictionaries
+        # trial_u_p, global_basis_u, test_v_p, global_basis_v
         if (nu == 3) and (len(trial_basis) == 3):
-            # VectorFunction not belonging to a de Rham sequence - 3 instead of 9 variables in trial/test_degrees and trial/test_basis
+            # Edge Case: If the trial function space V is a VectorFunctionSpace
+            # but neither an Hdiv nor an Hcurl space, i.e.,
+            # V = VectorFunctionSpace('V', domain) and not +, kind='hcurl') or +, kind='hdiv')
+            # then the function values in each of the three directions are identical for each of the three components.
+            # Hence len(trial_basis) == 3 instead of 9. 
+            # 
+            # global_basis_u is a dict whose values are arrays of function values of one particular trial function component,
+            # hence for this edge case we simply assign the same array trial_basis to each component
+            # Same function degree in each direction for each component -> do the same thing with trial_u_p
             trial_u_p   = {u:trial_degrees for u in range(nu)}
             global_basis_u  = {u:trial_basis    for u in range(nu)}
         else:
             trial_u_p       = {u:trial_degrees[d*u:d*(u+1)] for u in range(nu)}
             global_basis_u  = {u:trial_basis[d*u:d*(u+1)]    for u in range(nu)}
         if (nv == 3) and (len(test_basis) == 3):
+            # See above explanation, which also applies for the spans variable
             test_v_p   = {v:test_degrees for v in range(nv)}
             global_basis_v  = {v:test_basis   for v in range(nv)}
             spans = [*spans, *spans, *spans]
@@ -1454,11 +1492,14 @@ class DiscreteBilinearForm(BasicDiscrete):
             test_v_p       = {v:test_degrees[d*v:d*(v+1)] for v in range(nv)}
             global_basis_v  = {v:test_basis[d*v:d*(v+1)]   for v in range(nv)}
 
-        assert len(self.grid) == 1, f'len(self.grid) is supposed to be 1 for now'
-
+        # See other method construct_arguments:
         # When self._target is an Interface domain len(self._grid) == 2
         # where grid contains the QuadratureGrid of both sides of the interface
+        assert len(self.grid) == 1
+        print(self.mapping)
         if self.mapping:
+            # We gather mapping related information in the case of a Bspline mapping
+            # self.mapping == False if either no or an analytical mapping
 
             map_coeffs = [[e._coeffs._data for e in self.mapping._fields]]
             spaces     = [self.mapping._fields[0].space]
@@ -1470,8 +1511,8 @@ class DiscreteBilinearForm(BasicDiscrete):
 
             for i in range(len(self.grid)):
                 axis   = self.grid[i].axis
-                if axis is not None:
-                    raise ValueError(f'axis is supposed to be None for now!')
+                # See construct_arguments - have not come across an example of when axis was not None!
+                assert axis is None
 
             map_degree = flatten(map_degree)
             map_span   = flatten(map_span)
@@ -1485,8 +1526,19 @@ class DiscreteBilinearForm(BasicDiscrete):
             map_span   = []
             map_basis  = []
 
-        #--------------------
+        #---------- The following part is entirely different from the old construct_arguments method ----------
 
+        # Each block, say u[0]&v[1], 
+        # consists of possibly many derivative combinations (sub-expressions) of these two components, e.g.
+        # dx1(u[0])&dx1(v[1]) or dx1(u[0])&dx2(v[1]) (dx1, dx2, dx3 representing respective partial derivatives).
+        #
+        # For each block, here still e.g. u[0]&v[1], 
+        # and for each sub-expression, we store corresponding derivative information:
+        # get_index_logical_derivatives(dx1(u[0])) = {'x1': 1, 'x2': 0, 'x3': 0}
+        # get_index_logical_derivatives(dx2(v[1])) = {'x1': 0, 'x2': 1, 'x3': 0}
+        # Each of these 6 dicts has for each block an array of length #sub-expressions (appearing derivative combination) stored
+        # x2_test_keys[(u[0], v[1])][3] = 2 means, that the fourth sub-expression of block (u[0], v[1]) 
+        # involves a second partial derivative of the test function in x2 direction
         x1_trial_keys = {block:[] for block in blocks}
         x1_test_keys  = {block:[] for block in blocks}
         x2_trial_keys = {block:[] for block in blocks}
@@ -1495,6 +1547,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         x3_test_keys  = {block:[] for block in blocks}
 
         for block in blocks:
+            # alpha, beta for example being dx1(u[0]), dx2(v[1])
             for alpha, beta in ordered_sub_exprs_keys[block]:
                 x1_trial_keys[block].append(get_index_logical_derivatives(alpha)['x1'])
                 x1_test_keys [block].append(get_index_logical_derivatives(beta) ['x1'])
