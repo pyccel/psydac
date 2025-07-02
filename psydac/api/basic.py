@@ -280,7 +280,6 @@ class BasicCodeGen:
         openmp          = self.backend["openmp"]
         _PYCCEL_FOLDER  = self.backend['folder']
 
-        # from pyccel.epyccel import epyccel
         from pyccel import epyccel
         fmod = epyccel(mod,
                        openmp  = openmp,

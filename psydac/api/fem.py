@@ -15,7 +15,7 @@ from sympy                  import ImmutableDenseMatrix, Matrix, Symbol, sympify
 from sympy.tensor.indexed   import Indexed, IndexedBase
 from sympy.simplify         import cse_main
 
-from pyccel.epyccel import epyccel
+from pyccel                 import epyccel
 
 from sympde.expr          import BilinearForm as sym_BilinearForm
 from sympde.expr          import LinearForm as sym_LinearForm
@@ -1624,13 +1624,13 @@ class DiscreteBilinearForm(BasicDiscrete):
         assembly_backend = self.backend
         if assembly_backend['name'] == 'pyccel':
             kwargs = {
-                'language'    : 'fortran',  # hardcoded for now
-                'compiler'    : assembly_backend['compiler'],
-                'fflags'      : assembly_backend['flags'],
-                'accelerators': ('openmp',) if assembly_backend['openmp'] else (),
-                'verbose'     : False,
+                'language'          : 'fortran',  # hardcoded for now
+                'compiler_family'   : assembly_backend['compiler_family'],
+                'flags'             : assembly_backend['flags'],
+                'openmp'            : True if assembly_backend['openmp'] else False,
+                'verbose'           : False,
                 # 'folder': assembly_backend['folder'],
-                'comm': self.comm,
+                'comm'              : self.comm,
                 # 'time_execution': verbose,
                 # 'verbose': verbose
             }
