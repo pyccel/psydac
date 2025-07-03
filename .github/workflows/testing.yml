@@ -22,9 +22,9 @@ jobs:
         exclude:
           - { isMerge: false, python-version: '3.9' , os:     macos-14 }
           - { isMerge: false, python-version: '3.10', os: ubuntu-24.04 }
-          - { isMerge: false, python-version: '3.11', os: ubuntu-24.04 }
+          - { isMerge: false, python-version: '3.11', os:     macos-14 }
           - { isMerge: false, python-version: '3.12', os: ubuntu-24.04 }
-          - { isMerge: false, python-version: '3.13', os: ubuntu-24.04 }
+          - { isMerge: false, python-version: '3.13', os:     macos-14 }
 
     name: ${{ matrix.os }} / Python ${{ matrix.python-version }}
 
