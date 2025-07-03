@@ -157,7 +157,7 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
     b2 = A @ x2
     bt = A.T @ xt
     bh = A.H @ xh
-    if solver != 'cg' and 'pc' in locals() and pc!= None:
+    if (solver != 'cg' or (solver == 'cg' and 'pc' in locals() and pc == None)):
         bc = A @ A @ xc
 
     err = b - be
