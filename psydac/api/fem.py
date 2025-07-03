@@ -1556,35 +1556,53 @@ class DiscreteBilinearForm(BasicDiscrete):
                 x3_trial_keys[block].append(get_index_logical_derivatives(alpha)['x3'])
                 x3_test_keys [block].append(get_index_logical_derivatives(beta) ['x3'])
 
+        # See sum factorization paper by Bressan & Takacs:
+        # coupling_terms, a3 and a2 correspond to A^{>=4}_{x1,x2,x3}, A^{>=3}_{x1,x2} and A^{>=2}_{x1}
+        # Here, for each block we assign a zero-array of the correct size.
+        coupling_terms = {}
         a3 = {}
         a2 = {}
-        coupling_terms = {}
+
+        # For each block, we precompute ~enough~ products of partial derivatives of trial and basis functions in each direction
+        # These precomputed values will then be read rather than computed in the assembly
         test_trial_1s = {}
         test_trial_2s = {}
         test_trial_3s = {}
+
+        # keys_1/2/3 is a restructuring of the 6 dictionaries created above
         keys_1 = {}
         keys_2 = {}
         keys_3 = {}
 
         for block in blocks:
+            # We translate a block, e.g. (u[0], v[1]) into two integers u_i=0, v_j=1.
+            # In the case of a scalar function (u, v instead of u[0], u[1], u[2], v[0], v[1], v[2]), store 0.
             u_i = block[0].indices[0] if nu > 1 else 0
             v_j = block[1].indices[0] if nv > 1 else 0
-            
+
+            # keys_2[(u[0], v[1])][3] = (1,2) means that the fourth sub-expression corresponding to the trial-test-function-component-product
+            # u[0] * v[1] involves a first derivative in x2 direction of the trial function and a second derivative in x2 direction of the test function            
             keys_1[block] = np.array([(alpha_1, beta_1) for alpha_1, beta_1 in zip(x1_trial_keys[block], x1_test_keys[block])])
             keys_2[block] = np.array([(alpha_2, beta_2) for alpha_2, beta_2 in zip(x2_trial_keys[block], x2_test_keys[block])])
             keys_3[block] = np.array([(alpha_3, beta_3) for alpha_3, beta_3 in zip(x3_trial_keys[block], x3_test_keys[block])])
 
+            # Those are the function values in each direction of a particular component of the trial/test function
             global_basis_u_1, global_basis_u_2, global_basis_u_3 = global_basis_u[u_i]
             global_basis_v_1, global_basis_v_2, global_basis_v_3 = global_basis_v[v_j]
 
+            # Those are the Bspline degrees in each direction of a particular component of the trial/test function
             trial_u_p1, trial_u_p2, trial_u_p3 = trial_u_p[u_i]
             test_v_p1,  test_v_p2,  test_v_p3  = test_v_p [v_j]
             
             max_p_2 = max(test_v_p2, trial_u_p2)
             max_p_3 = max(test_v_p3, trial_u_p3)
 
+            # That's the amount of subexpressions, i.e., combinations of partial derivatives appearing for a specific combination of 
+            # trial and test function components
             n_expr = len(ordered_stmts[block])
 
+            # To compute enough (possibly too many, but never too few) products of trial and test functions, we read the maximum
+            # appearing partial derivative (for this specific block, in each direction, for both trial and test function)
             max_block_trial_x1_derivative = max(x1_trial_keys[block])
             max_block_trial_x2_derivative = max(x2_trial_keys[block])
             max_block_trial_x3_derivative = max(x3_trial_keys[block])
@@ -1592,18 +1610,23 @@ class DiscreteBilinearForm(BasicDiscrete):
             max_block_test_x2_derivative = max(x2_test_keys[block])
             max_block_test_x3_derivative = max(x3_test_keys[block])
 
+            # On each Bspline cell (element / subdomain), there are (test_degree+1)*(trial_degree+1) test & trial function pairs
+            # of non-zero product.
+            # Hence, we assign zeros for each element, each quadrature point on the element, each test and trial function combination,
+            # and each (or even more than required) appearing partial derivative combination of these functions - in each direction
             test_trial_1 = np.zeros((n_element_1, k1, test_v_p1 + 1, trial_u_p1 + 1, max_block_trial_x1_derivative+1, max_block_test_x1_derivative+1), dtype='float64')
             test_trial_2 = np.zeros((n_element_2, k2, test_v_p2 + 1, trial_u_p2 + 1, max_block_trial_x2_derivative+1, max_block_test_x2_derivative+1), dtype='float64')
             test_trial_3 = np.zeros((n_element_3, k3, test_v_p3 + 1, trial_u_p3 + 1, max_block_trial_x3_derivative+1, max_block_test_x3_derivative+1), dtype='float64')
 
+            # And that's how we fill the test_trial arrays
             for k_1 in range(n_element_1):
                 for q_1 in range(k1):
                     for i_1 in range(test_v_p1 + 1):
                         for j_1 in range(trial_u_p1 + 1):
                             trial   = global_basis_u_1[k_1, j_1, :, q_1]
                             test    = global_basis_v_1[k_1, i_1, :, q_1]
-                            for alpha_1 in range(max_block_trial_x1_derivative+1): # r):
-                                for beta_1 in range(max_block_test_x1_derivative+1): # r):
+                            for alpha_1 in range(max_block_trial_x1_derivative+1):
+                                for beta_1 in range(max_block_test_x1_derivative+1):
                                     test_trial_1[k_1, q_1, i_1, j_1, alpha_1, beta_1] = trial[alpha_1] * test[beta_1]
 
             for k_2 in range(n_element_2):
@@ -1612,8 +1635,8 @@ class DiscreteBilinearForm(BasicDiscrete):
                         for j_2 in range(trial_u_p2 + 1):
                             trial   = global_basis_u_2[k_2, j_2, :, q_2]
                             test    = global_basis_v_2[k_2, i_2, :, q_2]
-                            for alpha_2 in range(max_block_trial_x2_derivative+1): # r):
-                                for beta_2 in range(max_block_test_x2_derivative+1): # r):
+                            for alpha_2 in range(max_block_trial_x2_derivative+1):
+                                for beta_2 in range(max_block_test_x2_derivative+1):
                                     test_trial_2[k_2, q_2, i_2, j_2, alpha_2, beta_2] = trial[alpha_2] * test[beta_2]
 
             for k_3 in range(n_element_3):
@@ -1622,18 +1645,26 @@ class DiscreteBilinearForm(BasicDiscrete):
                         for j_3 in range(trial_u_p3 + 1):
                             trial   = global_basis_u_3[k_3, j_3, :, q_3]
                             test    = global_basis_v_3[k_3, i_3, :, q_3]
-                            for alpha_3 in range(max_block_trial_x3_derivative+1): # r):
-                                for beta_3 in range(max_block_test_x3_derivative+1): # r):
+                            for alpha_3 in range(max_block_trial_x3_derivative+1):
+                                for beta_3 in range(max_block_test_x3_derivative+1):
                                     test_trial_3[k_3, q_3, i_3, j_3, alpha_3, beta_3] = trial[alpha_3] * test[beta_3]
 
             test_trial_1s[block] = test_trial_1
             test_trial_2s[block] = test_trial_2
             test_trial_3s[block] = test_trial_3
 
+            # Instead of having a different a3, a2 & coupling term array for each sub-expression, we choose to have only one
+            # such array per block.
+            # a3 will store line integral values for all combinations of test and trial functions in x3 direction, hence the dimension
+            # (n_element_3 + test_v_p3 + (mult[2]-1)*(n_element_3-1), 2 * max_p_3 + 1)
+            # a2 will store surface integral values for all combinations of test and trial functions in x2 and x3 direction, hence the dimension ...
+            # coupling_terms stores point values of the coupling terms at all quadrature points 
+            # but only in x2 and x3 direction, because we only "precompute" this array for a fixed quadrature point in x1 direction
             a3[block] = np.zeros((n_expr, n_element_3 + test_v_p3 + (mult[2]-1)*(n_element_3-1), 2 * max_p_3 + 1), dtype='float64')
             a2[block] = np.zeros((n_expr, n_element_2 + test_v_p2 + (mult[1]-1)*(n_element_2-1), n_element_3 + test_v_p3 + (mult[2]-1)*(n_element_3-1), 2 * max_p_2 + 1, 2 * max_p_3 + 1), dtype='float64')
             coupling_terms[block] = np.zeros((n_element_2, k2, n_element_3, k3, n_expr), dtype='float64')
 
+        # We gather the socalled new args - all other args are being obtained in a similar way using the old assembly implementation
         new_args = (*list(test_trial_1s.values()), 
                     *list(test_trial_2s.values()), 
                     *list(test_trial_3s.values()), 
@@ -1641,6 +1672,15 @@ class DiscreteBilinearForm(BasicDiscrete):
                     *list(a2.values()),
                     *list(coupling_terms.values()))
         
+        # This part is a bit shady.
+        # There has been a case, where my code wasn't running, because on instance of deep-(Psydac/Sympde/Sympy)-code
+        # correctly understood, that a possibly complicated expression (corresponding to a block) in fact evaluates to 0,
+        # and hence no StencilMatrix for that particular block ever needs to be created - but a different part of
+        # deep-(Psydac/Sympde/Sympy)-code did not get that simplification right (yet?), and decided that the assembly code
+        # needs a StencilMatrix as input for this particular block.
+        # See readBilinearForm for additional information.
+        # This part of the code filters out unnecessary StencilMatrices, such that only the relevant StencilMatrices
+        # are being passed to the assembly function
         expr = self.kernel_expr.expr
         if isinstance(expr, (ImmutableDenseMatrix, Matrix)):
             matrices = []
@@ -1650,6 +1690,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         else:
             matrices = self._global_matrices
 
+        # We have gathered all args!
         args = (*map_basis, *spans, *map_span, *quads, *map_degree, *n_elements, *quad_degrees, *pads, *mapping, *matrices,
                 *new_args)
         
@@ -1658,6 +1699,9 @@ class DiscreteBilinearForm(BasicDiscrete):
         args = tuple(np.int64(a) if isinstance(a, int) else a for a in args)
         threads_args = tuple(np.int64(a) if isinstance(a, int) else a for a in threads_args)
 
+        #---------- We now generate the assembly file ----------
+
+        # file_id is a random string that has been used to name the assembly file
         file_id = self.make_file(temps, ordered_stmts, field_derivatives, max_logical_derivative, mult, test_v_p, trial_u_p, keys_1, keys_2, keys_3, mapping_option=mapping_option)
 
         # Store the current directory and add it to the variable `sys.path`
