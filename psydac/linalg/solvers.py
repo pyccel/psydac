@@ -138,6 +138,12 @@ class ConjugateGradient(InverseLinearOperator):
             
         self._info = None
 
+        if pc is None:
+            self.solve = self.solve_without_pc
+        else:
+            self.solve = self.solve_with_pc
+
+
     def solve_without_pc(self, b, out=None):
         """
         Conjugate gradient algorithm for solving linear system Ax=b.
@@ -603,6 +609,11 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
                                                       "pp", "av", "app", "osp", 
                                                       "rp0")}
         self._info = None
+
+        if pc is None:
+            self.solve = self.solve_without_pc
+        else:
+            self.solve = self.solve_with_pc
 
     def solve_without_pc(self, b, out=None):
         """

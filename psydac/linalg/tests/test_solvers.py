@@ -73,9 +73,14 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
         else:
             diagonals = [1,6,3]
             
-        if solver == 'bicgstab' and pc != None and dtype == complex:
-            # pbicgstab only works for real matrices
-            return
+        if solver == 'bicgstab' and dtype == complex:
+            try:
+                if pc is not None:
+                    # pbicgstab only works for real matrices
+                    return
+            except NameError:
+                pass 
+
     elif solver == 'gmres':
         if dtype==complex:
             diagonals = [-7-2j,-6-2j,-1-10j]
@@ -134,6 +139,9 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
     assert np.array_equal(x2.toarray(), solv_x0.toarray())
     assert x2 is not solv_x0
 
+    # So when you get a new solver object (via .transpose()), you must either:
+    #   1.Initialize solve properly (call some init routine or assign it), or
+    #   2. Make solve a property that dynamically returns the correct method 
     xt = solvt.solve(bet)
     solvt_x0 = solvt._options["x0"]
     assert np.array_equal(xt.toarray(), solvt_x0.toarray())
@@ -144,7 +152,7 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
     assert np.array_equal(xh.toarray(), solvh_x0.toarray())
     assert xh is not solvh_x0
 
-    if (solver != 'cg' or (solver == 'cg' and 'pc' in locals() and pc == None)):
+    if (solver != 'cg' or (solver == 'cg' and ('pc' == None or pc not in locals()) )):
         # PCG only works with operators with diagonal
         xc = solv2 @ be2
         solv2_x0 = solv2._options["x0"]
@@ -157,7 +165,7 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
     b2 = A @ x2
     bt = A.T @ xt
     bh = A.H @ xh
-    if (solver != 'cg' or (solver == 'cg' and 'pc' in locals() and pc == None)):
+    if (solver != 'cg' or (solver == 'cg' and ('pc' == None or pc not in locals()) )):
         bc = A @ A @ xc
 
     err = b - be
@@ -169,7 +177,7 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
     errh = bh - beh
     errh_norm = np.linalg.norm( errh.toarray() )
 
-    if  (solver != 'cg' or (solver == 'cg' and 'pc' in locals() and pc == None)):
+    if  (solver != 'cg' or (solver == 'cg' and ('pc' == None or pc not in locals()) )):
         errc = bc - be2
         errc_norm = np.linalg.norm( errc.toarray() )
 
