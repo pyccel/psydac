@@ -817,7 +817,7 @@ def test_operator_evaluation(n1, n2, p1, p2):
     s2 = ( S**2 @ v )
     assert norm2(v-s0) < 1e-10
 
-    assert norm2((S @ v) - s2) < 1e-10
+    assert norm2((S @ v) - s1) < 1e-10
     assert norm2(S @ (S @ v ) - s2) < 1e-10
 
 
