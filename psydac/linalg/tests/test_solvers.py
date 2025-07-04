@@ -112,7 +112,8 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
 
     #Create the solvers
     if solver in ['cg', 'bicgstab']:
-        pc = A.diagonal(inverse=True)
+        # pc = A.diagonal(inverse=True)
+        pc = None
         solv = inverse(A, solver, pc=pc, tol=1e-13, verbose=verbose, recycle=True)
     else:
         solv = inverse(A, solver, tol=1e-13, verbose=verbose, recycle=True)
