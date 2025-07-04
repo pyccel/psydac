@@ -642,6 +642,11 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
               - 'niter'    = (int) number of iterations
               - 'success'  = (boolean) whether convergence criteria have been met
               - 'res_norm' = (float) 2-norm of residual vector r = A*x - b.
+
+        References
+        ----------
+        [1] H. A. van der Vorst. Bi-CGSTAB: A fast and smoothly converging variant of Bi-CG for the
+        solution of nonsymmetric linear systems. SIAM J. Sci. Stat. Comp., 13(2):631–644, 1992.
         """
 
         A = self._A
@@ -660,21 +665,9 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
         # First guess of solution
         if out is not None:
             assert isinstance(out, Vector)
-            assert out.space == codomain
-            out *= 0
-            if x0 is None:
-                x = out
-            else:
-                assert x0.shape == (A.shape[0],)
-                out += x0
-                x = out
-        else:
-            if x0 is None:
-                x = b.copy()
-                x *= 0.0
-            else:
-                assert x0.shape == (A.shape[0],)
-                x = x0.copy()
+            assert out.space is codomain
+
+        x = x0.copy(out=out)
 
         # Extract local storage
         v = self._tmps["v"]
@@ -704,11 +697,12 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
             print("+---------+---------------------+")
             template = "| {:7d} | {:19.2e} |"
 
-        
-        # Iterate to convergence or maximum number of iterations
-        niter = 0
-        while res_sqr > tol_sqr and niter < maxiter:
+        # Iterate to convergence
+        for m in range(1, maxiter + 1):
 
+            if res_sqr < tol_sqr:
+                m -= 1
+                break
 
             # -----------------------
             # MATRIX-VECTOR PRODUCTS
@@ -745,16 +739,25 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
             # ||r||_2 := (r, r)
             res_sqr = r.inner(r).real
 
-            niter += 1
+            if res_sqr < tol_sqr:
+                break
+
+            # b := a / w * (r0, r)_{m+1} / (r0, r)_m
+            b = r0.inner(r) * a / (c * w)
+
+            # p := r + b*p- b*w*v
+            p *= b
+            p += r
+            p.mul_iadd(-b * w, v)
 
             if verbose:
-                print(template.format(niter, sqrt(res_sqr)))
+                print(template.format(m, sqrt(res_sqr)))
 
         if verbose:
             print("+---------+---------------------+")
 
         # Convergence information
-        self._info = {'niter': niter, 'success': res_sqr < tol_sqr, 'res_norm': sqrt(res_sqr)}
+        self._info = {'niter': m, 'success': res_sqr < tol_sqr, 'res_norm': sqrt(res_sqr)}
 
         if recycle:
             x.copy(out=self._options["x0"])
