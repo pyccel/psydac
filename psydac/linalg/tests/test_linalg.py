@@ -789,8 +789,8 @@ def test_operator_evaluation(n1, n2, p1, p2):
     b1 = ( B**1 @ u )
     b2 = ( B**2 @ u )
     assert norm2(u-b0) < 1e-10
-    assert norm2(np.dot(B, u) - b1) < 1e-10
-    assert norm2( np.dot(B, np.dot(B, u)) - b2) < 1e-10
+    assert norm2(B @ u - b1) < 1e-10
+    assert norm2(B @ (B @ u) - b2) < 1e-10
 
     bi0 = ( B_ILO**0 @ u )
     bi1 = ( B_ILO**1 @ u )
