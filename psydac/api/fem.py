@@ -1178,23 +1178,62 @@ class DiscreteBilinearForm(BasicDiscrete):
         Part of the sum factorization algorithm implementation.
         Used at the beginning of construct_arguments_generate_assembly_file().
         It's output determines both the design of the assembly function, and the arguments passed to it.
+
+        Returns
+        -------
+
+        temps : tuple
+            tuple of Assign objects. Often times usable building blocks of complicated coupling terms.
+        
+        ordered_stmts : dict
+            assigns each block (trial&test component combination) a list of coupling term assignment
+        
+        ordered_sub_exprs_keys : dict
+            relates each coupling term assignment of ordered_stmts a partial derivative combination
+        
+        mapping_option : str | None
+            'Bspline' if a spline mapping is involved, None if an analytical or no mapping is involved
+        
+        field_derivatives : dict
+            contains information regarding appearing free FemFields and appearing partial derivatives of those
+        
+        g_mat_information_false : list
+            possibly wrong list of non-zero blocks
+
+        g_mat_information_true : list
+            correct list of non-zero blocks
+        
+        max_logical_derivative : int
+            maximum appearing partial derivative (in any fixed direction)
         
         """
 
-        a = self.expr
+        a       = self.expr
+        domain  = a.domain
 
-        domain = a.domain
+        # Because an analytical mapping only changes the expression, only the case of a Bspline mapping has to be treated 
+        # entirely different
         mapping_option = 'Bspline' if isinstance(self._mapping, SplineMapping) else None
 
+        # The following are tuples consisting of test, trial and free FemField functions appearing, e.g.
+        # u, v, F1, F2 = elements_of(V, names='u, v, F1, F2)
+        # a = BilinearForm((u, v), integral(domain, dot(u, F1) * dot(v, F2)))
+        # tests = (v, ), trials = (u, ) fields = (F1, F2) - Note: The order of F1 & F2 is apparently random and changes from time to time!
+        # tuple entries are either sympde.topology.space.ScalarFunction or sympde.topology.space.VectorFunction objects
         tests  = a.test_functions
         trials = a.trial_functions
         fields = a.fields
 
+        # A sympde.expr.evaluation.DomainExpression object
         texpr  = TerminalExpr(a, domain)[0]
 
+        # We extract all appearing components of test, trial and free FemFields, as well as appearing partial derivatives of these.
+        # e.g. atoms = [F1[1], F2[1], v[0], u[0], F1[2], F2[2], F1[0], v[1], v[2], F2[0], u[1], u[2]]
+        # for a bilinear form, without derivatives, involving two vector valued Fem fields F1 & F2 and vector valued test & trial functions v and u 
         atoms_types = (ScalarFunction, VectorFunction, IndexedVectorFunction)
         atoms       = _atomic(texpr, cls=atoms_types+_logical_partial_derivatives)
 
+        # Preparing to sort all atoms into test_, trial_ and field_atoms
         test_atoms  = {}
         for v in tests:
             if isinstance(v, VectorFunction):
@@ -1219,41 +1258,56 @@ class DiscreteBilinearForm(BasicDiscrete):
             else:
                 field_atoms[f] = []
 
-        # u in trials is not get_atom_logical_derivative(a) for a in atoms and atom in trials
-        for a in atoms:
-            atom = get_atom_logical_derivatives(a)
-            if not ((isinstance(atom, Indexed) and isinstance(atom.base, Mapping)) or (isinstance(atom, IndexedVectorFunction))):
-                if atom in tests:
-                    test_atoms[tests[0]].append(a) # apparently previously atom instead of tests[0]
-                elif atom in trials:
-                    trial_atoms[trials[0]].append(a) # apparently previously atom instead of trials[0]
-                elif atom in fields:
-                    field_atoms[fields[0]].append(a) # this 0 here can't always work! At least not for >1 free fields
+        # atoms can consist of scalar functions (u, v), partial derivatives of scalar functions (dx1(u), dx3(v), ...),
+        # components of vector valued functions (u[0], v[1], ...), partial derivatives of components of vector valued functions
+        # (dx1(u[0]), dx3(v[1]), ...), and the same thing but for free FemFields.
+        # With 
+        # get_atom_logical_derivatives(atom)
+        # we obtain the component without partial derivatives (u -> u ; dx1(u) -> u ; dx2(v[2]) -> v[2] ; ...)
+        # This way we can gather subexpressions belonging to the same block
+        for atom in atoms:
+            a = get_atom_logical_derivatives(atom)
+            # IF: NOT Indexed Mapping AND NOT VectorFunction
+            # I guess: <=> IF ScalarFunction
+            if not ((isinstance(a, Indexed) and isinstance(a.base, Mapping)) or (isinstance(a, IndexedVectorFunction))):
+                if a in tests:
+                    # tests is a tuple, e.g. (v, ), hence tests[0] = v
+                    test_atoms[tests[0]].append(atom)
+                elif a in trials:
+                    trial_atoms[trials[0]].append(atom)
+                elif a in fields:
+                    # while there can only be one trial and one test function, there can be multiply free FemFields.
+                    for f in field_atoms:
+                        if f == a:
+                            field_atoms[f].append(atom)
                 else:
-                    raise NotImplementedError(f"atoms of type {str(a)} are not supported")
-            elif isinstance(atom, IndexedVectorFunction):
-                if atom.base in tests:
+                    raise NotImplementedError(f"atoms of type {str(atom)} are not supported")
+            # IF VectorFunction
+            elif isinstance(a, IndexedVectorFunction):
+                # .base returns ... the base of a VectorFunction! E.g., u[2] -> u, v[0] -> v
+                if a.base in tests:
                     for vi in test_atoms:
-                        if vi == atom:
-                            test_atoms[vi].append(a)
+                        if vi == a:
+                            test_atoms[vi].append(atom)
                             break
-                elif atom.base in trials:
+                elif a.base in trials:
                     for ui in trial_atoms:
-                        if ui == atom:
-                            trial_atoms[ui].append(a)
+                        if ui == a:
+                            trial_atoms[ui].append(atom)
                             break
-                elif atom.base in fields:
+                elif a.base in fields:
                     for fi in field_atoms:
-                        if fi == atom:
-                            field_atoms[fi].append(a)
+                        if fi == a:
+                            field_atoms[fi].append(atom)
                             break
                 else:
-                    raise NotImplementedError(f"atoms of type {str(a)} are not supported")
+                    raise NotImplementedError(f"atoms of type {str(atom)} are not supported")
 
         # ----- Julian O. 11.06.25 -----
+        # Regarding the code that follows:
         # When dealing with a DiscreteBilinearForm depending on two or more free FemFields,
         # the order of the dictionary `field_derivatives` must be the same as the order
-        # of the free FemFields as in `self._free_args`.
+        # of the free FemFields in `self._free_args`.
         # For some reason, the order of all appearing "atoms" in a BilinearForm (trial function, test function, free fields, .?.)
         # as obtained in the __init__ of AST
         #       atoms               = terminal_expr.expr.atoms(ScalarFunction, VectorFunction)
@@ -1261,7 +1315,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         # This order of atoms however determines the order of the free FemFields appearing in `self._free_args`.
         # In particular, this order only sometimes matches the order of `field_derivatives`, which results in wrong matrices.
         #
-        # Below is the old version of the code the follows:
+        # Below is the old version of the code that follows:
         #field_derivatives = {}
         #for key in field_atoms:
         #    sym_key = SymbolicExpr(key)
@@ -1269,32 +1323,74 @@ class DiscreteBilinearForm(BasicDiscrete):
         #    for f in field_atoms[key]:
         #        field_derivatives[sym_key][SymbolicExpr(f)] = get_index_logical_derivatives(f)
         # ------------------------------
+
+        # For the computation of the coupling terms, among other we need to organize information 
+        # related to free FemFields. For now, we have the dictionary field_atoms, whose keys are 
+        # components of appearing fields, and whose values are appearing partial derivatives of these, e.g.,
+        # field_atoms = {'F1[0]':[dx1(F1[0]), ], 'F1[1]':[dx2(F1[1]), ], 'F1[2]':[dx3(F1[2]), ], 'F2':[F2, ]}
+        #
+        # We now create the dictionary field_derivatives. 
+        # It's keys are SymbolicExpr of the previous keys (F1[0] -> F1_0, F1[1] -> F1_1, F1[2] -> F1_2, F2 -> F2)
+        # and its values are again dictionaries, whose keys are symbolic expressions of the appearing partial derivatives, e.g.
+        # dx1(F1[0]) -> F1_0_x1, dx2(F1[1]) -> F1_1_x2, dx3(F1[2]) -> F1_2_x3, F2 -> F2,
+        # and whose values are dictionaries that store the respective derivative information.
+        # Consider for example the BilinearForm (u, v) \mapsto integral(domain, dot(u, grad(Fs)) * dot(v, grad(Fs2)):
+        # The corresponding field_derivatives dict will be 
+        # {Fs: {Fs_x3: {'x1': 0, 'x2': 0, 'x3': 1}, Fs_x2: {'x1': 0, 'x2': 1, 'x3': 0}, Fs_x1: {'x1': 1, 'x2': 0, 'x3': 0}}, Fs2: {Fs2_x3: {'x1': 0, 'x2': 0, 'x3': 1}, Fs2_x2: {'x1': 0, 'x2': 1, 'x3': 0}, Fs2_x1: {'x1': 1, 'x2': 0, 'x3': 0}}}
+
+        # Amount of free FemFields (NOT counting each component individually)
         n_free_fields = len(self._free_args)
         field_derivatives = {}
+        # The keys in field_derivatives will be in the same order as the fields appearing in self._free_args
         for n in range(n_free_fields):
+            # The key might be F1[0], but we want to check whether F1 == self._free_args[0], and ...
             for key in field_atoms:
+                # ... field_name does exactly that
                 field_name = str(key.base) if hasattr(key, 'base') else str(key)
                 if field_name == self._free_args[n]:
+                    # SymbolicExpr transforms something like F1[0] into F1_0 (part of the name of a variable in the assembly code later)
                     sym_key = SymbolicExpr(key)
                     field_derivatives[sym_key] = {}
                     for f in field_atoms[key]:
+                        # And similarly f, which might look like dx1(F1[0]), will be transformed to F1_0_x2
+                        # while get_index_logical_derivatives(dx1(F1[0])) = {'x1': 1, 'x2': 0, 'x3': 0}
                         field_derivatives[sym_key][SymbolicExpr(f)] = get_index_logical_derivatives(f)
 
-        syme = False
-        if syme:
-            from symengine import sympify as syme_sympify
-            sym_test_atoms  = {k:[syme_sympify(SymbolicExpr(ai)) for ai in a] for k,a in test_atoms.items()}
-            sym_trial_atoms = {k:[syme_sympify(SymbolicExpr(ai)) for ai in a] for k,a in trial_atoms.items()}
-            sym_expr        = syme_sympify(SymbolicExpr(texpr.expr))
-        else:
-            sym_test_atoms  = {k:[SymbolicExpr(ai) for ai in a] for k,a in test_atoms.items()}
-            sym_trial_atoms = {k:[SymbolicExpr(ai) for ai in a] for k,a in trial_atoms.items()}
-            sym_expr        = SymbolicExpr(texpr.expr)
+        # This part was proposed by Said at some point
+        #syme = False
+        #if syme:
+        #    from symengine import sympify as syme_sympify
+        #    sym_test_atoms  = {k:[syme_sympify(SymbolicExpr(ai)) for ai in a] for k,a in test_atoms.items()}
+        #    sym_trial_atoms = {k:[syme_sympify(SymbolicExpr(ai)) for ai in a] for k,a in trial_atoms.items()}
+        #    sym_expr        = syme_sympify(SymbolicExpr(texpr.expr))
+        #else:
+        #    sym_test_atoms  = {k:[SymbolicExpr(ai) for ai in a] for k,a in test_atoms.items()}
+        #    sym_trial_atoms = {k:[SymbolicExpr(ai) for ai in a] for k,a in trial_atoms.items()}
+        #    sym_expr        = SymbolicExpr(texpr.expr)
+
+        # test_atoms is a dict whose values are components of the test function and whose values
+        # are arrays with appearing partial derivatives of those components.
+        # sym_test_atoms has the same structure, but replaces the appearing partial derivatives with
+        # symbolic expressions of those partial derivatives. E.g., 
+        # test_atoms:     {v2[0]: [dx3(v2[0]), dx2(v2[0])], v2[1]: [dx1(v2[1]), dx3(v2[1])], v2[2]: [dx2(v2[2]), dx1(v2[2])]}
+        # sym_test_atoms: {v2[0]: [v2_0_x3, v2_0_x2], v2[1]: [v2_1_x1, v2_1_x3], v2[2]: [v2_2_x2, v2_2_x1]}
+        # In the following, we will gather all (coupling) terms of a specific combination of a sym_test_atom with a sym_trial_atom in sym_expr
+        sym_test_atoms  = {k:[SymbolicExpr(ai) for ai in a] for k,a in test_atoms.items()}
+        sym_trial_atoms = {k:[SymbolicExpr(ai) for ai in a] for k,a in trial_atoms.items()}
+        sym_expr        = SymbolicExpr(texpr.expr)
+
+        # ----- temps, rhs -----
 
         trials_subs = {ui:0 for u in sym_trial_atoms for ui in sym_trial_atoms[u]}
         tests_subs  = {vi:0 for v in sym_test_atoms  for vi in sym_test_atoms[v]}
         sub_exprs   = {}
-
+        
+        # This is where the real magic happens: The at times extremely long and complicated SymbolicExpr sym_expr
+        # 0. is brought into a more readable form (sub_exprs) &
+        # 1. gets split into many small parts (temps), that often times appear in multiple sub_exprs,
+        #    but now only have to be computed once, e.g. (temp_0, -F2_1*F1_1) &
+        # 2. those temporaries get assigned to coupling terms (rhs), i.e.: 
+        #    The coupling term corresponding to the sub-expr dx1(u[0])*dx3(v[1]) might be -temp_7*(temp_22*temp_27 + temp_33*temp_35 + temp_36*temp_37)
         for u in sym_trial_atoms:
             for v in sym_test_atoms:
                 if isinstance(u, IndexedVectorFunction) and isinstance(v, IndexedVectorFunction):
@@ -1318,10 +1414,28 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         temps, rhs = cse_main.cse(sub_exprs.values(), symbols=cse_main.numbered_symbols(prefix=f'temp_'))
 
+        # ----------------------
+
+        # Finally, temps and rhs must be brought into a form that can be included in the assembly code, e.g.
+        #                    temp_0 = x_x1*y_x2
+        #                    temp_1 = x_x2*z_x1
+        #                    temp_2 = y_x1*z_x2
+        #                    ...
+        #                    coupling_terms_u_v[k_2, q_2, k_3, q_3, 0] = temp_7*(temp_10**2*temp_9 + temp_11**2*temp_9 + temp_8**2*temp_9)
+        #                    coupling_terms_u_v[k_2, q_2, k_3, q_3, 1] = temp_18
+        #                    coupling_terms_u_v[k_2, q_2, k_3, q_3, 2] = temp_22
+        #                    ...
+
+        # See above example: In our implementation of the sum factorization algorithm, we precompute arrays
+        # for each quadrature point in x1 direction, meaning that those arrays contain values depending on 
+        # elements and quadrature points in x2 and x3 direction (k_2, k_3 & q_2 & q_3)
         element_indices    = [Symbol('k_{}'.format(i)) for i in range(2,4)]
         quadrature_indices = [Symbol('q_{}'.format(i)) for i in range(2,4)]
+        # indices = (k_2, q_2, k_3, q_3)
         indices = tuple(j for i in zip(element_indices, quadrature_indices) for j in i)
 
+        # From the sub_exprs dictionary, we read all the appearing trial and test component combinations (blocks) that
+        # add a non-zero contribution to the matrix
         ordered_stmts = {}
         ordered_sub_exprs_keys = {}
         for key in sub_exprs.keys():
@@ -1338,6 +1452,9 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         expr = self.kernel_expr.expr
 
+        # We store the maximum partial derivative (for a fixed direction), not including pertial derivatives
+        # appearing in mapping related terms (i.e., a BilinearForm on a mapped domain will have max_logical_derivative = 0
+        # even though derivatives of the (spline) mapping appear in the coupling terms).
         if isinstance(expr, (ImmutableDenseMatrix, Matrix)):
             shape = expr.shape
             logical_max_derivatives = []
@@ -1348,12 +1465,18 @@ class DiscreteBilinearForm(BasicDiscrete):
         else:
             max_logical_derivative = max([value for value in get_max_logical_partial_derivatives(expr).values()])
 
-        if isinstance(expr, (ImmutableDenseMatrix, Matrix)):
+        # See comment underneath this code block for more details.
+        # There was a test case, in which the amount of generated StencilMatrices (one for each appearing block,
+        # i.e., one for each trial&test component combination for which a non-zero coupling term exists)
+        # was larger than the amount true amount of needed StencilMatrices.
+        # That discrepancy appears when expr[block].is_zero wrongly does not detect that a block is zero,
+        # whereas the corresponding block does rightfully not appear in block_list!
+        if isinstance(expr, (ImmutableDenseMatrix, Matrix)): # only relevenat if either trial or test function is vector valued
             g_mat_information_false = []
             shape = expr.shape
             for k1 in range(shape[0]):
                 for k2 in range(shape[1]):
-                    if not expr[k1,k2].is_zero:
+                    if not expr[k1,k2].is_zero: # although it might actually be zero!
                         if (nu == 1) and (nv > 1):
                             g_mat_information_false.append((k2,k1))
                         else:
@@ -1368,21 +1491,25 @@ class DiscreteBilinearForm(BasicDiscrete):
             g_mat_information_false = []
             g_mat_information_true = []
 
-        # Julian O. 17.06.25: Back when I added this unreadably comment below I did not write a test for this problem.
+        # Julian O. 17.06.25: Back when I added this unreadable comment below I forgot to write a test for this problem.
         #                     Eventually it might be interesting to remove everything related to `g_mat_information_false/true`
         #                     and see where errors occur.
-        #'''
+        #
         #1, 1: expr[1,1] = F0*sqrt(x1**2*(x1*cos(2*pi*x3) + 2)**2*(sin(pi*x2)**2 + cos(pi*x2)**2)**2*(sin(2*pi*x3)**2 + cos(2*pi*x3)**2)**2)*(pi*(x1*cos(2*pi*x3) + 2)*
-        #(-2*pi*x1*sin(pi*x2)*sin(2*pi*x3)*dx1(v1[1]) - sin(pi*x2)*cos(2*pi*x3)*dx3(v1[1]))*cos(pi*x2)*w2[1] - pi*(x1*cos(2*pi*x3) + 2)*(-2*pi*x1*sin(2*pi*x3)*cos(pi*x2)*dx1(v1[1]) - 
-        #cos(pi*x2)*cos(2*pi*x3)*dx3(v1[1]))*sin(pi*x2)*w2[1])/(2*pi**2*x1**2*(x1*cos(2*pi*x3) + 2)**2*(sin(pi*x2)**2 + cos(pi*x2)**2)**2*(sin(2*pi*x3)**2 + cos(2*pi*x3)**2)**2)
-        #= 0 - but is not yet detected as 0! Hence a matrix is generated, that later is not required!
-        #'''
+        # (-2*pi*x1*sin(pi*x2)*sin(2*pi*x3)*dx1(v1[1]) - sin(pi*x2)*cos(2*pi*x3)*dx3(v1[1]))*cos(pi*x2)*w2[1] - pi*(x1*cos(2*pi*x3) + 2)*(-2*pi*x1*sin(2*pi*x3)*cos(pi*x2)*dx1(v1[1]) - 
+        # cos(pi*x2)*cos(2*pi*x3)*dx3(v1[1]))*sin(pi*x2)*w2[1])/(2*pi**2*x1**2*(x1*cos(2*pi*x3) + 2)**2*(sin(pi*x2)**2 + cos(pi*x2)**2)**2*(sin(2*pi*x3)**2 + cos(2*pi*x3)**2)**2)
+        # = 0 - but is not yet detected as 0! Hence a matrix is generated, that later is not required!
+        #
 
+        # Here we create a template for the names of the coupling terms arrays, 
+        # depending on whether or not trial and test function are scalar or vector valued
         if nv > 1:
             ct_str = 'coupling_terms_u_{u_i}_v_{v_j}' if nu > 1 else 'coupling_terms_u_v_{v_j}'
         else:
             ct_str = 'coupling_terms_u_{u_i}_v' if nu > 1 else 'coupling_terms_u_v'
 
+        # Now we format this template based on the appearing blocks (combinations of trial and test function components)
+        # and transform those formatted strings into IndexedBase objects
         lhs = {}
         for block in blocks:
             u_i = get_atom_logical_derivatives(block[0]).indices[0] if nu > 1 else 0
@@ -1390,15 +1517,27 @@ class DiscreteBilinearForm(BasicDiscrete):
             ct = ct_str.format(u_i=u_i, v_j=v_j)
             lhs[block] = IndexedBase(f'{ct}')
         
+        # lhs[block] will look w.g. like this coupling_terms_u_v (u, v scalar).
+        # Now, we add to that [k_2, q_2, k_3, q_3, count], where count enumerates the sub expressions belonging to the same block
+        # sub expressions corresponding to the block (u[0], v[1]) might be: (u[0], v[1]), (dx1(u[0]), v[1]), (dx2(u[0]), v[1]), ...
+        # and then assign the corresponding rhs, e.g. temp_7*(temp_10**2*temp_9 + temp_11**2*temp_9 + temp_8**2*temp_9), to obtain:
+        # coupling_terms_u_v[k_2, q_2, k_3, q_3, 4] = temp_7*(temp_10**2*temp_9 + temp_11**2*temp_9 + temp_8**2*temp_9)
         counts = {block:0 for block in blocks}
-
         for r,key in zip(rhs, sub_exprs.keys()):
             u_i, v_j = [get_atom_logical_derivatives(atom) for atom in key]
             count = counts[u_i, v_j]
             counts[u_i, v_j] += 1
             ordered_stmts[u_i, v_j].append(Assign(lhs[u_i, v_j][(*indices, count)], r))
             ordered_sub_exprs_keys[u_i, v_j].append(key)
+        # ordered_stmts is a dict whose keys are combinations of trial and test functions components (e.g. u[0], v[1]),
+        # and whose values are a list of coupling term assignments corresponding to this block, e.g.
+        # (v1[0], v2[0]): [coupling_terms_u_0_v_0[k_2, q_2, k_3, q_3, 0] := -1, coupling_terms_u_0_v_0[k_2, q_2, k_3, q_3, 1] := 1]
+        # 
+        # The information regarding which partial derivative combination belongs to which coupling term is stored in ordered_sub_exprs_keys.
+        # This dict has the same keys, but instead of coupling term assignments as values, list of tuples of partial derivative combinations are stored.
 
+        # temps, which previously consisted of tuples like this one: (temp_0, -F2_1*F1_1),
+        # will now be a tuple consisting of assignments, e.g. (temp_0 := -F2_1*F1_1, ...)
         temps = tuple(Assign(a,b) for a,b in temps)
 
         return temps, ordered_stmts, ordered_sub_exprs_keys, mapping_option, field_derivatives, g_mat_information_false, g_mat_information_true, max_logical_derivative
@@ -1496,7 +1635,6 @@ class DiscreteBilinearForm(BasicDiscrete):
         # When self._target is an Interface domain len(self._grid) == 2
         # where grid contains the QuadratureGrid of both sides of the interface
         assert len(self.grid) == 1
-        print(self.mapping)
         if self.mapping:
             # We gather mapping related information in the case of a Bspline mapping
             # self.mapping == False if either no or an analytical mapping
