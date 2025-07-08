@@ -136,11 +136,25 @@ def test_assembly(mapping):
     F21_coeffs = V2h.coeff_space.zeros()
     for block in F21_coeffs.blocks:
         rng.random(size=block._data.shape, dtype='float64', out=block._data)
+    Fvc1_coeffs = Vvch.coeff_space.zeros()
+    for block in Fvc1_coeffs.blocks:
+        rng.random(size=block._data.shape, dtype='float64', out=block._data)
+    Fs1_coeffs = Vsh.coeff_space.zeros()
+    rng.random(size=Fs1_coeffs._data.shape, dtype='float64', out=Fs1_coeffs._data)
+    Fs2_coeffs = Vsh.coeff_space.zeros()
+    rng.random(size=Fs2_coeffs._data.shape, dtype='float64', out=Fs2_coeffs._data)
+    Fvd1_coeffs = Vvdh.coeff_space.zeros()
+    for block in Fvd1_coeffs.blocks:
+        rng.random(size=block._data.shape, dtype='float64', out=block._data)
 
     F01_field   = FemField(V0h, F01_coeffs)
     F11_field   = FemField(V1h, F11_coeffs)
     F12_field   = FemField(V1h, F12_coeffs)
     F21_field   = FemField(V2h, F21_coeffs)
+    Fvc1_field  = FemField(Vvch, Fvc1_coeffs)
+    Fs1_field   = FemField(Vsh, Fs1_coeffs)
+    Fs2_field   = FemField(Vsh, Fs2_coeffs)
+    Fvd1_field  = FemField(Vvdh, Fvd1_coeffs)
 
     bilinear_forms = {  # one and two free FemFields without derivatives (with derivatives in seperate test)
                         # complicated expressions
@@ -160,16 +174,20 @@ def test_assembly(mapping):
                         'dot(curl(v),w)':{'trial' :'V1', 'test':'V2',
                                           'expr'  :dot(curl(v1), F21)*div(w2)*weight,
                                           'fields':[F21_field, ]},
+                        # among other difficulties: multiple scalar FemFields
+                        'ScalarFields'  :{'trial' :'V0', 'test':'V1',
+                                          'expr'  :dot(grad(u1), curl(Fvc1))*dot(grad(Fs1), curl(v2))*Fs2*div(Fvd1),
+                                          'fields':[Fvc1_field, Fs1_field, Fs2_field, Fvd1_field]},
                         # high derivatives, not FEEC
                         'bilaplace'     :{'trial' :'Vs', 'test':'Vs',
                                           'expr'  :laplace(fs1)*laplace(fs2)}
                      }
     
     # test all BFs
-    bilinear_form_strings_to_test   = list(bilinear_forms.keys())
+    # bilinear_form_strings_to_test   = list(bilinear_forms.keys())
 
     # or only a subset
-    # bilinear_form_strings_to_test   = ['bilaplace', 'divgrad']
+    bilinear_form_strings_to_test   = list(bilinear_forms.keys())[:-1] # exclude expensive bilaplace test
 
     bilinear_forms_to_test          = {}
     for name in bilinear_form_strings_to_test:
@@ -233,6 +251,14 @@ def test_assembly(mapping):
             
             t0      = time.time()
             A       = ah.assemble(F21=fields[0])
+            t1      = time.time()
+        elif bf_name == 'ScalarFields':
+            t0_old  = time.time()
+            A_old   = ah_old.assemble(Fvc1=fields[0], Fs1=fields[1], Fs2=fields[2], Fvd1=fields[3])
+            t1_old  = time.time()
+
+            t0      = time.time()
+            A       = ah.assemble(Fvc1=fields[0], Fs1=fields[1], Fs2=fields[2], Fvd1=fields[3])
             t1      = time.time()
         else:
             t0_old  = time.time()
@@ -504,3 +530,60 @@ def test_assembly_free_FemFields():
     diff = (A_sym-A_fem).tosparse()
 
     assert abs(diff.data).max() < 4e-2
+
+def test_varying_multiplicity():
+    """
+    We test whether a bilinear form is correctly assembled when using a different 
+    multiplicity vector for trial and test function space.
+    As the previous assembly algorithm supported this feature, we can check whether we obtain the same matrix as the old algorithm.
+    
+    """
+
+    backend = PSYDAC_BACKEND_GPYCCEL
+
+    ncells  = [5, 7, 4]
+    degree  = [1, 3, 2]
+
+    mult1   = [1, 1, 2]
+    mult2   = [1, 3, 1]
+
+    domain      = Cube('C', bounds1=(0,1), bounds2=(0,1), bounds3=(0,1))
+    domain_h    = discretize(domain, ncells=ncells)
+
+    derham      = Derham(domain)
+    derham1_h   = discretize(derham, domain_h, degree=degree, multiplicity=mult1)
+    derham2_h   = discretize(derham, domain_h, degree=degree, multiplicity=mult2)
+
+    V0      = derham.V0
+    V01h    = derham1_h.V0
+    V02h    = derham2_h.V0
+
+    u, v    = elements_of(V0, names='u, v')
+
+    a       = BilinearForm((u, v), integral(domain, u*v))
+
+    ah      = discretize(a, domain_h, (V01h, V02h), backend=backend)
+    M0      = ah.assemble()
+
+    ah      = discretize(a, domain_h, (V01h, V02h), backend=backend, sum_factorization=False)
+    M0_old  = ah.assemble()
+
+    diff_arr = (M0 - M0_old).toarray()
+    assert np.linalg.norm(diff_arr) < 1e-12 # arbitrary tol
+
+    V1      = derham.V1
+    V11h    = derham1_h.V1
+    V12h    = derham2_h.V1
+
+    u, v    = elements_of(V1, names='u, v')
+
+    a       = BilinearForm((u, v), integral(domain, dot(curl(u), v)))
+
+    ah      = discretize(a, domain_h, (V11h, V12h), backend=backend)
+    A       = ah.assemble()
+
+    ah      = discretize(a, domain_h, (V11h, V12h), backend=backend, sum_factorization=False)
+    A_old   = ah.assemble()
+
+    diff_arr = (A - A_old).toarray()
+    assert np.linalg.norm(diff_arr) < 1e-12 # arbitrary tol

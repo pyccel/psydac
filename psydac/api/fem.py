@@ -472,6 +472,8 @@ class DiscreteBilinearForm(BasicDiscrete):
         # Construct the arguments to be passed to the assemble() function, which is stored in self._func
         # If sum_factorization == True: First generate the assembly file
         if self._sum_factorization == True:
+            # pyccelize process of computing the test_trial arrays
+            self._pyccelize_test_trial_computation = True
             # no openmp support yet
             self._args, self._threads_args = self.construct_arguments_generate_assembly_file()
         else:
@@ -777,15 +779,50 @@ class DiscreteBilinearForm(BasicDiscrete):
 '''
         return code
 
-    def make_file(self, temps, ordered_stmts, field_derivatives, max_logical_derivative, mult, *args, mapping_option=None):
+    def make_file(self, temps, ordered_stmts, field_derivatives, max_logical_derivative, test_mult, trial_mult, test_v_p, trial_u_p, keys_1, keys_2, keys_3, mapping_option):
         """
         Part of the sum factorization algorithm implementation.
-        Generates the correct assembly file and returns the name of the corresponding python file.
-        Used at the end of construct_arguments_generate_assembly_file(), before eventually pyccelizing said file.
+        Generates the correct assembly file.
+        Used at the end of construct_arguments_generate_assembly_file, before eventually pyccelizing that file.
+
+        Parameters
+        ----------
+        temps : 
+
+        ordered_stmts : 
+
+        field_derivatives : 
+
+        max_logical_derivative : 
+
+        test_mult :
+
+        trial_mult :  
+
+        test_v_p : 
+
+        trial_u_p : 
+
+        keys_1 : 
+
+        keys_2 : 
+
+        keys_3 : 
+
+        mapping_option : 
+
+        Returns
+        -------
+
+        file_id : str
+            random string of length 8, corresponding to the assembly file name located in __psydac__/
         
         """
 
-        # ----- field strings -----
+        # ----- free FemField related strings -----
+
+        # used as {FIELD_ARGS} in _assembly_template_head
+        # adding the right arguments for free FemFields to the assembly function header
         basis_args_block = [f'global_test_basis_'+'{field}'+f'_{i+1} : "float64[:,:,:,:]"' for i in range(3)]
         basis_args_block = ", ".join(basis_args_block) + ","
         basis_args_block = [basis_args_block.format(field=field) for field in field_derivatives]
@@ -804,15 +841,29 @@ class DiscreteBilinearForm(BasicDiscrete):
         pad_args = "                    " + "\n                    ".join(pad_args_block) + "\n"
         coeff_args_block = [f'global_arr_coeffs_{field} : "float64[:,:,:]"' for field in field_derivatives]
         coeff_args = "                    " + ", ".join(coeff_args_block)
-        field_args = basis_args+span_args+degree_args+pad_args+coeff_args
+        FIELD_ARGS = basis_args+span_args+degree_args+pad_args+coeff_args
 
-        arr_coeffs_txt = "\n".join([f"    arr_coeffs_{field} = zeros((1 + test_{field}_p1, 1 + test_{field}_p2, 1 + test_{field}_p3), dtype='float64')" for field in field_derivatives])
-        span_1_txt = "\n".join([f"        span_{field}_1 = global_span_{field}_1[k_1]" for field in field_derivatives]) + "\n"
-        span_2_txt = "\n".join([f"                span_{field}_2 = global_span_{field}_2[k_2]" for field in field_derivatives]) + "\n"
-        span_3_txt = "\n".join([f"                        span_{field}_3 = global_span_{field}_3[k_3]" for field in field_derivatives]) + "\n"
+        # {F_COEFFS_ZEROS} in both _assembly_template_body_bspline & _analytic
+        F_COEFFS_ZEROS = "\n".join([f"    arr_coeffs_{field} = zeros((1 + test_{field}_p1, 1 + test_{field}_p2, 1 + test_{field}_p3), dtype='float64')" for field in field_derivatives])
+
+        # {F_SPAN_1}, {F_SPAN_2}, {F_SPAN_3} in both _assembly_template_body_bspline & _analytic
+        F_SPAN_1 = "\n".join([f"        span_{field}_1 = global_span_{field}_1[k_1]" for field in field_derivatives]) + "\n"
+        F_SPAN_2 = "\n".join([f"                span_{field}_2 = global_span_{field}_2[k_2]" for field in field_derivatives]) + "\n"
+        F_SPAN_3 = "\n".join([f"                        span_{field}_3 = global_span_{field}_3[k_3]" for field in field_derivatives]) + "\n"
+
+        # {F_COEFFS} in both _assembly_template_body_bspline & _analytic
         coeff_ranges = ", ".join([f"pad_"+"{field}"+f"_{i+1} + span_"+"{field}"+f"_{i+1} - test_"+"{field}"+f"_p{i+1}:1 + pad_"+"{field}"+f"_{i+1} + span_"+"{field}"+f"_{i+1}" for i in range(3)])
-        arr_coeffs_assign_txt = "\n".join([f"                        arr_coeffs_{field}[:,:,:] = global_arr_coeffs_{field}[{coeff_ranges.format(field=field)}]" for i, field in enumerate(field_derivatives)])
-        field_init = "\n".join([f"                            {derivative}     = 0.0" for field in field_derivatives for derivative in field_derivatives[field]])
+        F_COEFFS = "\n".join([f"                        arr_coeffs_{field}[:,:,:] = global_arr_coeffs_{field}[{coeff_ranges.format(field=field)}]" for i, field in enumerate(field_derivatives)])
+
+        # {F_INIT}
+        F_INIT = "\n".join([f"                            {derivative}     = 0.0" for field in field_derivatives for derivative in field_derivatives[field]])
+
+        #
+        # field_init assigns 0 to appearing free FemField derivatives (F_x1 = 0.0 \n F_x2 = 0.0 \n ...)
+        # In the following, we assemble loops that correctly compute those free FemField derivatives at 
+        # a specific quadrature point (q_1, q_2, q_3). Those values will then be used in the computation 
+        # of the temps or directly in the computation of the coupling terms
+        #
         assign_loop_contents = {'1':{}, '2':{}, '3':{}}
         multiplication_info = {}
 
@@ -851,23 +902,27 @@ class DiscreteBilinearForm(BasicDiscrete):
                 txt += f"{tab}            {derivative} += {factors} * coeff_{field}\n"
             txt += "\n"
             assign.append(txt)
-        assign = "\n".join(assign)
-        # -------------------------
 
-        verbose = False
-        if verbose: print(mapping_option)
+        # {F_ASSIGN_LOOP} in both _assembly_template_body_bspline & _analytic
+        F_ASSIGN_LOOP = "\n".join(assign)
 
+        # -----------------------------------------
+
+        # ----- load the templates -----
+        #
+        # head for the function header and imports
+        # body for the computation of coupling terms
+        # loop (part of function body): one loop per block ( e.g. (u[0], v[1]) ), each loop effectively 
+        # assembles one StencilMatrix per sub expression ( e.g. (dx1(u[0]), dx3(v[1])) )
         code_head = self._assembly_template_head
         code_loop = self._assembly_template_loop
-
         if mapping_option == 'Bspline':
             code_body = self._assembly_template_body_bspline
         else:
             code_body = self._assembly_template_body_analytic
-        self._mapping_option = mapping_option
+        # ------------------------------
         
-        test_v_p, trial_u_p, keys_1, keys_2, keys_3 = args
-
+        # ---- obtain basic information not explicitely passed in the args -----
         blocks              = ordered_stmts.keys()
         block_list          = list(blocks)
         trial_components    = [block[0] for block in block_list]
@@ -876,11 +931,14 @@ class DiscreteBilinearForm(BasicDiscrete):
         nv                  = len(set(test_components))
         d = 3
         assert d == 3
+        # ----------------------------------------------------------------------
 
-        # Prepare strings depending on whether the trial and test function are vector-valued or not (nu, nv > 1 or == 1)
+        # Prepare strings and string templates depending on whether the trial and test function are vector-valued or not (nu, nv > 1 or == 1)
 
-        #------------------------- STRINGS HEAD -------------------------
+        # ------------------------- STRINGS HEAD -------------------------
+        
         global_span_v_str   = 'global_span_v_{v_j}_'  if nv > 1 else 'global_span_v_'
+
         if mapping_option == 'Bspline':
             MAPPING_PART_1 = 'global_basis_mapping_1 : "float64[:,:,:,:]", global_basis_mapping_2 : "float64[:,:,:,:]", global_basis_mapping_3 : "float64[:,:,:,:]", '
             MAPPING_PART_2 = 'global_span_mapping_1 : "int64[:]", global_span_mapping_2 : "int64[:]", global_span_mapping_3 : "int64[:]", '
@@ -908,7 +966,11 @@ class DiscreteBilinearForm(BasicDiscrete):
             a2_str      = 'a2_u_{u_i}_v'                if nu > 1 else 'a2_u_v'
             ct_str      = 'coupling_terms_u_{u_i}_v'    if nu > 1 else 'coupling_terms_u_v'
             g_mat_str   = 'g_mat_u_{u_i}_v'             if nu > 1 else 'g_mat_u_v'
-        #------------------------- STRINGS BODY -------------------------
+
+        # ----------------------------------------------------------------
+
+        # ------------------------- STRINGS BODY -------------------------
+        
         span_v_1_str    = 'span_v_{v_j}_1'  if nv > 1 else 'span_v_1'
         test_v_p1_str   = 'test_v_{v_j}_p1' if nv > 1 else 'test_v_p1'
 
@@ -920,13 +982,17 @@ class DiscreteBilinearForm(BasicDiscrete):
             keys_2_str  = 'keys_2_u_{u_i}_v'    if nu > 1 else 'keys_2_u_v'
             keys_3_str  = 'keys_3_u_{u_i}_v'    if nu > 1 else 'keys_3_u_v'
             a1_str      = 'a1_u_{u_i}_v'        if nu > 1 else 'a1_u_v'
-        #------------------------- STRINGS LOOP -------------------------
+
+        # ----------------------------------------------------------------
+
+        # ------------------------- STRINGS LOOP -------------------------
+
         span_2_str          = 'span_v_{v_j}_2'          if nv > 1 else 'span_v_2'
         span_3_str          = 'span_v_{v_j}_3'          if nv > 1 else 'span_v_3'
         global_span_2_str   = 'global_span_v_{v_j}_2'   if nv > 1 else 'global_span_v_2'
         global_span_3_str   = 'global_span_v_{v_j}_3'   if nv > 1 else 'global_span_v_3'
 
-        #-------------------------------------------------------------
+        # ----------------------------------------------------------------
 
         #------------------------- MAKE HEAD -------------------------
         SPAN            = ''
@@ -971,17 +1037,17 @@ class DiscreteBilinearForm(BasicDiscrete):
         A2  += '\n'
         CT  += '\n'
         NEW_ARGS = TT1 + TT2 + TT3 + A3 + A2 + CT
-        imports_string = self._imports_string
+        IMPORTS = self._imports_string
 
-        head = code_head.format(SPAN=SPAN, 
-                                G_MAT=G_MAT, 
-                                NEW_ARGS=NEW_ARGS,
-                                MAPPING_PART_1=MAPPING_PART_1,
-                                MAPPING_PART_2=MAPPING_PART_2,
-                                MAPPING_PART_3=MAPPING_PART_3,
-                                MAPPING_PART_4=MAPPING_PART_4,
-                                FIELD_ARGS=field_args,
-                                imports=imports_string)
+        head = code_head.format(SPAN            = SPAN, 
+                                G_MAT           = G_MAT, 
+                                NEW_ARGS        = NEW_ARGS,
+                                MAPPING_PART_1  = MAPPING_PART_1,
+                                MAPPING_PART_2  = MAPPING_PART_2,
+                                MAPPING_PART_3  = MAPPING_PART_3,
+                                MAPPING_PART_4  = MAPPING_PART_4,
+                                FIELD_ARGS      = FIELD_ARGS,
+                                imports         = IMPORTS)
         
         #------------------------- MAKE BODY -------------------------
         A1              = ''
@@ -1009,9 +1075,10 @@ class DiscreteBilinearForm(BasicDiscrete):
             g_mat       = g_mat_str.format(u_i=u_i, v_j=v_j)
             TEST_V_P1   = test_v_p1_str.format(v_j=v_j)
             SPAN_V_1    = span_v_1_str.format(v_j=v_j)
-            A1_1 = f'{mult[0]}*pad1 + {SPAN_V_1} - {test_v_p1} : {mult[0]}*pad1 + {SPAN_V_1} + 1'                   if mult[0] > 1 else f'pad1 + {SPAN_V_1} - {test_v_p1} : pad1 + {SPAN_V_1} + 1'
-            A1_2 = f'{mult[1]}*pad2 : {mult[1]}*pad2 + n_element_2 + {test_v_p2} + ({mult[1]}-1)*(n_element_2-1)'   if mult[1] > 1 else f'pad2 : pad2 + n_element_2 + {test_v_p2}'
-            A1_3 = f'{mult[2]}*pad3 : {mult[2]}*pad3 + n_element_3 + {test_v_p3} + ({mult[2]}-1)*(n_element_3-1)'   if mult[2] > 1 else f'pad3 : pad3 + n_element_3 + {test_v_p3}'
+
+            A1_1 = f'{test_mult[0]}*pad1 + {SPAN_V_1} - {test_v_p1} : {test_mult[0]}*pad1 + {SPAN_V_1} + 1'                   if test_mult[0] > 1 else f'pad1 + {SPAN_V_1} - {test_v_p1} : pad1 + {SPAN_V_1} + 1'
+            A1_2 = f'{test_mult[1]}*pad2 : {test_mult[1]}*pad2 + n_element_2 + {test_v_p2} + ({test_mult[1]}-1)*(n_element_2-1)'   if test_mult[1] > 1 else f'pad2 : pad2 + n_element_2 + {test_v_p2}'
+            A1_3 = f'{test_mult[2]}*pad3 : {test_mult[2]}*pad3 + n_element_3 + {test_v_p3} + ({test_mult[2]}-1)*(n_element_3-1)'   if test_mult[2] > 1 else f'pad3 : pad3 + n_element_3 + {test_v_p3}'
             A1          += f'        {a1} = {g_mat}[{A1_1}, {A1_2}, {A1_3}, :, :, :]\n'
 
         for v_j in range(nv):
@@ -1027,6 +1094,15 @@ class DiscreteBilinearForm(BasicDiscrete):
         
         KEYS = KEYS_2 + KEYS_3
 
+        # This part is interesting. Right now, below you find hardcoded rules regarding lines of code
+        # that need to be included when max_logical_derivative == 2 ( and mapping_option == 'Bspline').
+        # E.g., the bilinear form corresponding to a bilaplacian problem ( laplace(laplace(u)) = f ) satisfies this assumption.
+        # This hardcoded set of rules could be generalized to n-th max derivatives - if needed!
+        # But for now, higher than second order derivatives on either trial or test function are not supported.
+        #
+        # Additional note: Given a Bspline mapping, the code computing the first order derivatives of mapping related terms is always required!
+        # Even in the case of a trivial bilinear form without derivatives. But only when there are second order partial derivatives involved
+        # do we need to compute second derivatives of the mapping (chain rule).
         if (mapping_option == 'Bspline') and (max_logical_derivative == 2):
             D2_1 = '\n'
             spaces1 = '                            '
@@ -1061,24 +1137,24 @@ class DiscreteBilinearForm(BasicDiscrete):
             D2_5 = ''
             D2_6 = ''
 
-        body = code_body.format(LOCAL_SPAN=LOCAL_SPAN, 
-                                KEYS=KEYS, 
-                                A1=A1, 
-                                TEMPS=TEMPS, 
-                                COUPLING_TERMS=COUPLING_TERMS,
-                                F_COEFFS_ZEROS=arr_coeffs_txt,
-                                F_SPAN_1=span_1_txt,
-                                F_SPAN_2=span_2_txt,
-                                F_SPAN_3=span_3_txt,
-                                F_COEFFS=arr_coeffs_assign_txt,
-                                F_INIT=field_init,
-                                F_ASSIGN_LOOP=assign,
-                                D2_1=D2_1,
-                                D2_2=D2_2,
-                                D2_3=D2_3,
-                                D2_4=D2_4,
-                                D2_5=D2_5,
-                                D2_6=D2_6)
+        body = code_body.format(LOCAL_SPAN      = LOCAL_SPAN, 
+                                KEYS            = KEYS, 
+                                A1              = A1, 
+                                TEMPS           = TEMPS, 
+                                COUPLING_TERMS  = COUPLING_TERMS,
+                                F_COEFFS_ZEROS  = F_COEFFS_ZEROS,
+                                F_SPAN_1        = F_SPAN_1,
+                                F_SPAN_2        = F_SPAN_2,
+                                F_SPAN_3        = F_SPAN_3,
+                                F_COEFFS        = F_COEFFS,
+                                F_INIT          = F_INIT,
+                                F_ASSIGN_LOOP   = F_ASSIGN_LOOP,
+                                D2_1            = D2_1,
+                                D2_2            = D2_2,
+                                D2_3            = D2_3,
+                                D2_4            = D2_4,
+                                D2_5            = D2_5,
+                                D2_6            = D2_6)
         
         #------------------------- MAKE LOOP -------------------------
         assembly_code = head + body
@@ -1112,36 +1188,39 @@ class DiscreteBilinearForm(BasicDiscrete):
             TEST_TRIAL_1    = tt1_str.format(u_i=u_i, v_j=v_j)
             A2_TEMP = " + ".join([f"{TEST_TRIAL_1}[k_1, q_1, i_1, j_1, {keys1[e][0]}, {keys1[e][1]}] * {A2}[{e},:,:,:,:]" for e in range(NEXPR)])
 
-            I_1 = f'int(floor(i_1/{mult[0]})*{mult[0]})' if mult[0] > 1 else 'i_1'
-            I_2 = f'int(floor(i_2/{mult[1]})*{mult[1]})' if mult[1] > 1 else 'i_2'
-            I_3 = f'int(floor(i_3/{mult[2]})*{mult[2]})' if mult[2] > 1 else 'i_3'
+            I_1 = f'int(floor(i_1/{test_mult[0]})*{trial_mult[0]})' if max(test_mult[0], trial_mult[0]) > 1 else 'i_1'
+            I_2 = f'int(floor(i_2/{test_mult[1]})*{trial_mult[1]})' if max(test_mult[1], trial_mult[1]) > 1 else 'i_2'
+            I_3 = f'int(floor(i_3/{test_mult[2]})*{trial_mult[2]})' if max(test_mult[2], trial_mult[2]) > 1 else 'i_3'
+            MAX_P1 = max(int( ( MAX_P1 + 2 + np.floor(MAX_P1 / test_mult[0]) * trial_mult[0] ) / 2 ), MAX_P1) if max(test_mult[0], trial_mult[0]) > 1 else MAX_P1
+            MAX_P2 = max(int( ( MAX_P2 + 2 + np.floor(MAX_P2 / test_mult[1]) * trial_mult[1] ) / 2 ), MAX_P2) if max(test_mult[1], trial_mult[1]) > 1 else MAX_P2
+            MAX_P3 = max(int( ( MAX_P3 + 2 + np.floor(MAX_P3 / test_mult[2]) * trial_mult[2] ) / 2 ), MAX_P3) if max(test_mult[2], trial_mult[2]) > 1 else MAX_P3
 
-            loop = code_loop.format(A1=A1,
-                                    A2=A2,
-                                    A3=A3,
-                                    TEST_TRIAL_2=TEST_TRIAL_2,
-                                    TEST_TRIAL_3=TEST_TRIAL_3,
-                                    SPAN_2=SPAN_2,
-                                    SPAN_3=SPAN_3,
-                                    GLOBAL_SPAN_2=GLOBAL_SPAN_2,
-                                    GLOBAL_SPAN_3=GLOBAL_SPAN_3,
-                                    KEYS_2=KEYS_2,
-                                    KEYS_3=KEYS_3,
-                                    COUPLING_TERMS=COUPLING_TERMS,
-                                    TEST_V_P1=TEST_V_P1,
-                                    TEST_V_P2=TEST_V_P2,
-                                    TEST_V_P3=TEST_V_P3,
-                                    TRIAL_U_P1=TRIAL_U_P1,
-                                    TRIAL_U_P2=TRIAL_U_P2,
-                                    TRIAL_U_P3=TRIAL_U_P3,
-                                    MAX_P1=MAX_P1,
-                                    MAX_P2=MAX_P2,
-                                    MAX_P3=MAX_P3,
-                                    NEXPR=NEXPR,
-                                    A2_TEMP=A2_TEMP,
-                                    I_1=I_1,
-                                    I_2=I_2,
-                                    I_3=I_3)
+            loop = code_loop.format(A1              = A1,
+                                    A2              = A2,
+                                    A3              = A3,
+                                    TEST_TRIAL_2    = TEST_TRIAL_2,
+                                    TEST_TRIAL_3    = TEST_TRIAL_3,
+                                    SPAN_2          = SPAN_2,
+                                    SPAN_3          = SPAN_3,
+                                    GLOBAL_SPAN_2   = GLOBAL_SPAN_2,
+                                    GLOBAL_SPAN_3   = GLOBAL_SPAN_3,
+                                    KEYS_2          = KEYS_2,
+                                    KEYS_3          = KEYS_3,
+                                    COUPLING_TERMS  = COUPLING_TERMS,
+                                    TEST_V_P1       = TEST_V_P1,
+                                    TEST_V_P2       = TEST_V_P2,
+                                    TEST_V_P3       = TEST_V_P3,
+                                    TRIAL_U_P1      = TRIAL_U_P1,
+                                    TRIAL_U_P2      = TRIAL_U_P2,
+                                    TRIAL_U_P3      = TRIAL_U_P3,
+                                    MAX_P1          = MAX_P1,
+                                    MAX_P2          = MAX_P2,
+                                    MAX_P3          = MAX_P3,
+                                    NEXPR           = NEXPR,
+                                    A2_TEMP         = A2_TEMP,
+                                    I_1             = I_1,
+                                    I_2             = I_2,
+                                    I_3             = I_3)
             
             loop_str += loop
 
@@ -1157,19 +1236,19 @@ class DiscreteBilinearForm(BasicDiscrete):
         if comm is not None and comm.size>1:
             if comm.rank == 0:
                 file_id = id_generator()
-                filename = f'__psydac__/assemble_{file_id}.py'  #-
+                filename = f'__psydac__/assemble_{file_id}.py'
                 f = open(filename, 'w')
                 f.writelines(assembly_code)
-                f.close()                                       #-
+                f.close()
             else:
                 file_id = None
             file_id = comm.bcast(file_id, root=0)
         else:
             file_id = id_generator()
-            filename = f'__psydac__/assemble_{file_id}.py'      #-
+            filename = f'__psydac__/assemble_{file_id}.py'
             f = open(filename, 'w')
             f.writelines(assembly_code)
-            f.close()                                           #-
+            f.close()
 
         return file_id
 
@@ -1276,7 +1355,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                 elif a in trials:
                     trial_atoms[trials[0]].append(atom)
                 elif a in fields:
-                    # while there can only be one trial and one test function, there can be multiply free FemFields.
+                    # while there can only be one trial and one test function, there can be multiple free FemFields.
                     for f in field_atoms:
                         if f == a:
                             field_atoms[f].append(atom)
@@ -1590,15 +1669,9 @@ class DiscreteBilinearForm(BasicDiscrete):
         # That is not strictly necessary as Valentin at some point proved in one of his branches, but currently not implemented as
         # not required.
 
-        #! the above pads variable is multiplied by the multiplicity vector! For the remaining implementation, I need
-        # the pads vector un-multiplied
+        #! the above pads variable is multiplied by the multiplicity vector! For the remaining implementation, we need
+        # the pads vector un-multiplied, as obtained by :
         pads = self.test_basis.space.coeff_space.pads
-
-        #! the current implementation does not work for different multiplicity vectors, in particular also because
-        # I (used to) overwrite the mult variable the same way I still overwrite the pads variable
-        mult = trial_mult
-        print(f'test_mult: {test_mult}')
-        print(f'trial mult: {trial_mult}')
 
         # quad_degrees is the amount of quadrature points per element in each direction
         # Clearly, this amount must coincide with the amount of basis function values stored per element in test_basis and trial_basis
@@ -1712,6 +1785,44 @@ class DiscreteBilinearForm(BasicDiscrete):
         keys_2 = {}
         keys_3 = {}
 
+        assembly_backend = self.backend
+        if self._pyccelize_test_trial_computation and assembly_backend['name'] == 'pyccel':
+
+            import os
+            if not os.path.isdir('__psydac__'):
+                os.makedirs('__psydac__')
+
+            comm = self.comm
+
+            if comm is not None and comm.size > 1:
+                if comm.rank == 0:
+                    filename = '__psydac__/test_trial_computation.py'
+                    code = self.test_trial_template
+                    f = open(filename, 'w')
+                    f.writelines(code)
+                    f.close()
+            else:
+                filename = '__psydac__/test_trial_computation.py'
+                code = self.test_trial_template
+                f = open(filename, 'w')
+                f.writelines(code)
+                f.close()
+
+            base_dirpath = os.getcwd()
+            sys.path.insert(0, base_dirpath)
+
+            package = importlib.import_module(f'__psydac__.test_trial_computation')
+            kwargs = {
+                'language'          : 'fortran',
+                'compiler_family'   : assembly_backend['compiler_family'],
+                'flags'             : assembly_backend['flags'],
+                'openmp'            : True if assembly_backend['openmp'] else False,
+                'verbose'           : False,
+                'comm'              : self.comm,
+            }
+
+            test_trial_func = epyccel(package.test_trial_array, **kwargs)
+
         for block in blocks:
             # We translate a block, e.g. (u[0], v[1]) into two integers u_i=0, v_j=1.
             # In the case of a scalar function (u, v instead of u[0], u[1], u[2], v[0], v[1], v[2]), store 0.
@@ -1757,35 +1868,46 @@ class DiscreteBilinearForm(BasicDiscrete):
             test_trial_3 = np.zeros((n_element_3, k3, test_v_p3 + 1, trial_u_p3 + 1, max_block_trial_x3_derivative+1, max_block_test_x3_derivative+1), dtype='float64')
 
             # And that's how we fill the test_trial arrays
-            for k_1 in range(n_element_1):
-                for q_1 in range(k1):
-                    for i_1 in range(test_v_p1 + 1):
-                        for j_1 in range(trial_u_p1 + 1):
-                            trial   = global_basis_u_1[k_1, j_1, :, q_1]
-                            test    = global_basis_v_1[k_1, i_1, :, q_1]
-                            for alpha_1 in range(max_block_trial_x1_derivative+1):
-                                for beta_1 in range(max_block_test_x1_derivative+1):
-                                    test_trial_1[k_1, q_1, i_1, j_1, alpha_1, beta_1] = trial[alpha_1] * test[beta_1]
+            if self._pyccelize_test_trial_computation:
+                for args in zip(n_elements, 
+                                quad_degrees, [test_v_p1,  test_v_p2,  test_v_p3], [trial_u_p1, trial_u_p2, trial_u_p3],
+                                [global_basis_u_1, global_basis_u_2, global_basis_u_3], [global_basis_v_1, global_basis_v_2, global_basis_v_3], 
+                                [max_block_trial_x1_derivative, max_block_trial_x2_derivative, max_block_trial_x3_derivative], [max_block_test_x1_derivative, max_block_test_x2_derivative, max_block_test_x3_derivative], 
+                                [test_trial_1, test_trial_2, test_trial_3]):
+                    
+                    args = tuple(np.int64(a) if isinstance(a, int) else a for a in args)
 
-            for k_2 in range(n_element_2):
-                for q_2 in range(k2):
-                    for i_2 in range(test_v_p2 + 1):
-                        for j_2 in range(trial_u_p2 + 1):
-                            trial   = global_basis_u_2[k_2, j_2, :, q_2]
-                            test    = global_basis_v_2[k_2, i_2, :, q_2]
-                            for alpha_2 in range(max_block_trial_x2_derivative+1):
-                                for beta_2 in range(max_block_test_x2_derivative+1):
-                                    test_trial_2[k_2, q_2, i_2, j_2, alpha_2, beta_2] = trial[alpha_2] * test[beta_2]
+                    test_trial_func(*args)
+            else:
+                for k_1 in range(n_element_1):
+                    for q_1 in range(k1):
+                        for i_1 in range(test_v_p1 + 1):
+                            for j_1 in range(trial_u_p1 + 1):
+                                trial   = global_basis_u_1[k_1, j_1, :, q_1]
+                                test    = global_basis_v_1[k_1, i_1, :, q_1]
+                                for alpha_1 in range(max_block_trial_x1_derivative+1):
+                                    for beta_1 in range(max_block_test_x1_derivative+1):
+                                        test_trial_1[k_1, q_1, i_1, j_1, alpha_1, beta_1] = trial[alpha_1] * test[beta_1]
 
-            for k_3 in range(n_element_3):
-                for q_3 in range(k3):
-                    for i_3 in range(test_v_p3 + 1):
-                        for j_3 in range(trial_u_p3 + 1):
-                            trial   = global_basis_u_3[k_3, j_3, :, q_3]
-                            test    = global_basis_v_3[k_3, i_3, :, q_3]
-                            for alpha_3 in range(max_block_trial_x3_derivative+1):
-                                for beta_3 in range(max_block_test_x3_derivative+1):
-                                    test_trial_3[k_3, q_3, i_3, j_3, alpha_3, beta_3] = trial[alpha_3] * test[beta_3]
+                for k_2 in range(n_element_2):
+                    for q_2 in range(k2):
+                        for i_2 in range(test_v_p2 + 1):
+                            for j_2 in range(trial_u_p2 + 1):
+                                trial   = global_basis_u_2[k_2, j_2, :, q_2]
+                                test    = global_basis_v_2[k_2, i_2, :, q_2]
+                                for alpha_2 in range(max_block_trial_x2_derivative+1):
+                                    for beta_2 in range(max_block_test_x2_derivative+1):
+                                        test_trial_2[k_2, q_2, i_2, j_2, alpha_2, beta_2] = trial[alpha_2] * test[beta_2]
+
+                for k_3 in range(n_element_3):
+                    for q_3 in range(k3):
+                        for i_3 in range(test_v_p3 + 1):
+                            for j_3 in range(trial_u_p3 + 1):
+                                trial   = global_basis_u_3[k_3, j_3, :, q_3]
+                                test    = global_basis_v_3[k_3, i_3, :, q_3]
+                                for alpha_3 in range(max_block_trial_x3_derivative+1):
+                                    for beta_3 in range(max_block_test_x3_derivative+1):
+                                        test_trial_3[k_3, q_3, i_3, j_3, alpha_3, beta_3] = trial[alpha_3] * test[beta_3]
 
             test_trial_1s[block] = test_trial_1
             test_trial_2s[block] = test_trial_2
@@ -1798,8 +1920,8 @@ class DiscreteBilinearForm(BasicDiscrete):
             # a2 will store surface integral values for all combinations of test and trial functions in x2 and x3 direction, hence the dimension ...
             # coupling_terms stores point values of the coupling terms at all quadrature points 
             # but only in x2 and x3 direction, because we only "precompute" this array for a fixed quadrature point in x1 direction
-            a3[block] = np.zeros((n_expr, n_element_3 + test_v_p3 + (mult[2]-1)*(n_element_3-1), 2 * max_p_3 + 1), dtype='float64')
-            a2[block] = np.zeros((n_expr, n_element_2 + test_v_p2 + (mult[1]-1)*(n_element_2-1), n_element_3 + test_v_p3 + (mult[2]-1)*(n_element_3-1), 2 * max_p_2 + 1, 2 * max_p_3 + 1), dtype='float64')
+            a3[block] = np.zeros((n_expr, n_element_3 + test_v_p3 + (test_mult[2]-1)*(n_element_3-1), int(max_p_3 + 1 + np.floor(max_p_3 / test_mult[2]) * trial_mult[2])), dtype='float64')
+            a2[block] = np.zeros((n_expr, n_element_2 + test_v_p2 + (test_mult[1]-1)*(n_element_2-1), n_element_3 + test_v_p3 + (test_mult[2]-1)*(n_element_3-1), max(int(max_p_2 + 1 + np.floor(max_p_2 / test_mult[1]) * trial_mult[1]), 2*max_p_2+1), max(int(max_p_3 + 1 + np.floor(max_p_3 / test_mult[2]) * trial_mult[2]), 2*max_p_3+1)), dtype='float64')
             coupling_terms[block] = np.zeros((n_element_2, k2, n_element_3, k3, n_expr), dtype='float64')
 
         # We gather the socalled new args - all other args are being obtained in a similar way using the old assembly implementation
@@ -1811,8 +1933,8 @@ class DiscreteBilinearForm(BasicDiscrete):
                     *list(coupling_terms.values()))
         
         # This part is a bit shady.
-        # There has been a case, where my code wasn't running, because on instance of deep-(Psydac/Sympde/Sympy)-code
-        # correctly understood, that a possibly complicated expression (corresponding to a block) in fact evaluates to 0,
+        # There has been a case, where my code wasn't running, because one instance of deep-(Psydac/Sympde/Sympy)-code
+        # correctly understood that a possibly complicated expression (corresponding to a block) in fact evaluates to 0,
         # and hence no StencilMatrix for that particular block ever needs to be created - but a different part of
         # deep-(Psydac/Sympde/Sympy)-code did not get that simplification right (yet?), and decided that the assembly code
         # needs a StencilMatrix as input for this particular block.
@@ -1840,10 +1962,11 @@ class DiscreteBilinearForm(BasicDiscrete):
         #---------- We now generate the assembly file ----------
 
         # file_id is a random string that has been used to name the assembly file
-        file_id = self.make_file(temps, ordered_stmts, field_derivatives, max_logical_derivative, mult, test_v_p, trial_u_p, keys_1, keys_2, keys_3, mapping_option=mapping_option)
+        file_id = self.make_file(temps, ordered_stmts, field_derivatives, max_logical_derivative, test_mult, trial_mult, test_v_p, trial_u_p, keys_1, keys_2, keys_3, mapping_option)
 
         # Store the current directory and add it to the variable `sys.path`
         # to imitate Python's import behavior
+        import os
         base_dirpath = os.getcwd()
         sys.path.insert(0, base_dirpath)
 
@@ -1878,6 +2001,28 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         return args, threads_args
         
+    @property
+    def test_trial_template(self):
+        code = '''def test_trial_array(n_element : "int64", 
+                     quad_degree : "int64", test_degree : "int64", trial_degree : "int64", 
+                     trial_basis : "float64[:,:,:,:]", test_basis : "float64[:,:,:,:]", 
+                     max_trial_derivative : "int64", max_test_derivative : "int64", 
+                     test_trial : "float64[:,:,:,:,:,:]"):
+
+    for k in range(n_element):
+        for q in range(quad_degree):
+            for i in range(test_degree + 1):
+                for j in range(trial_degree + 1):
+                    trial   = trial_basis[k, j, :, q]
+                    test    = test_basis [k, i, :, q]
+                    for alpha in range(max_trial_derivative + 1):
+                        for beta in range(max_test_derivative + 1):
+                            test_trial[k, q, i, j, alpha, beta] = trial[alpha] * test[beta]
+
+    return
+'''
+        return code
+
     def construct_arguments(self, with_openmp=False):
         """
         Collect the arguments used in the assembly method.
