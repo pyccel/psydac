@@ -1191,9 +1191,15 @@ class DiscreteBilinearForm(BasicDiscrete):
             I_1 = f'int(floor(i_1/{test_mult[0]})*{trial_mult[0]})' if max(test_mult[0], trial_mult[0]) > 1 else 'i_1'
             I_2 = f'int(floor(i_2/{test_mult[1]})*{trial_mult[1]})' if max(test_mult[1], trial_mult[1]) > 1 else 'i_2'
             I_3 = f'int(floor(i_3/{test_mult[2]})*{trial_mult[2]})' if max(test_mult[2], trial_mult[2]) > 1 else 'i_3'
-            MAX_P1 = max(int( ( MAX_P1 + 2 + np.floor(MAX_P1 / test_mult[0]) * trial_mult[0] ) / 2 ), MAX_P1) if max(test_mult[0], trial_mult[0]) > 1 else MAX_P1
-            MAX_P2 = max(int( ( MAX_P2 + 2 + np.floor(MAX_P2 / test_mult[1]) * trial_mult[1] ) / 2 ), MAX_P2) if max(test_mult[1], trial_mult[1]) > 1 else MAX_P2
-            MAX_P3 = max(int( ( MAX_P3 + 2 + np.floor(MAX_P3 / test_mult[2]) * trial_mult[2] ) / 2 ), MAX_P3) if max(test_mult[2], trial_mult[2]) > 1 else MAX_P3
+            #MAX_P1 = max(int( ( MAX_P1 + np.floor(MAX_P1 / test_mult[0]) * trial_mult[0] ) / 2 ), MAX_P1) if max(test_mult[0], trial_mult[0]) > 1 else MAX_P1
+            #MAX_P2 = max(int( ( MAX_P2 + np.floor(MAX_P2 / test_mult[1]) * trial_mult[1] ) / 2 ), MAX_P2) if max(test_mult[1], trial_mult[1]) > 1 else MAX_P2
+            #MAX_P3 = max(int( ( MAX_P3 + np.floor(MAX_P3 / test_mult[2]) * trial_mult[2] ) / 2 ), MAX_P3) if max(test_mult[2], trial_mult[2]) > 1 else MAX_P3
+            n_cols_x1 = max( int(MAX_P1 + 1 + np.floor(MAX_P1 / test_mult[0]) * trial_mult[0]), 2*MAX_P1+1 )
+            n_cols_x2 = max( int(MAX_P2 + 1 + np.floor(MAX_P2 / test_mult[1]) * trial_mult[1]), 2*MAX_P2+1 )
+            n_cols_x3 = max( int(MAX_P3 + 1 + np.floor(MAX_P3 / test_mult[2]) * trial_mult[2]), 2*MAX_P3+1 )
+            MAX_P1 = n_cols_x1 - MAX_P1 - 1
+            MAX_P2 = n_cols_x2 - MAX_P2 - 1
+            MAX_P3 = n_cols_x3 - MAX_P3 - 1
 
             loop = code_loop.format(A1              = A1,
                                     A2              = A2,
@@ -1920,8 +1926,17 @@ class DiscreteBilinearForm(BasicDiscrete):
             # a2 will store surface integral values for all combinations of test and trial functions in x2 and x3 direction, hence the dimension ...
             # coupling_terms stores point values of the coupling terms at all quadrature points 
             # but only in x2 and x3 direction, because we only "precompute" this array for a fixed quadrature point in x1 direction
-            a3[block] = np.zeros((n_expr, n_element_3 + test_v_p3 + (test_mult[2]-1)*(n_element_3-1), int(max_p_3 + 1 + np.floor(max_p_3 / test_mult[2]) * trial_mult[2])), dtype='float64')
-            a2[block] = np.zeros((n_expr, n_element_2 + test_v_p2 + (test_mult[1]-1)*(n_element_2-1), n_element_3 + test_v_p3 + (test_mult[2]-1)*(n_element_3-1), max(int(max_p_2 + 1 + np.floor(max_p_2 / test_mult[1]) * trial_mult[1]), 2*max_p_2+1), max(int(max_p_3 + 1 + np.floor(max_p_3 / test_mult[2]) * trial_mult[2]), 2*max_p_3+1)), dtype='float64')
+
+            # a3[block] size explained: #sub expressions ; #test functions depending on x3 ; #complicated expression for the minimum columns needed
+            # to store local information correctly. 2*degree+1 in the simplest case.
+            n_funs_x2 = n_element_2 + test_v_p2 + (test_mult[1]-1)*(n_element_2-1)
+            n_funs_x3 = n_element_3 + test_v_p3 + (test_mult[2]-1)*(n_element_3-1)
+            n_cols_x2 = max( int(max_p_2 + 1 + np.floor(max_p_2 / test_mult[1]) * trial_mult[1]), 2*max_p_2+1 )
+            n_cols_x3 = max( int(max_p_3 + 1 + np.floor(max_p_3 / test_mult[2]) * trial_mult[2]), 2*max_p_3+1 )
+            
+            a3[block] = np.zeros((n_expr, n_funs_x3, n_cols_x3), dtype='float64')
+            a2[block] = np.zeros((n_expr, n_funs_x2, n_funs_x3, n_cols_x2, n_cols_x3), dtype='float64')
+
             coupling_terms[block] = np.zeros((n_element_2, k2, n_element_3, k3, n_expr), dtype='float64')
 
         # We gather the socalled new args - all other args are being obtained in a similar way using the old assembly implementation
