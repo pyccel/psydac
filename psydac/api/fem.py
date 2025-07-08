@@ -1868,7 +1868,7 @@ class DiscreteBilinearForm(BasicDiscrete):
             test_trial_3 = np.zeros((n_element_3, k3, test_v_p3 + 1, trial_u_p3 + 1, max_block_trial_x3_derivative+1, max_block_test_x3_derivative+1), dtype='float64')
 
             # And that's how we fill the test_trial arrays
-            if self._pyccelize_test_trial_computation:
+            if self._pyccelize_test_trial_computation and assembly_backend['name'] == 'pyccel':
                 for args in zip(n_elements, 
                                 quad_degrees, [test_v_p1,  test_v_p2,  test_v_p3], [trial_u_p1, trial_u_p2, trial_u_p3],
                                 [global_basis_u_1, global_basis_u_2, global_basis_u_3], [global_basis_v_1, global_basis_v_2, global_basis_v_3], 
