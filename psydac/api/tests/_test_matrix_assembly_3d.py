@@ -126,9 +126,10 @@ def make_collela_geometry_3d(ncells, degree, eps, comm=None):
 
 def build_matrices(mapping_option, verbose, backend, comm):
 
-    ncells      = [16, 16, 16] # [5, 2, 4] # [12, 8, 16]
-    degree      = [3, 3, 3] # [2, 1, 3] # [2, 4, 3]
-    periodic    = [False]*3 # [False, True, False]
+    ncells      = [12, 8, 16]
+    degree      = [2, 4, 3]
+    periodic    = [False, True, False]
+    mult        = [1, 3, 2]
     eps         = 0.1
 
     mpi_rank = comm.Get_rank() if comm is not None else 0
@@ -139,7 +140,7 @@ def build_matrices(mapping_option, verbose, backend, comm):
         derham = Derham(domain)
 
         domain_h = discretize(domain, ncells=ncells, periodic=periodic, comm=comm)
-        derham_h = discretize(derham, domain_h, degree=degree)
+        derham_h = discretize(derham, domain_h, degree=degree, multiplicity=mult)
 
     elif mapping_option == 'Bspline':
 
@@ -155,9 +156,9 @@ def build_matrices(mapping_option, verbose, backend, comm):
     elif mapping_option == 'analytical':
 
         class HalfHollowTorusMapping3D(Mapping):
-            _expressions = {'x': '(R + r * x1 * cos(2*pi*x3)) * cos(pi*x2)',
-                            'y': '(R + r * x1 * cos(2*pi*x3)) * sin(pi*x2)',
-                            'z': 'r * x1 * sin(2*pi*x3)'}
+            _expressions = {'x': 'x1-x2',#'(R + r * x1 * cos(2*pi*x3)) * cos(pi*x2)',
+                            'y': 'x1+x2**2',#'(R + r * x1 * cos(2*pi*x3)) * sin(pi*x2)',
+                            'z': 'x3'}#'r * x1 * sin(2*pi*x3)'}
             _ldim        = 3
             _pdim        = 3
         class CollelaMapping3D(Mapping):
@@ -203,7 +204,7 @@ def build_matrices(mapping_option, verbose, backend, comm):
     w1, w2, F2 = elements_of(V2, names='w1, w2, F2')
     f1, f2, F3 = elements_of(V3, names='f1, f2, F3')
 
-    fs1,  fs2,  Fs  = elements_of(Vs,  names='fs1,  fs2,  Fs' )
+    fs1,  fs2,  Fs,  Fs2 = elements_of(Vs,  names='fs1,  fs2,  Fs,  Fs2' )
     fvc1, fvc2, Fvc = elements_of(Vvc, names='fvc1, fvc2, Fvc')
     fvd1, fvd2, Fvd = elements_of(Vvd, names='fvd1, fvd2, Fvd')
 
@@ -213,23 +214,41 @@ def build_matrices(mapping_option, verbose, backend, comm):
     F2_field_coeffs  = V2h.coeff_space.zeros()
     F3_field_coeffs  = V3h.coeff_space.zeros()
     Fs_field_coeffs  = Vsh.coeff_space.zeros()
+    Fs2_field_coeffs = Vsh.coeff_space.zeros()
     Fvc_field_coeffs = Vvch.coeff_space.zeros()
     Fvd_field_coeffs = Vvdh.coeff_space.zeros()
 
-    F0_field_coeffs._data = np.ones(F0_field_coeffs._data.shape, dtype="float64")
-    F3_field_coeffs._data = np.ones(F3_field_coeffs._data.shape, dtype="float64")
-    Fs_field_coeffs._data = np.ones(Fs_field_coeffs._data.shape, dtype="float64")
-    for block in F1_field_coeffs.blocks:
-        block._data = np.ones(block._data.shape, dtype="float64")
     rng = np.random.default_rng(seed=42)
+    # F0
+    #F0_field_coeffs._data = np.ones(F0_field_coeffs._data.shape, dtype="float64")
+    rng.random(size=F0_field_coeffs._data.shape, dtype="float64", out=F0_field_coeffs._data)
+    # F3
+    #F3_field_coeffs._data = np.ones(F3_field_coeffs._data.shape, dtype="float64")
+    rng.random(size=F3_field_coeffs._data.shape, dtype="float64", out=F3_field_coeffs._data)
+    # Fs
+    #Fs_field_coeffs._data = np.ones(Fs_field_coeffs._data.shape, dtype="float64")
+    rng.random(size=Fs_field_coeffs._data.shape, dtype="float64", out=Fs_field_coeffs._data)
+    # Fs2
+    rng.random(size=Fs2_field_coeffs._data.shape, dtype="float64", out=Fs2_field_coeffs._data)
+    # F1
+    for block in F1_field_coeffs.blocks:
+        #block._data = np.ones(block._data.shape, dtype="float64")
+        rng.random(size=block._data.shape, dtype="float64", out=block._data)
+    # F12
     for block in F1_field_coeffs2.blocks:
         rng.random(size=block._data.shape, dtype="float64", out=block._data)
+    # F2
     for block in F2_field_coeffs.blocks:
-        block._data = np.ones(block._data.shape, dtype="float64")
+        #block._data = np.ones(block._data.shape, dtype="float64")
+        rng.random(size=block._data.shape, dtype="float64", out=block._data)
+    # Fvc
     for block in Fvc_field_coeffs.blocks:
-        block._data = np.ones(block._data.shape, dtype="float64")
+        #block._data = np.ones(block._data.shape, dtype="float64")
+        rng.random(size=block._data.shape, dtype="float64", out=block._data)
+    # Fvd
     for block in Fvd_field_coeffs.blocks:
-        block._data = np.ones(block._data.shape, dtype="float64")
+        #block._data = np.ones(block._data.shape, dtype="float64")
+        rng.random(size=block._data.shape, dtype="float64", out=block._data)
 
     F0_field  = FemField(V0h, F0_field_coeffs)
     #F1_field  = FemField(V1h, F1_field_coeffs)
@@ -237,6 +256,7 @@ def build_matrices(mapping_option, verbose, backend, comm):
     F2_field  = FemField(V2h, F2_field_coeffs)
     F3_field  = FemField(V3h, F3_field_coeffs)
     Fs_field  = FemField(Vsh, Fs_field_coeffs)
+    Fs2_field = FemField(Vsh, Fs2_field_coeffs)
     Fvc_field = FemField(Vvch, Fvc_field_coeffs)
     Fvd_field = FemField(Vvdh, Fvd_field_coeffs)
 
@@ -404,7 +424,12 @@ def build_matrices(mapping_option, verbose, backend, comm):
 
                         'bilaplace':            {'trial':'Vs',
                                                  'test' :'Vs',
-                                                 'expr' : laplace(fs1) * laplace(fs2)}
+                                                 'expr' :laplace(fs1) * laplace(fs2)},
+
+                        'TwoScalarFF':          {'trial':'Vvc',
+                                                 'test' :'Vvc',
+                                                 'expr' :dot(fvc1, grad(Fs))*dot(fvc2, grad(Fs2)),
+                                                 'field':[[Fs_field, 'Vs'], [Fs2_field, 'Vs']]}
                      }
     #                           0               1           2           3                   4                       5
     bilinear_form_strings = ('gradgrad', 'gradgradSFS', 'curlcurl', 'curlcurlVFS', 'weighted_hdiv_mass', 'weighted_hdiv_massVFS',
@@ -412,14 +437,14 @@ def build_matrices(mapping_option, verbose, backend, comm):
                              'hcurl_mass', 'hcurl_massVFS', 'Q', 'field_derivative_F1', 'field_derivative_F2', 'weighted_h1_mass_F0', 
     #                                   12              13          14              15                  16                      17
                              'weighted_l2_mass_F3', 'divdiv_Fs', 'Fvc test', 'dot(grad(u), v)', 'dot(curl(v), w)_F0', 'dot(curl(v), w)_F0_2', 
-    #                           18      19      20          21              22              23          24
-                             'u*f', 'f*u', 'sqrt_pi_Fvd', 'dot(v, w)', 'dot(w, v)', 'equilibrium', 'bilaplace')
+    #                           18      19      20          21              22              23          24          25
+                             'u*f', 'f*u', 'sqrt_pi_Fvd', 'dot(v, w)', 'dot(w, v)', 'equilibrium', 'bilaplace', 'TwoScalarFF')
 
 
     standard_test_indices = [0, 1, 4, 5, 8, 9, 10, 11, 12, 14, 18, 19, 20, 23, 24]
 
-    test_indices = standard_test_indices
-    # test_indices = [24, ]
+    test_indices = standard_test_indices[:-1]
+    # test_indices = [24, ] # 3, 5, 7]
 
     bilinear_forms_to_test = [bilinear_form_strings[i] for i in test_indices]
 
@@ -482,6 +507,10 @@ def build_matrices(mapping_option, verbose, backend, comm):
                     c2 = fields[1].coeffs
                     equil = c1.inner(A_old @ c2)
                     print(f'old equil: {equil}')
+                elif field_spaces == ['Vs', 'Vs']:
+                    t0 = time.time()
+                    A_old = a_h.assemble(Fs=fields[0], Fs2=fields[1])
+                    t1 = time.time()
                 else:
                     raise NotImplementedError('This special case must still be taken care of.')
         else:
@@ -523,6 +552,10 @@ def build_matrices(mapping_option, verbose, backend, comm):
                     equil = c1.inner(A_new @ c2)
                     print(f'new equil: {equil}')
                     print()
+                elif field_spaces == ['Vs', 'Vs']:
+                    t0 = time.time()
+                    A_new = a_h.assemble(Fs=fields[0], Fs2=fields[1])
+                    t1 = time.time()
                 else:
                     raise NotImplementedError('This special case must still be taken care of.')
         else:
@@ -557,7 +590,7 @@ def build_matrices(mapping_option, verbose, backend, comm):
 
 verbose = True
 
-mapping_options = [None, 'analytical', 'Bspline']
+mapping_options = [None, ] # [None, 'analytical', 'Bspline']
 
 comm    = MPI.COMM_WORLD
 backend = PSYDAC_BACKEND_GPYCCEL
