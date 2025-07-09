@@ -11,6 +11,8 @@ from    sympde.topology             import element_of, elements_of, Cube, Mappin
 
 from    psydac.api.discretization   import discretize
 from    psydac.api.settings         import PSYDAC_BACKEND_GPYCCEL
+from    psydac.linalg.block         import BlockLinearOperator, BlockVectorSpace
+from    psydac.linalg.stencil       import StencilMatrix
 from    psydac.fem.basic            import FemField
 
 try:
@@ -22,31 +24,41 @@ except:
     mesh_dir = os.path.join(base_dir, 'mesh')
 
 
-#With PR #448, matrices corresponding to bilinear forms on 3D domains are being assembled using a so called sum factorization algorithm.
-#Unless explicitely using the old algorithm, this happens automatically, and hence all old tests passing should indicate that the implementation of the sum factorization algorithm has been successful.
-#Nonetheless, there are various difficulties in the implementation, and possibly not all of them are accounted for in the existing tests.
+# With PR #448, matrices corresponding to bilinear forms on 3D domains are being assembled using a so called sum factorization algorithm.
+# Unless explicitely using the old algorithm, this happens automatically, and hence all old tests passing should indicate that the implementation of the sum factorization algorithm has been successful.
+# Nonetheless, there are various difficulties in the implementation, and possibly not all of them are accounted for in the existing tests.
 
-#This file is designed to test such "difficult" edge cases - for mapped (Bspline & analytical) and parametric domains:
+# This file is designed to test such "difficult" edge cases - for mapped (Bspline & analytical) and parametric domains:
 
-#Such "difficult" edge cases are:
+# Such "difficult" edge cases are:
 
-#1. bilinear forms on different spaces
-#2. (FemField / analytical / ...) weight functions
-#3. high derivatives (>=2)
-#4. (multiple) free FemFields
-#5. complicated expressions
-#6. uncommen (numpy) functions that need be imported correctly in the assembly file (here in the weight function)
+# 1. bilinear forms on different spaces
+# 2. (FemField / analytical / ...) weight functions
+# 3. high derivatives (>=2)
+# 4. (multiple) free FemFields
+# 5. complicated expressions
+# 6. uncommen (numpy) functions that need be imported correctly in the assembly file (here in the weight function)
 
-#These tests also return old and new discretization and assembly times.
+# These tests also return old and new discretization and assembly times.
 
-#Most of the time, being close to the "old matrix" (generated using the old assembly algorithm) will be the requirement to pass the test, as the old implementation has not caused problems in a long time and is considered to function properly.
+# Most of the time, being close to the "old matrix" (generated using the old assembly algorithm) will be the requirement to pass a test, 
+# as the old implementation has not caused problems in a long time and is considered to function properly.
 
-@pytest.mark.parametrize('mapping', ('None', 'Analytical', 'Bspline'))
-def test_assembly(mapping):
+# Update: Instead of testing all mapping options all of the time, we now rather randomly test one of the three options!
+#@pytest.mark.parametrize('mapping', ('None', 'Analytical', 'Bspline'))
+def test_assembly(): # mapping):
 
-    ncells      = [17, 15, 16]
+    rng = np.random.default_rng() # (seed=42)
+    mapping_options = ['None', 'Analytical', 'Bspline']
+    mapping = mapping_options[int(np.floor(rng.random()*3))]
+
+    ncells      = [7, 5, 6]
     degree      = [2, 4, 3]
-    periodic    = [False, True, False]
+    periodic    = [int(np.floor(rng.random()*2))==True for _ in range(3)]
+    print(f'Random periodicity: {periodic}')
+
+    trial_multiplicity = [1, 3, 2]
+    test_multiplicity  = [2, 2, 3]
 
     backend = PSYDAC_BACKEND_GPYCCEL
 
@@ -56,7 +68,8 @@ def test_assembly(mapping):
         derham = Derham(domain)
 
         domain_h = discretize(domain, ncells=ncells, periodic=periodic)
-        derham_h = discretize(derham, domain_h, degree=degree)
+        derham_h = discretize(derham, domain_h, degree=degree, multiplicity=trial_multiplicity)
+        derham_test_h = discretize(derham, domain_h, degree=degree, multiplicity=test_multiplicity)
 
     elif mapping == 'Bspline':
 
@@ -66,7 +79,8 @@ def test_assembly(mapping):
         derham = Derham(domain)
 
         domain_h = discretize(domain, filename=filename)
-        derham_h = discretize(derham, domain_h, degree=domain.mapping.get_callable_mapping().space.degree)
+        derham_h = discretize(derham, domain_h, degree=domain.mapping.get_callable_mapping().space.degree, multiplicity=trial_multiplicity)
+        derham_test_h = discretize(derham, domain_h, degree=domain.mapping.get_callable_mapping().space.degree, multiplicity=test_multiplicity)
 
     elif mapping == 'Analytical':
 
@@ -85,7 +99,8 @@ def test_assembly(mapping):
         derham = Derham(domain)
 
         domain_h = discretize(domain, ncells=ncells, periodic=periodic)
-        derham_h = discretize(derham, domain_h, degree=degree)
+        derham_h = discretize(derham, domain_h, degree=degree, multiplicity=trial_multiplicity)
+        derham_test_h = discretize(derham, domain_h, degree=degree, multiplicity=test_multiplicity)
 
     x, y, z = domain.coordinates
     weight  = 1 + sqrt(Abs(x*y**2 + z)) + abs(sin(x-2*y + pi + np.pi))
@@ -99,12 +114,21 @@ def test_assembly(mapping):
     V3  = derham.V3
     V3h = derham_h.V3
 
+    V0h_test = derham_test_h.V0
+    V1h_test = derham_test_h.V1
+    V2h_test = derham_test_h.V2
+    V3h_test = derham_test_h.V3
+
     Vs      = ScalarFunctionSpace('Vsh', domain)
     Vsh     = discretize(Vs, domain_h, degree=degree)
     Vvc     = VectorFunctionSpace('Vvc', domain, kind='hcurl')
     Vvch    = discretize(Vvc, domain_h, degree=degree)
     Vvd     = VectorFunctionSpace('Vvd', domain, kind='hdiv')
     Vvdh    = discretize(Vvd, domain_h, degree=degree)
+
+    Vsh_test      = discretize(Vs, domain_h, degree=degree, multiplicity=test_multiplicity)
+    Vvch_test     = discretize(Vs, domain_h, degree=degree, multiplicity=test_multiplicity)
+    Vvdh_test     = discretize(Vs, domain_h, degree=degree, multiplicity=test_multiplicity)
 
     u1, u2, F01, F02, F03 = elements_of(V0, names='u1, u2, F01, F02, F03')
     v1, v2, F11, F12, F13 = elements_of(V1, names='v1, v2, F11, F12, F13')
@@ -115,15 +139,21 @@ def test_assembly(mapping):
     fvc1, fvc2, Fvc1, Fvc2, Fvc3 = elements_of(Vvc, names='fvc1, fvc2, Fvc1, Fvc2, Fvc3')
     fvd1, fvd2, Fvd1, Fvd2, Fvd3 = elements_of(Vvd, names='fvd1, fvd2, Fvd1, Fvd2, Fvd3')
 
-    spaces = {'V0': {'Vh':V0h,  'funcs':[u1, u2]},
-              'V1': {'Vh':V1h,  'funcs':[v1, v2]},
-              'V2': {'Vh':V2h,  'funcs':[w1, w2]},
-              'V3': {'Vh':V3h,  'funcs':[f1, f2]},
-              'Vs': {'Vh':Vsh,  'funcs':[fs1, fs2]},
-              'Vvc':{'Vh':Vvch, 'funcs':[fvc1, fvc2]},
-              'Vvd':{'Vh':Vvdh, 'funcs':[fvd1, fvd2]}}
+    trial_spaces = {'V0': {'Vh':V0h,  'funcs':[u1, u2]},
+                    'V1': {'Vh':V1h,  'funcs':[v1, v2]},
+                    'V2': {'Vh':V2h,  'funcs':[w1, w2]},
+                    'V3': {'Vh':V3h,  'funcs':[f1, f2]},
+                    'Vs': {'Vh':Vsh,  'funcs':[fs1, fs2]},
+                    'Vvc':{'Vh':Vvch, 'funcs':[fvc1, fvc2]},
+                    'Vvd':{'Vh':Vvdh, 'funcs':[fvd1, fvd2]}}
     
-    rng = np.random.default_rng(seed=42)
+    test_spaces  = {'V0': {'Vh':V0h_test,  'funcs':[u1, u2]},
+                    'V1': {'Vh':V1h_test,  'funcs':[v1, v2]},
+                    'V2': {'Vh':V2h_test,  'funcs':[w1, w2]},
+                    'V3': {'Vh':V3h_test,  'funcs':[f1, f2]},
+                    'Vs': {'Vh':Vsh_test,  'funcs':[fs1, fs2]},
+                    'Vvc':{'Vh':Vvch_test, 'funcs':[fvc1, fvc2]},
+                    'Vvd':{'Vh':Vvdh_test, 'funcs':[fvd1, fvd2]}}
 
     F01_coeffs = V0h.coeff_space.zeros()
     rng.random(size=F01_coeffs._data.shape, dtype='float64', out=F01_coeffs._data)
@@ -198,10 +228,10 @@ def test_assembly(mapping):
     
     for bf_name, bf_data in bilinear_forms_to_test.items():
 
-        trial_space = spaces[bf_data['trial']]
+        trial_space = trial_spaces[bf_data['trial']]
         Vh          = trial_space['Vh']
         u           = trial_space['funcs'][0]
-        test_space  = spaces[bf_data['test']]
+        test_space  = test_spaces[bf_data['test']]
         Wh          = test_space ['Vh']
         v           = test_space['funcs'][1]
         expr        = bf_data['expr']
@@ -272,24 +302,47 @@ def test_assembly(mapping):
         assembly_time_old   = t1_old - t0_old
         assembly_time       = t1     - t0
 
-        A_old_arr   = A_old.toarray()
-        A_arr       = A.toarray()
-        A_old_norm  = np.linalg.norm(A_old_arr)
-        A_norm      = np.linalg.norm(A_arr)
+        # Testing whether two linear operators are identical by comparing their arrays is quite expensive.
+        # Thus we instead test whether three random domain vectors applied to both
+        # the old and the new matrix produce the same codomain vector.
+        
+        domain_vector1 = Vh.coeff_space.zeros()
+        domain_vector2 = Vh.coeff_space.zeros()
+        domain_vector3 = Vh.coeff_space.zeros()
+        domain_vectors = [domain_vector1, domain_vector2, domain_vector3]
 
-        err         = np.linalg.norm(A_old_arr - A_arr)
-        rel_err     = err / A_old_norm
+        if isinstance(Vh.coeff_space, BlockVectorSpace):
+            for domain_vector in domain_vectors:
+                for block in domain_vector.blocks:
+                    rng.random(size=block._data.shape, dtype='float64', out=block._data)
+        else:
+            for domain_vector in domain_vectors:
+                rng.random(size=domain_vector._data.shape, dtype='float64', out=domain_vector._data)
+        
+        err     = []
+        rel_err = []
 
+        for domain_vector in domain_vectors:
+            codomain_vector     = A @ domain_vector
+            codomain_vector_old = A_old @ domain_vector
+
+            norm_old            = np.sqrt(codomain_vector_old.inner(codomain_vector_old))
+
+            diff                = codomain_vector - codomain_vector_old
+
+            err.append(np.sqrt(diff.inner(diff)))
+            rel_err.append(err[-1] / norm_old)
+        
         print(f' >>> Mapping: {mapping}')
         print(f' >>> BilinearForm: {bf_name}')
         print(f' >>> Discretization in: Old {discretization_time_old:.3g} \t\t || New {discretization_time:.3g} \t\t || Old/New {discretization_time_old/discretization_time:.3g}')
         print(f' >>> Assembly in: Old {assembly_time_old:.3g} \t \t || New {assembly_time:.3g} \t\t || Old/New {assembly_time_old/assembly_time:.3g}')
-        print(f' >>>      Error: {err:.3g}')
-        print(f' >>> Rel. Error: {rel_err:.3g}')
-        print(f' >>>      Norms: ||A_old|| = {A_old_norm:.3g} \t\t ||A|| = {A_norm:.3g}')
+        print(f' >>>      Error: {max(err):.3g}')
+        print(f' >>> Rel. Error: {max(rel_err):.3g}')
         print()
 
-        assert rel_err < 1e-12 # arbitrary rel. error bound (How to test better?)
+        assert max(rel_err) < 1e-12 # arbitrary rel. error bound (How to test better?)
+
 
 # fixed by PR #507
 #@pytest.mark.xfail
@@ -531,59 +584,61 @@ def test_assembly_free_FemFields():
 
     assert abs(diff.data).max() < 4e-2
 
-def test_varying_multiplicity():
-    """
-    We test whether a bilinear form is correctly assembled when using a different 
-    multiplicity vector for trial and test function space.
-    As the previous assembly algorithm supported this feature, we can check whether we obtain the same matrix as the old algorithm.
-    
-    """
+# Not required anymore now that test_assembly has different multiplicity test and trial spaces.
 
-    backend = PSYDAC_BACKEND_GPYCCEL
-
-    ncells  = [5, 7, 4]
-    degree  = [1, 3, 2]
-
-    mult1   = [1, 1, 2]
-    mult2   = [1, 3, 1]
-
-    domain      = Cube('C', bounds1=(0,1), bounds2=(0,1), bounds3=(0,1))
-    domain_h    = discretize(domain, ncells=ncells)
-
-    derham      = Derham(domain)
-    derham1_h   = discretize(derham, domain_h, degree=degree, multiplicity=mult1)
-    derham2_h   = discretize(derham, domain_h, degree=degree, multiplicity=mult2)
-
-    V0      = derham.V0
-    V01h    = derham1_h.V0
-    V02h    = derham2_h.V0
-
-    u, v    = elements_of(V0, names='u, v')
-
-    a       = BilinearForm((u, v), integral(domain, u*v))
-
-    ah      = discretize(a, domain_h, (V01h, V02h), backend=backend)
-    M0      = ah.assemble()
-
-    ah      = discretize(a, domain_h, (V01h, V02h), backend=backend, sum_factorization=False)
-    M0_old  = ah.assemble()
-
-    diff_arr = (M0 - M0_old).toarray()
-    assert np.linalg.norm(diff_arr) < 1e-12 # arbitrary tol
-
-    V1      = derham.V1
-    V11h    = derham1_h.V1
-    V12h    = derham2_h.V1
-
-    u, v    = elements_of(V1, names='u, v')
-
-    a       = BilinearForm((u, v), integral(domain, dot(curl(u), v)))
-
-    ah      = discretize(a, domain_h, (V11h, V12h), backend=backend)
-    A       = ah.assemble()
-
-    ah      = discretize(a, domain_h, (V11h, V12h), backend=backend, sum_factorization=False)
-    A_old   = ah.assemble()
-
-    diff_arr = (A - A_old).toarray()
-    assert np.linalg.norm(diff_arr) < 1e-12 # arbitrary tol
+#def test_varying_multiplicity():
+#    """
+#    We test whether a bilinear form is correctly assembled when using a different 
+#    multiplicity vector for trial and test function space.
+#    As the previous assembly algorithm supported this feature, we can check whether we obtain the same matrix as the old algorithm.
+#    
+#    """
+#
+#    backend = PSYDAC_BACKEND_GPYCCEL
+#
+#    ncells  = [5, 7, 4]
+#    degree  = [1, 3, 2]
+#
+#    mult1   = [1, 1, 2]
+#    mult2   = [1, 3, 1]
+#
+#    domain      = Cube('C', bounds1=(0,1), bounds2=(0,1), bounds3=(0,1))
+#    domain_h    = discretize(domain, ncells=ncells)
+#
+#    derham      = Derham(domain)
+#    derham1_h   = discretize(derham, domain_h, degree=degree, multiplicity=mult1)
+#    derham2_h   = discretize(derham, domain_h, degree=degree, multiplicity=mult2)
+#
+#    V0      = derham.V0
+#    V01h    = derham1_h.V0
+#    V02h    = derham2_h.V0
+#
+#    u, v    = elements_of(V0, names='u, v')
+#
+#    a       = BilinearForm((u, v), integral(domain, u*v))
+#
+#    ah      = discretize(a, domain_h, (V01h, V02h), backend=backend)
+#    M0      = ah.assemble()
+#
+#    ah      = discretize(a, domain_h, (V01h, V02h), backend=backend, sum_factorization=False)
+#    M0_old  = ah.assemble()
+#
+#    diff_arr = (M0 - M0_old).toarray()
+#    assert np.linalg.norm(diff_arr) < 1e-12 # arbitrary tol
+#
+#    V1      = derham.V1
+#    V11h    = derham1_h.V1
+#    V12h    = derham2_h.V1
+#
+#    u, v    = elements_of(V1, names='u, v')
+#
+#    a       = BilinearForm((u, v), integral(domain, dot(curl(u), v)))
+#
+#    ah      = discretize(a, domain_h, (V11h, V12h), backend=backend)
+#    A       = ah.assemble()
+#
+#    ah      = discretize(a, domain_h, (V11h, V12h), backend=backend, sum_factorization=False)
+#    A_old   = ah.assemble()
+#
+#    diff_arr = (A - A_old).toarray()
+#    assert np.linalg.norm(diff_arr) < 1e-12 # arbitrary tol

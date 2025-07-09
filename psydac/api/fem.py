@@ -473,7 +473,8 @@ class DiscreteBilinearForm(BasicDiscrete):
         # If sum_factorization == True: First generate the assembly file
         if self._sum_factorization == True:
             # pyccelize process of computing the test_trial arrays
-            self._pyccelize_test_trial_computation = True
+            # currently set to False, as a Python 3.9 test fails, and due to the "speed up" not being significant
+            self._pyccelize_test_trial_computation = False
             # no openmp support yet
             self._args, self._threads_args = self.construct_arguments_generate_assembly_file()
         else:

@@ -440,11 +440,11 @@ def build_matrices(mapping_option, verbose, backend, comm):
     #                           18      19      20          21              22              23          24          25
                              'u*f', 'f*u', 'sqrt_pi_Fvd', 'dot(v, w)', 'dot(w, v)', 'equilibrium', 'bilaplace', 'TwoScalarFF')
 
+    # These are "the most relevant"
+    standard_test_indices = [0, 1, 4, 5, 8, 9, 10, 11, 12, 14, 18, 19, 20, 23, 24, 25]
 
-    standard_test_indices = [0, 1, 4, 5, 8, 9, 10, 11, 12, 14, 18, 19, 20, 23, 24]
-
-    test_indices = standard_test_indices[:-1]
-    # test_indices = [24, ] # 3, 5, 7]
+    test_indices = standard_test_indices
+    # test_indices = [24, ]
 
     bilinear_forms_to_test = [bilinear_form_strings[i] for i in test_indices]
 
@@ -582,15 +582,18 @@ def build_matrices(mapping_option, verbose, backend, comm):
             print(f' >>> Norm      : {A_old_norm:.7g} & {A_new_norm:.7g}')
             print()
         
-        # must investigate these cases further
-        if not bf in ('Fvc test', 'u*f', 'field_derivative_F1', 'field_derivative_F2', 'equilibrium'):
-            assert rel_err < 1e-12 # arbitrary rel. error bound
+        # # must investigate these cases further
+        # if not bf in ('Fvc test', 'u*f', 'field_derivative_F1', 'field_derivative_F2', 'equilibrium'):
+        #     assert rel_err < 1e-12 # arbitrary rel. error bound
+
+        # no more issues here!
+        assert rel_err < 1e-12 # arbitrary rel. error bound
 
 #==============================================================================
 
 verbose = True
 
-mapping_options = [None, ] # [None, 'analytical', 'Bspline']
+mapping_options = [None, 'analytical', 'Bspline']
 
 comm    = MPI.COMM_WORLD
 backend = PSYDAC_BACKEND_GPYCCEL
