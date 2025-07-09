@@ -7,9 +7,9 @@ be used to specify the used data structure for example.
 """
 
 from abc import ABCMeta, abstractmethod
-from psydac.linalg.basic import Vector
+from psydac.linalg.basic import Vector, LinearOperator
 
-__all__ = ('FemSpace', 'FemField')
+__all__ = ('FemSpace', 'FemField', 'FemLinearOperator')
 
 #===============================================================================
 # ABSTRACT BASE CLASS: FINITE ELEMENT SPACE
@@ -380,3 +380,97 @@ class FemField:
         assert self._space is other._space
         self._coeffs -= other._coeffs
         return self
+
+#===============================================================================
+# CONCRETE CLASS: Linear Operator acting on a FEM field
+#===============================================================================
+class FemLinearOperator:
+    """
+    Linear operators with an additional Fem layer. 
+    There is also a shorthand access to sparse matrices as they are sometimes used in the FEEC interfaces.
+
+    Parameters
+    ----------
+    fem_domain: FemSpace
+        The discrete space
+
+    fem_codomain: FemSpace
+        Number of polynomial moments to be preserved in the projection.
+
+    linop: LinearOperator (optional)
+        Linear Operator. 
+
+    sparse_matrix: sparse matrix (optional)
+        Sparse matrix representation of the linear operator.
+    """
+
+    def __init__(self, fem_domain, fem_codomain, linop=None, sparse_matrix=None):
+        assert isinstance(fem_domain, FemSpace)
+        assert isinstance(fem_codomain, FemSpace)
+
+        self._fem_domain = fem_domain
+        self._fem_codomain = fem_codomain
+
+        self._linop_domain = fem_domain.coeff_space
+        self._linop_codomain = fem_codomain.coeff_space
+
+        self._linop = linop
+        self._sparse_matrix = sparse_matrix
+
+    @property
+    def fem_domain(self):
+        return self._fem_domain
+
+    @property
+    def fem_codomain(self):
+        return self._fem_codomain
+
+    @property
+    def linop_domain(self):
+        return self._linop_domain
+
+    @property
+    def linop_codomain(self):
+        return self._linop_codomain
+
+    @property
+    def linop(self):
+        return self._linop
+
+    @property
+    def toarray(self):
+        if self._sparse_matrix is not None:
+            return self._sparse_matrix.toarray()
+        else:
+            return self._linop.toarray()
+
+    @property
+    def tosparse(self):
+        if self._sparse_matrix is None:
+            self._sparse_matrix = self._linop.tosparse()
+
+        return self._sparse_matrix
+
+
+    def __call__(self, u):
+        assert isinstance(u, FemField)
+        assert u.space == self.fem_domain
+
+        if self._linop is not None:
+            coeffs = self._linop.dot(u.coeffs)
+        elif self._sparse_matrix is not None:
+            coeffs = self._sparse_matrix.dot(u.coeffs)
+        else:
+            raise NotImplementedError('Class does not provide a __call__ method without a matrix or linear operator')
+
+        return FemField(self.fem_codomain, coeffs=coeffs)
+    
+    def dot( self, f_coeffs, out=None ):
+        assert isinstance(f_coeffs, Vector)
+        assert f_coeffs.space is self._linop_domain
+
+        if self._linop is not None or self._sparse_matrix is not None:
+            f = FemField(self.fem_domain, coeffs=f_coeffs)
+            return self(f).coeffs
+        else:
+            raise NotImplementedError('Class does not provide a dot method without a matrix or linear operator')

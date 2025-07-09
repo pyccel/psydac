@@ -12,10 +12,9 @@ from psydac.linalg.basic    import IdentityOperator
 from psydac.fem.basic       import FemField, FemSpace
 from psydac.linalg.basic    import LinearOperator
 from psydac.ddm.cart        import DomainDecomposition, CartDecomposition
-
+from psydac.fem.basic       import FemLinearOperator
 __all__ = (
     'DirectionalDerivativeOperator',
-    'DiffOperator',
     'Derivative_1D',
     'Gradient_2D',
     'Gradient_3D',
@@ -361,40 +360,7 @@ class DirectionalDerivativeOperator(LinearOperator):
                 self._diffdir, negative=self._negative, transposed=self._transposed)
 
 #====================================================================================================
-class DiffOperator:
-    def __init__(self, domain, codomain, matrix):
-        assert isinstance(domain, FemSpace)
-        assert isinstance(codomain, FemSpace)
-        assert isinstance(matrix, LinearOperator)
-        assert domain.coeff_space is matrix.domain
-        assert codomain.coeff_space is matrix.codomain
-
-        self._domain = domain
-        self._codomain = codomain
-        self._matrix = matrix
-
-    @property
-    def matrix(self):
-        return self._matrix
-
-    @property
-    def domain(self):
-        return self._domain
-
-    @property
-    def codomain(self):
-        return self._codomain
-    
-    def __call__(self, u):
-        assert isinstance(u, FemField)
-        assert u.space == self.domain
-
-        coeffs = self.matrix.dot(u.coeffs)
-
-        return FemField(self.codomain, coeffs=coeffs)
-
-#====================================================================================================
-class Derivative_1D(DiffOperator):
+class Derivative_1D(FemLinearOperator):
     """
     1D derivative.
 
@@ -418,7 +384,7 @@ class Derivative_1D(DiffOperator):
         super().__init__(H1, L2, DirectionalDerivativeOperator(H1.coeff_space, L2.coeff_space, 0))
 
 #====================================================================================================
-class Gradient_2D(DiffOperator):
+class Gradient_2D(FemLinearOperator):
     """
     Gradient operator in 2D.
 
@@ -434,7 +400,7 @@ class Gradient_2D(DiffOperator):
     def __init__(self, H1, Hcurl):
 
         assert isinstance(   H1,  TensorFemSpace); assert    H1.ldim == 2
-        assert isinstance(Hcurl, VectorFemSpace); assert Hcurl.ldim == 2
+        assert isinstance(Hcurl,  VectorFemSpace); assert Hcurl.ldim == 2
 
         assert Hcurl.spaces[0].periodic == H1.periodic
         assert Hcurl.spaces[1].periodic == H1.periodic
@@ -458,7 +424,7 @@ class Gradient_2D(DiffOperator):
 
 
 #====================================================================================================
-class Gradient_3D(DiffOperator):
+class Gradient_3D(FemLinearOperator):
     """
     Gradient operator in 3D.
 
@@ -500,7 +466,7 @@ class Gradient_3D(DiffOperator):
         super().__init__(H1, Hcurl, matrix)
 
 #====================================================================================================
-class ScalarCurl_2D(DiffOperator):
+class ScalarCurl_2D(FemLinearOperator):
     """
     Scalar curl operator in 2D: computes a scalar field from a vector field.
 
@@ -539,7 +505,7 @@ class ScalarCurl_2D(DiffOperator):
         super().__init__(Hcurl, L2, matrix)
 
 #====================================================================================================
-class VectorCurl_2D(DiffOperator):
+class VectorCurl_2D(FemLinearOperator):
     """
     Vector curl operator in 2D: computes a vector field from a scalar field.
     This is sometimes called the 'rot' operator.
@@ -579,7 +545,7 @@ class VectorCurl_2D(DiffOperator):
         super().__init__(H1, Hdiv, matrix)
 
 #====================================================================================================
-class Curl_3D(DiffOperator):
+class Curl_3D(FemLinearOperator):
     """
     Curl operator in 3D.
 
@@ -629,7 +595,7 @@ class Curl_3D(DiffOperator):
         super().__init__(Hcurl, Hdiv, matrix)
 
 #====================================================================================================
-class Divergence_2D(DiffOperator):
+class Divergence_2D(FemLinearOperator):
     """
     Divergence operator in 2D.
 
@@ -668,7 +634,7 @@ class Divergence_2D(DiffOperator):
         super().__init__(Hdiv, L2, matrix)
 
 #====================================================================================================
-class Divergence_3D(DiffOperator):
+class Divergence_3D(FemLinearOperator):
     """
     Divergence operator in 3D.
 
