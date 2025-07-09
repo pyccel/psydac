@@ -11,7 +11,7 @@ from psydac.feec.global_projectors import Projector_Hdiv, Projector_L2
 from psydac.feec.pull_push         import pull_1d_h1, pull_1d_l2
 from psydac.feec.pull_push         import pull_2d_h1, pull_2d_hcurl, pull_2d_hdiv, pull_2d_l2, pull_2d_h1vec
 from psydac.feec.pull_push         import pull_3d_h1, pull_3d_hcurl, pull_3d_hdiv, pull_3d_l2, pull_3d_h1vec
-from psydac.fem.basic              import FemSpace
+from psydac.fem.basic              import FemSpace, FemLinearOperator
 from psydac.fem.vector             import VectorFemSpace
 
 from psydac.feec.multipatch.operators import HodgeOperator
@@ -22,7 +22,7 @@ from psydac.feec.multipatch.projectors import Multipatch_Projector_Hcurl
 from psydac.feec.multipatch.projectors import Multipatch_Projector_L2
 from psydac.feec.multipatch.projectors import ConformingProjection_V0
 from psydac.feec.multipatch.projectors import ConformingProjection_V1
-from psydac.feec.multipatch.fem_linear_operators import IdLinearOperator
+from psydac.linalg.basic import IdentityOperator
 
 __all__ = ('DiscreteDerham', 'DiscreteDerhamMultipatch',)
 
@@ -339,6 +339,8 @@ class DiscreteDerhamMultipatch(DiscreteDerham):
         else:
             raise ValueError('Dimension {} is not available'.format(dim))
 
+        self._Hodge_operators = ()
+        self._conf_proj = ()
     #--------------------------------------------------------------------------
     @property
     def sequence(self):
@@ -366,17 +368,14 @@ class DiscreteDerhamMultipatch(DiscreteDerham):
     def callable_mapping(self):
         raise NotImplementedError('Not implemented for Multipatch de Rham sequences.')
 
-    @property
-    def derivatives(self):
-        return self._broken_diff_ops
-
-    @property
-    def derivatives_as_matrices(self):
-        return tuple(b_diff.matrix for b_diff in self._broken_diff_ops)
-
-    @property
-    def derivatives_as_sparse_matrices(self):
-        return tuple(b_diff.tosparse for b_diff in self._broken_diff_ops)
+    #--------------------------------------------------------------------------
+    def derivatives(self, kind='femlinop'):
+        if kind == 'femlinop':
+            return self._broken_diff_ops
+        elif kind == 'sparse':
+            return tuple(b_diff.tosparse for b_diff in self._broken_diff_ops)
+        elif kind == 'linop': 
+            return tuple(b_diff.linop for b_diff in self._broken_diff_ops)
 
     #--------------------------------------------------------------------------
     def projectors(self, *, kind='global', nquads=None):
@@ -430,88 +429,65 @@ class DiscreteDerhamMultipatch(DiscreteDerham):
             raise NotImplementedError("3D projectors are not available")
 
     #--------------------------------------------------------------------------
-    def conforming_projection(self, space=None, p_moments=-1, hom_bc=False, load_dir=None):
+    def conforming_projectors(self, p_moments=-1, hom_bc=False, kind='femlinop'):
         """
         return the conforming projectors of the broken multi-patch space
 
         Parameters
         ----------
-        space : <str>
-          The space of the projector
+
+        p_moments : <int>
+            The number of moments preserved by the projector.
 
         hom_bc: <bool>
           Apply homogenous boundary conditions if True
 
-        load_dir: <str|None>
-          Filename for storage in sparse matrix format
+        kind : <str>
+            The kind of the projector, can be 'femlinop', 'sparse' or 'linop'.
+            - 'femlinop' returns a FemLinearOperator
+            - 'sparse' returns a sparse matrix
+            - 'linop' returns a LinearOperator
 
         Returns
         -------
-        Cp: <FemLinearOperator>
+        Cp: <FemLinearOperator>, <sparse matrix> or <LinearOperator>
           The conforming projector
 
         """
         if hom_bc is None:
             raise ValueError('please provide a value for "hom_bc" argument')
 
-        if isinstance(load_dir, str):
-            if not os.path.exists(load_dir):
-                os.makedirs(load_dir)
-            if space == 'V0':
-                P_name = 'cP0'
-            elif space == 'V1':
-                P_name = 'cP1'
-            elif space == 'V2':
-                P_name = 'cP2'
-            else:
-                raise ValueError(space)
-
-            if hom_bc:
-                storage_fn = load_dir + '/{}_hom_m.npz'.format(P_name)
-            else:
-                storage_fn = load_dir + '/{}_m.npz'.format(P_name)
-        else:
-            storage_fn = None
-
-        cP = None
         if self.dim == 1:
             raise NotImplementedError("1D projectors are not available")
 
         elif self.dim == 2:
-            if space == 'V0':
-                cP = ConformingProjection_V0(self.V0, p_moments=p_moments, hom_bc=hom_bc, storage_fn=storage_fn)
-            elif space == 'V1':
-                if self.sequence[1] == 'hcurl':
-                    cP = ConformingProjection_V1(self.V1, p_moments=p_moments, hom_bc=hom_bc, storage_fn=storage_fn)
-                else:
-                    raise NotImplementedError('2D sequence with H-div not available yet')
+            if self.sequence[1] != 'hcurl':
+                raise NotImplementedError('2D sequence with H-div not available yet')
 
-            elif space == 'V2':
-                cP = IdLinearOperator(self.V2)  # no storage needed!
-
-            elif space == None and self.sequence[1] == 'hcurl': 
-                cP0 = ConformingProjection_V0(self.V0, p_moments=p_moments, hom_bc=hom_bc, storage_fn=storage_fn)
-                cP1 = ConformingProjection_V1(self.V1, p_moments=p_moments, hom_bc=hom_bc, storage_fn=storage_fn)
-                cP2 = IdLinearOperator(self.V2)  # no storage needed!
-
-                return cP0, cP1, cP2
             else:
-                raise ValueError('Invalid value for "space" argument: {}'.format(space))
+                cP0 = ConformingProjection_V0(self.V0, p_moments=p_moments, hom_bc=hom_bc)#, storage_fn=storage_fn)
+                cP1 = ConformingProjection_V1(self.V1, p_moments=p_moments, hom_bc=hom_bc)#, storage_fn=storage_fn)
+                cP2 = IdentityOperator(self.V2.coeff_space)  # no storage needed!
+
+                self._conf_proj = (cP0, cP1, cP2)
 
         elif self.dim == 3:
             raise NotImplementedError("3D projectors are not available")
 
-        return cP
+        if kind == 'femlinop':
+            return cP0, cP1, FemLinearOperator(fem_domain=self.V2, fem_codomain=self.V2, linop=cP2, sparse_matrix=cP2.tosparse)
+        elif kind == 'sparse':
+            return cP0.tosparse, cP1.tosparse, cP2.tosparse
+        elif kind == 'linop': 
+            return cP0.linop, cP1.linop, cP2
 
     #--------------------------------------------------------------------------
-    def hodge_operator(self, space=None, backend_language='python', load_dir=None):
+    def init_Hodge_operator(self, backend_language='python', load_dir=None):
         """
-        return the conforming projectors of the broken multi-patch space
+        Initialize the Hodge operator for the multipatch de Rham sequence.
 
         Parameters
         ----------
-        space : <str>
-          The space of the projector
 
         backend_language: <str>
           The backend used to accelerate the code
@@ -519,35 +495,100 @@ class DiscreteDerhamMultipatch(DiscreteDerham):
         load_dir: <str|None>
           Filename for storage in sparse matrix format
 
-        Returns
-        -------
-        H: <FemLinearOperator>
-          The Hodge operator
-
         """
 
-        H = None
         if self.dim == 1:
             raise NotImplementedError("1D Hodges are not available")
 
         elif self.dim == 2:
-            if space == 'V0':
-                H = HodgeOperator(self.V0, self.domain_h, backend_language=backend_language, load_dir=load_dir, load_space_index=0)
-            elif space == 'V1':
-                H = HodgeOperator(self.V1, self.domain_h, backend_language=backend_language, load_dir=load_dir, load_space_index=1)
-            elif space == 'V2':
-                H = HodgeOperator(self.V2, self.domain_h, backend_language=backend_language, load_dir=load_dir, load_space_index=2)
+            if not self._Hodge_operators: 
 
-            elif space == None and self.sequence[1] == 'hcurl': 
                 H0 = HodgeOperator(self.V0, self.domain_h, backend_language=backend_language, load_dir=load_dir, load_space_index=0)
                 H1 = HodgeOperator(self.V1, self.domain_h, backend_language=backend_language, load_dir=load_dir, load_space_index=1)
                 H2 = HodgeOperator(self.V2, self.domain_h, backend_language=backend_language, load_dir=load_dir, load_space_index=2)
 
-                return H0, H1, H2
-            else:
-                raise ValueError('Invalid value for "space" argument: {}'.format(space))
+                self._Hodge_operators = (H0, H1, H2)
 
         elif self.dim == 3:
             raise NotImplementedError("3D Hodgesa are not available")
 
-        return H
+    #--------------------------------------------------------------------------
+    def Hodge_kind(self, H, dual=False, kind='femlinop'):
+        """
+        Helper function to return the Hodge operator in the specified form.
+        
+        Parameters
+        ----------
+            H : <HodgeOperator>
+
+            dual : <bool>
+                If True, returns the dual Hodge operator
+
+            kind : <str>
+                The kind of the operator, can be 'femlinop', 'sparse' or 'linop'.
+                - 'femlinop' returns a FemLinearOperator
+                - 'sparse' returns a sparse matrix
+                - 'linop' returns a LinearOperator
+        """
+
+        if not dual: 
+            if kind == 'femlinop':
+                return H.Hodge
+            elif kind == 'sparse':
+                return H.tosparse
+            elif kind == 'linop':
+                return H.linop
+        else: 
+            if kind == 'femlinop':
+                return H.dual_Hodge
+            elif kind == 'sparse':
+                return H.dual_tosparse
+            elif kind == 'linop':
+                return H.dual_linop
+
+    #--------------------------------------------------------------------------
+    def Hodge_operators(self, space=None, dual=False, kind='femlinop', backend_language='python', load_dir=None):
+        """
+        Returns the Hodge operator for the given space and specified kind.
+        
+        Parameters
+        ----------
+        space : str or None
+            The space for which to return the Hodge operator, can be 'V0', 'V1', 'V2' or None.
+            If None, returns a tuple with all three Hodge operators.
+
+        dual : bool
+            If True, returns the dual Hodge operator.
+
+        kind : str
+            The kind of the operator, can be 'femlinop', 'sparse' or 'linop'.
+            - 'femlinop' returns a FemLinearOperator
+            - 'sparse' returns a sparse matrix
+            - 'linop' returns a LinearOperator
+
+        backend_language : str
+            The backend used to accelerate the code, default is 'python'.
+
+        load_dir : str or None
+            Directory to load the Hodge operator from, if None the operator is computed on demand.
+
+        Returns
+        -------
+        Hodge operator for the specified space or a tuple of operators if space is None.
+        """
+
+        if not self._Hodge_operators:
+            self.init_Hodge_operator(backend_language='python', load_dir=None)
+            
+        H0, H1, H2 = self._Hodge_operators
+
+        if space == 'V0':
+           return self.Hodge_kind(H0, dual=dual, kind=kind)
+        elif space == 'V1':
+            return self.Hodge_kind(H1, dual=dual, kind=kind)
+        elif space == 'V2':
+            return self.Hodge_kind(H2, dual=dual, kind=kind)
+        elif space is None:
+            return (self.Hodge_kind(H0, dual=dual, kind=kind),
+                    self.Hodge_kind(H1, dual=dual, kind=kind),
+                    self.Hodge_kind(H2, dual=dual, kind=kind))
