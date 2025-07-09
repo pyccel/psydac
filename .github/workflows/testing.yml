@@ -6,8 +6,21 @@ name: Run tests
 on:
   push:
     branches: [ devel ]
+    paths:
+      - 'psydac/**'
+      - 'pyproject.toml'
+      - 'setup.py'
+      - 'pytest.ini'
+      - 'mpi_tester.py'
+
   pull_request:
     branches: [ devel ]
+    paths:
+      - 'psydac/**'
+      - 'pyproject.toml'
+      - 'setup.py'
+      - 'pytest.ini'
+      - 'mpi_tester.py'
 
 jobs:
   test:
