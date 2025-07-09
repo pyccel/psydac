@@ -1,6 +1,6 @@
 # Welcome to PSYDAC
 
-[![devel_tests](https://github.com/pyccel/psydac/actions/workflows/continuous-integration.yml/badge.svg)](https://github.com/pyccel/psydac/actions/workflows/continuous-integration.yml) [![docs](https://github.com/pyccel/psydac/actions/workflows/documentation.yml/badge.svg)](https://github.com/pyccel/psydac/actions/workflows/documentation.yml)
+[![devel_tests](https://github.com/pyccel/psydac/actions/workflows/testing.yml/badge.svg)](https://github.com/pyccel/psydac/actions/workflows/testing.yml) [![docs](https://github.com/pyccel/psydac/actions/workflows/documentation.yml/badge.svg)](https://github.com/pyccel/psydac/actions/workflows/documentation.yml)
 
 **PSYDAC** is a Python 3 Library for isogeometric analysis.
 
