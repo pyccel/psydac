@@ -3,8 +3,15 @@ name: documentation
 on:
   push:
     branches: [ devel ]
+    paths:
+      - 'docs/**'
+      - 'psydac/**.py'
+
   pull_request:
     branches: [ devel ]
+    paths:
+      - 'docs/**'
+      - 'psydac/**.py'
 
 permissions:
   contents: read
