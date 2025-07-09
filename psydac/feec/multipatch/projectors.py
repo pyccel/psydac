@@ -6,26 +6,19 @@ import os
 import numpy as np
 from sympy import Tuple
 
-from scipy.sparse import save_npz, load_npz
 from scipy.sparse import eye as sparse_eye
 from scipy.sparse import csr_matrix
 from scipy.special import comb
 
 from sympde.topology import Boundary, Interface
-from sympde.calculus import dot
-from sympde.calculus import Dn, minus, plus
-
 
 from psydac.core.bsplines import quadrature_grid, basis_ders_on_quad_grid, find_spans, elements_spans, cell_index, basis_ders_on_irregular_grid
-
-from psydac.api.settings import PSYDAC_BACKENDS
-from psydac.linalg.block import BlockVectorSpace, BlockVector, BlockLinearOperator
-from psydac.fem.basic import FemField
+from psydac.linalg.block import BlockVector
+from psydac.fem.basic import FemField, FemLinearOperator
 from psydac.fem.splines import SplineSpace
 from psydac.utilities.quadratures import gauss_legendre
-
+from psydac.linalg.utilities import SparseMatrixLinearOperator
 from psydac.feec.global_projectors import Projector_H1, Projector_Hcurl, Projector_L2
-from psydac.feec.multipatch.fem_linear_operators import FemLinearOperator
 
 
 def get_patch_index_from_face(domain, face):
@@ -1182,39 +1175,21 @@ class ConformingProjection_V0(FemLinearOperator):
 
     hom_bc : <bool>
      Apply homogenous boundary conditions if True
-
-    storage_fn:
-     filename to store/load the operator sparse matrix
     """
     # todo (MCP, 16.03.2021):
-    #   - avoid discretizing a bilinear form
     #   - allow case without interfaces (single or multipatch)
 
     def __init__(
             self,
             V0h,
             p_moments=-1,
-            hom_bc=False,
-            storage_fn=None):
+            hom_bc=False):
 
-        FemLinearOperator.__init__(self, fem_domain=V0h)
-
-        V0 = V0h.symbolic_space
-        domain = V0.domain
-        self.symbolic_domain = domain
-
-        if storage_fn and os.path.exists(storage_fn):
-            print("[ConformingProjection_V0] loading operator sparse matrix from " + storage_fn)
-            self._sparse_matrix = load_npz(storage_fn)
-
-        else:
+        FemLinearOperator.__init__(self, fem_domain=V0h, fem_codomain=V0h)
          
-            self._sparse_matrix = construct_h1_conforming_projection(V0h, reg_orders=0, p_moments=p_moments, hom_bc=hom_bc)
+        self._sparse_matrix = construct_h1_conforming_projection(V0h, reg_orders=0, p_moments=p_moments, hom_bc=hom_bc)
 
-            if storage_fn:
-                print("[ConformingProjection_V0] storing operator sparse matrix in " + storage_fn)
-                save_npz(storage_fn, self._sparse_matrix)
-
+        self._linop = SparseMatrixLinearOperator(self.linop_domain, self.linop_codomain, self._sparse_matrix)
 
 # ===============================================================================
 
@@ -1235,38 +1210,22 @@ class ConformingProjection_V1(FemLinearOperator):
 
     hom_bc : <bool>
      Apply homogenous boundary conditions if True
-
-    storage_fn:
-     filename to store/load the operator sparse matrix
     """
     # todo (MCP, 16.03.2021):
-    #   - avoid discretizing a bilinear form
     #   - allow case without interfaces (single or multipatch)
 
     def __init__(
             self,
             V1h,
             p_moments=-1,
-            hom_bc=False,
-            storage_fn=None):
+            hom_bc=False):
 
-        FemLinearOperator.__init__(self, fem_domain=V1h)
+        FemLinearOperator.__init__(self, fem_domain=V1h, fem_codomain=V1h)
 
-        V1 = V1h.symbolic_space
-        domain = V1.domain
-        self.symbolic_domain = domain
-
-        if storage_fn and os.path.exists(storage_fn):
-            print("[ConformingProjection_V1] loading operator sparse matrix from " + storage_fn)
-            self._sparse_matrix = load_npz(storage_fn)
-
-        else:
             
-            self._sparse_matrix = construct_hcurl_conforming_projection(V1h, reg_orders=0, p_moments=p_moments, hom_bc=hom_bc)
+        self._sparse_matrix = construct_hcurl_conforming_projection(V1h, reg_orders=0, p_moments=p_moments, hom_bc=hom_bc)
 
-            if storage_fn:
-                print("[ConformingProjection_V1] storing operator sparse matrix in " + storage_fn)
-                save_npz(storage_fn, self._sparse_matrix)
+        self._linop = SparseMatrixLinearOperator(self.linop_domain, self.linop_codomain, self._sparse_matrix)
 
 
 # ===============================================================================
