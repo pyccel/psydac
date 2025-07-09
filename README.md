@@ -100,6 +100,16 @@ This path can be obtained with a command which depends on your system.
     ```sh
     export HDF5_DIR=$(brew list hdf5-mpi | grep "libhdf5.dylib" | xargs dirname | xargs dirname)
     ```
+- On supercomputers using SLURM, the correct location of the HDF5 library can be found using the `module` command:
+
+    ```sh
+    module load hdf5-mpi/1.15.1
+    module show hdf5-mpi/1.15.1
+
+    >>> to be copy-pasted
+
+    export HDF5_DIR=$HDF5_HOME
+    ```
 
 Next, install the Python dependencies using `pip`:
 ```sh
@@ -107,8 +117,7 @@ export CC="mpicc"
 export HDF5_MPI="ON"
 
 python3 -m pip install --upgrade pip
-python3 -m pip install -r requirements.txt
-python3 -m pip install -r requirements_extra.txt --no-build-isolation --no-cache-dir
+python3 -m pip install h5py --no-cache-dir --no-binary h5py
 ```
 
 At this point the Psydac library may be installed in **standard mode**, which copies the relevant files to the correct locations of the virtual environment, or in **development mode**, which only installs symbolic links to the Psydac directory. The latter mode allows one to effect the behavior of Psydac by modifying the source files.
