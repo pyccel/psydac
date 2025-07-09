@@ -3,7 +3,7 @@
 import numpy as np
 from math import sqrt
 
-from psydac.linalg.basic   import Vector
+from psydac.linalg.basic   import Vector, MatrixFreeLinearOperator
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector
 from psydac.linalg.block   import BlockVector, BlockVectorSpace
 from psydac.linalg.topetsc import petsc_local_to_psydac, get_npts_per_block
@@ -11,7 +11,8 @@ from psydac.linalg.topetsc import petsc_local_to_psydac, get_npts_per_block
 __all__ = (
     'array_to_psydac',
     'petsc_to_psydac',
-    '_sym_ortho'
+    '_sym_ortho',
+    'SparseMatrixLinearOperator'
 )
 
 #==============================================================================
@@ -198,3 +199,28 @@ def _sym_ortho(a, b):
         s = c * tau
         r = a / c
     return c, s, r
+
+#==============================================================================
+class SparseMatrixLinearOperator(MatrixFreeLinearOperator):
+    """ 
+    Wrap a sparse matrix into a MatrixFreeLinearOperator
+    """
+        
+    def __init__(self, domain, codomain, sparse_matrix):
+        self._matrix = sparse_matrix
+
+        def dot_sparse(v):
+            res = self._matrix @ v.toarray()
+            Mv = array_to_psydac(res, self.codomain)
+            return Mv    
+
+        super().__init__(domain, codomain, dot_sparse)
+
+    def tosparse(self):
+        return self._matrix
+
+    def toarray(self):
+        return self._matrix.toarray()
+
+    def transpose(self, conjugate=False):
+        return SparseMatrixLinearOperator(self.codomain, self.domain, self._matrix.T)
