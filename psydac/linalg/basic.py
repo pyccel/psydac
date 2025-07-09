@@ -700,7 +700,7 @@ class ScaledLinearOperator(LinearOperator):
 
     def tosparse(self):
         from scipy.sparse import csr_matrix
-        return self._scalar*csr_matrix(self._operator.toarray())
+        return self._scalar*csr_matrix(self._operator.tosparse())
 
     def transpose(self, conjugate=False):
         return ScaledLinearOperator(domain=self.codomain, codomain=self.domain, c=self._scalar if not conjugate else np.conjugate(self._scalar), A=self._operator.transpose(conjugate=conjugate))
