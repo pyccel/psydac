@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools >= 64.0", "wheel", "numpy", "pyccel >= 1.9.2"]
+requires = ["setuptools >= 64.0, != 67.2.0", "wheel", "numpy", "pyccel >= 2.0.1"]
 build-backend = "setuptools.build_meta"
 
 [project]
