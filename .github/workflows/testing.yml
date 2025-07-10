@@ -22,6 +22,8 @@ on:
       - 'pytest.ini'
       - 'mpi_tester.py'
 
+  workflow_dispatch:
+
 jobs:
   test:
     runs-on: ${{ matrix.os }}

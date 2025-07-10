@@ -13,6 +13,8 @@ on:
       - 'docs/**'
       - 'psydac/**.py'
 
+  workflow_dispatch:
+
 permissions:
   contents: read
   pages: write
@@ -51,7 +53,7 @@ jobs:
         path: 'docs/build/html'
 
   deploy_docs:
-    if: github.event_name != 'pull_request'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/devel'
     needs: build_docs
     runs-on: ubuntu-latest
     environment:
