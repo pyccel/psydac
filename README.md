@@ -4,6 +4,14 @@
 
 **PSYDAC** is a Python 3 Library for isogeometric analysis.
 
+## Citing
+
+If PSYDAC has been significant in your research, and you would like to acknowledge the project in your academic publication, we would ask that you cite the following paper:
+
+Güçlü, Y., S. Hadjout, and A. Ratnani. “PSYDAC: A High-Performance IGA Library in Python.” In 8th European Congress on Computational Methods in Applied Sciences and Engineering. CIMNE, 2022. https://doi.org/10.23967/eccomas.2022.227.
+
+The associated bibtex can be found [here](./psydac.bib).
+
 ## Installation
 
 PSYDAC requires a certain number of components to be installed on the machine:
