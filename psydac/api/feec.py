@@ -49,7 +49,7 @@ class DiscreteDerham(BasicDiscrete):
     - For the multipatch counterpart of this class please see
       `MultipatchDiscreteDerham` in `psydac.feec.multipatch.api`.
     """
-    def __init__(self, mapping, *spaces):
+    def __init__(self, mapping, domain_h, *spaces):
 
         assert (mapping is None) or isinstance(mapping, Mapping)
         assert all(isinstance(space, FemSpace) for space in spaces)
@@ -64,14 +64,19 @@ class DiscreteDerham(BasicDiscrete):
         else :
             dim           = len(spaces) - 1
             self._spaces  = spaces
-
+            
+        self._domain_h = domain_h
+        self._sequence = tuple(space.symbolic_space.kind.name for space in spaces)
         self._dim     = dim
         self._mapping = mapping
         self._callable_mapping = mapping.get_callable_mapping() if mapping else None
 
         if dim == 1:
             D0 = Derivative_1D(spaces[0], spaces[1])
+
             spaces[0].diff = spaces[0].grad = D0
+
+            self._derivatives = (D0,)
 
         elif dim == 2:
             kind = spaces[1].symbolic_space.kind.name
@@ -84,6 +89,8 @@ class DiscreteDerham(BasicDiscrete):
                 spaces[0].diff = spaces[0].grad = D0
                 spaces[1].diff = spaces[1].curl = D1
 
+                self._derivatives = (D0, D1)
+
             elif kind == 'hdiv':
 
                 D0 = VectorCurl_2D(spaces[0], spaces[1])
@@ -91,6 +98,9 @@ class DiscreteDerham(BasicDiscrete):
 
                 spaces[0].diff = spaces[0].rot = D0
                 spaces[1].diff = spaces[1].div = D1
+
+                self._derivatives = (D0, D1)
+
 
         elif dim == 3:
 
@@ -102,14 +112,28 @@ class DiscreteDerham(BasicDiscrete):
             spaces[1].diff = spaces[1].curl = D1
             spaces[2].diff = spaces[2].div  = D2
 
+            self._derivatives = (D0, D1, D2)
+
         else:
             raise ValueError('Dimension {} is not available'.format(dim))
 
+        self._Hodge_operators = ()
+        self._conf_proj = ()
     #--------------------------------------------------------------------------
     @property
     def dim(self):
         """Dimension of the physical and logical domains, which are assumed to be the same."""
         return self._dim
+    
+    @property
+    def domain_h(self):
+        """Discretized domain."""
+        return self._domain_h
+
+    @property
+    def spaces(self):
+        """Spaces of the proper de Rham sequence (excluding Hvec)."""
+        return self._spaces
 
     @property
     def V0(self):
@@ -137,16 +161,15 @@ class DiscreteDerham(BasicDiscrete):
         return self._spaces[3]
 
     @property
+    def sequence(self):
+        return self._sequence
+
+    @property
     def H1vec(self):
         """Vector-valued H1 space built as the Cartesian product of N copies of V0,
         where N is the dimension of the (logical) domain."""
         assert self.has_vec
         return self._H1vec
-
-    @property
-    def spaces(self):
-        """Spaces of the proper de Rham sequence (excluding Hvec)."""
-        return self._spaces
 
     @property
     def mapping(self):
@@ -157,21 +180,6 @@ class DiscreteDerham(BasicDiscrete):
     def callable_mapping(self):
         """The mapping as a callable."""
         return self._callable_mapping
-
-    @property
-    def derivatives_as_matrices(self):
-        """Differential operators of the De Rham sequence as LinearOperator objects."""
-        return tuple(V.diff.matrix for V in self.spaces[:-1])
-
-    @property
-    def derivatives(self):
-        """Differential operators of the De Rham sequence as `DiffOperator` objects.
-
-        Those are objects with `domain` and `codomain` properties that are `FemSpace`, 
-        they act on `FemField` (they take a `FemField` of their `domain` as input and return 
-        a `FemField` of their `codomain`.
-        """
-        return tuple(V.diff for V in self.spaces[:-1])
 
     #--------------------------------------------------------------------------
     def projectors(self, *, kind='global', nquads=None):
@@ -276,160 +284,17 @@ class DiscreteDerham(BasicDiscrete):
             else : 
                 return P0, P1, P2, P3
 
-
-#==============================================================================
-class DiscreteDerhamMultipatch(DiscreteDerham):
-    """ Represents the discrete De Rham sequence for multipatch domains.
-        It only works when the number of patches>1
-
-    Parameters
-    ----------
-    mapping: <Mapping>
-     The mapping of the multipatch domain, the multipatch mapping contains the mapping of each patch 
-
-    domain_h: <Geometry>
-     The discrete domain
-
-    spaces: <list,tuple>
-      The discrete spaces that are contained in the De Rham sequence
-
-    sequence: <list,tuple>
-      The space kind of each space in the De Rham sequence
-    """
-    
-    def __init__(self, *, mapping, domain_h, spaces, sequence=None):
-
-        dim           = len(spaces) - 1
-        self._spaces  = tuple(spaces)
-        self._dim     = dim
-        self._mapping = mapping
-        self._domain_h = domain_h
-
-        if sequence:
-            if len(sequence) != dim + 1:
-                raise ValueError('Expected len(sequence) = {}, got {} instead'.
-                        format(dim + 1, len(sequence)))
-
-        if dim == 1:
-            self._sequence = ('h1', 'l2')
-            raise NotImplementedError('1D FEEC multipatch non available yet')
-
-        elif dim == 2:
-            if sequence is None:
-                raise ValueError('Sequence must be specified in 2D case')
-
-            elif tuple(sequence) == ('h1', 'hcurl', 'l2'):
-                self._sequence = tuple(sequence)
-                self._broken_diff_ops = (
-                    BrokenGradient_2D(self.V0, self.V1),
-                    BrokenScalarCurl_2D(self.V1, self.V2),  # None,
-                )
-
-            elif tuple(sequence) == ('h1', 'hdiv', 'l2'):
-                self._sequence = tuple(sequence)
-                raise NotImplementedError('2D sequence with H-div not available yet')
-
-            else:
-                raise ValueError('2D sequence not understood')
-
-        elif dim == 3:
-            self._sequence = ('h1', 'hcurl', 'hdiv', 'l2')
-            raise NotImplementedError('3D FEEC multipatch non available yet')
-
-        else:
-            raise ValueError('Dimension {} is not available'.format(dim))
-
-        self._Hodge_operators = ()
-        self._conf_proj = ()
-    #--------------------------------------------------------------------------
-    @property
-    def sequence(self):
-        return self._sequence
-
-    @property
-    def domain_h(self):
-        return self._domain_h
-
-    @property
-    def H1vec(self):
-        raise NotImplementedError('Not implemented for Multipatch de Rham sequences.')
-
-    @property
-    def spaces(self):
-        """Spaces of the proper de Rham sequence (excluding Hvec)."""
-        return self._spaces
-
-    @property
-    def mapping(self):
-        """The mapping from the logical space to the physical space."""
-        return self._mapping
-
-    @property
-    def callable_mapping(self):
-        raise NotImplementedError('Not implemented for Multipatch de Rham sequences.')
-
     #--------------------------------------------------------------------------
     def derivatives(self, kind='femlinop'):
         if kind == 'femlinop':
-            return self._broken_diff_ops
+            return self._derivatives
         elif kind == 'sparse':
-            return tuple(b_diff.tosparse for b_diff in self._broken_diff_ops)
+            return tuple(b_diff.tosparse for b_diff in self._derivatives)
         elif kind == 'linop': 
-            return tuple(b_diff.linop for b_diff in self._broken_diff_ops)
-
+            return tuple(b_diff.linop for b_diff in self._derivatives)
+    
     #--------------------------------------------------------------------------
-    def projectors(self, *, kind='global', nquads=None):
-        """
-        This method returns the patch-wise commuting projectors on the broken multi-patch space
-
-        Parameters
-        ----------
-        kind: <str>
-          The projectors kind, can be global or local
-
-        nquads: <list,tuple>
-          The number of quadrature points.
-
-        Returns
-        -------
-        P0: <Multipatch_Projector_H1>
-         Patch wise H1 projector
-
-        P1: <Multipatch_Projector_Hcurl>
-         Patch wise Hcurl projector
-
-        P2: <Multipatch_Projector_L2>
-         Patch wise L2 projector
-
-        Notes
-        -----
-            - when applied to smooth functions they return conforming fields
-            - default 'global projectors' correspond to geometric interpolation/histopolation operators on Greville grids
-            - here 'global' is a patch-level notion, as the interpolation-type problems are solved on each patch independently
-        """
-        if not (kind == 'global'):
-            raise NotImplementedError('only global projectors are available')
-
-        if self.dim == 1:
-            raise NotImplementedError("1D projectors are not available")
-
-        elif self.dim == 2:
-            P0 = Multipatch_Projector_H1(self.V0)
-
-            if self.sequence[1] == 'hcurl':
-                P1 = Multipatch_Projector_Hcurl(self.V1, nquads=nquads)
-            else:
-                P1 = None # TODO: Multipatch_Projector_Hdiv(self.V1, nquads=nquads)
-                raise NotImplementedError('2D sequence with H-div not available yet')
-
-            P2 = Multipatch_Projector_L2(self.V2, nquads=nquads)
-            return P0, P1, P2
-
-        elif self.dim == 3:
-            raise NotImplementedError("3D projectors are not available")
-
-    #--------------------------------------------------------------------------
-    def conforming_projectors(self, p_moments=-1, hom_bc=False, kind='femlinop'):
+    def conforming_projectors(self, kind='femlinop', p_moments=-1, hom_bc=False):
         """
         return the conforming projectors of the broken multi-patch space
 
@@ -482,7 +347,7 @@ class DiscreteDerhamMultipatch(DiscreteDerham):
             return cP0.linop, cP1.linop, cP2
 
     #--------------------------------------------------------------------------
-    def init_Hodge_operator(self, backend_language='python', load_dir=None):
+    def _init_Hodge_operators(self, backend_language='python', load_dir=None):
         """
         Initialize the Hodge operator for the multipatch de Rham sequence.
 
@@ -496,24 +361,33 @@ class DiscreteDerhamMultipatch(DiscreteDerham):
           Filename for storage in sparse matrix format
 
         """
+        if not self._Hodge_operators: 
 
-        if self.dim == 1:
-            raise NotImplementedError("1D Hodges are not available")
+            if self.dim == 1:
+                    H0 = HodgeOperator(self.V0, self.domain_h, backend_language=backend_language, load_dir=load_dir, load_space_index=0)
+                    H1 = HodgeOperator(self.V1, self.domain_h, backend_language=backend_language, load_dir=load_dir, load_space_index=1)
+                    
+                    self._Hodge_operators = (H0, H1)
 
-        elif self.dim == 2:
-            if not self._Hodge_operators: 
+            elif self.dim == 2:
 
-                H0 = HodgeOperator(self.V0, self.domain_h, backend_language=backend_language, load_dir=load_dir, load_space_index=0)
-                H1 = HodgeOperator(self.V1, self.domain_h, backend_language=backend_language, load_dir=load_dir, load_space_index=1)
-                H2 = HodgeOperator(self.V2, self.domain_h, backend_language=backend_language, load_dir=load_dir, load_space_index=2)
+                    H0 = HodgeOperator(self.V0, self.domain_h, backend_language=backend_language, load_dir=load_dir, load_space_index=0)
+                    H1 = HodgeOperator(self.V1, self.domain_h, backend_language=backend_language, load_dir=load_dir, load_space_index=1)
+                    H2 = HodgeOperator(self.V2, self.domain_h, backend_language=backend_language, load_dir=load_dir, load_space_index=2)
 
-                self._Hodge_operators = (H0, H1, H2)
+                    self._Hodge_operators = (H0, H1, H2)
 
-        elif self.dim == 3:
-            raise NotImplementedError("3D Hodgesa are not available")
+            elif self.dim == 3:
+
+                    H0 = HodgeOperator(self.V0, self.domain_h, backend_language=backend_language, load_dir=load_dir, load_space_index=0)
+                    H1 = HodgeOperator(self.V1, self.domain_h, backend_language=backend_language, load_dir=load_dir, load_space_index=1)
+                    H2 = HodgeOperator(self.V2, self.domain_h, backend_language=backend_language, load_dir=load_dir, load_space_index=2)
+                    H3 = HodgeOperator(self.V3, self.domain_h, backend_language=backend_language, load_dir=load_dir, load_space_index=3)
+
+                    self._Hodge_operators = (H0, H1, H2, H3)
 
     #--------------------------------------------------------------------------
-    def Hodge_kind(self, H, dual=False, kind='femlinop'):
+    def _Hodge_kind(self, H, dual=False, kind='femlinop'):
         """
         Helper function to return the Hodge operator in the specified form.
         
@@ -578,17 +452,139 @@ class DiscreteDerhamMultipatch(DiscreteDerham):
         """
 
         if not self._Hodge_operators:
-            self.init_Hodge_operator(backend_language='python', load_dir=None)
+            self._init_Hodge_operators(backend_language=backend_language, load_dir=load_dir)
             
         H0, H1, H2 = self._Hodge_operators
 
         if space == 'V0':
-           return self.Hodge_kind(H0, dual=dual, kind=kind)
+           return self._Hodge_kind(self._Hodge_operators[0], dual=dual, kind=kind)
+
         elif space == 'V1':
-            return self.Hodge_kind(H1, dual=dual, kind=kind)
+            return self._Hodge_kind(self._Hodge_operators[1], dual=dual, kind=kind)
+
         elif space == 'V2':
-            return self.Hodge_kind(H2, dual=dual, kind=kind)
+            return self._Hodge_kind(self._Hodge_operators[2], dual=dual, kind=kind)
+
+        elif space == 'V3':
+            return self._Hodge_kind(self._Hodge_operators[3], dual=dual, kind=kind)
+
         elif space is None:
-            return (self.Hodge_kind(H0, dual=dual, kind=kind),
-                    self.Hodge_kind(H1, dual=dual, kind=kind),
-                    self.Hodge_kind(H2, dual=dual, kind=kind))
+            return tuple(self._Hodge_kind(H, dual=dual, kind=kind) for H in self._Hodge_operators)
+
+
+#==============================================================================
+class DiscreteDerhamMultipatch(DiscreteDerham):
+    """ Represents the discrete De Rham sequence for multipatch domains.
+        It only works when the number of patches>1
+
+    Parameters
+    ----------
+    mapping: <Mapping>
+     The mapping of the multipatch domain, the multipatch mapping contains the mapping of each patch 
+
+    domain_h: <Geometry>
+     The discrete domain
+
+    spaces: <list,tuple>
+      The discrete spaces that are contained in the De Rham sequence
+
+    sequence: <list,tuple>
+      The space kind of each space in the De Rham sequence
+    """
+    
+    def __init__(self, *, mapping, domain_h, spaces):
+
+        dim           = len(spaces) - 1
+        self._spaces  = tuple(spaces)
+        self._dim     = dim
+        self._mapping = mapping
+        self._domain_h = domain_h
+        self._sequence = tuple(space.symbolic_space.kind.name for space in spaces)
+
+
+        if dim == 1:
+            raise NotImplementedError('1D FEEC multipatch non available yet')
+
+        elif dim == 2:
+
+            if self._sequence[1] == 'hcurl':
+
+                self._derivatives = (
+                    BrokenGradient_2D(self.V0, self.V1),
+                    BrokenScalarCurl_2D(self.V1, self.V2),  # None,
+                )
+
+            elif self._sequence[1] == 'hdiv':
+                raise NotImplementedError('2D sequence with H-div not available yet')
+
+            else:
+                raise ValueError('2D sequence not understood')
+
+        elif dim == 3:
+            raise NotImplementedError('3D FEEC multipatch non available yet')
+
+        else:
+            raise ValueError('Dimension {} is not available'.format(dim))
+
+        self._Hodge_operators = ()
+        self._conf_proj = ()
+
+    #--------------------------------------------------------------------------
+    @property
+    def H1vec(self):
+        raise NotImplementedError('Not implemented for Multipatch de Rham sequences.')
+
+    @property
+    def callable_mapping(self):
+        raise NotImplementedError('Not implemented for Multipatch de Rham sequences.')
+
+    #--------------------------------------------------------------------------
+    def projectors(self, *, kind='global', nquads=None):
+        """
+        This method returns the patch-wise commuting projectors on the broken multi-patch space
+
+        Parameters
+        ----------
+        kind: <str>
+          The projectors kind, can be global or local
+
+        nquads: <list,tuple>
+          The number of quadrature points.
+
+        Returns
+        -------
+        P0: <Multipatch_Projector_H1>
+         Patch wise H1 projector
+
+        P1: <Multipatch_Projector_Hcurl>
+         Patch wise Hcurl projector
+
+        P2: <Multipatch_Projector_L2>
+         Patch wise L2 projector
+
+        Notes
+        -----
+            - when applied to smooth functions they return conforming fields
+            - default 'global projectors' correspond to geometric interpolation/histopolation operators on Greville grids
+            - here 'global' is a patch-level notion, as the interpolation-type problems are solved on each patch independently
+        """
+        if not (kind == 'global'):
+            raise NotImplementedError('only global projectors are available')
+
+        if self.dim == 1:
+            raise NotImplementedError("1D projectors are not available")
+
+        elif self.dim == 2:
+            P0 = Multipatch_Projector_H1(self.V0)
+
+            if self.sequence[1] == 'hcurl':
+                P1 = Multipatch_Projector_Hcurl(self.V1, nquads=nquads)
+            else:
+                P1 = None # TODO: Multipatch_Projector_Hdiv(self.V1, nquads=nquads)
+                raise NotImplementedError('2D sequence with H-div not available yet')
+
+            P2 = Multipatch_Projector_L2(self.V2, nquads=nquads)
+            return P0, P1, P2
+
+        elif self.dim == 3:
+            raise NotImplementedError("3D projectors are not available")

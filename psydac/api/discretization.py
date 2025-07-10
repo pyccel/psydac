@@ -193,7 +193,7 @@ def discretize_derham(derham, domain_h, *, get_H1vec_space=False, **kwargs):
         #We still need to specify the symbolic space because of "_recursive_element_of" not implemented in sympde
         spaces.append(Xh)
 
-    return DiscreteDerham(mapping, *spaces)
+    return DiscreteDerham(mapping, domain_h, *spaces)
 
 #==============================================================================
 def discretize_derham_multipatch(derham, domain_h, *args, **kwargs):
@@ -208,8 +208,7 @@ def discretize_derham_multipatch(derham, domain_h, *args, **kwargs):
     return DiscreteDerhamMultipatch(
         mapping  = mapping,
         domain_h = domain_h,
-        spaces   = spaces,
-        sequence = [V.kind.name for V in derham.spaces]
+        spaces   = spaces
     )
 
 #==============================================================================

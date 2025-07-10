@@ -136,7 +136,7 @@ class HodgeOperator:
 
             self._primal_Hodge = FemLinearOperator(self._fem_domain, self._fem_codomain, linop=self._linop, sparse_matrix=self._sparse_matrix)
 
-    # which of the two assemblys for the sparse dual matrix is better?
+    # which of the two assemblys for the sparse dual matrix is better? For now use the exact one.
     def assemble_dual_sparse_matrix(self):
         """
         the dual Hodge sparse matrix is the patch-wise inverse of the multi-patch mass matrix
@@ -149,24 +149,35 @@ class HodgeOperator:
                 self.assemble_matrix()
 
             M = self._linop  # mass matrix of the (primal) basis
-            nrows = M.n_block_rows
-            ncols = M.n_block_cols
 
-            inv_M_blocks = []
-            for i in range(nrows):
-                Mii = M[i, i].tosparse()
-                inv_Mii = inv(Mii.tocsc())
-                inv_Mii.eliminate_zeros()
-                inv_M_blocks.append(inv_Mii)
+            if self._fem_domain.is_multipatch:
+                nrows = M.n_block_rows
+                ncols = M.n_block_cols
 
-            inv_M = block_diag(inv_M_blocks)
+                inv_M_blocks = []
+                for i in range(nrows):
+                    Mii = M[i, i].tosparse()
+                    inv_Mii = inv(Mii.tocsc())
+                    inv_Mii.eliminate_zeros()
+                    inv_M_blocks.append(inv_Mii)
 
-            self._dual_sparse_matrix = inv_M
-            self._dual_linop = SparseMatrixLinearOperator(M.codomain, M.domain, inv_M)
-            self._dual_Hodge = FemLinearOperator(self._fem_codomain, self._fem_domain, linop=self._dual_linop, sparse_matrix=self._dual_sparse_matrix)
+                inv_M = block_diag(inv_M_blocks)
 
+                self._dual_sparse_matrix = inv_M
+                self._dual_linop = SparseMatrixLinearOperator(M.codomain, M.domain, inv_M)
+                self._dual_Hodge = FemLinearOperator(self._fem_codomain, self._fem_domain, linop=self._dual_linop, sparse_matrix=self._dual_sparse_matrix)
 
-    def assemble_dual_matrix(self):
+            else:
+                M_m = M.tosparse()
+                inv_M = inv(M_m.tocsc())
+                inv_M.eliminate_zeros()   
+
+                self._dual_sparse_matrix = inv_M
+                self._dual_linop = SparseMatrixLinearOperator(M.codomain, M.domain, inv_M)
+                self._dual_Hodge = FemLinearOperator(self._fem_codomain, self._fem_domain, linop=self._dual_linop, sparse_matrix=self._dual_sparse_matrix)
+ 
+
+    def assemble_dual_matrix(self, solver ='gmres', **kwargs):
         """
         the dual Hodge matrix is the patch-wise inverse of the multi-patch mass matrix
         it is not stored by default but computed on demand, by approximate local (patch-wise) inversion of the mass matrix
@@ -180,19 +191,27 @@ class HodgeOperator:
                 self.assemble_matrix()
 
             M = self._linop  # mass matrix of the (primal) basis
-            nrows = M.n_block_rows
-            ncols = M.n_block_cols
 
-            inv_M_blocks = [list(b) for b in M.blocks]
-            for i in range(nrows):
-                Mii = M[i, i]
-                inv_Mii = inverse(M[i,i], solver='gmres')
-                inv_M_blocks[i][i] = inv_Mii
+            if self._fem_domain.is_multipatch:
 
-            self._dual_linop = BlockLinearOperator(M.codomain, M.domain, blocks=inv_M_blocks)
-            self._dual_sparse_matrix = self._dual_linop.tosparse()
-            self._dual_Hodge = FemLinearOperator(self._fem_codomain, self._fem_domain, linop=self._dual_linop, sparse_matrix=self._dual_sparse_matrix)
+                nrows = M.n_block_rows
+                ncols = M.n_block_cols
 
+                inv_M_blocks = [list(b) for b in M.blocks]
+                for i in range(nrows):
+                    Mii = M[i, i]
+                    inv_Mii = inverse(M[i,i], solver=solver, **kwargs)
+                    inv_M_blocks[i][i] = inv_Mii
+
+                self._dual_linop = BlockLinearOperator(M.codomain, M.domain, blocks=inv_M_blocks)
+                self._dual_sparse_matrix = None
+                self._dual_Hodge = FemLinearOperator(self._fem_codomain, self._fem_domain, linop=self._dual_linop, sparse_matrix=self._dual_sparse_matrix)
+            
+            else:
+                inv_M = inverse(M, solver=solver, **kwargs)
+                self._dual_sparse_matrix = None
+                self._dual_Hodge = FemLinearOperator(self._fem_codomain, self._fem_domain, linop=self._dual_linop, sparse_matrix=self._dual_sparse_matrix)
+            
     @property
     def linop(self):
         if self._linop is None:
