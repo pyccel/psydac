@@ -16,7 +16,7 @@ PSYDAC requires a certain number of components to be installed on the machine:
 
 The installation instructions depend on the operating system and on the packaging manager used.
 It is particularly important to determine the **HDF5 root folder**, as this will be needed to install the [`h5py`](https://docs.h5py.org/en/latest/build.html#source-installation) package in parallel mode.
-Detailed instructions can be found in the [documentation](installation.md).
+Detailed instructions can be found in the [documentation](./docs/installation.md).
 
 Once those components are installed, we recommend using [`venv`](https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/#creating-a-virtual-environment) to set up a fresh Python virtual environment at a location `<ENV-PATH>`:
 ```bash
@@ -39,12 +39,12 @@ pip install psydac
 Here `<HDF5-PATH>` is the path to the HDF5 root folder, such that `<HDF5-PATH>/lib/` contains the HDF5 dynamic libraries with MPI support.
 For an editable install, the `-e/--editable` flag should be provided to the last command above.
 
-Again, for more details we refer to our [documentation](./installation.md).
+Again, for more details we refer to our [documentation](./docs/installation.md).
 
 > [!TIP]
 > PSYDAC provides the functionality to convert its MPI-parallel matrices and vectors to their [PETSc](https://petsc.org) equivalent, and back.
 > This gives the user access to a wide variety of linear solvers and other algorithms.
-> Instructions for installing [PETSc](https://petsc.org) and `petsc4py` can be found in our [documentation](installation.md#optional-petsc-installation).
+> Instructions for installing [PETSc](https://petsc.org) and `petsc4py` can be found in our [documentation](.docs/installation.md#optional-petsc-installation).
 
 ## Running tests
 
