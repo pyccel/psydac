@@ -16,7 +16,7 @@ Psydac requires a certain number of components to be installed on the machine:
 -   MPI library
 -   HDF5 library with MPI support
 
-The installations instructions depend on the operating system and on the packaging manager used.
+The installation instructions depend on the operating system and on the packaging manager used.
 
 ### Linux Debian-Ubuntu-Mint
 
@@ -146,7 +146,7 @@ export HDF5_MPI="ON"
 pip install h5py --no-cache-dir --no-binary h5py
 ```
 
-At this point the Psydac library may be installed from the cloned directory `<ROOT-PATH>/psydac` in **standard mode**, which copies the relevant files to the correct locations of the virtual environment, or in **development mode**, which only installs symbolic links to the Psydac directory. The latter mode allows one to effect the behavior of Psydac by modifying the source files.
+At this point the Psydac library may be installed from the cloned directory `<ROOT-PATH>/psydac` in **standard mode**, which copies the relevant files to the correct locations of the virtual environment, or in **development mode**, which only installs symbolic links to the Psydac directory. The latter mode allows one to affect the behavior of Psydac by modifying the source files.
 
 -   **Standard mode**:
     ```bash
