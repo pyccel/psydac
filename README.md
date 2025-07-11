@@ -50,7 +50,7 @@ export HDF5_DIR=<HDF5-PATH>
 
 pip install --upgrade pip
 pip install h5py --no-cache-dir --no-binary h5py
-pip install psydac
+pip install ./psydac
 ```
 Here `<HDF5-PATH>` is the path to the HDF5 root folder, such that `<HDF5-PATH>/lib/` contains the HDF5 dynamic libraries with MPI support.
 For an editable install, the `-e/--editable` flag should be provided to the last command above.
