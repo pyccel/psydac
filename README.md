@@ -98,7 +98,6 @@ The classical installation translates all kernel files to Fortran without user i
 ## Examples and Tutorials
 
 A [tutorial](https://pyccel.github.io/IGA-Python/intro.html) on isogeometric analysis, with many example notebooks where various PDEs are solved with PSYDAC, is under construction in the [IGA-Python](https://github.com/pyccel/IGA-Python) repository.
-
 Some other examples can be found [here](./examples/).
 
 ## Library Documentation
@@ -106,3 +105,15 @@ Some other examples can be found [here](./examples/).
 -   [Output formats](./docs/output.md)
 -   [Mesh generation](./docs/psydac-mesh.md)
 -   [Library reference](https://pyccel.github.io/psydac/)
+
+## Contributing
+
+There are several ways to contribute to this project!
+
+If you find a problem, please check if this is already discussed in one of [our issues](https://github.com/pyccel/psydac/issues) and feel free to add your opinion; if not, please create a [new issue](https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/creating-an-issue).
+If you want to fix an issue, improve our notebooks, or add a new example, please [fork](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/fork-a-repo) our Git repository, make and commit your changes, and create a [pull request](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request) (PRs).
+All PRs are reviewed by the project maintainers.
+During the PR review, GitHub workflows are triggered on various platforms.
+
+We keep an up-to-date list of maintainers and contributors in our [AUTHORS](./AUTHORS) file.
+Thank you!
