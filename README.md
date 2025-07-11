@@ -18,7 +18,7 @@ If PSYDAC has been significant in your research, and you would like to acknowled
 
 Güçlü, Y., S. Hadjout, and A. Ratnani. “PSYDAC: A High-Performance IGA Library in Python.” In 8th European Congress on Computational Methods in Applied Sciences and Engineering. CIMNE, 2022. https://doi.org/10.23967/eccomas.2022.227.
 
-The associated bibtex can be found [here](./psydac.bib).
+The associated BibTeX file can be found [here](./CITATION.bib).
 
 ## Installation
 
