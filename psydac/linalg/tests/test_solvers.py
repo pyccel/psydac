@@ -112,8 +112,13 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
 
     #Create the solvers
     if solver in ['cg', 'bicgstab']:
-        # pc = A.diagonal(inverse=True)
-        pc = None
+        # cond_A = np.linalg.cond(A.toarray())
+        # print(f"Condition number of A: {cond_A}")
+        if dtype != complex and solver != 'bicgstab':
+            pc = A.diagonal(inverse=True)
+            # pc = None
+        else: 
+            pc = None
         solv = inverse(A, solver, pc=pc, tol=1e-13, verbose=verbose, recycle=True)
     else:
         solv = inverse(A, solver, tol=1e-13, verbose=verbose, recycle=True)
@@ -220,3 +225,4 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
 if __name__ == "__main__":
     import sys
     pytest.main( sys.argv )
+

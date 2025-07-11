@@ -800,17 +800,15 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
         A = self._A
         domain = self._domain
         codomain = self._codomain
-        options = self._options
-        pc = options["pc"]
-        x0 = options["x0"]
-        tol = options["tol"]
-        maxiter = options["maxiter"]
-        verbose = options["verbose"]
-        recycle = options["recycle"]
+        opts     = self._options
+        pc       = opts["pc"]
+        x0       = opts["x0"]
+        tol      = opts["tol"]
+        maxiter  = opts["maxiter"]
+        verbose  = opts["verbose"]
+        recycle  = opts["recycle"]
 
-        assert isinstance(b, Vector)
-        assert b.space is domain
-
+        assert isinstance(b, Vector) and b.space is domain
         assert isinstance(pc, LinearOperator)
 
         # first guess of solution
@@ -832,116 +830,94 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
                 assert x0.shape == (A.shape[0],)
                 x = x0.copy()
 
-        # preconditioner (must have a .solve method)
-        assert isinstance(pc, LinearOperator)
+        # Temporary working vectors
+        tmp = self._tmps
+        v, r, s, t = tmp['v'], tmp['r'], tmp['s'], tmp['t']
+        vp, rp, pp, sp, tp = tmp['vp'], tmp['rp'], tmp['pp'], tmp['sp'], tmp['tp']
+        av, app, osp = tmp['av'], tmp['app'], tmp['osp']
+        rp0 = tmp['rp0']
 
-        # extract temporary vectors
-        v = self._tmps['v']
-        r = self._tmps['r']
-        s = self._tmps['s']
-        t = self._tmps['t']
-
-        vp = self._tmps['vp']
-        rp = self._tmps['rp']
-        pp = self._tmps['pp']
-        sp = self._tmps['sp']
-        tp = self._tmps['tp']
-
-        av = self._tmps['av']
-
-        app = self._tmps['app']
-        osp = self._tmps['osp']
-
-        # first values: r = b - A @ x, rp = pp = PC @ r, rhop = |rp|^2
+        # Compute initial residual: r = b - A @ x
         A.dot(x, out=v)
-        b.copy(out=r)
-        r -= v
+        b.copy(out=r); r -= v
 
+        # Apply preconditioner: rp = pc @ r
         pc.dot(r, out=rp)
         rp.copy(out=pp)
+        rp.copy(out=rp0)  # Save for inner products
 
-        rhop = rp.inner(rp)
-
-        # save initial residual vector rp0
-        rp0 = self._tmps['rp0']
-        rp.copy(out=rp0)
-
-        # squared residual norm and squared tolerance
+        # Initial residual norm
         res_sqr = r.inner(r).real
-        tol_sqr = tol**2
+        tol_sqr = tol * tol
+        rhop    = rp.inner(rp)
 
+        # Logging
         if verbose:
-            print("Pre-conditioned BICGSTAB solver:")
+            print("Preconditioned BiCGSTAB solver:")
             print("+---------+---------------------+")
             print("+ Iter. # | L2-norm of residual |")
             print("+---------+---------------------+")
-            template = "| {:7d} | {:19.2e} |"
+            print("| {:7d} | {:19.2e} |".format(0, res_sqr**0.5))
 
-        # iterate to convergence or maximum number of iterations
+        # Main iteration loop
         niter = 0
-
         while res_sqr > tol_sqr and niter < maxiter:
-
-            # v = A @ pp, vp = PC @ v, alphap = rhop/(vp.rp0)
+            # Compute v = A @ pp and vp = pc @ v
             A.dot(pp, out=v)
             pc.dot(v, out=vp)
+
+            # alphap = (rhp) / (vp ⋅ rp0)
             alphap = rhop / vp.inner(rp0)
 
-            # s = r - alphap*v, sp = PC @ s
+            # s = r - alphap * v
             r.copy(out=s)
-            v.copy(out=av)
-            av *= alphap
-            s -= av
+            v.copy(out=av); av *= alphap; s -= av
+
+            # sp = pc @ s
             pc.dot(s, out=sp)
 
-            # t = A @ sp, tp = PC @ t, omegap = (tp.sp)/(tp.tp)
+            # t = A @ sp; tp = pc @ t
             A.dot(sp, out=t)
             pc.dot(t, out=tp)
+
+            # omegap = (tp ⋅ sp) / (tp ⋅ tp)
             omegap = tp.inner(sp) / tp.inner(tp)
 
-            # x = x + alphap*pp + omegap*sp
-            pp.copy(out=app)
-            sp.copy(out=osp)
-            app *= alphap
-            osp *= omegap
-            x += app
-            x += osp
+            # Update x: x = x + alphap*pp + omegap*sp
+            pp.copy(out=app); app *= alphap
+            sp.copy(out=osp); osp *= omegap
+            x += app; x += osp
 
-            # r = s - omegap*t, rp = sp - omegap*tp
-            s.copy(out=r)
-            t *= omegap
-            r -= t
+            # Update residuals: r = s - omegap*t; rp = sp - omegap*tp
+            s.copy(out=r); t *= omegap; r -= t
+            sp.copy(out=rp); tp *= omegap; rp -= tp
 
-            sp.copy(out=rp)
-            tp *= omegap
-            rp -= tp
-
-            # rhop_new = rp.rp0, betap = (alphap*rhop_new)/(omegap*rhop)
+            # Update inner product and betap
             rhop_new = rp.inner(rp0)
-            betap = (alphap*rhop_new) / (omegap*rhop)
-            rhop = 1*rhop_new
+            betap    = (alphap * rhop_new) / (omegap * rhop)
+            rhop     = rhop_new
 
-            # pp = rp + betap*(pp - omegap*vp)
-            vp *= omegap
-            pp -= vp
-            pp *= betap
-            pp += rp
+            # Update pp: pp = rp + betap*(pp - omegap*vp)
+            vp *= omegap; pp -= vp; pp *= betap; pp += rp
 
-            # new residual norm
+            # Compute new residual norm
             res_sqr = r.inner(r).real
-
             niter += 1
 
             if verbose:
-                print(template.format(niter, sqrt(res_sqr)))
+                print("| {:7d} | {:19.2e} |".format(niter, res_sqr**0.5))
 
         if verbose:
             print("+---------+---------------------+")
 
-        # convergence information
-        self._info = {'niter': niter, 'success': res_sqr <
-                tol_sqr, 'res_norm': sqrt(res_sqr)}
+        # Save convergence info
+        self._info = {
+            'niter'   : niter,
+            'success' : res_sqr < tol_sqr,
+            'res_norm': res_sqr**0.5
+        }
 
+        # Recycle solution as next initial guess, if enabled
         if recycle:
             x.copy(out=self._options["x0"])
 
