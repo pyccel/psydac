@@ -62,7 +62,7 @@ Again, for more details we refer to our [documentation](./docs/installation.md).
 > This gives the user access to a wide variety of linear solvers and other algorithms.
 > Instructions for installing [PETSc](https://petsc.org) and `petsc4py` can be found in our [documentation](.docs/installation.md#optional-petsc-installation).
 
-## Running tests
+## Running Tests
 
 The test suite of PSYDAC is based on [`pytest`](https://docs.pytest.org/en/stable/), which should be installed in the same virtual environment:
 ```bash
@@ -84,7 +84,7 @@ pytest --pyargs psydac -m "not parallel and petsc"
 python <PSYDAC-PATH>/mpi_tester.py --pyargs psydac -m "parallel and petsc"
 ```
 
-## Speeding up **Psydac**'s core
+## Speeding up PSYDAC's core
 
 Many of PSYDAC's low-level Python functions can be translated to a compiled language using the [Pyccel](https://github.com/pyccel/pyccel) transpiler. Currently, all of those functions are collected in modules which follow the name pattern `[module]_kernels.py`.
 
@@ -95,22 +95,14 @@ The classical installation translates all kernel files to Fortran without user i
     python /path/to/psydac/psydac_accelerate.py [--language LANGUAGE] [--openmp]
     ```
 
-## User documentation
+## Examples and Tutorials
 
--   [Output formats](./output.md)
--   [Notebook examples](./examples/notebooks/)
--   [Other examples](./examples/)
+A [tutorial](https://pyccel.github.io/IGA-Python/intro.html) on isogeometric analysis, with many example notebooks where various PDEs are solved with PSYDAC, is under construction in the [IGA-Python](https://github.com/pyccel/IGA-Python) repository.
 
-## Code documentation
+Some other examples can be found [here](./examples/).
 
-Find our latest code documentation [here](https://pyccel.github.io/psydac/).
+## Library Documentation
 
-## Mesh Generation
-
-After installation, a command `psydac-mesh` will be available.
-
-### Example of usage
-
-```bash
-psydac-mesh -n='16,16' -d='3,3' square mesh.h5
-```
+-   [Output formats](./docs/output.md)
+-   [Mesh generation](./docs/psydac-mesh.md)
+-   [Library reference](https://pyccel.github.io/psydac/)
