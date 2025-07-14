@@ -32,8 +32,8 @@ class DiscreteDerham(BasicDiscrete):
 
     Parameters
     ----------
-    mapping : Mapping or None
-        Symbolic mapping from the logical space to the physical space, if any.
+    domain_h : Geometry
+        The discretized domain, which is a single-patch geometry.
 
     *spaces : list of FemSpace
         The discrete spaces of the de Rham sequence.
@@ -49,9 +49,8 @@ class DiscreteDerham(BasicDiscrete):
     - For the multipatch counterpart of this class please see
       `MultipatchDiscreteDerham` in `psydac.feec.multipatch.api`.
     """
-    def __init__(self, mapping, domain_h, *spaces):
+    def __init__(self, domain_h, *spaces):
 
-        assert (mapping is None) or isinstance(mapping, Mapping)
         assert all(isinstance(space, FemSpace) for space in spaces)
 
         self.has_vec = isinstance(spaces[-1], VectorFemSpace)
@@ -64,12 +63,12 @@ class DiscreteDerham(BasicDiscrete):
         else :
             dim           = len(spaces) - 1
             self._spaces  = spaces
-            
+
         self._domain_h = domain_h
         self._sequence = tuple(space.symbolic_space.kind.name for space in spaces)
         self._dim     = dim
-        self._mapping = mapping
-        self._callable_mapping = mapping.get_callable_mapping() if mapping else None
+        self._mapping = domain_h.domain.mapping
+        self._callable_mapping = mapping.get_callable_mapping() if self._mapping else None
 
         if dim == 1:
             D0 = Derivative_1D(spaces[0], spaces[1])
@@ -479,9 +478,6 @@ class DiscreteDerhamMultipatch(DiscreteDerham):
 
     Parameters
     ----------
-    mapping: <Mapping>
-     The mapping of the multipatch domain, the multipatch mapping contains the mapping of each patch 
-
     domain_h: <Geometry>
      The discrete domain
 
@@ -492,12 +488,13 @@ class DiscreteDerhamMultipatch(DiscreteDerham):
       The space kind of each space in the De Rham sequence
     """
     
-    def __init__(self, *, mapping, domain_h, spaces):
+    def __init__(self, *, domain_h, spaces):
 
         dim           = len(spaces) - 1
         self._spaces  = tuple(spaces)
         self._dim     = dim
-        self._mapping = mapping
+        self._mapping = domain_h.domain.mapping
+        self._callable_mapping = [m.get_callable_mapping() for m in self._mapping.mappings.values()] if self._mapping else None
         self._domain_h = domain_h
         self._sequence = tuple(space.symbolic_space.kind.name for space in spaces)
 
@@ -532,10 +529,6 @@ class DiscreteDerhamMultipatch(DiscreteDerham):
     #--------------------------------------------------------------------------
     @property
     def H1vec(self):
-        raise NotImplementedError('Not implemented for Multipatch de Rham sequences.')
-
-    @property
-    def callable_mapping(self):
         raise NotImplementedError('Not implemented for Multipatch de Rham sequences.')
 
     #--------------------------------------------------------------------------

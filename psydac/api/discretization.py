@@ -180,7 +180,6 @@ def discretize_derham(derham, domain_h, *, get_H1vec_space=False, **kwargs):
     """
 
     ldim    = derham.shape
-    mapping = domain_h.domain.mapping # NOTE: assuming single-patch domain!
     bases   = ['B'] + ldim * ['M']
     spaces  = [discretize_space(V, domain_h, basis=basis, **kwargs)
                for V, basis in zip(derham.spaces, bases)]
@@ -193,7 +192,7 @@ def discretize_derham(derham, domain_h, *, get_H1vec_space=False, **kwargs):
         #We still need to specify the symbolic space because of "_recursive_element_of" not implemented in sympde
         spaces.append(Xh)
 
-    return DiscreteDerham(mapping, domain_h, *spaces)
+    return DiscreteDerham(domain_h, *spaces)
 
 #==============================================================================
 def discretize_derham_multipatch(derham, domain_h, *args, **kwargs):
@@ -206,7 +205,6 @@ def discretize_derham_multipatch(derham, domain_h, *args, **kwargs):
             for V, basis in zip(derham.spaces, bases)]
 
     return DiscreteDerhamMultipatch(
-        mapping  = mapping,
         domain_h = domain_h,
         spaces   = spaces
     )
