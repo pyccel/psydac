@@ -1,28 +1,31 @@
 import os
 
-from sympde.topology.mapping import Mapping
+from psydac.api.basic                  import BasicDiscrete
 
-from psydac.api.basic              import BasicDiscrete
-from psydac.feec.derivatives       import Derivative_1D, Gradient_2D, Gradient_3D
-from psydac.feec.derivatives       import ScalarCurl_2D, VectorCurl_2D, Curl_3D
-from psydac.feec.derivatives       import Divergence_2D, Divergence_3D
-from psydac.feec.global_projectors import Projector_H1, Projector_Hcurl, Projector_H1vec
-from psydac.feec.global_projectors import Projector_Hdiv, Projector_L2
-from psydac.feec.pull_push         import pull_1d_h1, pull_1d_l2
-from psydac.feec.pull_push         import pull_2d_h1, pull_2d_hcurl, pull_2d_hdiv, pull_2d_l2, pull_2d_h1vec
-from psydac.feec.pull_push         import pull_3d_h1, pull_3d_hcurl, pull_3d_hdiv, pull_3d_l2, pull_3d_h1vec
-from psydac.fem.basic              import FemSpace, FemLinearOperator
-from psydac.fem.vector             import VectorFemSpace
+from psydac.feec.derivatives           import Derivative_1D, Gradient_2D, Gradient_3D
+from psydac.feec.derivatives           import ScalarCurl_2D, VectorCurl_2D, Curl_3D
+from psydac.feec.derivatives           import Divergence_2D, Divergence_3D
+from psydac.feec.derivatives           import BrokenGradient_2D
+from psydac.feec.derivatives           import BrokenScalarCurl_2D
 
-from psydac.feec.multipatch.operators import HodgeOperator
-from psydac.feec.multipatch.derivatives import BrokenGradient_2D
-from psydac.feec.multipatch.derivatives import BrokenScalarCurl_2D
-from psydac.feec.multipatch.projectors import Multipatch_Projector_H1
-from psydac.feec.multipatch.projectors import Multipatch_Projector_Hcurl
-from psydac.feec.multipatch.projectors import Multipatch_Projector_L2
-from psydac.feec.multipatch.projectors import ConformingProjection_V0
-from psydac.feec.multipatch.projectors import ConformingProjection_V1
-from psydac.linalg.basic import IdentityOperator
+from psydac.feec.global_projectors     import Projector_H1, Projector_Hcurl, Projector_H1vec
+from psydac.feec.global_projectors     import Projector_Hdiv, Projector_L2
+from psydac.feec.global_projectors     import Multipatch_Projector_H1
+from psydac.feec.global_projectors     import Multipatch_Projector_Hcurl
+from psydac.feec.global_projectors     import Multipatch_Projector_L2
+
+from psydac.feec.conforming_projectors import ConformingProjection_V0
+from psydac.feec.conforming_projectors import ConformingProjection_V1
+
+from psydac.feec.hodge                 import HodgeOperator
+
+from psydac.feec.pull_push             import pull_1d_h1, pull_1d_l2
+from psydac.feec.pull_push             import pull_2d_h1, pull_2d_hcurl, pull_2d_hdiv, pull_2d_l2, pull_2d_h1vec
+from psydac.feec.pull_push             import pull_3d_h1, pull_3d_hcurl, pull_3d_hdiv, pull_3d_l2, pull_3d_h1vec
+
+from psydac.fem.basic                  import FemSpace, FemLinearOperator
+from psydac.fem.vector                 import VectorFemSpace
+from psydac.linalg.basic               import IdentityOperator
 
 __all__ = ('DiscreteDerham', 'DiscreteDerhamMultipatch',)
 
@@ -68,7 +71,7 @@ class DiscreteDerham(BasicDiscrete):
         self._sequence = tuple(space.symbolic_space.kind.name for space in spaces)
         self._dim     = dim
         self._mapping = domain_h.domain.mapping
-        self._callable_mapping = mapping.get_callable_mapping() if self._mapping else None
+        self._callable_mapping = self._mapping.get_callable_mapping() if self._mapping else None
 
         if dim == 1:
             D0 = Derivative_1D(spaces[0], spaces[1])

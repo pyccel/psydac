@@ -16,7 +16,7 @@ from psydac.api.settings import PSYDAC_BACKENDS
 
 # from psydac.feec.derivatives import Gradient_2D, ScalarCurl_2D
 #from psydac.feec.multipatch.fem_linear_operators import FemLinearOperator
-from psydac.linalg.basic import LinearOperator
+# from psydac.linalg.basic import LinearOperator
 from psydac.linalg.utilities import SparseMatrixLinearOperator
 
 # ===============================================================================

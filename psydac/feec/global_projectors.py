@@ -18,6 +18,7 @@ from psydac.utilities.utils import roll_edges
 from abc import ABCMeta, abstractmethod
 
 __all__ = ('GlobalProjector', 'Projector_H1', 'Projector_Hcurl', 'Projector_Hdiv', 'Projector_L2',
+           'Multipatch_Projector_H1', 'Multipatch_Projector_Hcurl', 'Multipatch_Projector_L2',
            'evaluate_dofs_1d_0form', 'evaluate_dofs_1d_1form',
            'evaluate_dofs_2d_0form', 'evaluate_dofs_2d_1form_hcurl', 'evaluate_dofs_2d_1form_hdiv', 'evaluate_dofs_2d_2form',
            'evaluate_dofs_3d_0form', 'evaluate_dofs_3d_1form', 'evaluate_dofs_3d_2form', 'evaluate_dofs_3d_3form')
@@ -389,6 +390,8 @@ class GlobalProjector(metaclass=ABCMeta):
         return FemField(self._space, coeffs=coeffs)
 
 #==============================================================================
+# SINGLEPATCH PROJECTORS
+#==============================================================================
 class Projector_H1(GlobalProjector):
     """
     Projector from H1 to an H1-conforming finite element space (i.e. a finite
@@ -711,6 +714,78 @@ class Projector_H1vec(GlobalProjector):
             in the logical domain.
         """
         return super().__call__(fun)
+
+#==============================================================================
+# MULTIPATCH PROJECTORS
+#==============================================================================
+class Multipatch_Projector_H1:
+    """
+    to apply the H1 projection (2D) on every patch
+    """
+
+    def __init__(self, V0h):
+
+        self._P0s = [Projector_H1(V) for V in V0h.spaces]
+        self._V0h = V0h   # multipatch Fem Space
+
+    def __call__(self, funs_log):
+        """
+        project a list of functions given in the logical domain
+        """
+        u0s = [P(fun) for P, fun, in zip(self._P0s, funs_log)]
+
+        u0_coeffs = BlockVector(self._V0h.coeff_space,
+                                blocks=[u0j.coeffs for u0j in u0s])
+
+        return FemField(self._V0h, coeffs=u0_coeffs)
+
+#==============================================================================
+
+class Multipatch_Projector_Hcurl:
+
+    """
+    to apply the Hcurl projection (2D) on every patch
+    """
+
+    def __init__(self, V1h, nquads=None):
+
+        self._P1s = [Projector_Hcurl(V, nquads=nquads) for V in V1h.spaces]
+        self._V1h = V1h   # multipatch Fem Space
+
+    def __call__(self, funs_log):
+        """
+        project a list of functions given in the logical domain
+        """
+        E1s = [P(fun) for P, fun, in zip(self._P1s, funs_log)]
+
+        E1_coeffs = BlockVector(self._V1h.coeff_space,
+                                blocks=[E1j.coeffs for E1j in E1s])
+
+        return FemField(self._V1h, coeffs=E1_coeffs)
+
+#==============================================================================
+
+class Multipatch_Projector_L2:
+
+    """
+    to apply the L2 projection (2D) on every patch
+    """
+
+    def __init__(self, V2h, nquads=None):
+
+        self._P2s = [Projector_L2(V, nquads=nquads) for V in V2h.spaces]
+        self._V2h = V2h   # multipatch Fem Space
+
+    def __call__(self, funs_log):
+        """
+        project a list of functions given in the logical domain
+        """
+        B2s = [P(fun) for P, fun, in zip(self._P2s, funs_log)]
+
+        B2_coeffs = BlockVector(self._V2h.coeff_space,
+                                blocks=[B2j.coeffs for B2j in B2s])
+
+        return FemField(self._V2h, coeffs=B2_coeffs)
 
 #==============================================================================
 # 1D DEGREES OF FREEDOM
