@@ -43,14 +43,8 @@ class DiscreteDerham(BasicDiscrete):
 
     Notes
     -----
-    - The basic type Mapping is defined in module sympde.topology.mapping.
-      A discrete mapping (spline or NURBS) may be attached to it.
-
     - This constructor should not be called directly, but rather from the
       `discretize_derham` function in `psydac.api.discretization`.
-
-    - For the multipatch counterpart of this class please see
-      `MultipatchDiscreteDerham` in `psydac.feec.multipatch.api`.
     """
     def __init__(self, domain_h, *spaces):
 
@@ -332,9 +326,11 @@ class DiscreteDerham(BasicDiscrete):
                 raise NotImplementedError('2D sequence with H-div not available yet')
 
             else:
-                cP0 = ConformingProjection_V0(self.V0, p_moments=p_moments, hom_bc=hom_bc)#, storage_fn=storage_fn)
-                cP1 = ConformingProjection_V1(self.V1, p_moments=p_moments, hom_bc=hom_bc)#, storage_fn=storage_fn)
-                cP2 = IdentityOperator(self.V2.coeff_space)  # no storage needed!
+                cP0 = ConformingProjection_V0(self.V0, p_moments=p_moments, hom_bc=hom_bc)
+                cP1 = ConformingProjection_V1(self.V1, p_moments=p_moments, hom_bc=hom_bc)
+
+                I2 = IdentityOperator(self.V2.coeff_space)
+                cP2 = FemLinearOperator(fem_domain=self.V2, fem_codomain=self.V2, linop=I2, sparse_matrix=I2.tosparse())
 
                 self._conf_proj = (cP0, cP1, cP2)
 
@@ -342,11 +338,11 @@ class DiscreteDerham(BasicDiscrete):
             raise NotImplementedError("3D projectors are not available")
 
         if kind == 'femlinop':
-            return cP0, cP1, FemLinearOperator(fem_domain=self.V2, fem_codomain=self.V2, linop=cP2, sparse_matrix=cP2.tosparse)
+            return cP0, cP1, cP2
         elif kind == 'sparse':
-            return cP0.tosparse, cP1.tosparse, cP2.tosparse()
+            return cP0.tosparse, cP1.tosparse, cP2.tosparse
         elif kind == 'linop': 
-            return cP0.linop, cP1.linop, cP2
+            return cP0.linop, cP1.linop, cP2.linop
 
     #--------------------------------------------------------------------------
     def _init_Hodge_operators(self, backend_language='python', load_dir=None):
@@ -477,7 +473,7 @@ class DiscreteDerham(BasicDiscrete):
 #==============================================================================
 class DiscreteDerhamMultipatch(DiscreteDerham):
     """ Represents the discrete De Rham sequence for multipatch domains.
-        It only works when the number of patches>1
+        It only works when the number of patches>1.
 
     Parameters
     ----------
@@ -486,9 +482,6 @@ class DiscreteDerhamMultipatch(DiscreteDerham):
 
     spaces: <list,tuple>
       The discrete spaces that are contained in the De Rham sequence
-
-    sequence: <list,tuple>
-      The space kind of each space in the De Rham sequence
     """
     
     def __init__(self, *, domain_h, spaces):
