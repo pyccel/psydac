@@ -195,7 +195,7 @@ def discretize_derham(derham, domain_h, *, get_H1vec_space=False, **kwargs):
 
 #==============================================================================
 def discretize_derham_multipatch(derham, domain_h, *args, **kwargs):
- """
+    """
     Create a discrete multipatch De Rham sequence from a symbolic one.
     
     This function creates the broken discrete spaces from the symbolic ones, and then
