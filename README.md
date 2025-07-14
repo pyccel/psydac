@@ -1,24 +1,28 @@
 # Welcome to PSYDAC
 
-[![devel_tests](https://github.com/pyccel/psydac/actions/workflows/continuous-integration.yml/badge.svg)](https://github.com/pyccel/psydac/actions/workflows/continuous-integration.yml) [![docs](https://github.com/pyccel/psydac/actions/workflows/documentation.yml/badge.svg)](https://github.com/pyccel/psydac/actions/workflows/documentation.yml)
+[![devel_tests](https://github.com/pyccel/psydac/actions/workflows/testing.yml/badge.svg)](https://github.com/pyccel/psydac/actions/workflows/testing.yml) [![docs](https://github.com/pyccel/psydac/actions/workflows/documentation.yml/badge.svg)](https://github.com/pyccel/psydac/actions/workflows/documentation.yml)
 
-**PSYDAC** is a Python 3 Library for isogeometric analysis.
+PSYDAC is a Python 3 library for isogeometric analysis.
+It is an academic, open-source project created by numerical mathematicians at the [Max Planck Institute for Plasma Physics](https://www.ipp.mpg.de/en) ([NMPP](https://www.ipp.mpg.de/ippcms/eng/for/bereiche/numerik) division, [FEM](https://www.ipp.mpg.de/5150531/fem) group).
 
-## Table of contents
+PSYDAC can solve general systems of partial differential equations in weak form, which users define using the domain-specific language provided by [SymPDE](https://github.com/pyccel/sympde).
+It supports finite element exterior calculus ([FEEC](https://en.wikipedia.org/wiki/Finite_element_exterior_calculus)) with tensor-product spline spaces and handles multi-patch geometries in various ways.
 
--   [Requirements](#requirements)
--   [Python setup and project download](#python-setup-and-project-download)
--   [Installing the library](#installing-the-library)
--   [Optional PETSc installation](#optional-petsc-installation)
--   [Uninstall](#uninstall)
--   [Running tests](#running-tests)
--   [Speeding up Psydac's core](#speeding-up-psydacs-core)
--   [User Documentation](#user-documentation)
--   [Code Documentation](#code-documentation)
+PSYDAC automatically generates Python code for the assembly of user-defined functionals and linear and bilinear forms from the weak formulation of the problem.
+This Python code is then accelerated to C/Fortran speed using [Pyccel](https://github.com/pyccel/pyccel).
+The library also enables large parallel computations on distributed-memory supercomputers using [MPI](https://en.wikipedia.org/wiki/Message_Passing_Interface) and [OpenMP](https://en.wikipedia.org/wiki/OpenMP).
 
-## Requirements
+## Citing
 
-Psydac requires a certain number of components to be installed on the machine:
+If PSYDAC has been significant in your research, and you would like to acknowledge the project in your academic publication, we would ask that you cite the following paper:
+
+Güçlü, Y., S. Hadjout, and A. Ratnani. “PSYDAC: A High-Performance IGA Library in Python.” In 8th European Congress on Computational Methods in Applied Sciences and Engineering. CIMNE, 2022. https://doi.org/10.23967/eccomas.2022.227.
+
+The associated BibTeX file can be found [here](./CITATION.bib).
+
+## Installation
+
+PSYDAC requires a certain number of components to be installed on the machine:
 
 -   Fortran and C compilers with OpenMP support
 -   OpenMP library
@@ -26,189 +30,90 @@ Psydac requires a certain number of components to be installed on the machine:
 -   MPI library
 -   HDF5 library with MPI support
 
-The installations instructions depend on the operating system and on the packaging manager used.
+The installation instructions depend on the operating system and on the packaging manager used.
+It is particularly important to determine the **HDF5 root folder**, as this will be needed to install the [`h5py`](https://docs.h5py.org/en/latest/build.html#source-installation) package in parallel mode.
+Detailed instructions can be found in the [documentation](./docs/installation.md).
 
-### Linux Debian-Ubuntu-Mint
-
-To install all requirements on a Linux Ubuntu operating system, just use APT, the Advanced Packaging Tool:
-```sh
-sudo apt update
-sudo apt install python3 python3-dev python3-pip
-sudo apt install gcc gfortran
-sudo apt install libblas-dev liblapack-dev
-sudo apt install libopenmpi-dev openmpi-bin
-sudo apt install libomp-dev libomp5
-sudo apt install libhdf5-openmpi-dev
-```
-
-### macOS
-
-To install all the requirements on a macOS operating system we recommend using [Homebrew](https://brew.sh/):
-
-```eh
-brew update
-brew install gcc
-brew install openblas
-brew install lapack
-brew install open-mpi
-brew install libomp
-brew install hdf5-mpi
-```
-
-### Other operating systems
-
-Please see the [instructions for the pyccel library](https://github.com/pyccel/pyccel#Requirements) for further details.
-
-## Python setup and project download
-
-We recommend creating a clean Python virtual environment using [venv](https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/#creating-a-virtual-environment):
-```sh
+Once those components are installed, we recommend using [`venv`](https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/#creating-a-virtual-environment) to set up a fresh Python virtual environment at a location `<ENV-PATH>`:
+```bash
 python3 -m venv <ENV-PATH>
-```
-where `<ENV-PATH>` is the location to create the virtual environment.
-(A new directory will be created at the required location.)
-
-In order to activate the environment from a new terminal session just run the command
-```sh
 source <ENV-PATH>/bin/activate
 ```
 
-One can clone the Psydac repository at any location `<ROOT-PATH>` in the filesystem which does not require administrator privileges, using either
-```sh
+PSYDAC and its Python dependencies can now be installed in the virtual environment using [`pip`](https://pip.pypa.io/en/stable/), the Python package manager:
+```bash
 git clone https://github.com/pyccel/psydac.git
-```
-or
-```sh
-git clone git@github.com:pyccel/psydac.git
-```
-The latter command requires a GitHub account.
 
-## Installing the library
-
-Psydac depends on several Python packages, which should be installed in the newly created virtual environment.
-These dependencies can be installed from the cloned directory `<ROOT-PATH>/psydac` with the following steps.
-
-First, set an environment variable with the path to the parallel HDF5 library.
-This path can be obtained with a command which depends on your system.
-
--   **Ubuntu/Debian**:
-    ```sh
-    export HDF5_DIR=$(dpkg -L libhdf5-openmpi-dev | grep "libhdf5.so" | xargs dirname)
-    ```
-
--   **macOS**:
-    ```sh
-    export HDF5_DIR=$(brew list hdf5-mpi | grep "libhdf5.dylib" | xargs dirname | xargs dirname)
-    ```
-
-Next, install the Python dependencies using `pip`:
-```sh
 export CC="mpicc"
 export HDF5_MPI="ON"
+export HDF5_DIR=<HDF5-PATH>
 
-python3 -m pip install --upgrade pip
-python3 -m pip install -r requirements.txt
-python3 -m pip install -r requirements_extra.txt --no-build-isolation --no-cache-dir
+pip install --upgrade pip
+pip install h5py --no-cache-dir --no-binary h5py
+pip install ./psydac
+```
+Here `<HDF5-PATH>` is the path to the HDF5 root folder, such that `<HDF5-PATH>/lib/` contains the HDF5 dynamic libraries with MPI support.
+For an editable install, the `-e/--editable` flag should be provided to the last command above.
+
+Again, for more details we refer to our [documentation](./docs/installation.md).
+
+> [!TIP]
+> PSYDAC provides the functionality to convert its MPI-parallel matrices and vectors to their [PETSc](https://petsc.org) equivalent, and back.
+> This gives the user access to a wide variety of linear solvers and other algorithms.
+> Instructions for installing [PETSc](https://petsc.org) and `petsc4py` can be found in our [documentation](.docs/installation.md#optional-petsc-installation).
+
+## Running Tests
+
+The test suite of PSYDAC is based on [`pytest`](https://docs.pytest.org/en/stable/), which should be installed in the same virtual environment:
+```bash
+source <ENV-PATH>/bin/activate
+pip install pytest
 ```
 
-At this point the Psydac library may be installed in **standard mode**, which copies the relevant files to the correct locations of the virtual environment, or in **development mode**, which only installs symbolic links to the Psydac directory. The latter mode allows one to effect the behavior of Psydac by modifying the source files.
-
--   **Standard mode**:
-    ```bash
-    python3 -m pip install .
-    ```
-
--   **Development mode**:
-    ```bash
-    python3 -m pip install --editable .
-    ```
-
-## Optional PETSc installation
-
-Although Psydac provides several iterative linear solvers which work with our native matrices and vectors, it is often useful to access a dedicated library like [PETSc](https://petsc.org). To this end, our matrices and vectors have the method `topetsc()`, which converts them to the corresponding `petsc4py` objects.
-(`petsc4py` is a Python package which provides Python bindings to PETSc.) After solving the linear system with a PETSc solver, the function `petsc_to_psydac` allows converting the solution vector back to the Psydac format.
-
-In order to use these additional feature, PETSc and petsc4py must be installed as follows.
-First, we download the latest release of PETSc from its [official Git repository](https://gitlab.com/petsc/petsc):
-```sh
-git clone --depth 1 --branch v3.21.4 https://gitlab.com/petsc/petsc.git
-```
-Next, we specify a configuration for complex numbers, and install PETSc in a local directory:
-```sh
-cd petsc
-
-export PETSC_DIR=$(pwd)
-export PETSC_ARCH=petsc-cmplx
-
-./configure --with-scalar-type=complex --with-fortran-bindings=0 --have-numpy=1
-
-make all check
-
-cd -
-```
-Finally, we install the Python package `petsc4py` which is included in the `PETSc` source distribution:
-```sh
-python3 -m pip install wheel Cython numpy
-python3 -m pip install petsc/src/binding/petsc4py
-```
-
-## Uninstall
-
--   **Whichever the install mode**:
-    ```bash
-    python3 -m pip uninstall psydac
-    ```
--   **If PETSc was installed**:
-    ```bash
-    python3 -m pip uninstall petsc4py
-    ```
-
-The non-Python dependencies can be uninstalled manually using the package manager.
-In the case of PETSc, it is sufficient to remove the cloned source directory given that the installation has been performed locally.
-
-## Running tests
-
-Let `<PSYDAC-PATH>` be the installation directory of Psydac.
+Let `<PSYDAC-PATH>` be the installation directory of PSYDAC.
 In order to run all serial and parallel tests which do not use PETSc, just type:
 ```bash
 export PSYDAC_MESH_DIR=<PSYDAC-PATH>/mesh/
-python3 -m pytest --pyargs psydac -m "not parallel and not petsc"
-python3 <PSYDAC-PATH>/mpi_tester.py --pyargs psydac -m "parallel and not petsc"
+pytest --pyargs psydac -m "not parallel and not petsc"
+python <PSYDAC-PATH>/mpi_tester.py --pyargs psydac -m "parallel and not petsc"
 ```
 
 If PETSc and petsc4py were installed, some additional tests can be run:
 ```bash
-python3 -m pytest --pyargs psydac -m "not parallel and petsc"
-python3 <PSYDAC-PATH>/mpi_tester.py --pyargs psydac -m "parallel and petsc"
+pytest --pyargs psydac -m "not parallel and petsc"
+python <PSYDAC-PATH>/mpi_tester.py --pyargs psydac -m "parallel and petsc"
 ```
 
-## Speeding up **Psydac**'s core
+## Speeding up PSYDAC's core
 
-Many of Psydac's low-level Python functions can be translated to a compiled language using the [Pyccel](https://github.com/pyccel/pyccel) transpiler. Currently, all of those functions are collected in modules which follow the name pattern `[module]_kernels.py`.
+Many of PSYDAC's low-level Python functions can be translated to a compiled language using the [Pyccel](https://github.com/pyccel/pyccel) transpiler. Currently, all of those functions are collected in modules which follow the name pattern `[module]_kernels.py`.
 
 The classical installation translates all kernel files to Fortran without user intervention. This does not happen in the case of an editable install, but the command `psydac-accelerate` is made available to the user instead. This command applies Pyccel to all the kernel files in the source directory. The default language is currently Fortran, C should also be supported in a near future.
 
 -   **Only in development mode**:
     ```bash
-    python3 /path/to/psydac/psydac_accelerate.py [--language LANGUAGE] [--openmp]
+    python /path/to/psydac/psydac_accelerate.py [--language LANGUAGE] [--openmp]
     ```
 
-## User documentation
+## Examples and Tutorials
 
--   [Output formats](./output.md)
--   [Notebook examples](./examples/notebooks/)
--   [Other examples](./examples/)
+A [tutorial](https://pyccel.github.io/IGA-Python/intro.html) on isogeometric analysis, with many example notebooks where various PDEs are solved with PSYDAC, is under construction in the [IGA-Python](https://github.com/pyccel/IGA-Python) repository.
+Some other examples can be found [here](./examples/).
 
-## Code documentation
+## Library Documentation
 
-Find our latest code documentation [here](https://pyccel.github.io/psydac/).
+-   [Output formats](./docs/output.md)
+-   [Mesh generation](./docs/psydac-mesh.md)
+-   [Library reference](https://pyccel.github.io/psydac/)
 
-## Mesh Generation
+## Contributing
 
-After installation, a command `psydac-mesh` will be available.
+There are several ways to contribute to this project!
 
-### Example of usage
+If you find a problem, please check if this is already discussed in one of [our issues](https://github.com/pyccel/psydac/issues) and feel free to add your opinion; if not, please create a [new issue](https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/creating-an-issue).
+If you want to fix an issue, improve our notebooks, or add a new example, please [fork](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/fork-a-repo) our Git repository, make and commit your changes, and create a [pull request](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request) (PRs).
+All PRs are reviewed by the project maintainers.
+During the PR review, GitHub workflows are triggered on various platforms.
 
-```bash
-psydac-mesh -n='16,16' -d='3,3' square mesh.h5
-```
+We keep an up-to-date list of maintainers and contributors in our [AUTHORS](./AUTHORS) file.
+Thank you!
