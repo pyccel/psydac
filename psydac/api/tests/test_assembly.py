@@ -544,7 +544,7 @@ def test_assembly_no_synchr_args(backend):
     V1h = derham_h.V1
 
     #differential operator
-    div, = derham_h.derivatives_as_matrices
+    div, = derham_h.derivatives(kind='linop')
 
     rho  = element_of(V1h.symbolic_space, name='rho')
     g    = element_of(V1h.symbolic_space, name='g')

@@ -47,7 +47,7 @@ def test_transpose_div_3d(Nel, Nq, p, bc, m):
     u2 = discretize(f2, domain_h, derham_h.V2, nquads=Nq, backend=PSYDAC_BACKENDS['pyccel-gcc']).assemble()
     u3 = discretize(f3, domain_h, derham_h.V3, nquads=Nq, backend=PSYDAC_BACKENDS['pyccel-gcc']).assemble()
 
-    divT_u3 = - div.matrix.T.dot(u3)
+    divT_u3 = - div.linop.T.dot(u3)
 
     error = abs((u2-divT_u3).toarray()).max()
     assert error < 2e-10
@@ -105,7 +105,7 @@ def test_transpose_curl_3d(Nel, Nq, p, bc, m):
     u1 = discretize(f1, domain_h, derham_h.V1, nquads=Nq, backend=PSYDAC_BACKENDS['pyccel-gcc']).assemble()
     u2 = discretize(f2, domain_h, derham_h.V2, nquads=Nq, backend=PSYDAC_BACKENDS['pyccel-gcc']).assemble()
 
-    curlT_u2 = curl.matrix.T.dot(u2)
+    curlT_u2 = curl.linop.T.dot(u2)
 
     error = abs((u1-curlT_u2).toarray()).max()
     assert error < 2e-9
@@ -152,7 +152,7 @@ def test_transpose_grad_3d(Nel, Nq, p, bc, m):
     u0 = discretize(f0, domain_h, derham_h.V0, nquads=Nq, backend=PSYDAC_BACKENDS['pyccel-gcc']).assemble()
     u1 = discretize(f1, domain_h, derham_h.V1, nquads=Nq, backend=PSYDAC_BACKENDS['pyccel-gcc']).assemble()
 
-    gradT_u1 = -grad.matrix.T.dot(u1)
+    gradT_u1 = -grad.linop.T.dot(u1)
 
     error = abs((u0-gradT_u1).toarray()).max()
     assert error < 5e-10

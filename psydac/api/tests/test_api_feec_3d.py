@@ -123,7 +123,7 @@ def run_maxwell_3d_scipy(logical_domain, mapping, e_ex, b_ex, ncells, degree, pe
     M2 = a2_h.assemble().tosparse().tocsr()
 
     # Diff operators
-    GRAD, CURL, DIV = derham_h.derivatives_as_matrices
+    GRAD, CURL, DIV = derham_h.derivatives(kind='linop')
 
     # Porjectors
     P0, P1, P2, P3  = derham_h.projectors(nquads=[5,5,5])
@@ -218,7 +218,7 @@ def run_maxwell_3d_stencil(logical_domain, mapping, e_ex, b_ex, ncells, degree, 
     M2 = a2_h.assemble()
 
     # Diff operators
-    GRAD, CURL, DIV = derham_h.derivatives_as_matrices
+    GRAD, CURL, DIV = derham_h.derivatives(kind='linop')
 
     # Porjectors
     P0, P1, P2, P3  = derham_h.projectors(nquads=[5,5,5])

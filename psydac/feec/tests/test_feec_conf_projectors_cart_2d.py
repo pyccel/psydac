@@ -120,19 +120,14 @@ def test_conf_projectors_2d(
         for k, D in enumerate(domain.interior):
             ncells_h[D.name] = [nc, nc]
 
-    # derham = Derham(domain, ["H1", "Hcurl", "L2"])
 
     domain_h = discretize(domain, ncells=ncells_h)   # Vh space
-    # derham_h = discretize(derham, domain_h, degree=degree)
-    # V0h, V1h, V2h = derham_h.spaces
-    # mappings_list = derham_h.callable_mapping
-
     p_derham = Derham(domain, ["H1", V1_type, "L2"])
 
     nquads = [(d + 1) for d in degree]
     p_derham_h = discretize(p_derham, domain_h, degree=degree)
     p_V0h, p_V1h, p_V2h = p_derham_h.spaces
-    mappings_list = p_derham_h.callable_mapping #if p_V0h.is_multipatch else [p_derham_h.callable_mapping]
+    mappings_list = p_derham_h.callable_mapping 
 
 
     # full moment preservation only possible if enough interior functions in a
