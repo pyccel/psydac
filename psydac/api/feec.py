@@ -344,7 +344,7 @@ class DiscreteDerham(BasicDiscrete):
         if kind == 'femlinop':
             return cP0, cP1, FemLinearOperator(fem_domain=self.V2, fem_codomain=self.V2, linop=cP2, sparse_matrix=cP2.tosparse)
         elif kind == 'sparse':
-            return cP0.tosparse, cP1.tosparse, cP2.tosparse
+            return cP0.tosparse, cP1.tosparse, cP2.tosparse()
         elif kind == 'linop': 
             return cP0.linop, cP1.linop, cP2
 

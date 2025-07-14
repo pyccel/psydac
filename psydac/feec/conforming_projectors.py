@@ -1,24 +1,19 @@
 # coding: utf-8
-
 # Conga operators on piecewise (broken) de Rham sequences
-
 import os
 import numpy as np
-from sympy import Tuple
 
-from scipy.sparse import eye as sparse_eye
-from scipy.sparse import csr_matrix
-from scipy.special import comb
+from scipy.sparse   import eye as sparse_eye
+from scipy.sparse   import csr_matrix
+from scipy.special  import comb
 
 from sympde.topology import Boundary, Interface
 
-from psydac.core.bsplines import quadrature_grid, basis_ders_on_quad_grid, find_spans, elements_spans, cell_index, basis_ders_on_irregular_grid
-from psydac.linalg.block import BlockVector
-from psydac.fem.basic import FemField, FemLinearOperator
-from psydac.fem.splines import SplineSpace
-from psydac.utilities.quadratures import gauss_legendre
-from psydac.linalg.utilities import SparseMatrixLinearOperator
-from psydac.feec.global_projectors import Projector_H1, Projector_Hcurl, Projector_L2
+from psydac.core.bsplines           import quadrature_grid, basis_ders_on_quad_grid, find_spans, elements_spans, cell_index, basis_ders_on_irregular_grid
+from psydac.fem.basic               import FemLinearOperator
+from psydac.fem.splines             import SplineSpace
+from psydac.utilities.quadratures   import gauss_legendre
+from psydac.linalg.utilities        import SparseMatrixLinearOperator
 
 
 def get_patch_index_from_face(domain, face):

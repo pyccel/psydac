@@ -5,6 +5,7 @@ import numpy as np
 
 from sympy import lambdify
 from sympde.topology import Derham
+from sympde.topology.callable_mapping import BasicCallableMapping
 
 from psydac.api.settings import PSYDAC_BACKENDS
 from psydac.feec.pull_push import pull_2d_h1, pull_2d_hcurl, pull_2d_l2
@@ -47,31 +48,62 @@ def P2_phys(f_phys, P2, domain, mappings_list):
 
 def P_phys_h1(f_phys, P0, domain, mappings_list):
     f = lambdify(domain.coordinates, f_phys)
-    if len(mappings_list) == 1:
-        m = mappings_list[0]
-        f_log = pull_2d_h1(f, m)
+
+    if isinstance(mappings_list, BasicCallableMapping):
+        f_log = pull_2d_h1(f, mappings_list)
+
+    elif len(mappings_list) == 1:
+        f_log = pull_2d_h1(f, mappings_list[0])
+
     else:
         f_log = [pull_2d_h1(f, m) for m in mappings_list]
+
     return P0(f_log)
 
 
 def P_phys_hcurl(f_phys, P1, domain, mappings_list):
     f_x = lambdify(domain.coordinates, f_phys[0])
     f_y = lambdify(domain.coordinates, f_phys[1])
-    f_log = [pull_2d_hcurl([f_x, f_y], m) for m in mappings_list]
+
+    if isinstance(mappings_list, BasicCallableMapping):
+        f_log = pull_2d_hcurl([f_x, f_y], mappings_list)
+
+    elif len(mappings_list) == 1:
+        f_log = pull_2d_hcurl([f_x, f_y], mappings_list[0])
+    else:
+        f_log = [pull_2d_hcurl([f_x, f_y], m) for m in mappings_list]
+
     return P1(f_log)
 
 
 def P_phys_hdiv(f_phys, P1, domain, mappings_list):
     f_x = lambdify(domain.coordinates, f_phys[0])
     f_y = lambdify(domain.coordinates, f_phys[1])
-    f_log = [pull_2d_hdiv([f_x, f_y], m) for m in mappings_list]
+
+    if isinstance(mappings_list, BasicCallableMapping):
+        f_log = pull_2d_hdiv([f_x, f_y], mappings_list)
+
+    elif len(mappings_list) == 1:
+        f_log = pull_2d_hdiv([f_x, f_y], mappings_list[0])
+
+    else:
+        f_log = [pull_2d_hdiv([f_x, f_y], m) for m in mappings_list]
+
     return P1(f_log)
 
 
 def P_phys_l2(f_phys, P2, domain, mappings_list):
     f = lambdify(domain.coordinates, f_phys)
-    f_log = [pull_2d_l2(f, m) for m in mappings_list]
+
+    if isinstance(mappings_list, BasicCallableMapping):
+        f_log = pull_2d_l2(f, mappings_list)
+
+    elif len(mappings_list) == 1:
+        f_log = pull_2d_l2(f, mappings_list[0])
+
+    else:
+        f_log = [pull_2d_l2(f, m) for m in mappings_list]
+
     return P2(f_log)
 
 

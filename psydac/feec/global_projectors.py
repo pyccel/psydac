@@ -4,7 +4,7 @@ import numpy as np
 
 from psydac.linalg.kron           import KroneckerLinearSolver, KroneckerStencilMatrix
 from psydac.linalg.stencil        import StencilMatrix, StencilVectorSpace
-from psydac.linalg.block          import BlockLinearOperator
+from psydac.linalg.block          import BlockLinearOperator, BlockVector
 from psydac.core.bsplines         import quadrature_grid
 from psydac.utilities.quadratures import gauss_legendre
 from psydac.fem.basic             import FemField
@@ -651,6 +651,7 @@ class Projector_L2(GlobalProjector):
         """
         return super().__call__(fun)
 
+#==============================================================================
 class Projector_H1vec(GlobalProjector):
     """
     Projector from H1^3 = H1 x H1 x H1 to a conforming finite element space, i.e.
@@ -740,7 +741,6 @@ class Multipatch_Projector_H1:
         return FemField(self._V0h, coeffs=u0_coeffs)
 
 #==============================================================================
-
 class Multipatch_Projector_Hcurl:
 
     """
@@ -764,7 +764,6 @@ class Multipatch_Projector_Hcurl:
         return FemField(self._V1h, coeffs=E1_coeffs)
 
 #==============================================================================
-
 class Multipatch_Projector_L2:
 
     """

@@ -8,11 +8,10 @@ from scipy.sparse.linalg import norm as sp_norm
 from sympde.topology.domain import Domain
 from sympde.topology import Derham, Square, IdentityMapping
 
-from psydac.feec.multipatch.api import discretize
-from psydac.feec.multipatch.operators import HodgeOperator
-from psydac.feec.multipatch.non_matching_operators import construct_h1_conforming_projection, construct_hcurl_conforming_projection
+from psydac.api.discretization import discretize
 from psydac.feec.multipatch.utils_conga_2d import P_phys_l2, P_phys_hdiv, P_phys_hcurl, P_phys_h1
 
+from psydac.fem.projectors import get_dual_dofs
 
 def get_polynomial_function(degree, hom_bc_axes, domain):
     """Return a polynomial function of given degree and homogeneus boundary conditions on the domain."""
@@ -46,10 +45,10 @@ def get_polynomial_function(degree, hom_bc_axes, domain):
 @pytest.mark.parametrize('nc', [5])
 @pytest.mark.parametrize('reg', [0])
 @pytest.mark.parametrize('hom_bc', [False, True])
-@pytest.mark.parametrize('domain_name', ["4patch_nc", "2patch_nc"])
+@pytest.mark.parametrize('domain_name', ["1patch", "4patch_nc", "2patch_nc"])
 @pytest.mark.parametrize("nonconforming, full_mom_pres",
                          [(True, True), (False, True)])
-# NOTE (MCP march 2025): momentum conservation fails for nc = 4 and degree = 3, why?
+
 def test_conf_projectors_2d(
     V1_type,
     degree,
@@ -60,8 +59,12 @@ def test_conf_projectors_2d(
     domain_name,
     nonconforming
 ):
+    if domain_name == '1patch':
+        log_domain = Square('Omega', bounds1=(0, 1), bounds2=(0, 1))
+        mapping = IdentityMapping('M1', dim=2)
+        domain = mapping(log_domain)
 
-    if domain_name == '2patch_nc':
+    elif domain_name == '2patch_nc':
 
         A = Square('A', bounds1=(0, 0.5), bounds2=(0, 1))
         B = Square('B', bounds1=(0.5, 1.), bounds2=(0, 1))
@@ -95,8 +98,10 @@ def test_conf_projectors_2d(
                                            ((0, 1, 1), (2, 1, -1), 1),
                                            ((1, 1, 1), (3, 1, -1), 1)],
                              name='domain')
+    if domain_name == '1patch': 
+        ncells_h = {domain.name: [nc, nc]}
 
-    if nonconforming:
+    elif nonconforming:
         if len(domain) == 2:
             ncells_h = {
                 'M1(A)': [nc, nc],
@@ -115,24 +120,20 @@ def test_conf_projectors_2d(
         for k, D in enumerate(domain.interior):
             ncells_h[D.name] = [nc, nc]
 
-    derham = Derham(domain, ["H1", "Hcurl", "L2"])
+    # derham = Derham(domain, ["H1", "Hcurl", "L2"])
 
     domain_h = discretize(domain, ncells=ncells_h)   # Vh space
-    derham_h = discretize(derham, domain_h, degree=degree)
-    V0h = derham_h.V0
-    V1h = derham_h.V1
-    V2h = derham_h.V2
+    # derham_h = discretize(derham, domain_h, degree=degree)
+    # V0h, V1h, V2h = derham_h.spaces
+    # mappings_list = derham_h.callable_mapping
 
-    mappings = OrderedDict([(P.logical_domain, P.mapping)
-                           for P in domain.interior])
-    mappings_list = [m.get_callable_mapping() for m in mappings.values()]
     p_derham = Derham(domain, ["H1", V1_type, "L2"])
 
     nquads = [(d + 1) for d in degree]
     p_derham_h = discretize(p_derham, domain_h, degree=degree)
-    p_V0h = p_derham_h.V0
-    p_V1h = p_derham_h.V1
-    p_V2h = p_derham_h.V2
+    p_V0h, p_V1h, p_V2h = p_derham_h.spaces
+    mappings_list = p_derham_h.callable_mapping #if p_V0h.is_multipatch else [p_derham_h.callable_mapping]
+
 
     # full moment preservation only possible if enough interior functions in a
     # patch (<=> enough cells)
@@ -148,35 +149,19 @@ def test_conf_projectors_2d(
     p_geomP0, p_geomP1, p_geomP2 = p_derham_h.projectors(nquads=nquads)
 
     # conforming projections (scipy matrices)
-    cP0 = construct_h1_conforming_projection(V0h, reg, mom_pres, hom_bc)
-    cP1 = construct_hcurl_conforming_projection(V1h, reg, mom_pres, hom_bc)
-    cP2 = construct_h1_conforming_projection(V2h, reg - 1, mom_pres, hom_bc)
+    cP0, cP1, cP2 = p_derham_h.conforming_projectors(kind='sparse', p_moments=mom_pres, hom_bc=hom_bc)
 
-    HOp0 = HodgeOperator(p_V0h, domain_h)
-    M0 = HOp0.to_sparse_matrix()                # mass matrix
-    M0_inv = HOp0.get_dual_Hodge_sparse_matrix()    # inverse mass matrix
+    M0, M1, M2 = p_derham_h.Hodge_operators(kind='sparse')#, backend_language=backend_language, load_dir=m_load_dir)
+    M0_inv, M1_inv, M2_inv = p_derham_h.Hodge_operators(kind='sparse', dual=True)#, backend_language=backend_language, load_dir=m_load_dir)
 
-    HOp1 = HodgeOperator(p_V1h, domain_h)
-    M1 = HOp1.to_sparse_matrix()                # mass matrix
-    M1_inv = HOp1.get_dual_Hodge_sparse_matrix()    # inverse mass matrix
+    bD0, bD1 = p_derham_h.derivatives(kind='sparse')
 
-    HOp2 = HodgeOperator(p_V2h, domain_h)
-    M2 = HOp2.to_sparse_matrix()                # mass matrix
-    M2_inv = HOp2.get_dual_Hodge_sparse_matrix()    # inverse mass matrix
-
-    bD0, bD1 = p_derham_h.broken_derivatives_as_operators
-
-    bD0 = bD0.to_sparse_matrix()  # broken grad
-    bD1 = bD1.to_sparse_matrix()  # broken curl or div
     D0 = bD0 @ cP0              # Conga grad
     D1 = bD1 @ cP1              # Conga curl or div
 
-    assert np.allclose(sp_norm(cP0 - cP0 @ cP0), 0, 1e-12,
-                       1e-12)  # cP0 is a projection
-    assert np.allclose(sp_norm(cP1 - cP1 @ cP1), 0, 1e-12,
-                       1e-12)  # cP1 is a projection
-    assert np.allclose(sp_norm(cP2 - cP2 @ cP2), 0, 1e-12,
-                       1e-12)  # cP2 is a projection
+    assert np.allclose(sp_norm(cP0 - cP0 @ cP0), 0, 1e-12, 1e-12)  # cP0 is a projection
+    assert np.allclose(sp_norm(cP1 - cP1 @ cP1), 0, 1e-12, 1e-12)  # cP1 is a projection
+    assert np.allclose(sp_norm(cP2 - cP2 @ cP2), 0, 1e-12, 1e-12)  # cP2 is a projection
 
     # D0 maps in the conforming V1 space (where cP1 coincides with Id)
     assert np.allclose(sp_norm(D0 - cP1 @ D0), 0, 1e-12, 1e-12)
@@ -186,14 +171,11 @@ def test_conf_projectors_2d(
     # comparing projections of polynomials which should be exact
 
     # tests on cP0:
-    g0 = get_polynomial_function(
-        degree=degree, hom_bc_axes=[
-            hom_bc, hom_bc], domain=domain)
+    g0 = get_polynomial_function(degree=degree, hom_bc_axes=[hom_bc, hom_bc], domain=domain)
     g0h = P_phys_h1(g0, p_geomP0, domain, mappings_list)
     g0_c = g0h.coeffs.toarray()
 
-    tilde_g0_c = p_derham_h.get_dual_dofs(
-        space='V0', f=g0, return_format='numpy_array')
+    tilde_g0_c = get_dual_dofs(Vh=p_V0h, f=g0, domain_h = domain_h, return_format='numpy_array')
     g0_L2_c = M0_inv @ tilde_g0_c
 
     # (P0_geom - P0_L2) polynomial = 0
@@ -206,13 +188,12 @@ def test_conf_projectors_2d(
         #  the following projection should be exact for polynomials of proper degree (no bc)
         # conf_P0* : L2 -> V0 defined by <conf_P0* g, phi> := <g, conf_P0 phi>
         # for all phi in V0
-        g0 = get_polynomial_function(degree=degree, hom_bc_axes=[
-                                     False, False], domain=domain)
+        g0 = get_polynomial_function(degree=degree, hom_bc_axes=[False, False], domain=domain)
         g0h = P_phys_h1(g0, p_geomP0, domain, mappings_list)
         g0_c = g0h.coeffs.toarray()
 
-        tilde_g0_c = p_derham_h.get_dual_dofs(
-            space='V0', f=g0, return_format='numpy_array')
+        tilde_g0_c = get_dual_dofs(Vh=p_V0h, f=g0, domain_h = domain_h, return_format='numpy_array')
+
         g0_star_c = M0_inv @ cP0.transpose() @ tilde_g0_c
         # (P10_geom - P0_star) polynomial = 0
         assert np.allclose(g0_c, g0_star_c, 1e-12, 1e-12)
@@ -244,8 +225,8 @@ def test_conf_projectors_2d(
         G1h = P_phys_hdiv(G1, p_geomP1, domain, mappings_list)
 
     G1_c = G1h.coeffs.toarray()
-    tilde_G1_c = p_derham_h.get_dual_dofs(
-        space='V1', f=G1, return_format='numpy_array')
+    tilde_G1_c = get_dual_dofs(Vh=p_V1h, f=G1, domain_h=domain_h, return_format='numpy_array')
+
     G1_L2_c = M1_inv @ tilde_G1_c
 
     assert np.allclose(G1_c, G1_L2_c, 1e-12, 1e-12)
@@ -276,8 +257,7 @@ def test_conf_projectors_2d(
     G1h = P_phys_hcurl(G1, p_geomP1, domain, mappings_list)
     G1_c = G1h.coeffs.toarray()
 
-    tilde_G1_c = p_derham_h.get_dual_dofs(
-        space='V1', f=G1, return_format='numpy_array')
+    tilde_G1_c = get_dual_dofs(Vh=p_V1h, f=G1, domain_h=domain_h, return_format='numpy_array')
     G1_star_c = M1_inv @ cP1.transpose() @ tilde_G1_c
     # (P1_geom - P1_star) polynomial = 0
     assert np.allclose(G1_c, G1_star_c, 1e-12, 1e-12)
@@ -294,8 +274,7 @@ def test_conf_projectors_2d(
     g2h = P_phys_l2(g2, p_geomP2, domain, mappings_list)
     g2_c = g2h.coeffs.toarray()
 
-    tilde_g2_c = p_derham_h.get_dual_dofs(
-        space='V2', f=g2, return_format='numpy_array')
+    tilde_g2_c = get_dual_dofs(Vh=p_V2h, f=g2, domain_h=domain_h, return_format='numpy_array')
     g2_L2_c = M2_inv @ tilde_g2_c
 
     # (P2_geom - P2_L2) polynomial = 0
@@ -305,7 +284,6 @@ def test_conf_projectors_2d(
 
     if full_mom_pres:
         # as above, here with same degree and bc as
-        # tilde_g2_c = p_derham_h.get_dual_dofs(space='V2', f=g2, return_format='numpy_array', nquads=nquads)
         g2_star_c = M2_inv @ cP2.transpose() @ tilde_g2_c
         # (P2_geom - P2_star) polynomial = 0
         assert np.allclose(g2_c, g2_star_c, 1e-12, 1e-12)
