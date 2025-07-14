@@ -176,7 +176,6 @@ def discretize_derham(derham, domain_h, *, get_H1vec_space=False, **kwargs):
     See Also
     --------
     discretize_space
-
     """
 
     ldim    = derham.shape
@@ -196,10 +195,36 @@ def discretize_derham(derham, domain_h, *, get_H1vec_space=False, **kwargs):
 
 #==============================================================================
 def discretize_derham_multipatch(derham, domain_h, *args, **kwargs):
+ """
+    Create a discrete multipatch De Rham sequence from a symbolic one.
+    
+    This function creates the broken discrete spaces from the symbolic ones, and then
+    creates a DiscreteDerhamMultipatch object from them.
 
-    ldim     = derham.shape
-    mapping  = derham.spaces[0].domain.mapping
+    Parameters
+    ----------
+    derham : sympde.topology.space.Derham
+        The symbolic Derham sequence.
 
+    domain_h : Geometry
+        Discrete domain where the spaces will be discretized.
+
+    **kwargs : dict
+        Optional parameters for the space discretization.
+
+    Returns
+    -------
+    DiscreteDerhamMultipatch
+      The discrete multipatch De Rham sequence containing the discrete spaces, 
+      differential operators and projectors.
+
+    See Also
+    --------
+    discretize_derham
+    discretize_space
+    """
+
+    ldim   = derham.shape
     bases  = ['B'] + ldim * ['M']
     spaces = [discretize_space(V, domain_h, *args, basis=basis, **kwargs) \
             for V, basis in zip(derham.spaces, bases)]
