@@ -3,14 +3,13 @@
     A. Buffa and I. Perugia, “Discontinuous Galerkin Approximation of the Maxwell Eigenproblem”
     SIAM Journal on Numerical Analysis 44 (2006)
 """
-
 import os
 from mpi4py import MPI
 from collections import OrderedDict
 
 import numpy as np
 import matplotlib.pyplot
-from scipy.sparse.linalg import spsolve, inv
+
 from scipy.sparse.linalg import LinearOperator, eigsh, minres
 
 from sympde.calculus import grad, dot, curl, cross
@@ -26,14 +25,12 @@ from sympde.expr.expr import Norm
 from sympde.expr.equation import find, EssentialBC
 
 from psydac.linalg.utilities import array_to_psydac
-from psydac.api.tests.build_domain import build_pretzel
 from psydac.fem.basic import FemField
-from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 from psydac.feec.pull_push import pull_2d_hcurl
 
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
-from psydac.feec.multipatch.utilities import time_count, get_run_dir, get_plot_dir, get_mat_dir, get_sol_dir, diag_fn
-from psydac.feec.multipatch.api import discretize
+from psydac.feec.multipatch.utilities import time_count
+from psydac.api.discretization import discretize
 from psydac.feec.multipatch.multipatch_domain_utilities import build_cartesian_multipatch_domain
 from psydac.api.postprocessing import OutputManager, PostProcessManager
 

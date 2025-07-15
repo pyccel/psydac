@@ -3,12 +3,11 @@
 import numpy as np
 import pytest
 
-# from psydac.feec.multipatch.examples.hcurl_source_pbms_conga_2d import solve_hcurl_source_pbm
-# from psydac.feec.multipatch.examples.hcurl_eigen_pbms_conga_2d import hcurl_solve_eigen_pbm
-# from psydac.feec.multipatch.examples.hcurl_eigen_pbms_dg_2d import hcurl_solve_eigen_pbm_dg
+from psydac.feec.multipatch.examples.hcurl_source_pbms_conga_2d import solve_hcurl_source_pbm
+from psydac.feec.multipatch.examples.hcurl_eigen_pbms_conga_2d import hcurl_solve_eigen_pbm
+from psydac.feec.multipatch.examples.hcurl_eigen_pbms_dg_2d import hcurl_solve_eigen_pbm_dg
 # from psydac.feec.multipatch.examples.timedomain_maxwell import solve_td_maxwell_pbm
 
-@pytest.mark.skip(reason="need to adapt notation")
 def test_time_harmonic_maxwell_pretzel_f():
     nc = 4
     deg = 2
@@ -32,7 +31,6 @@ def test_time_harmonic_maxwell_pretzel_f():
 
     assert abs(diags["err"] - 0.007201508128407582) < 1e-10
 
-@pytest.mark.skip(reason="need to adapt notation")
 def test_time_harmonic_maxwell_pretzel_f_nc():
     deg = 2
     nc = np.array([8, 8, 8, 8, 8, 4, 4, 4, 4,
@@ -55,9 +53,8 @@ def test_time_harmonic_maxwell_pretzel_f_nc():
         source_proj=source_proj,
         backend_language='pyccel-gcc')
 
-    assert abs(diags["err"] - 0.004849165663310541) < 1e-10
+    assert abs(diags["err"] - 0.004849208049783925) < 1e-10
 
-@pytest.mark.skip(reason="need to adapt notation")
 def test_maxwell_eigen_curved_L_shape():
     domain_name = 'curved_L_shape'
     domain = [[1, 3], [0, np.pi / 4]]
@@ -100,7 +97,6 @@ def test_maxwell_eigen_curved_L_shape():
 
     assert abs(error - 0.01291539899483907) < 1e-10
 
-@pytest.mark.skip(reason="need to adapt notation")
 def test_maxwell_eigen_curved_L_shape_nc():
     domain_name = 'curved_L_shape'
     domain = [[1, 3], [0, np.pi / 4]]
@@ -145,7 +141,6 @@ def test_maxwell_eigen_curved_L_shape_nc():
 
     assert abs(error - 0.010504876643873904) < 1e-10
 
-@pytest.mark.skip(reason="need to adapt notation")
 def test_maxwell_eigen_curved_L_shape_dg():
     domain_name = 'curved_L_shape'
     domain = [[1, 3], [0, np.pi / 4]]

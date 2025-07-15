@@ -2,34 +2,25 @@
     Solve the eigenvalue problem for the curl-curl operator in 2D with a FEEC discretization
 """
 import os
-from mpi4py import MPI
-
 import numpy as np
-import matplotlib.pyplot as plt
-from collections import OrderedDict
+
 from sympde.topology import Derham
 
-from psydac.feec.multipatch.api import discretize
+from psydac.api.discretization import discretize
 from psydac.api.settings import PSYDAC_BACKENDS
-from psydac.feec.multipatch.fem_linear_operators import IdLinearOperator
-from psydac.feec.multipatch.operators import HodgeOperator
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
-from psydac.feec.multipatch.utilities import time_count, get_run_dir, get_plot_dir, get_mat_dir, get_sol_dir, diag_fn
-from psydac.feec.multipatch.utils_conga_2d import write_diags_to_file
+from psydac.feec.multipatch.utilities import time_count
 
-from sympde.topology import Square
-from sympde.topology import IdentityMapping, PolarMapping
 
 from scipy.sparse.linalg import spilu, lgmres
 from scipy.sparse.linalg import LinearOperator, eigsh, minres
-from scipy.sparse import csr_matrix
 from scipy.linalg import norm
+from psydac.linalg.basic       import IdentityOperator
 
 from psydac.linalg.utilities import array_to_psydac
 from psydac.fem.basic import FemField
 
 from psydac.feec.multipatch.multipatch_domain_utilities import build_cartesian_multipatch_domain
-from psydac.feec.multipatch.non_matching_operators import construct_h1_conforming_projection, construct_hcurl_conforming_projection
 
 from psydac.api.postprocessing import OutputManager, PostProcessManager
 
@@ -110,10 +101,6 @@ def hcurl_solve_eigen_pbm(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), doma
     elif ncells.ndim == 2:
         ncells = {patch.name: [ncells[int(patch.name[2])][int(patch.name[4])], 
                 ncells[int(patch.name[2])][int(patch.name[4])]] for patch in domain.interior}
-    
-    mappings = OrderedDict([(P.logical_domain, P.mapping)
-                           for P in domain.interior])
-    mappings_list = list(mappings.values())
 
     t_stamp = time_count(t_stamp)
     print(' .. discrete domain...')
@@ -128,9 +115,7 @@ def hcurl_solve_eigen_pbm(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), doma
     print(' .. discrete derham sequence...')
     derham_h = discretize(derham, domain_h, degree=degree)
 
-    V0h = derham_h.V0
-    V1h = derham_h.V1
-    V2h = derham_h.V2
+    V0h, V1h, V2h = derham_h.spaces
     print('dim(V0h) = {}'.format(V0h.nbasis))
     print('dim(V1h) = {}'.format(V1h.nbasis))
     print('dim(V2h) = {}'.format(V2h.nbasis))
@@ -142,64 +127,30 @@ def hcurl_solve_eigen_pbm(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), doma
     print('building the discrete operators:')
     print('commuting projection operators...')
 
-    I1 = IdLinearOperator(V1h)
-    I1_m = I1.to_sparse_matrix()
+    I1 = IdentityOperator(V1h.coeff_space)
 
     t_stamp = time_count(t_stamp)
     print('Hodge operators...')
     # multi-patch (broken) linear operators / matrices
-    H0 = HodgeOperator(
-        V0h,
-        domain_h,
-        backend_language=backend_language,
-        load_dir=m_load_dir,
-        load_space_index=0)
-    H1 = HodgeOperator(
-        V1h,
-        domain_h,
-        backend_language=backend_language,
-        load_dir=m_load_dir,
-        load_space_index=1)
-    H2 = HodgeOperator(
-        V2h,
-        domain_h,
-        backend_language=backend_language,
-        load_dir=m_load_dir,
-        load_space_index=2)
-
-    H0_m  = H0.to_sparse_matrix()           # = mass matrix of V0
-    dH0_m = H0.get_dual_Hodge_sparse_matrix()     # = inverse mass matrix of V0
-    H1_m = H1.to_sparse_matrix()            # = mass matrix of V1
-    dH1_m = H1.get_dual_Hodge_sparse_matrix()  # = inverse mass matrix of V1
-    H2_m = H2.to_sparse_matrix()            # = mass matrix of V2
-    dH2_m = H2.get_dual_Hodge_sparse_matrix()  # = inverse mass matrix of V2
+    H0, H1, H2 = derham_h.Hodge_operators(kind='linop', backend_language=backend_language, load_dir=m_load_dir)
+    dH0, dH1, dH2 = derham_h.Hodge_operators(kind='linop', dual=True, backend_language=backend_language, load_dir=m_load_dir)
 
     t_stamp = time_count(t_stamp)
     print('conforming projection operators...')
     # conforming Projections (should take into account the boundary conditions
     # of the continuous deRham sequence)
-    cP0_m = construct_h1_conforming_projection(V0h, hom_bc=True)
-    cP1_m = construct_hcurl_conforming_projection(V1h, hom_bc=True)
+    cP0, cP1, cP2 = derham_h.conforming_projectors(kind='linop', hom_bc = True)
+
 
     t_stamp = time_count(t_stamp)
     print('broken differential operators...')
-    bD0, bD1 = derham_h.broken_derivatives_as_operators
-    bD0_m = bD0.to_sparse_matrix()
-    bD1_m = bD1.to_sparse_matrix()
+    bD0, bD1 = derham_h.derivatives(kind='linop')
 
-    t_stamp = time_count(t_stamp)
-    print('converting some matrices to csr format...')
-
-    H1_m = H1_m.tocsr()
-    dH1_m = dH1_m.tocsr()
-    H2_m = H2_m.tocsr()
-    bD1_m = bD1_m.tocsr()
 
     if not os.path.exists(plot_dir):
         os.makedirs(plot_dir)
 
     print('computing the full operator matrix...')
-    A_m = np.zeros_like(H1_m)
 
     # Conga (projection-based) stiffness matrices
     if mu != 0:
@@ -208,33 +159,29 @@ def hcurl_solve_eigen_pbm(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), doma
         print('mu = {}'.format(mu))
         print('curl-curl stiffness matrix...')
 
-        pre_CC_m = bD1_m.transpose() @ H2_m @ bD1_m
-        CC_m = cP1_m.transpose() @ pre_CC_m @ cP1_m  # Conga stiffness matrix
-        A_m += mu * CC_m
+        CC = cP1.T @ bD1.T @ H2 @ bD1 @ cP1  # Conga stiffness matrix
+        A = mu * CC
 
     if nu != 0:
-        pre_GD_m = - H1_m @ bD0_m @ cP0_m @ dH0_m @ cP0_m.transpose() @ bD0_m.transpose() @ H1_m
-        GD_m = cP1_m.transpose() @ pre_GD_m @ cP1_m  # Conga stiffness matrix
-        A_m -= nu * GD_m
+        GD = - cP1.T @ H1 @ bD0 @ cP0 @ dH0 @ cP0.T @ bD0.T @ H1 @ cP1
+        A -= nu * GD
 
     # jump stabilization in V1h:
     if gamma_h != 0 or generalized_pbm:
         t_stamp = time_count(t_stamp)
         print('jump stabilization matrix...')
-        jump_stab_m = I1_m - cP1_m
-        JS_m = jump_stab_m.transpose() @ H1_m @ jump_stab_m
-        A_m += gamma_h * JS_m
+        JS = (I1 - cP1).T @ H1 @ (I1 - cP1)
+        A += gamma_h * JS
 
     if generalized_pbm:
         print('adding jump stabilization to RHS of generalized eigenproblem...')
-        B_m = cP1_m.transpose() @ H1_m @ cP1_m + JS_m
+        B = cP1.T @ H1 @ cP1 + JS
     else:
-        B_m = H1_m
+        B = H1
 
     t_stamp = time_count(t_stamp)
     print('solving matrix eigenproblem...')
-    all_eigenvalues, all_eigenvectors_transp = get_eigenvalues(
-        nb_eigs_solve, sigma, A_m, B_m)
+    all_eigenvalues, all_eigenvectors_transp = get_eigenvalues(nb_eigs_solve, sigma, A.tosparse(), B.tosparse())
     # Eigenvalue processing
     t_stamp = time_count(t_stamp)
     print('sorting out eigenvalues...')
@@ -267,6 +214,9 @@ def hcurl_solve_eigen_pbm(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), doma
     OM.export_space_info()
 
     nb_eigs = len(eigenvalues)
+    H1_m = H1.tosparse()
+    cP1_m = cP1.tosparse()
+
     for i in range(min(nb_eigs_plot, nb_eigs)):
 
         print('looking at emode i = {}... '.format(i))

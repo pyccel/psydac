@@ -502,16 +502,12 @@ def get_1d_moment_correction(space_1d, p_moments=-1):
         # local_shape[conf_axis]-2*(1+reg) such conforming functions
         p_max = space_1d.nbasis - 3
         if p_max < p_moments:
-            print(
-                " ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** **")
+            print(" ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** **")
             print(" **         WARNING -- WARNING -- WARNING ")
-            print(
-                f" ** conf. projection imposing C0 smoothness on scalar space along this axis :")
-            print(
-                f" ** there are not enough dofs in a patch to preserve moments of degree {p_moments} !")
+            print(f" ** conf. projection imposing C0 smoothness on scalar space along this axis :")
+            print(f" ** there are not enough dofs in a patch to preserve moments of degree {p_moments} !")
             print(f" ** Only able to preserve up to degree --> {p_max} <-- ")
-            print(
-                " ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** **")
+            print(" ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** **")
             p_moments = p_max
 
         Mass_mat = calculate_poly_basis_integral(space_1d, p_moments)

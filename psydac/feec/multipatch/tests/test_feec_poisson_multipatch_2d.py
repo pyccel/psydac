@@ -1,9 +1,8 @@
 import numpy as np
 import pytest
 
-# from psydac.feec.multipatch.examples.h1_source_pbms_conga_2d import solve_h1_source_pbm
+from psydac.feec.multipatch.examples.h1_source_pbms_conga_2d import solve_h1_source_pbm
 
-@pytest.mark.skip(reason="need to adapt notation")
 def test_poisson_pretzel_f():
 
     source_type = 'manu_poisson_2'
@@ -20,9 +19,10 @@ def test_poisson_pretzel_f():
         backend_language='pyccel-gcc',
         plot_dir=None)
 
+    print("l2_error = ", l2_error)
+    print(l2_error- 1.0585687717792318e-05)
     assert abs(l2_error - 1.0585687717792318e-05) < 1e-10
 
-@pytest.mark.skip(reason="need to adapt notation")
 def test_poisson_pretzel_f_nc():
 
     source_type = 'manu_poisson_2'

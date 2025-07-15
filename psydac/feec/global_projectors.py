@@ -717,7 +717,7 @@ class Projector_H1vec(GlobalProjector):
         return super().__call__(fun)
 
 #==============================================================================
-# MULTIPATCH PROJECTORS
+# MULTIPATCH PROJECTORS (2D)
 #==============================================================================
 class Multipatch_Projector_H1:
     """
