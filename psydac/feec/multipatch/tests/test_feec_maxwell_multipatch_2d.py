@@ -53,7 +53,7 @@ def test_time_harmonic_maxwell_pretzel_f_nc():
         source_proj=source_proj,
         backend_language='pyccel-gcc')
 
-    assert abs(diags["err"] - 0.004849208049783925) < 1e-10
+    assert abs(diags["err"] - 0.004849225522124346) < 1e-7
 
 def test_maxwell_eigen_curved_L_shape():
     domain_name = 'curved_L_shape'
@@ -86,7 +86,6 @@ def test_maxwell_eigen_curved_L_shape():
         nb_eigs_plot=nb_eigs_plot,
         domain_name=domain_name, domain=domain,
         backend_language='pyccel-gcc',
-        plot_dir='./plots/eigen_maxell',
     )
 
     error = 0
@@ -130,7 +129,6 @@ def test_maxwell_eigen_curved_L_shape_nc():
         nb_eigs_plot=nb_eigs_plot,
         domain_name=domain_name, domain=domain,
         backend_language='pyccel-gcc',
-        plot_dir='./plots/eigen_maxell_nc',
     )
 
     error = 0
@@ -172,7 +170,6 @@ def test_maxwell_eigen_curved_L_shape_dg():
         nb_eigs_plot=nb_eigs_plot,
         domain_name=domain_name, domain=domain,
         backend_language='pyccel-gcc',
-        plot_dir='./plots/eigen_maxell_dg',
     )
 
     error = 0

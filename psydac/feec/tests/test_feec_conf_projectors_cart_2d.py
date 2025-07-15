@@ -42,7 +42,7 @@ def get_polynomial_function(degree, hom_bc_axes, domain):
 # ==============================================================================
 @pytest.mark.parametrize('V1_type', ["Hcurl"])
 @pytest.mark.parametrize('degree', [[3, 3]])
-@pytest.mark.parametrize('nc', [4])
+@pytest.mark.parametrize('nc', [5])
 @pytest.mark.parametrize('reg', [0])
 @pytest.mark.parametrize('hom_bc', [False, True])
 @pytest.mark.parametrize('domain_name', ["1patch", "4patch_nc", "2patch_nc"])
