@@ -86,6 +86,7 @@ def test_maxwell_eigen_curved_L_shape():
         nb_eigs_plot=nb_eigs_plot,
         domain_name=domain_name, domain=domain,
         backend_language='pyccel-gcc',
+        plot_dir='./plots/eigen_maxell',
     )
 
     error = 0
@@ -129,6 +130,7 @@ def test_maxwell_eigen_curved_L_shape_nc():
         nb_eigs_plot=nb_eigs_plot,
         domain_name=domain_name, domain=domain,
         backend_language='pyccel-gcc',
+        plot_dir='./plots/eigen_maxell_nc',
     )
 
     error = 0
@@ -170,6 +172,7 @@ def test_maxwell_eigen_curved_L_shape_dg():
         nb_eigs_plot=nb_eigs_plot,
         domain_name=domain_name, domain=domain,
         backend_language='pyccel-gcc',
+        plot_dir='./plots/eigen_maxell_dg',
     )
 
     error = 0
