@@ -1,13 +1,33 @@
 # This workflow will install Python dependencies and run tests with a variety of Python versions
 # For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
 
-name: Run tests
+name: Unit tests
 
 on:
   push:
     branches: [ devel ]
+    paths:
+      - 'psydac/**'
+      - 'pyproject.toml'
+      - 'setup.py'
+      - 'pytest.ini'
+      - 'mpi_tester.py'
+
   pull_request:
     branches: [ devel ]
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+    paths:
+      - 'psydac/**'
+      - 'pyproject.toml'
+      - 'setup.py'
+      - 'pytest.ini'
+      - 'mpi_tester.py'
+
+  workflow_dispatch:
 
 jobs:
   test:
@@ -142,12 +162,11 @@ jobs:
           python -m pip install wheel Cython numpy
           python -m pip install src/binding/petsc4py
 
-      - name: Install Python dependencies
+      - name: Install h5py in parallel mode
         run: |
           export CC="mpicc"
           export HDF5_MPI="ON"
-          python -m pip install -r requirements.txt
-          python -m pip install -r requirements_extra.txt --no-build-isolation --no-cache-dir
+          python -m pip install h5py --no-cache-dir --no-binary h5py
           python -m pip list
 
       - name: Check parallel h5py installation
