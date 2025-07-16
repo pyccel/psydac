@@ -1,5 +1,3 @@
-import os
-
 from psydac.api.basic                  import BasicDiscrete
 
 from psydac.feec.derivatives           import Derivative_1D, Gradient_2D, Gradient_3D
@@ -305,14 +303,14 @@ class DiscreteDerham(BasicDiscrete):
 
         kind : <str>
             The kind of the projector, can be 'femlinop', 'sparse' or 'linop'.
-            - 'femlinop' returns a FemLinearOperator
-            - 'sparse' returns a sparse matrix
-            - 'linop' returns a LinearOperator
+            - 'femlinop' returns a psydac FemLinearOperator (default)
+            - 'sparse' returns a scipy sparse matrix
+            - 'linop' returns a psydac LinearOperator
 
         Returns
         -------
-        Cp: <FemLinearOperator>, <sparse matrix> or <LinearOperator>
-          The conforming projector
+        cP0, cP1, cP2 : Tuple of <psydac.fem.basic.FemLinearOperator>, <scipy.sparse.spmatrix> or <psydac.linalg.basic.LinearOperator>
+          The conforming projectors of each space and in desired form.
 
         """
         if hom_bc is None:
@@ -397,10 +395,14 @@ class DiscreteDerham(BasicDiscrete):
                 If True, returns the dual Hodge operator
 
             kind : <str>
-                The kind of the operator, can be 'femlinop', 'sparse' or 'linop'.
-                - 'femlinop' returns a FemLinearOperator
-                - 'sparse' returns a sparse matrix
-                - 'linop' returns a LinearOperator
+                The kind of the projector, can be 'femlinop', 'sparse' or 'linop'.
+                - 'femlinop' returns a psydac FemLinearOperator (default)
+                - 'sparse' returns a scipy sparse matrix
+                - 'linop' returns a psydac LinearOperator
+
+        Returns
+        -------
+        Hodge operator in the specified form.
         """
 
         if not dual: 
@@ -432,11 +434,11 @@ class DiscreteDerham(BasicDiscrete):
         dual : bool
             If True, returns the dual Hodge operator.
 
-        kind : str
-            The kind of the operator, can be 'femlinop', 'sparse' or 'linop'.
-            - 'femlinop' returns a FemLinearOperator
-            - 'sparse' returns a sparse matrix
-            - 'linop' returns a LinearOperator
+        kind : <str>
+            The kind of the projector, can be 'femlinop', 'sparse' or 'linop'.
+            - 'femlinop' returns a psydac FemLinearOperator (default)
+            - 'sparse' returns a scipy sparse matrix
+            - 'linop' returns a psydac LinearOperator
 
         backend_language : str
             The backend used to accelerate the code, default is 'python'.
@@ -446,7 +448,13 @@ class DiscreteDerham(BasicDiscrete):
 
         Returns
         -------
-        Hodge operator for the specified space or a tuple of operators if space is None.
+        Either one of the following Hodge operators of the specified kind and space or all of them if space is None.
+
+        H0 : <psydac.fem.basic.FemLinearOperator>, <scipy.sparse.spmatrix> or <psydac.linalg.basic.LinearOperator>
+
+        H1 : <psydac.fem.basic.FemLinearOperator>, <scipy.sparse.spmatrix> or <psydac.linalg.basic.LinearOperator>
+
+        H2 : <psydac.fem.basic.FemLinearOperator>, <scipy.sparse.spmatrix> or <psydac.linalg.basic.LinearOperator>
         """
 
         if not self._Hodge_operators:
@@ -577,7 +585,7 @@ class DiscreteDerhamMultipatch(DiscreteDerham):
             if self.mapping:
 
                 P0_m = lambda f : P0([pull_2d_h1(f, m) for m in self.callable_mapping])
-                
+
                 if self.sequence[1] == 'hcurl':
                     P1_m = lambda f : P1([pull_2d_hcurl(f, m) for m in self.callable_mapping])
                 else:
