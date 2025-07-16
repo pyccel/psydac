@@ -12,11 +12,7 @@ from sympde.expr.expr import BilinearForm
 from sympde.expr.expr import integral
 
 from psydac.api.settings import PSYDAC_BACKENDS
-#from psydac.api.discretization import discretize
 
-# from psydac.feec.derivatives import Gradient_2D, ScalarCurl_2D
-#from psydac.feec.multipatch.fem_linear_operators import FemLinearOperator
-# from psydac.linalg.basic import LinearOperator
 from psydac.linalg.utilities import SparseMatrixLinearOperator
 
 # ===============================================================================
