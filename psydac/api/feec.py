@@ -573,6 +573,20 @@ class DiscreteDerhamMultipatch(DiscreteDerham):
                 raise NotImplementedError('2D sequence with H-div not available yet')
 
             P2 = Multipatch_Projector_L2(self.V2, nquads=nquads)
+            
+            if self.mapping:
+
+                P0_m = lambda f : P0([pull_2d_h1(f, m) for m in self.callable_mapping])
+                
+                if self.sequence[1] == 'hcurl':
+                    P1_m = lambda f : P1([pull_2d_hcurl(f, m) for m in self.callable_mapping])
+                else:
+                    raise NotImplementedError('2D sequence with H-div not available yet')
+
+                P2_m = lambda f : P2([pull_2d_l2(f, m) for m in self.callable_mapping])
+
+                return P0_m, P1_m, P2_m
+
             return P0, P1, P2
 
         elif self.dim == 3:

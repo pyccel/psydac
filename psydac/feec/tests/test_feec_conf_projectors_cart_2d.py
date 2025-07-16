@@ -2,16 +2,16 @@ import pytest
 from collections import OrderedDict
 
 import numpy as np
-from sympy import Tuple
+from sympy import Tuple, lambdify
 from scipy.sparse.linalg import norm as sp_norm
 
 from sympde.topology.domain import Domain
 from sympde.topology import Derham, Square, IdentityMapping
 
 from psydac.api.discretization import discretize
-from psydac.feec.multipatch.utils_conga_2d import P_phys_l2, P_phys_hdiv, P_phys_hcurl, P_phys_h1
 
 from psydac.fem.projectors import get_dual_dofs
+
 
 def get_polynomial_function(degree, hom_bc_axes, domain):
     """Return a polynomial function of given degree and homogeneus boundary conditions on the domain."""
@@ -36,7 +36,10 @@ def get_polynomial_function(degree, hom_bc_axes, domain):
         # else:
         g0_y = (y - 0.75)**degree[1]
 
-    return g0_x * g0_y
+    expr = g0_x * g0_y
+    callable_function = lambdify(domain.coordinates, expr)
+
+    return expr, callable_function
 
 
 # ==============================================================================
@@ -122,12 +125,11 @@ def test_conf_projectors_2d(
 
 
     domain_h = discretize(domain, ncells=ncells_h)   # Vh space
-    p_derham = Derham(domain, ["H1", V1_type, "L2"])
+    derham = Derham(domain, ["H1", V1_type, "L2"])
 
     nquads = [(d + 1) for d in degree]
-    p_derham_h = discretize(p_derham, domain_h, degree=degree)
-    p_V0h, p_V1h, p_V2h = p_derham_h.spaces
-    mappings_list = p_derham_h.callable_mapping 
+    derham_h = discretize(derham, domain_h, degree=degree)
+    V0h, V1h, V2h = derham_h.spaces
 
 
     # full moment preservation only possible if enough interior functions in a
@@ -141,15 +143,15 @@ def test_conf_projectors_2d(
     # moment preservation...
 
     # geometric projections (operators)
-    p_geomP0, p_geomP1, p_geomP2 = p_derham_h.projectors(nquads=nquads)
+    geomP0, geomP1, geomP2 = derham_h.projectors(nquads=nquads)
 
     # conforming projections (scipy matrices)
-    cP0, cP1, cP2 = p_derham_h.conforming_projectors(kind='sparse', p_moments=mom_pres, hom_bc=hom_bc)
+    cP0, cP1, cP2 = derham_h.conforming_projectors(kind='sparse', p_moments=mom_pres, hom_bc=hom_bc)
 
-    M0, M1, M2 = p_derham_h.Hodge_operators(kind='sparse')#, backend_language=backend_language, load_dir=m_load_dir)
-    M0_inv, M1_inv, M2_inv = p_derham_h.Hodge_operators(kind='sparse', dual=True)#, backend_language=backend_language, load_dir=m_load_dir)
+    M0, M1, M2 = derham_h.Hodge_operators(kind='sparse')
+    M0_inv, M1_inv, M2_inv = derham_h.Hodge_operators(kind='sparse', dual=True)
 
-    bD0, bD1 = p_derham_h.derivatives(kind='sparse')
+    bD0, bD1 = derham_h.derivatives(kind='sparse')
 
     D0 = bD0 @ cP0              # Conga grad
     D1 = bD1 @ cP1              # Conga curl or div
@@ -166,11 +168,11 @@ def test_conf_projectors_2d(
     # comparing projections of polynomials which should be exact
 
     # tests on cP0:
-    g0 = get_polynomial_function(degree=degree, hom_bc_axes=[hom_bc, hom_bc], domain=domain)
-    g0h = P_phys_h1(g0, p_geomP0, domain, mappings_list)
+    g0, g0_fun = get_polynomial_function(degree=degree, hom_bc_axes=[hom_bc, hom_bc], domain=domain)
+    g0h = geomP0(g0_fun)
     g0_c = g0h.coeffs.toarray()
 
-    tilde_g0_c = get_dual_dofs(Vh=p_V0h, f=g0, domain_h = domain_h, return_format='numpy_array')
+    tilde_g0_c = get_dual_dofs(Vh=V0h, f=g0, domain_h = domain_h, return_format='numpy_array')
     g0_L2_c = M0_inv @ tilde_g0_c
 
     # (P0_geom - P0_L2) polynomial = 0
@@ -183,44 +185,26 @@ def test_conf_projectors_2d(
         #  the following projection should be exact for polynomials of proper degree (no bc)
         # conf_P0* : L2 -> V0 defined by <conf_P0* g, phi> := <g, conf_P0 phi>
         # for all phi in V0
-        g0 = get_polynomial_function(degree=degree, hom_bc_axes=[False, False], domain=domain)
-        g0h = P_phys_h1(g0, p_geomP0, domain, mappings_list)
+        g0, g0_fun = get_polynomial_function(degree=degree, hom_bc_axes=[False, False], domain=domain)
+        g0h = geomP0(g0_fun)
         g0_c = g0h.coeffs.toarray()
 
-        tilde_g0_c = get_dual_dofs(Vh=p_V0h, f=g0, domain_h = domain_h, return_format='numpy_array')
+        tilde_g0_c = get_dual_dofs(Vh=V0h, f=g0, domain_h = domain_h, return_format='numpy_array')
 
         g0_star_c = M0_inv @ cP0.transpose() @ tilde_g0_c
         # (P10_geom - P0_star) polynomial = 0
         assert np.allclose(g0_c, g0_star_c, 1e-12, 1e-12)
 
     # tests on cP1:
+    G1_x, G1_x_fun = get_polynomial_function(degree=[degree[0] - 1,degree[1]], hom_bc_axes=[False, hom_bc], domain=domain)
+    G1_y, G1_y_fun = get_polynomial_function(degree=[degree[0], degree[1] - 1], hom_bc_axes=[hom_bc, False], domain=domain)
+    
+    G1 = Tuple(G1_x, G1_y)
+    G1_fun = [G1_x_fun, G1_y_fun]
 
-    G1 = Tuple(
-        get_polynomial_function(
-            degree=[
-                degree[0] - 1,
-                degree[1]],
-            hom_bc_axes=[
-                False,
-                hom_bc],
-            domain=domain),
-        get_polynomial_function(
-            degree=[
-                degree[0],
-                degree[1] - 1],
-            hom_bc_axes=[
-                hom_bc,
-                False],
-            domain=domain)
-    )
-
-    if V1_type == "Hcurl":
-        G1h = P_phys_hcurl(G1, p_geomP1, domain, mappings_list)
-    elif V1_type == "Hdiv":
-        G1h = P_phys_hdiv(G1, p_geomP1, domain, mappings_list)
-
+    G1h = geomP1(G1_fun)
     G1_c = G1h.coeffs.toarray()
-    tilde_G1_c = get_dual_dofs(Vh=p_V1h, f=G1, domain_h=domain_h, return_format='numpy_array')
+    tilde_G1_c = get_dual_dofs(Vh=V1h, f=G1, domain_h=domain_h, return_format='numpy_array')
 
     G1_L2_c = M1_inv @ tilde_G1_c
 
@@ -230,46 +214,29 @@ def test_conf_projectors_2d(
 
     if full_mom_pres:
         # as above
-        G1 = Tuple(
-        get_polynomial_function(
-            degree=[
-                degree[0] - 1,
-                degree[1]],
-            hom_bc_axes=[
-                False,
-                False],
-            domain=domain),
-        get_polynomial_function(
-            degree=[
-                degree[0],
-                degree[1] - 1],
-            hom_bc_axes=[
-                False,
-                False],
-            domain=domain)
-    )
+        G1_x, G1_x_fun = get_polynomial_function(degree=[degree[0] - 1,degree[1]], hom_bc_axes=[False, False], domain=domain)
+        G1_y, G1_y_fun = get_polynomial_function(degree=[degree[0], degree[1] - 1], hom_bc_axes=[False, False], domain=domain)
+        
+        G1 = Tuple(G1_x, G1_y)
+        G1_fun = [G1_x_fun, G1_y_fun]
 
-    G1h = P_phys_hcurl(G1, p_geomP1, domain, mappings_list)
-    G1_c = G1h.coeffs.toarray()
+        G1h = geomP1(G1_fun)
+        G1_c = G1h.coeffs.toarray()
+        
+        G1h = geomP1(G1_fun)
+        G1_c = G1h.coeffs.toarray()
 
-    tilde_G1_c = get_dual_dofs(Vh=p_V1h, f=G1, domain_h=domain_h, return_format='numpy_array')
-    G1_star_c = M1_inv @ cP1.transpose() @ tilde_G1_c
-    # (P1_geom - P1_star) polynomial = 0
-    assert np.allclose(G1_c, G1_star_c, 1e-12, 1e-12)
+        tilde_G1_c = get_dual_dofs(Vh=V1h, f=G1, domain_h=domain_h, return_format='numpy_array')
+        G1_star_c = M1_inv @ cP1.transpose() @ tilde_G1_c
+        # (P1_geom - P1_star) polynomial = 0
+        assert np.allclose(G1_c, G1_star_c, 1e-12, 1e-12)
 
     # tests on cP2 (non trivial for reg = 1):
-    g2 = get_polynomial_function(
-        degree=[
-            degree[0] - 1,
-            degree[1] - 1],
-        hom_bc_axes=[
-            False,
-            False],
-        domain=domain)
-    g2h = P_phys_l2(g2, p_geomP2, domain, mappings_list)
+    g2, g2_fun = get_polynomial_function(degree=[degree[0] - 1, degree[1] - 1], hom_bc_axes=[False, False], domain=domain)
+    g2h = geomP2(g2_fun)
     g2_c = g2h.coeffs.toarray()
 
-    tilde_g2_c = get_dual_dofs(Vh=p_V2h, f=g2, domain_h=domain_h, return_format='numpy_array')
+    tilde_g2_c = get_dual_dofs(Vh=V2h, f=g2, domain_h=domain_h, return_format='numpy_array')
     g2_L2_c = M2_inv @ tilde_g2_c
 
     # (P2_geom - P2_L2) polynomial = 0

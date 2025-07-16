@@ -23,88 +23,23 @@ from psydac.linalg.solvers import inverse
 
 # commuting projections on the physical domain (should probably be in the
 # interface)
-def P0_phys(f_phys, P0, domain, mappings_list):
-    f = lambdify(domain.coordinates, f_phys)
-    f_log = [pull_2d_h1(f, m.get_callable_mapping()) for m in mappings_list]
-    return P0(f_log)
-
-
-def P1_phys(f_phys, P1, domain, mappings_list):
-    f_x = lambdify(domain.coordinates, f_phys[0])
-    f_y = lambdify(domain.coordinates, f_phys[1])
-    f_log = [pull_2d_hcurl([f_x, f_y], m.get_callable_mapping())
-             for m in mappings_list]
-    return P1(f_log)
-
-
-def P2_phys(f_phys, P2, domain, mappings_list):
-    f = lambdify(domain.coordinates, f_phys)
-    f_log = [pull_2d_l2(f, m.get_callable_mapping()) for m in mappings_list]
-    return P2(f_log)
-
-# commuting projections on the physical domain (should probably be in the
-# interface)
-
-
-def P_phys_h1(f_phys, P0, domain, mappings_list):
+def P0_phys(f_phys, P0, domain):
     f = lambdify(domain.coordinates, f_phys)
 
-    if isinstance(mappings_list, BasicCallableMapping):
-        f_log = pull_2d_h1(f, mappings_list)
-
-    elif len(mappings_list) == 1:
-        f_log = pull_2d_h1(f, mappings_list[0])
-
-    else:
-        f_log = [pull_2d_h1(f, m) for m in mappings_list]
-
-    return P0(f_log)
+    return P0(f)
 
 
-def P_phys_hcurl(f_phys, P1, domain, mappings_list):
+def P1_phys(f_phys, P1, domain):
     f_x = lambdify(domain.coordinates, f_phys[0])
     f_y = lambdify(domain.coordinates, f_phys[1])
 
-    if isinstance(mappings_list, BasicCallableMapping):
-        f_log = pull_2d_hcurl([f_x, f_y], mappings_list)
-
-    elif len(mappings_list) == 1:
-        f_log = pull_2d_hcurl([f_x, f_y], mappings_list[0])
-    else:
-        f_log = [pull_2d_hcurl([f_x, f_y], m) for m in mappings_list]
-
-    return P1(f_log)
+    return P1([f_x, f_y])
 
 
-def P_phys_hdiv(f_phys, P1, domain, mappings_list):
-    f_x = lambdify(domain.coordinates, f_phys[0])
-    f_y = lambdify(domain.coordinates, f_phys[1])
-
-    if isinstance(mappings_list, BasicCallableMapping):
-        f_log = pull_2d_hdiv([f_x, f_y], mappings_list)
-
-    elif len(mappings_list) == 1:
-        f_log = pull_2d_hdiv([f_x, f_y], mappings_list[0])
-
-    else:
-        f_log = [pull_2d_hdiv([f_x, f_y], m) for m in mappings_list]
-
-    return P1(f_log)
-
-
-def P_phys_l2(f_phys, P2, domain, mappings_list):
+def P2_phys(f_phys, P2, domain):
     f = lambdify(domain.coordinates, f_phys)
 
-    if isinstance(mappings_list, BasicCallableMapping):
-        f_log = pull_2d_l2(f, mappings_list)
-
-    elif len(mappings_list) == 1:
-        f_log = pull_2d_l2(f, mappings_list[0])
-
-    else:
-        f_log = [pull_2d_l2(f, m) for m in mappings_list]
-
-    return P2(f_log)
+    return P2(f)
 
 
 def get_kind(space='V*'):

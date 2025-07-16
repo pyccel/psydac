@@ -22,12 +22,11 @@ from sympde.topology import Derham
 from psydac.api.discretization import discretize
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
 from psydac.feec.multipatch.examples.ppc_test_cases import get_source_and_solution_hcurl
-from psydac.feec.multipatch.utils_conga_2d import P0_phys, P1_phys, P2_phys, get_Vh_diags_for
+from psydac.feec.multipatch.utils_conga_2d import P1_phys
 from psydac.feec.multipatch.utilities import time_count
 # from psydac.linalg.utilities import array_to_psydac
 from psydac.fem.basic import FemField
 from psydac.api.postprocessing import OutputManager, PostProcessManager
-from psydac.feec.multipatch.utils_conga_2d import P_phys_hcurl
 
 from psydac.linalg.basic       import IdentityOperator
 from psydac.fem.projectors import get_dual_dofs
@@ -213,7 +212,7 @@ def solve_hcurl_source_pbm(
 
     def lift_u_bc(u_bc):
         if u_bc is not None:
-            ubc = P_phys_hcurl(u_bc, P1, domain, mappings).coeffs
+            ubc = P1_phys(u_bc, P1, domain).coeffs
             ubc = ubc - cP1.dot(ubc)
 
         else:
@@ -223,12 +222,6 @@ def solve_hcurl_source_pbm(
 
 
     ubc = lift_u_bc(u_bc)
-
-    # from psydac.feec.multipatch.utils_conga_2d import P_phys_hcurl
-    # mappings = derham_h.callable_mapping
-    # uh_bc = P_phys_hcurl(u_bc, P1, domain, mappings)
-    # ubc2 = uh_bc.coeffs
-    # ubc2 = ubc2 - cP1.dot(ubc2)
 
     if ubc is not None:
         # modified source for the homogeneous pbm
@@ -298,7 +291,7 @@ def solve_hcurl_source_pbm(
     time_count(t_stamp)
 
     if u_ex:
-        u_ex_p = P_phys_hcurl(u_ex, P1, domain, mappings).coeffs
+        u_ex_p = P1_phys(u_ex, P1, domain).coeffs
     
         err = u_ex_p - u
         print(err.inner(H1.dot(err)))
