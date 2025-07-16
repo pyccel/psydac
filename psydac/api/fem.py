@@ -166,7 +166,8 @@ def reset_arrays(*args):
     for a in args:
         a[:]= 0.j if a.dtype==complex else 0.
 
-def do_nothing(*args): return 0
+def do_nothing(*args):
+    return 0
 
 def extract_stencil_mats(mats):
     new_mats = []
@@ -180,6 +181,7 @@ def extract_stencil_mats(mats):
 def id_generator(size=8, chars=string.ascii_lowercase + string.digits):
     """Creates an 8 digit random string used in file names."""
     return ''.join(random.choice(chars) for _ in range(size))
+
 #==============================================================================
 class DiscreteBilinearForm(BasicDiscrete):
     """
@@ -612,7 +614,7 @@ class DiscreteBilinearForm(BasicDiscrete):
     @property
     def _assembly_template_head(self):
         """A template for the 'head' of the assembly function. Only used with the sum factorization algorithm."""
-        code = '''def assemble_matrix({MAPPING_PART_1}
+        code = '''def assemble_matrix_{FILE_ID}({MAPPING_PART_1}
 {SPAN}                    {MAPPING_PART_2}
                     global_x1 : "float64[:,:]", global_x2 : "float64[:,:]", global_x3 : "float64[:,:]", 
                     {MAPPING_PART_3}
@@ -819,6 +821,19 @@ class DiscreteBilinearForm(BasicDiscrete):
             random string of length 8, corresponding to the assembly file name located in __psydac__/
         
         """
+
+        #------------------------- FILE_ID -------------------------
+        comm = self.comm
+
+        # Root process generates a random string to be used as file_id
+        if comm is None or comm.rank == 0:
+            file_id = id_generator(size=8)
+        else:
+            file_id = None
+
+        # Parallel case: root process broadcasts file_id to all processes
+        if comm is not None and comm.size > 1:
+            file_id = comm.bcast(file_id, root=0)
 
         # ----- free FemField related strings -----
 
@@ -1040,7 +1055,8 @@ class DiscreteBilinearForm(BasicDiscrete):
         NEW_ARGS = TT1 + TT2 + TT3 + A3 + A2 + CT
         IMPORTS = self._imports_string
 
-        head = code_head.format(SPAN            = SPAN, 
+        head = code_head.format(FILE_ID         = file_id,
+                                SPAN            = SPAN,
                                 G_MAT           = G_MAT, 
                                 NEW_ARGS        = NEW_ARGS,
                                 MAPPING_PART_1  = MAPPING_PART_1,
@@ -1239,23 +1255,16 @@ class DiscreteBilinearForm(BasicDiscrete):
         if not os.path.isdir('__psydac__'):
             os.makedirs('__psydac__')
 
-        comm = self.comm
-        if comm is not None and comm.size>1:
-            if comm.rank == 0:
-                file_id = id_generator()
-                filename = f'__psydac__/assemble_{file_id}.py'
-                f = open(filename, 'w')
-                f.writelines(assembly_code)
-                f.close()
-            else:
-                file_id = None
-            file_id = comm.bcast(file_id, root=0)
-        else:
-            file_id = id_generator()
+        # Root process writes the assembly code to a file
+        if comm is None or comm.rank == 0:
             filename = f'__psydac__/assemble_{file_id}.py'
             f = open(filename, 'w')
             f.writelines(assembly_code)
             f.close()
+
+        # Parallel case: wait for the file to be closed before proceeding
+        if comm is not None and comm.size > 1:
+            _ = comm.bcast(None, root=0)
 
         return file_id
 
@@ -1989,10 +1998,9 @@ class DiscreteBilinearForm(BasicDiscrete):
         # Import the generated assembly function
         package = importlib.import_module(f'__psydac__.assemble_{file_id}')
 
-        # print("\n\n" + "#" + "-"*78)
-        # print("Source code of the generated assembly method:")
-        # print("#" + "-"*78 + "\n")
-        # print(inspect.getsource(package.assemble_matrix))
+        # The assembly function is the one that has been generated in the make_file method
+        assembly_function_name = f'assemble_matrix_{file_id}'
+        assembly_function = getattr(package, assembly_function_name)
 
         # If the backend is pyccel, we compile the new assembly function
         assembly_backend = self.backend
@@ -2008,9 +2016,9 @@ class DiscreteBilinearForm(BasicDiscrete):
                 # 'time_execution': verbose,
                 # 'verbose': verbose
             }
-            new_func = epyccel(package.assemble_matrix, **kwargs)
+            new_func = epyccel(assembly_function, **kwargs)
         else:
-            new_func = package.assemble_matrix
+            new_func = assembly_function
 
         # Use the new assembly function (either compiled or not)
         self._func = new_func
