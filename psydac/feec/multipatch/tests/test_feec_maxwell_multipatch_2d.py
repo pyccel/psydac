@@ -26,8 +26,8 @@ def test_time_harmonic_maxwell_pretzel_f():
         mu=1,
         domain_name=domain_name,
         source_type=source_type,
-        source_proj=source_proj,
-        backend_language='pyccel-gcc')
+        source_proj=source_proj,)
+        #backend_language='pyccel-gcc')
 
     assert abs(diags["err"] - 0.007201508128407582) < 1e-10
 
@@ -50,10 +50,10 @@ def test_time_harmonic_maxwell_pretzel_f_nc():
         mu=1,
         domain_name=domain_name,
         source_type=source_type,
-        source_proj=source_proj,
-        backend_language='pyccel-gcc')
+        source_proj=source_proj,)
+        #backend_language='pyccel-gcc')
 
-    assert abs(diags["err"] - 0.004849225522124346) < 1e-7
+    assert abs(diags["err"] - 0.004849225522124346) < 1e-10
 
 def test_maxwell_eigen_curved_L_shape():
     domain_name = 'curved_L_shape'
