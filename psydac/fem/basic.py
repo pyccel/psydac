@@ -391,16 +391,16 @@ class FemLinearOperator:
 
     Parameters
     ----------
-    fem_domain: FemSpace
+    fem_domain : psydac.fem.basic.FemSpace
         The discrete space
 
-    fem_codomain: FemSpace
+    fem_codomain : psydac.fem.basic.FemSpace
         Number of polynomial moments to be preserved in the projection.
 
-    linop: LinearOperator (optional)
+    linop : <psydac.linalg.basic.LinearOperator> (optional)
         Linear Operator. 
 
-    sparse_matrix: sparse matrix (optional)
+    sparse_matrix : <scipy.sparse.spmatrix> (optional)
         Sparse matrix representation of the linear operator.
     """
 

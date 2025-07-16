@@ -387,7 +387,7 @@ class Derivative_1D(FemLinearOperator):
         assert H1.degree[0] == L2.degree[0] + 1
 
         # Store data in object   
-        super().__init__(H1, L2, DirectionalDerivativeOperator(H1.coeff_space, L2.coeff_space, 0))
+        super().__init__(fem_domain = H1, fem_codomain = L2, linop = DirectionalDerivativeOperator(H1.coeff_space, L2.coeff_space, 0))
 
 #====================================================================================================
 class Gradient_2D(FemLinearOperator):
@@ -426,7 +426,7 @@ class Gradient_2D(FemLinearOperator):
         matrix = BlockLinearOperator(H1.coeff_space, Hcurl.coeff_space, blocks=blocks)
 
         # Store data in object   
-        super().__init__(H1, Hcurl, matrix)
+        super().__init__(fem_domain = H1, fem_codomain = Hcurl, linop = matrix)
 
 #====================================================================================================
 class Gradient_3D(FemLinearOperator):
@@ -468,7 +468,7 @@ class Gradient_3D(FemLinearOperator):
         matrix = BlockLinearOperator(H1.coeff_space, Hcurl.coeff_space, blocks=blocks)
 
         # Store data in object   
-        super().__init__(H1, Hcurl, matrix)
+        super().__init__(fem_domain = H1, fem_codomain = Hcurl, linop = matrix)
 
 #====================================================================================================
 class ScalarCurl_2D(FemLinearOperator):
@@ -507,7 +507,7 @@ class ScalarCurl_2D(FemLinearOperator):
         matrix = BlockLinearOperator(Hcurl.coeff_space, L2.coeff_space, blocks=blocks)
 
         # Store data in object   
-        super().__init__(Hcurl, L2, matrix)
+        super().__init__(fem_domain = Hcurl, fem_codomain = L2, linop = matrix)
 
 #====================================================================================================
 class VectorCurl_2D(FemLinearOperator):
@@ -547,7 +547,7 @@ class VectorCurl_2D(FemLinearOperator):
         matrix = BlockLinearOperator(H1.coeff_space, Hdiv.coeff_space, blocks=blocks)
 
         # Store data in object   
-        super().__init__(H1, Hdiv, matrix)
+        super().__init__(fem_domain = H1, fem_codomain = Hdiv, linop = matrix)
 
 #====================================================================================================
 class Curl_3D(FemLinearOperator):
@@ -597,7 +597,7 @@ class Curl_3D(FemLinearOperator):
         # ...
 
         # Store data in object        
-        super().__init__(Hcurl, Hdiv, matrix)
+        super().__init__(fem_domain = Hcurl, fem_codomain = Hdiv, linop = matrix)
 
 #====================================================================================================
 class Divergence_2D(FemLinearOperator):
@@ -636,7 +636,7 @@ class Divergence_2D(FemLinearOperator):
         matrix = BlockLinearOperator(Hdiv.coeff_space, L2.coeff_space, blocks=blocks)
 
         # Store data in object   
-        super().__init__(Hdiv, L2, matrix)
+        super().__init__(fem_domain = Hdiv, fem_codomain = L2, linop = matrix)
 
 #====================================================================================================
 class Divergence_3D(FemLinearOperator):
@@ -678,7 +678,7 @@ class Divergence_3D(FemLinearOperator):
         matrix = BlockLinearOperator(Hdiv.coeff_space, L2.coeff_space, blocks=blocks)
 
         # Store data in object   
-        super().__init__(Hdiv, L2, matrix)
+        super().__init__(fem_domain = Hdiv, fem_codomain = L2, linop = matrix)
 
 #====================================================================================================
 # 2D Multipatch derivative operators
