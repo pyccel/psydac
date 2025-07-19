@@ -1168,7 +1168,7 @@ def ortho_proj_Hcurl(EE, V1h, domain_h, M1, backend_language='python'):
         V1h,
         backend=PSYDAC_BACKENDS[backend_language])
     b = lh.assemble()
-    M1_inv = inverse(M1.mat(), 'pcg', pc='jacobi', tol=1e-10)
+    M1_inv = inverse(M1.mat(), 'cg', pc='jacobi', tol=1e-10)
     sol_coeffs = M1_inv @ b
 
     return FemField(V1h, coeffs=sol_coeffs)

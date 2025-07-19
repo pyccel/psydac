@@ -654,8 +654,8 @@ def test_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
     assert diff.inner(diff) == 0
 
     # T,-1,-1 -> equal T
-    assert isinstance(inverse(inverse(B_T, 'cg', tol=tol), 'pcg', pc=P), BlockLinearOperator)
-    diff = inverse(inverse(B_T, 'cg', tol=tol), 'pcg', pc=P) @ u - B_T @ u
+    assert isinstance(inverse(inverse(B_T, 'cg', tol=tol), 'cg', pc=P), BlockLinearOperator)
+    diff = inverse(inverse(B_T, 'cg', tol=tol), 'cg', pc=P) @ u - B_T @ u
     assert diff.inner(diff) == 0
 
     # T,-1,T -> equal -1
@@ -691,8 +691,8 @@ def test_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
     assert diff.inner(diff) == 0
 
     # T,-1,-1 -> equal T
-    assert isinstance(inverse(inverse(S_T, 'cg', tol=tol), 'pcg', pc=P), StencilMatrix)
-    diff = inverse(inverse(S_T, 'cg', tol=tol), 'pcg', pc=P) @ v - S_T @ v
+    assert isinstance(inverse(inverse(S_T, 'cg', tol=tol), 'cg', pc=P), StencilMatrix)
+    diff = inverse(inverse(S_T, 'cg', tol=tol), 'cg', pc=P) @ v - S_T @ v
     assert diff.inner(diff) == 0
 
     # T,-1,T -> equal -1
@@ -869,8 +869,8 @@ def test_operator_evaluation(n1, n2, p1, p2):
 
     S_cg = inverse(S, 'cg', tol=tol)
     B_cg = inverse(B, 'cg', tol=tol)
-    S_pcg = inverse(S, 'pcg', pc=S.diagonal(inverse=True), tol=tol)
-    B_pcg = inverse(B, 'pcg', pc=B.diagonal(inverse=True), tol=tol)
+    S_pcg = inverse(S, 'cg', pc=S.diagonal(inverse=True), tol=tol)
+    B_pcg = inverse(B, 'cg', pc=B.diagonal(inverse=True), tol=tol)
     S_bicg = inverse(S, 'bicg', tol=tol)
     B_bicg = inverse(B, 'bicg', tol=tol)
     S_lsmr = inverse(S, 'lsmr', tol=tol)
@@ -960,9 +960,14 @@ def test_internal_storage():
     assert np.array_equal( y2_1.toarray(), y2_2.toarray() ) & np.array_equal( y2_2.toarray(), y2_3.toarray() )
 
 #===============================================================================
-@pytest.mark.parametrize('solver', ['cg', 'pcg', 'bicg', 'minres', 'lsmr'])
-
-def test_x0update(solver):
+@pytest.mark.parametrize("solver, needs_pc", [
+    ('cg',     True),
+    ('cg',     False),
+    ('bicg',   False),
+    ('minres', False),
+    ('lsmr',   False)
+])
+def test_x0update(solver, needs_pc):
     n1 = 4
     n2 = 3
     p1 = 5
@@ -979,8 +984,11 @@ def test_x0update(solver):
 
     # Create Inverse
     tol = 1e-6
-    if solver == 'pcg':
-        A_inv = inverse(A, solver, pc=A.diagonal(inverse=True), tol=tol)
+    pc = A.diagonal(inverse=True) if (solver == 'cg' and needs_pc) else None
+
+    # Pass pc only if solver is 'cg', can be None
+    if solver == 'cg':
+        A_inv = inverse(A, solver, pc=pc, tol=tol)
     else:
         A_inv = inverse(A, solver, tol=tol)
 
