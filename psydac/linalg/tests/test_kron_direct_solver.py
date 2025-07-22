@@ -647,8 +647,11 @@ def test_3d_m1_solver(ncells, degree, periodic):
     # assert rhs_iterative is within the tolerance close to rhs, and so is rhs_direct
     rhs_iterative = M1 @ x_iterative
     rhs_direct = M1 @ x_direct
-    assert np.linalg.norm((rhs-rhs_iterative).toarray()) < tol
-    assert np.linalg.norm((rhs-rhs_direct).toarray()) < tol
+    # Define 2-norm of vector using inner
+    norm2 = lambda v: np.sqrt(v.inner(v))
+
+    assert norm2(rhs-rhs_iterative) < tol
+    assert norm2(rhs-rhs_direct) < tol
     
     
 #===============================================================================
@@ -740,8 +743,10 @@ def test_2d_mass_solver(ncells, degree, bounds, periodic):
     # assert rhs_iterative is within the tolerance close to rhs, and so is rhs_direct
     rhs_iterative = M0 @ x_iterative
     rhs_direct = M0 @ x_direct
-    assert np.linalg.norm((rhs-rhs_iterative).toarray()) < tol
-    assert np.linalg.norm((rhs-rhs_direct).toarray()) < tol
+    norm2 = lambda v: np.sqrt(v.inner(v))
+
+    assert norm2(rhs-rhs_iterative) < tol
+    assert norm2(rhs-rhs_direct) < tol
     
     x1 = P1(get_A_fun_vec()).coeffs
     rhs = M1 @ x1
@@ -753,8 +758,11 @@ def test_2d_mass_solver(ncells, degree, bounds, periodic):
     # assert rhs_iterative is within the tolerance close to rhs, and so is rhs_direct
     rhs_iterative = M1 @ x_iterative
     rhs_direct = M1 @ x_direct
-    assert np.linalg.norm((rhs-rhs_iterative).toarray()) < tol
-    assert np.linalg.norm((rhs-rhs_direct).toarray()) < tol
+    # Define 2-norm of vector using inner
+    norm2 = lambda v: np.sqrt(v.inner(v))
+
+    assert norm2(rhs-rhs_iterative) < tol
+    assert norm2(rhs-rhs_direct) < tol
     
     x2 = P2(get_A_fun_scalar()).coeffs
     rhs = M2 @ x2
@@ -766,9 +774,11 @@ def test_2d_mass_solver(ncells, degree, bounds, periodic):
     # assert rhs_iterative is within the tolerance close to rhs, and so is rhs_direct
     rhs_iterative = M2 @ x_iterative
     rhs_direct = M2 @ x_direct
-    assert np.linalg.norm((rhs-rhs_iterative).toarray()) < tol
-    assert np.linalg.norm((rhs-rhs_direct).toarray()) < tol
-    
+    # Define 2-norm of vector using inner
+    norm2 = lambda v: np.sqrt(v.inner(v))
+
+    assert norm2(rhs-rhs_iterative) < tol
+    assert norm2(rhs-rhs_direct) < tol
 #===============================================================================
 
 if __name__ == '__main__':

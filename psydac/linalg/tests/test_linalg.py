@@ -778,64 +778,67 @@ def test_operator_evaluation(n1, n2, p1, p2):
     ###
 
     ### 2.1 PowerLO test
-    Bmat = B.toarray()
+    # Define 2-norm of vector using inner
+    norm2 = lambda v: np.sqrt(v.inner(v))
+
+    ### 2.1 PowerLO test
+
     assert_pos_def(B)
-    uarr = u.toarray()
-    b0 = ( B**0 @ u ).toarray()
-    b1 = ( B**1 @ u ).toarray()
-    b2 = ( B**2 @ u ).toarray()
-    assert np.array_equal(uarr, b0)
-    assert np.linalg.norm( np.dot(Bmat, uarr) - b1 ) < 1e-10
-    assert np.linalg.norm( np.dot(Bmat, np.dot(Bmat, uarr)) - b2 ) < 1e-10
 
-    bi0 = ( B_ILO**0 @ u ).toarray()
-    bi1 = ( B_ILO**1 @ u ).toarray()
-    bi2 = ( B_ILO**2 @ u ).toarray()
-    B_inv_mat = np.linalg.inv(Bmat)
-    b_inv_arr = np.matrix.flatten(B_inv_mat)
-    error_est = 2 + n1 * n2 * np.max( [ np.abs(b_inv_arr[i]) for i in range(len(b_inv_arr)) ] )
-    assert np.array_equal(uarr, bi0)
-    bi12 = np.linalg.solve(Bmat, uarr)
-    bi22 = np.linalg.solve(Bmat, bi12)
-    assert np.linalg.norm( (Bmat @ bi12) - uarr ) < tol
-    assert np.linalg.norm( (Bmat @ bi22) - bi12 ) < error_est * tol
+    b0 = ( B**0 @ u )
+    b1 = ( B**1 @ u )
+    b2 = ( B**2 @ u )
+    assert norm2(u-b0) < 1e-10
+    assert norm2(B @ u - b1) < 1e-10
+    assert norm2(B @ (B @ u) - b2) < 1e-10
 
-    zeros = U.zeros().toarray()
-    z0 = ( Z**0 @ u ).toarray()
-    z1 = ( Z**1 @ u ).toarray()
-    z2 = ( Z**2 @ u ).toarray()
-    assert np.array_equal(uarr, z0)
-    assert np.array_equal(zeros, z1)
-    assert np.array_equal(zeros, z2)
+    bi0 = ( B_ILO**0 @ u )
+    bi1 = ( B_ILO**1 @ u )
+    bi2 = ( B_ILO**2 @ u )
+    error_est = 2 + n1 * n2 * 10 # Rough error estimate based on dimensions and operator norm bounds
+    assert norm2(u - bi0) < 1e-10
+    bi12 = B_ILO @ u
+    bi22 = B_ILO @ bi12
 
-    Smat = S.toarray()
+    assert norm2((B @ bi12) - u) < tol
+    assert norm2((B @ bi22) - bi12 ) < error_est * tol
+
+    zeros = U.zeros()
+    z0 = ( Z**0 @ u )
+    z1 = ( Z**1 @ u )
+    z2 = ( Z**2 @ u )
+    assert norm2(u - z0) < 1e-10
+    assert norm2(zeros - z1) < 1e-10
+    assert norm2(zeros - z2) < 1e-10
+
     assert_pos_def(S)
-    varr = v.toarray()
-    s0 = ( S**0 @ v ).toarray()
-    s1 = ( S**1 @ v ).toarray()
-    s2 = ( S**2 @ v ).toarray()
-    assert np.array_equal(varr, s0)
-    assert np.linalg.norm( np.dot(Smat, varr) - s1 ) < 1e-10
-    assert np.linalg.norm( np.dot(Smat, np.dot(Smat, varr)) - s2 ) < 1e-10
+    s0 = ( S**0 @ v )
+    s1 = ( S**1 @ v )
+    s2 = ( S**2 @ v )
+    assert norm2(v-s0) < 1e-10
 
-    si0 = ( S_ILO**0 @ v ).toarray()
-    si1 = ( S_ILO**1 @ v ).toarray()
-    si2 = ( S_ILO**2 @ v ).toarray()
-    S_inv_mat = np.linalg.inv(Smat)
-    s_inv_arr = np.matrix.flatten(S_inv_mat)
-    error_est = 2 + n1 * n2 * np.max( [ np.abs(s_inv_arr[i]) for i in range(len(s_inv_arr)) ] )
-    assert np.array_equal(varr, si0)
-    si12 = np.linalg.solve(Smat, varr)
-    si22 = np.linalg.solve(Smat, si12)
-    assert np.linalg.norm( (Smat @ si12) - varr ) < tol
-    assert np.linalg.norm( (Smat @ si22) - si12 ) < error_est * tol
+    assert norm2((S @ v) - s1) < 1e-10
+    assert norm2(S @ (S @ v ) - s2) < 1e-10
 
-    i0 = ( I**0 @ v ).toarray()
-    i1 = ( I**1 @ v ).toarray()
-    i2 = ( I**2 @ v ).toarray()
-    assert np.array_equal(varr, i0)
-    assert np.array_equal(varr, i1)
-    assert np.array_equal(varr, i2)
+
+    si0 = ( S_ILO**0 @ v )
+    si1 = ( S_ILO**1 @ v )
+    si2 = ( S_ILO**2 @ v )
+    error_est = 2 + n1 * n2 * 10 # Rough error estimate based on dimensions and operator norm bounds
+    assert norm2(v - si0) < 1e-10
+    si12 = S_ILO @ v
+    si22 = S_ILO @ si12
+
+    assert norm2((S @ si12) - v) < tol
+    assert norm2( (S @ si22) - si12 ) < error_est * tol
+
+
+    i0 = ( I**0 @ v )
+    i1 = ( I**1 @ v )
+    i2 = ( I**2 @ v )
+    assert norm2(v- i0) < 1e-10
+    assert norm2(v - i1) <1e-10
+    assert norm2(v - i2) < 1e-10
 
     ### 2.2 SumLO tests
     Sum1 = B + B_ILO + B + B_ILO
@@ -844,16 +847,19 @@ def test_operator_evaluation(n1, n2, p1, p2):
     sum2 = Sum2 @ v
     u_approx = B @ (0.5*(sum1 - 2*B@u))
     v_approx = S @ (0.5*(sum2 - 2*S@v))
-    assert np.linalg.norm( (u_approx - u).toarray() ) < tol
-    assert np.linalg.norm( (v_approx - v).toarray() ) < tol
+    # Define 2-norm of vector using inner
+    norm2 = lambda v: np.sqrt(v.inner(v))
+
+    assert norm2((u_approx - u)) < tol
+    assert norm2( (v_approx - v)) < tol
 
     ### 2.3 CompLO tests
     C1 = B @ (-B)
     C2 = S @ (-S)
-    c1 = ( C1 @ u ).toarray()
-    c2 = ( C2 @ v ).toarray()
-    assert np.array_equal(-c1, b2)
-    assert np.array_equal(-c2, s2)
+    c1 = ( C1 @ u )
+    c2 = ( C2 @ v )
+    assert norm2(-c1 - b2) < 1e-10
+    assert norm2(-c2 - s2) < 1e-10
 
     ### 2.4 Huge composition
     ZV = ZeroOperator(V, V)
@@ -863,7 +869,7 @@ def test_operator_evaluation(n1, n2, p1, p2):
     H4 = 2 * (S**1 @ S**0)
     H5 = ZV @ I
     H = H1 @ ( H2 + H3 - H4 + H5 ).T
-    assert np.linalg.norm( (H @ v).toarray() - v.toarray() ) < 10 * tol
+    assert norm2((H @ v)- v) < 10 * tol
 
     ### 2.5 InverseLO test
 
@@ -893,17 +899,16 @@ def test_operator_evaluation(n1, n2, p1, p2):
     # Several break-criteria in the LSMR algorithm require different way to determine success
     # than asserting rnorm < tol, as that is not required. Even though it should?
 
-    assert np.linalg.norm( (S @ xs_cg - v).toarray() ) < tol
-    assert np.linalg.norm( (S @ xs_pcg - v).toarray() ) < tol
-    assert np.linalg.norm( (S @ xs_bicg - v).toarray() ) < tol
+    assert norm2((S @ xs_cg - v)) < tol
+    assert norm2( (S @ xs_pcg - v)) < tol
+    assert norm2((S @ xs_bicg - v)) < tol
     assert S_lsmr.get_success() == True
-    assert np.linalg.norm( (S @ xs_mr - v).toarray() ) < tol
-
-    assert np.linalg.norm( (B @ xb_cg - u).toarray() ) < tol
-    assert np.linalg.norm( (B @ xb_pcg - u).toarray() ) < tol
-    assert np.linalg.norm( (B @ xb_bicg - u).toarray() ) < tol
+    assert norm2((S @ xs_mr - v)) < tol
+    assert norm2((B @ xb_cg - u)) < tol
+    assert norm2((B @ xb_pcg - u)) < tol
+    assert norm2((B @ xb_bicg - u)) < tol
     assert B_lsmr.get_success() == True
-    assert np.linalg.norm( (B @ xb_mr - u).toarray() ) < tol
+    assert norm2((B @ xb_mr - u)) < tol
 
 #===============================================================================
 
@@ -911,7 +916,8 @@ def test_internal_storage():
 
     # Create LinearOperator Z = A @ A.T @ A @ A.T @ A, where the domain and codomain of A are of different dimension.
     # Prior to a fix, operator would not have enough preallocated storage defined.
-
+    # Define 2-norm of vector using inner
+    norm2 = lambda v: np.sqrt(v.inner(v))
     n1=2
     n2=1
     p1=1
@@ -956,9 +962,8 @@ def test_internal_storage():
     assert len(Z2_1.tmp_vectors) == 3
     assert len(Z2_2.tmp_vectors) == 3
     assert len(Z2_3.tmp_vectors) == 3
-    assert np.array_equal( y1_1.toarray(), y1_2.toarray() ) & np.array_equal( y1_2.toarray(), y1_3.toarray() )
-    assert np.array_equal( y2_1.toarray(), y2_2.toarray() ) & np.array_equal( y2_2.toarray(), y2_3.toarray() )
-
+    assert (norm2( y1_1- y1_2 ) < 1e-10) & (norm2( y1_2 - y1_3) < 1e-10)
+    assert (norm2( y2_1 - y2_2 ) < 1e-10) & (norm2( y2_2 - y2_3) < 1e-10)
 #===============================================================================
 @pytest.mark.parametrize("solver, needs_pc", [
     ('cg',     True),

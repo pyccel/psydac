@@ -10,6 +10,8 @@ from psydac.ddm.cart       import DomainDecomposition, CartDecomposition
 
 from psydac.linalg.tests.test_linalg import get_StencilVectorSpace, get_positive_definite_StencilMatrix, assert_pos_def
 
+norm2 = lambda v: np.sqrt(v.inner(v))
+
 def get_random_StencilMatrix(domain, codomain):
 
     np.random.seed(2)
@@ -75,11 +77,12 @@ def test_fake_matrix_free(n1, n2, p1, p2):
     tol = 1e-10
     y = S.dot(v)
     x = O.dot(v)
-    print(f'error = {np.linalg.norm( (x - y).toarray() )}')
-    assert np.linalg.norm( (x - y).toarray() ) < tol
+    print(f'error = {norm2(x-y)}')
+    assert norm2(x-y) < tol
+
     O.dot(v, out=x)
-    print(f'error = {np.linalg.norm( (x - y).toarray() )}')
-    assert np.linalg.norm( (x - y).toarray() ) < tol
+    print(f'error = {norm2(x-y)}')
+    assert norm2(x-y) < tol
 
 @pytest.mark.parametrize('solver', ['cg', 'bicg', 'minres', 'lsmr'])
 
@@ -111,13 +114,13 @@ def test_solvers_matrix_free(solver):
 
     AA = A_inv._A
     xx = AA.dot(b)
-    print(f'norm(xx) = {np.linalg.norm( xx.toarray() )}')
-    print(f'norm(x)  = {np.linalg.norm( x.toarray() )}')
+    print(f'norm(xx) = {norm2(xx)}')
+    print(f'norm(x)  = {norm2(x)}')
 
     # Apply inverse and check
     y = A_inv @ x
-    error = np.linalg.norm( (b - y).toarray())
-    assert np.linalg.norm( (b - y).toarray() ) < tol
+    error = norm2(b-y)
+    assert error < tol
 
 #===============================================================================
 # SCRIPT FUNCTIONALITY
