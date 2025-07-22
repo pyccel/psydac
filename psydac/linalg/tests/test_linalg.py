@@ -917,7 +917,9 @@ def test_internal_storage():
 
     # Create LinearOperator Z = A @ A.T @ A @ A.T @ A, where the domain and codomain of A are of different dimension.
     # Prior to a fix, operator would not have enough preallocated storage defined.
-
+    # Define 2-norm of vector using inner
+    norm2 = lambda v: np.sqrt(v.inner(v))
+    
     n1=2
     n2=1
     p1=1
