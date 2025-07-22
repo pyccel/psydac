@@ -120,7 +120,7 @@ class ConjugateGradient(InverseLinearOperator):
     """
     def __init__(self, A, *, pc=None, x0=None, tol=1e-6, maxiter=1000, verbose=False, recycle=False):
 
-        self._options = {"x0":x0, "tol":tol, "maxiter":maxiter, "verbose":verbose, "recycle":recycle}
+        self._options = {"x0":x0, "pc": pc, "tol":tol, "maxiter":maxiter, "verbose":verbose, "recycle":recycle}
         
         super().__init__(A, **self._options)
 
