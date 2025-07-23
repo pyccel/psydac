@@ -383,7 +383,7 @@ class DiscreteDerham(BasicDiscrete):
                     self._Hodge_operators = (H0, H1, H2, H3)
 
     #--------------------------------------------------------------------------
-    def _Hodge_kind(self, H, dual=False, kind='femlinop'):
+    def _get_Hodge_operator(self, H, dual=False, kind='femlinop'):
         """
         Helper function to return the Hodge operator in the specified form.
         
@@ -463,19 +463,19 @@ class DiscreteDerham(BasicDiscrete):
         H0, H1, H2 = self._Hodge_operators
 
         if space == 'V0':
-           return self._Hodge_kind(self._Hodge_operators[0], dual=dual, kind=kind)
+           return self._get_Hodge_operator(self._Hodge_operators[0], dual=dual, kind=kind)
 
         elif space == 'V1':
-            return self._Hodge_kind(self._Hodge_operators[1], dual=dual, kind=kind)
+            return self._get_Hodge_operator(self._Hodge_operators[1], dual=dual, kind=kind)
 
         elif space == 'V2':
-            return self._Hodge_kind(self._Hodge_operators[2], dual=dual, kind=kind)
+            return self._get_Hodge_operator(self._Hodge_operators[2], dual=dual, kind=kind)
 
         elif space == 'V3':
-            return self._Hodge_kind(self._Hodge_operators[3], dual=dual, kind=kind)
+            return self._get_Hodge_operator(self._Hodge_operators[3], dual=dual, kind=kind)
 
         elif space is None:
-            return tuple(self._Hodge_kind(H, dual=dual, kind=kind) for H in self._Hodge_operators)
+            return tuple(self._get_Hodge_operator(H, dual=dual, kind=kind) for H in self._Hodge_operators)
 
 
 #==============================================================================
