@@ -553,7 +553,7 @@ def construct_h1_conforming_projection(Vh, reg_orders=0, p_moments=-1, hom_bc=Fa
     # moment corrections perpendicular to interfaces
     # assume same moments everywhere
     gamma = get_1d_moment_correction(Vh.spaces[0].spaces[0], p_moments=p_moments)
-    p_moments = len(gamma)-1
+    p_moments = len(gamma)-1 if gamma else -1
 
     domain = Vh.symbolic_space.domain
     ndim = 2
@@ -1007,7 +1007,7 @@ def construct_hcurl_conforming_projection(Vh, reg_orders=0, p_moments=-1, hom_bc
     # moment corrections perpendicular to interfaces
     # should be in the V^0 spaces
     gamma = [get_1d_moment_correction(Vh.spaces[0].spaces[1 - d].spaces[d], p_moments=p_moments) for d in range(2)]
-    p_moments = min([len(g) for g in gamma])-1
+    p_moments = min([len(g) for g in gamma])-1 if gamma else -1
 
     domain = Vh.symbolic_space.domain
     ndim = 2
@@ -1190,7 +1190,7 @@ def construct_h1_singlepatch_conforming_projection(Vh, reg_orders=0, p_moments=-
     # moment corrections perpendicular to interfaces
     # assume same moments everywhere
     gamma = get_1d_moment_correction(Vh.spaces[0], p_moments=p_moments)
-    p_moments = len(gamma)-1
+    p_moments = len(gamma)-1 if gamma else -1
 
     domain = Vh.symbolic_space.domain
     ndim = 2
@@ -1367,7 +1367,7 @@ def construct_hcurl_singlepatch_conforming_projection(Vh, reg_orders=0, p_moment
     # should be in the V^0 spaces
 
     gamma = [get_1d_moment_correction(Vh.spaces[1 - d].spaces[d], p_moments=p_moments) for d in range(2)]
-    p_moments = min([len(g) for g in gamma])-1
+    p_moments = min([len(g) for g in gamma])-1 if gamma else -1
 
     domain = Vh.symbolic_space.domain
     ndim = 2
