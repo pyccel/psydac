@@ -369,7 +369,7 @@ def reduce_space_degrees(V, Vh, *, basis='B', sequence='DR'):
 
 #==============================================================================
 # TODO knots
-def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None, basis='B', sequence='DR'):
+def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None, basis='B', sequence='DR', pads=None):
     """
     This function creates the discretized space starting from the symbolic space.
 
@@ -497,6 +497,9 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
             min_coords = interior.min_coords
             max_coords = interior.max_coords
 
+            if pads == None: 
+                pads = [None] * len(degree_i)
+
             assert len(ncells) == len(periodic) == len(degree_i)  == len(multiplicity_i) == len(min_coords) == len(max_coords)
 
             if knots is None:
@@ -505,10 +508,10 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
                          for xmin, xmax, ne in zip(min_coords, max_coords, ncells)]
 
                 # Create 1D finite element spaces and precompute quadrature data
-                spaces[i] = [SplineSpace( p, multiplicity=m, grid=grid , periodic=P) for p,m,grid,P in zip(degree_i, multiplicity_i,grids, periodic)]
+                spaces[i] = [SplineSpace( p, multiplicity=m, grid=grid , periodic=P, pads=pd) for p,m,grid,P,pd in zip(degree_i, multiplicity_i,grids, periodic, pads)]
             else:
                  # Create 1D finite element spaces and precompute quadrature data
-                spaces[i] = [SplineSpace( p, knots=T , periodic=P) for p,T, P in zip(degree_i, knots[interior.name], periodic)]
+                spaces[i] = [SplineSpace( p, knots=T , periodic=P, pads=pd) for p,T,P,pd in zip(degree_i, knots[interior.name], periodic, pads)]
 
 
         carts    = create_cart(ddms, spaces)
