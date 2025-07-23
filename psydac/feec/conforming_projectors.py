@@ -494,7 +494,8 @@ def get_1d_moment_correction(space_1d, p_moments=-1):
         return None
 
     if space_1d.ncells <= p_moments + 1:
-        print("Careful, the correction term is currently not independent of the mesh.")
+        print("The correction term is currently not independent of the mesh. The order of moment conservation has been reduced.")
+        p_moments = space_1d.ncells - 2
 
     if p_moments >= 0:
         # to preserve moments of degree p we need 1+p conforming basis functions in the patch (the "interior" ones)
