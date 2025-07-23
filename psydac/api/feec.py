@@ -288,7 +288,7 @@ class DiscreteDerham(BasicDiscrete):
             return tuple(b_diff.linop for b_diff in self._derivatives)
     
     #--------------------------------------------------------------------------
-    def conforming_projectors(self, kind='femlinop', p_moments=-1, hom_bc=False):
+    def conforming_projectors(self, kind='femlinop', mom_pres=False, p_moments=-1, hom_bc=False):
         """
         return the conforming projectors of the broken multi-patch space
 
@@ -324,8 +324,8 @@ class DiscreteDerham(BasicDiscrete):
                 raise NotImplementedError('2D sequence with H-div not available yet')
 
             else:
-                cP0 = ConformingProjection_V0(self.V0, p_moments=p_moments, hom_bc=hom_bc)
-                cP1 = ConformingProjection_V1(self.V1, p_moments=p_moments, hom_bc=hom_bc)
+                cP0 = ConformingProjection_V0(self.V0, mom_pres=mom_pres, p_moments=p_moments, hom_bc=hom_bc)
+                cP1 = ConformingProjection_V1(self.V1, mom_pres=mom_pres, p_moments=p_moments, hom_bc=hom_bc)
 
                 I2 = IdentityOperator(self.V2.coeff_space)
                 cP2 = FemLinearOperator(fem_domain=self.V2, fem_codomain=self.V2, linop=I2, sparse_matrix=I2.tosparse())

@@ -553,6 +553,7 @@ def construct_h1_conforming_projection(Vh, reg_orders=0, p_moments=-1, hom_bc=Fa
     # moment corrections perpendicular to interfaces
     # assume same moments everywhere
     gamma = get_1d_moment_correction(Vh.spaces[0].spaces[0], p_moments=p_moments)
+    p_moments = len(gamma)-1
 
     domain = Vh.symbolic_space.domain
     ndim = 2
@@ -1005,8 +1006,8 @@ def construct_hcurl_conforming_projection(Vh, reg_orders=0, p_moments=-1, hom_bc
 
     # moment corrections perpendicular to interfaces
     # should be in the V^0 spaces
-    gamma = [get_1d_moment_correction(
-        Vh.spaces[0].spaces[1 - d].spaces[d], p_moments=p_moments) for d in range(2)]
+    gamma = [get_1d_moment_correction(Vh.spaces[0].spaces[1 - d].spaces[d], p_moments=p_moments) for d in range(2)]
+    p_moments = min([len(g) for g in gamma])-1
 
     domain = Vh.symbolic_space.domain
     ndim = 2
@@ -1156,90 +1157,6 @@ def construct_hcurl_conforming_projection(Vh, reg_orders=0, p_moments=-1, hom_bc
 #==============================================================================
 # Singlepatch conforming projectors
 #==============================================================================
-def construct_hcurl_singlepatch_conforming_projection(Vh, reg_orders=0, p_moments=-1, hom_bc=False):
-    """
-    Construct the conforming projection for a single patch vector Hcurl space for a given regularity (0 continuous, -1 discontinuous).
-
-    Parameters
-    ----------
-    Vh : TensorFemSpace
-        Finite Element Space coming from the discrete de Rham sequence.
-
-    reg_orders :  (int)
-        Regularity in each space direction -1 or 0.
-
-    p_moments : (int)
-        Number of polynomial moments to be preserved.
-
-    hom_bc : (bool)
-        Tangential homogeneous boundary conditions.
-
-    Returns
-    -------
-    cP : scipy.sparse.csr_array
-        Conforming projection as a sparse matrix.
-    """
-
-    dim_tot = Vh.nbasis
-
-    # fully discontinuous space
-    if reg_orders < 0 or not hom_bc:
-        return sparse_eye(dim_tot, format="lil")
-
-    # moment corrections perpendicular to interfaces
-    # should be in the V^0 spaces
-
-    gamma = [get_1d_moment_correction(Vh.spaces[1 - d].spaces[d], p_moments=p_moments) for d in range(2)]
-
-    domain = Vh.symbolic_space.domain
-    ndim = 2
-    n_components = 2
-    n_patches = len(domain)
-
-    l2g = Local2GlobalIndexMap(ndim, len(domain), n_components)
-    # T is a TensorFemSpace and S is a 1D SplineSpace
-    shapes = [[S.nbasis for S in T.spaces] for T in Vh.spaces]
-    l2g.set_patch_shapes(0, *shapes)
-
-    # P edge
-    # edge correction matrix
-    Proj_edge = sparse_eye(dim_tot, format="lil")
-
-    def get_edge_index(j, axis, ext):
-        multi_index = [None] * ndim
-        multi_index[axis] = 0 if ext == -1 else Vh.spaces[1 - axis].spaces[axis].nbasis - 1
-        multi_index[1 - axis] = j
-        return l2g.get_index(0, 1 - axis, multi_index)
-
-    def edge_moment_index(p, i, axis, ext):
-        multi_index = [None] * ndim
-        multi_index[1 - axis] = i
-        multi_index[axis] = p + 1 if ext == -1 else Vh.spaces[1 - axis].spaces[axis].nbasis - 1 - p - 1
-        return l2g.get_index(0, 1 - axis, multi_index)
-
-
-    # boundary condition
-    for bn in domain.boundary:
-
-        axis = bn.axis
-        d = 1 - axis
-        ext = bn.ext
-        space_1d = Vh.spaces[d].spaces[d]
-
-        for i in range(0, space_1d.nbasis):
-            ig = get_edge_index(i, axis, ext)
-            Proj_edge[ig, ig] = 0
-
-            for p in range(p_moments + 1):
-
-                pg = edge_moment_index(p, i, axis, ext)
-                Proj_edge[pg, ig] = gamma[d][p]
-
-    return Proj_edge
-
-
-
-
 def construct_h1_singlepatch_conforming_projection(Vh, reg_orders=0, p_moments=-1, hom_bc=False):
     """
     Construct the conforming projection for a scalar space for a given regularity (0 continuous, -1 discontinuous).
@@ -1273,6 +1190,7 @@ def construct_h1_singlepatch_conforming_projection(Vh, reg_orders=0, p_moments=-
     # moment corrections perpendicular to interfaces
     # assume same moments everywhere
     gamma = get_1d_moment_correction(Vh.spaces[0], p_moments=p_moments)
+    p_moments = len(gamma)-1
 
     domain = Vh.symbolic_space.domain
     ndim = 2
@@ -1415,6 +1333,89 @@ def construct_h1_singlepatch_conforming_projection(Vh, reg_orders=0, p_moments=-
     return Proj_edge @ Proj_vertex
 
 
+def construct_hcurl_singlepatch_conforming_projection(Vh, reg_orders=0, p_moments=-1, hom_bc=False):
+    """
+    Construct the conforming projection for a single patch vector Hcurl space for a given regularity (0 continuous, -1 discontinuous).
+
+    Parameters
+    ----------
+    Vh : TensorFemSpace
+        Finite Element Space coming from the discrete de Rham sequence.
+
+    reg_orders :  (int)
+        Regularity in each space direction -1 or 0.
+
+    p_moments : (int)
+        Number of polynomial moments to be preserved.
+
+    hom_bc : (bool)
+        Tangential homogeneous boundary conditions.
+
+    Returns
+    -------
+    cP : scipy.sparse.csr_array
+        Conforming projection as a sparse matrix.
+    """
+
+    dim_tot = Vh.nbasis
+
+    # fully discontinuous space
+    if reg_orders < 0 or not hom_bc:
+        return sparse_eye(dim_tot, format="lil")
+
+    # moment corrections perpendicular to interfaces
+    # should be in the V^0 spaces
+
+    gamma = [get_1d_moment_correction(Vh.spaces[1 - d].spaces[d], p_moments=p_moments) for d in range(2)]
+    p_moments = min([len(g) for g in gamma])-1
+
+    domain = Vh.symbolic_space.domain
+    ndim = 2
+    n_components = 2
+    n_patches = len(domain)
+
+    l2g = Local2GlobalIndexMap(ndim, len(domain), n_components)
+    # T is a TensorFemSpace and S is a 1D SplineSpace
+    shapes = [[S.nbasis for S in T.spaces] for T in Vh.spaces]
+    l2g.set_patch_shapes(0, *shapes)
+
+    # P edge
+    # edge correction matrix
+    Proj_edge = sparse_eye(dim_tot, format="lil")
+
+    def get_edge_index(j, axis, ext):
+        multi_index = [None] * ndim
+        multi_index[axis] = 0 if ext == -1 else Vh.spaces[1 - axis].spaces[axis].nbasis - 1
+        multi_index[1 - axis] = j
+        return l2g.get_index(0, 1 - axis, multi_index)
+
+    def edge_moment_index(p, i, axis, ext):
+        multi_index = [None] * ndim
+        multi_index[1 - axis] = i
+        multi_index[axis] = p + 1 if ext == -1 else Vh.spaces[1 - axis].spaces[axis].nbasis - 1 - p - 1
+        return l2g.get_index(0, 1 - axis, multi_index)
+
+
+    # boundary condition
+    for bn in domain.boundary:
+
+        axis = bn.axis
+        d = 1 - axis
+        ext = bn.ext
+        space_1d = Vh.spaces[d].spaces[d]
+
+        for i in range(0, space_1d.nbasis):
+            ig = get_edge_index(i, axis, ext)
+            Proj_edge[ig, ig] = 0
+
+            for p in range(p_moments + 1):
+
+                pg = edge_moment_index(p, i, axis, ext)
+                Proj_edge[pg, ig] = gamma[d][p]
+
+    return Proj_edge
+
+
 # ===============================================================================
 
 class ConformingProjection_V0(FemLinearOperator):
@@ -1439,8 +1440,15 @@ class ConformingProjection_V0(FemLinearOperator):
     def __init__(
             self,
             V0h,
+            mom_pres=False,
             p_moments=-1,
             hom_bc=False):
+        
+        if mom_pres:
+            if V0h.is_multipatch:
+                p_moments = max(p_moments, max(V0h.degree[0]))
+            else:
+                p_moments = max(p_moments, max(V0h.degree))
 
         FemLinearOperator.__init__(self, fem_domain=V0h, fem_codomain=V0h)
         
@@ -1475,8 +1483,15 @@ class ConformingProjection_V1(FemLinearOperator):
     def __init__(
             self,
             V1h,
+            mom_pres=False,
             p_moments=-1,
             hom_bc=False):
+
+        if mom_pres:
+            if V1h.is_multipatch:
+                p_moments = max(p_moments, max(V1h.spaces[0].degree[0]))
+            else:
+                p_moments = max(p_moments, max(V1h.degree[0]))
 
         FemLinearOperator.__init__(self, fem_domain=V1h, fem_codomain=V1h)
 
