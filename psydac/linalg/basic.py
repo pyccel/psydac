@@ -435,15 +435,35 @@ class LinearOperator(ABC):
 
     def idot(self, v, out):
         """
-        Implements out += self @ v with a temporary.
-        Subclasses should provide an implementation without a temporary.
+        Implements `out += self @ v` without a temporary, using a work array.
+
+        This default implementation uses a local work array to store the result
+        of `self @ v`, and then sums it to the vector `out`. This doubles the
+        amount of read/write operations from/to local memory. If possible,
+        subclasses should provide a more efficient implementation which does
+        not use work arrays.
+
+        Parameters
+        ----------
+        v : Vector
+            The vector to which the linear operator `self` is applied. It must
+            belong to the domain of `self`.
+
+        out : Vector
+            The vector to be incremented by `self @ v`. It must belong to the
+            codomain of `self`.
 
         """
-        assert isinstance(v, Vector)
-        assert v.space == self.domain
+        assert isinstance(  v, Vector)
         assert isinstance(out, Vector)
-        assert out.space == self.codomain
-        out += self.dot(v)
+        assert   v.space is self.domain
+        assert out.space is self.codomain
+
+        if not hasattr(self, '_work'):
+            self._work = self.codomain.zeros()
+
+        self.dot(v, out=self._work)
+        out += self._work
 
     def dot_inner(self, v, w):
         """
@@ -807,13 +827,8 @@ class SumLinearOperator(LinearOperator):
         else:
             out = self.codomain.zeros()
 
-        out2 = self._out
         for A in self._addends:
-            #A.idot(v, out=out)
-            # The default idot (inherited from the LinearOperator base class) uses a temporary.
-            # The altered implementation below makes sure no unnecessary temporaries are created.
-            A.dot(v, out=out2)
-            out += out2
+            A.idot(v, out=out)
 
     def transpose(self, conjugate=False):
         t_addends = ()
