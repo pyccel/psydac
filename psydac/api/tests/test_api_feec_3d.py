@@ -123,8 +123,8 @@ def run_maxwell_3d_scipy(logical_domain, mapping, e_ex, b_ex, ncells, degree, pe
     derham_h = discretize(derham, domain_h, degree=degree, multiplicity=multiplicity)
 
     # Create DiscreteBilinearForm objects. Assembly code is generated here
-    a1_h = discretize(a1, domain_h, (derham_h.V1, derham_h.V1)), backend=backend)
-    a2_h = discretize(a2, domain_h, (derham_h.V2, derham_h.V2)), backend=backend)
+    a1_h = discretize(a1, domain_h, (derham_h.V1, derham_h.V1), backend=backend)
+    a2_h = discretize(a2, domain_h, (derham_h.V2, derham_h.V2), backend=backend)
 
     # Assemble matrices as StencilMatrix objects, then convert them to SciPy's CSC/CSR formats
     M1 = a1_h.assemble().tosparse().tocsc()
