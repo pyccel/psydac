@@ -764,6 +764,9 @@ class SumLinearOperator(LinearOperator):
         self._addends = addends
         self._out = codomain.zeros()
 
+    #-------------------------------------
+    # Abstract interface
+    #-------------------------------------
     @property
     def domain(self):
         """ The domain of the linear operator, element of class ``VectorSpace``. """
@@ -775,19 +778,8 @@ class SumLinearOperator(LinearOperator):
         return self._codomain
 
     @property
-    def addends(self):
-        """ A tuple containing the addends of the linear operator, elements of class ``LinearOperator``. """
-        return self._addends
-
-    @property
     def dtype(self):
         return None
-
-    def toarray(self):
-        out = np.zeros(self.shape, dtype=self.dtype)
-        for a in self._addends:
-            out += a.toarray()
-        return out
 
     def tosparse(self):
         from scipy.sparse import csr_matrix
@@ -796,11 +788,46 @@ class SumLinearOperator(LinearOperator):
             out += a.tosparse()
         return out
 
+    def toarray(self):
+        out = np.zeros(self.shape, dtype=self.dtype)
+        for a in self._addends:
+            out += a.toarray()
+        return out
+
+    def dot(self, v, out=None):
+        """ Evaluates SumLinearOperator object at a vector v element of domain. """
+
+        assert isinstance(v, Vector)
+        assert v.space is self.domain
+
+        if out is not None:
+            assert isinstance(out, Vector)
+            assert out.space is self.codomain
+            out *= 0
+        else:
+            out = self.codomain.zeros()
+
+        out2 = self._out
+        for A in self._addends:
+            #A.idot(v, out=out)
+            # The default idot (inherited from the LinearOperator base class) uses a temporary.
+            # The altered implementation below makes sure no unnecessary temporaries are created.
+            A.dot(v, out=out2)
+            out += out2
+
     def transpose(self, conjugate=False):
         t_addends = ()
         for a in self._addends:
             t_addends = (*t_addends, a.transpose(conjugate=conjugate))
         return SumLinearOperator(self.codomain, self.domain, *t_addends)
+
+    #--------------------------------------
+    # Other properties/methods
+    #--------------------------------------
+    @property
+    def addends(self):
+        """ A tuple containing the addends of the linear operator, elements of class ``LinearOperator``. """
+        return self._addends
 
     @staticmethod
     def simplify(addends):
@@ -823,30 +850,6 @@ class SumLinearOperator(LinearOperator):
                 else:
                     out = (*out, A)
         return out
-
-    def dot(self, v, out=None):
-        out2 = self._out
-        """ Evaluates SumLinearOperator object at a vector v element of domain. """
-        assert isinstance(v, Vector)
-        assert v.space == self.domain
-        if out is not None:
-            assert isinstance(out, Vector)
-            assert out.space == self.codomain
-            out *= 0
-            for a in self._addends:
-                a.dot(v, out=out2)
-                out += out2
-                # idot is not implemented. The above altered implementation makes sure no unnecessary temporaries are created.
-                #a.idot(v, out=out)
-            return out
-        else:
-            out = self.codomain.zeros()
-            for a in self._addends:
-                a.dot(v, out=out2)
-                out += out2
-                # idot is not implemented. The above altered implementation makes sure no unnecessary temporaries are created.
-                #a.idot(v, out=out)
-            return out
 
 #===============================================================================
 class ComposedLinearOperator(LinearOperator):
