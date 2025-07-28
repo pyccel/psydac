@@ -828,7 +828,9 @@ class SumLinearOperator(LinearOperator):
             out = self.codomain.zeros()
 
         for A in self._addends:
-            A.idot(v, out=out)
+            A.idot(v, out)
+
+        return out
 
     def transpose(self, conjugate=False):
         t_addends = ()
