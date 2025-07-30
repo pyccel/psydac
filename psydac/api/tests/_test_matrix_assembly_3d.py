@@ -483,20 +483,9 @@ def build_matrices(mapping_option, verbose, backend, comm):
             
             if field_spaces is None:
                 t0 = time.time()
-                if field_space == 'V0':
-                    A_old = a_h.assemble(F0=field)
-                elif field_space == 'V1':
-                    A_old = a_h.assemble(F1=field)
-                elif field_space == 'V2':
-                    A_old = a_h.assemble(F2=field)
-                elif field_space == 'V3':
-                    A_old = a_h.assemble(F3=field)
-                elif field_space == 'Vs':
-                    A_old = a_h.assemble(Fs=field)
-                elif field_space == 'Vvc':
-                    A_old = a_h.assemble(Fvc=field)
-                elif field_space == 'Vvd':
-                    A_old = a_h.assemble(Fvd=field)
+                field_name = field_space.replace('V', 'F')
+                kwargs = {field_name : field}
+                A_old = a_h.assemble(**kwargs)
                 t1 = time.time()
             else:
                 if field_spaces == ['V1', 'V1']:
@@ -527,20 +516,9 @@ def build_matrices(mapping_option, verbose, backend, comm):
         if is_field:
             if field_spaces is None:
                 t0 = time.time()
-                if field_space == 'V0':
-                    A_new = a_h.assemble(F0=field)
-                elif field_space == 'V1':
-                    A_new = a_h.assemble(F1=field)
-                elif field_space == 'V2':
-                    A_new = a_h.assemble(F2=field)
-                elif field_space == 'V3':
-                    A_new = a_h.assemble(F3=field)
-                elif field_space == 'Vs':
-                    A_new = a_h.assemble(Fs=field)
-                elif field_space == 'Vvc':
-                    A_new = a_h.assemble(Fvc=field)
-                elif field_space == 'Vvd':
-                    A_new = a_h.assemble(Fvd=field)
+                field_name = field_space.replace('V', 'F')
+                kwargs = {field_name : field}
+                A_new = a_h.assemble(**kwargs)
                 t1 = time.time()
             else:
                 if field_spaces == ['V1', 'V1']:
@@ -591,13 +569,12 @@ def build_matrices(mapping_option, verbose, backend, comm):
 
 #==============================================================================
 
-verbose = True
+if __name__ == '__main__':
+    mapping_options = [None, 'analytical', 'Bspline']
 
-mapping_options = [None, 'analytical', 'Bspline']
+    verbose = True
+    comm    = MPI.COMM_WORLD
+    backend = PSYDAC_BACKEND_GPYCCEL
 
-comm    = MPI.COMM_WORLD
-backend = PSYDAC_BACKEND_GPYCCEL
-
-for option in mapping_options:
-
-    build_matrices(mapping_option=option, verbose=verbose, backend=backend, comm=comm)
+    for option in mapping_options:
+        build_matrices(mapping_option=option, verbose=verbose, backend=backend, comm=comm)
