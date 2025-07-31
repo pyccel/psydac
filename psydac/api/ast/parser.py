@@ -104,7 +104,7 @@ def is_scalar_array(var):
 
 
 #==============================================================================
-def parse(expr, settings, backend=None, sum_factorization=False):
+def parse(expr, settings, backend=None):
     """
     This function takes a Psydac Ast and returns a Pyccel Ast
 
@@ -117,26 +117,16 @@ def parse(expr, settings, backend=None, sum_factorization=False):
     settings : dict
         dictionary that contains number of dimension, mappings and target if provided
 
-    sum_factorization : bool
-        This method is used to obtain the imports string when using the sum factorization matrix assembly algorithm
-
     Returns
     -------
 
     ast : Pyccel Ast
-        pyccel abstract syntax tree that can be translated into a Python code. Only if not sum_factorization
-
-    imports_string : str
-        string containing information about methods that need to be imported inside the assembly file. Only if sum_factorization
+        pyccel abstract syntax tree that can be translated into a Python code.
 
     """
     psy_parser = Parser(settings, backend)
     ast = psy_parser.doit(expr)
-    if not sum_factorization:
-        return ast
-    else:
-        imports_string = psy_parser._imports_string
-        return imports_string
+    return ast
 
 #==============================================================================
 class Parser(object):
@@ -558,7 +548,6 @@ class Parser(object):
         imports       = [Import('numpy', numpy_imports)] + \
                         ([Import(math_library, math_imports)] if math_imports else []) + \
                         [*expr.imports]
-        self._imports_string = '\n    '.join([str(i) for i in imports])
 
         results = [self._visit(a) for a in expr.results]
 

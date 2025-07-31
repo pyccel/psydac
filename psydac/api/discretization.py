@@ -556,11 +556,18 @@ def discretize(a, *args, **kwargs):
         assembly_backend = backend or assembly_backend
         openmp = False if assembly_backend is None else assembly_backend.get('openmp')
 
-        # Set sum_factorization to True if domain.dim==3, a is a symbolic BilinearForm and the code is not openMP parallelized ...
-        if (((isinstance(a, sym_BilinearForm)) and (dim == 3))) and not openmp:
-            # ... unless we already explicitely set sum_factorization to False! (For test cases, or in case of a newly encountered bug)
-            if not (kwargs.get('sum_factorization') == False):
-                kwargs['sum_factorization'] = True
+        # Since all keyword arguments are hidden in kwargs, we cannot set the
+        # defaults in the function signature. Here we set the defaults for
+        # sum_factorization using dict.setdefault: we default to True for
+        # bilinear forms in 3D, and to False otherwise. If the user has chosen
+        # differently, we let the code run and see what happens!
+        #
+        # We also default to False if the code is to be parallelized w/ OpenMP.
+        # TODO [YG 21.07.2025]: Drop this restriction
+        if isinstance(a, sym_BilinearForm):
+            default = (dim == 3 and not openmp)
+            kwargs.setdefault('sum_factorization', default)
+
         mapping = domain_h.domain.mapping
         kwargs['symbolic_mapping'] = mapping
 
@@ -607,7 +614,11 @@ def discretize(a, *args, **kwargs):
     #     return DiscreteSesquilinearForm(a, kernel_expr, *args, **kwargs)
 
     if isinstance(a, sym_BilinearForm):
-        return DiscreteBilinearForm(a, kernel_expr, *args, **kwargs)
+        if kwargs.pop('sum_factorization'):
+            from psydac.api.fem2 import DiscreteBilinearForm2
+            return DiscreteBilinearForm2(a, kernel_expr, *args, **kwargs)
+        else:
+            return DiscreteBilinearForm(a, kernel_expr, *args, **kwargs)
 
     elif isinstance(a, sym_LinearForm):
         return DiscreteLinearForm(a, kernel_expr, *args, **kwargs)

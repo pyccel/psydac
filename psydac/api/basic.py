@@ -61,16 +61,10 @@ class BasicCodeGen:
         The backend used to accelerate the computing kernels.
         The content of the dictionary can be found in psydac/api/settings.py.
 
-    sum_factorization: bool
-        When using the new sum factorization algorithm for the assembly of matrices,
-        an object of this class should not generate, pyccelize and store assembly code,
-        but rather only provide self._imports_string.
-
     """
     def __init__(self, expr, *, folder=None, comm=None, root=None, discrete_space=None,
                        kernel_expr=None, nquads=None, is_rational_mapping=None, mapping=None,
-                       mapping_space=None, num_threads=None, backend=None,
-                       sum_factorization=False):
+                       mapping_space=None, num_threads=None, backend=None):
 
         # Get default backend from environment, or use 'python'.
         default_backend = PSYDAC_BACKENDS.get(os.environ.get('PSYDAC_BACKEND'))\
@@ -149,26 +143,14 @@ class BasicCodeGen:
         #             raise ValueError('can not find {} implementation'.format(f))
 
         if ast:
-            if sum_factorization == False:
-                # If we're using the old assembly implementation: Generate, pyccelize and save the assembly file.
-                self._save_code(self._generate_code(), backend=self.backend['name'])
-            else:
-                # Else: Obtain necessary import from psydac_ast.expr and store them in self._imports_string
-                # This string will be used in the generation of the new assembly file.
-                psydac_ast = self.ast
-                parser_settings = {
-                    'dim'    : psydac_ast.dim,
-                    'nderiv' : psydac_ast.nderiv,
-                    'mapping': psydac_ast.mapping,
-                    'target' : psydac_ast.domain
-                }
-                self._imports_string = parse(psydac_ast.expr, settings=parser_settings, backend=self.backend, sum_factorization=sum_factorization)
+            python_code = self._generate_code()
+            self._save_code(python_code, backend=self.backend['name'])
 
+        if comm is not None and comm.size > 1:
+            comm.Barrier()
 
-        if comm is not None and comm.size>1: comm.Barrier()
-        if sum_factorization == False:
-            # compile code
-            self._compile()
+        # compile code
+        self._compile()
 
     @property
     def expr(self):
@@ -314,13 +296,11 @@ class BasicDiscrete(BasicCodeGen):
 
     def __init__(self, expr, kernel_expr, *, folder=None, comm=None, root=None, discrete_space=None,
                        nquads=None, is_rational_mapping=None, mapping=None,
-                       mapping_space=None, num_threads=None, backend=None,
-                       sum_factorization=False):
+                       mapping_space=None, num_threads=None, backend=None):
 
         BasicCodeGen.__init__(self, expr, folder=folder, comm=comm, root=root, discrete_space=discrete_space,
                        kernel_expr=kernel_expr, nquads=nquads, is_rational_mapping=is_rational_mapping,
-                       mapping=mapping, mapping_space=mapping_space, num_threads=num_threads, backend=backend,
-                       sum_factorization=sum_factorization)
+                       mapping=mapping, mapping_space=mapping_space, num_threads=num_threads, backend=backend)
         # ...
         self._kernel_expr = kernel_expr
         # ...
