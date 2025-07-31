@@ -460,9 +460,14 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
             assert len(ncells) == len(periodic) == len(degree_i)  == len(multiplicity_i) == len(min_coords) == len(max_coords)
 
             if knots is None:
-                # Create uniform grid
-                grids = [np.linspace(xmin, xmax, num=ne + 1)
-                         for xmin, xmax, ne in zip(min_coords, max_coords, ncells)]
+                # Check if grid is provided in domain_h
+                if hasattr(domain_h, 'grid') and domain_h.grid is not None and interior.name in domain_h.grid:
+                    # Use provided grid of breakpoints
+                    grids = domain_h.grid[interior.name]
+                else:
+                    # Create uniform grid
+                    grids = [np.linspace(xmin, xmax, num=ne + 1)
+                             for xmin, xmax, ne in zip(min_coords, max_coords, ncells)]
 
                 # Create 1D finite element spaces and precompute quadrature data
                 spaces[i] = [SplineSpace( p, multiplicity=m, grid=grid , periodic=P) for p,m,grid,P in zip(degree_i, multiplicity_i,grids, periodic)]

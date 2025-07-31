@@ -61,6 +61,9 @@ class Geometry( object ):
         True if the dimension is to be used in the domain decomposition (=default for each dimension). 
         If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
   
+    grid: list of breakpoints
+        The grid of breakpoints in each direction.
+        If not given, the grid will be constructed from the ncells and periodicity.
     """
     _ldim     = None
     _pdim     = None
@@ -71,7 +74,7 @@ class Geometry( object ):
     # Option [1]: from a (domain, mappings) or a file
     #--------------------------------------------------------------------------
     def __init__(self, domain=None, ncells=None, periodic=None, mappings=None,
-                 filename=None, comm=None, mpi_dims_mask=None):
+                 filename=None, comm=None, mpi_dims_mask=None, grid=None):
 
         # ... read the geometry if the filename is given
         if filename is not None:
@@ -102,6 +105,7 @@ class Geometry( object ):
             self._mappings = mappings
             self._cart     = None
             self._is_parallel = comm is not None
+            self._grid = grid
 
             if len(domain) == 1:
                 #name = domain.name
@@ -219,6 +223,10 @@ class Geometry( object ):
     @property
     def mappings(self):
         return self._mappings
+
+    @property
+    def grid(self):
+        return self._grid
 
     def __len__(self):
         return len(self.domain)
