@@ -461,9 +461,9 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
 
             if knots is None:
                 # Check if grid is provided in domain_h
-                if hasattr(domain_h, 'grid') and domain_h.grid is not None and interior.name in domain_h.grid:
+                if hasattr(domain_h, 'grid') and domain_h.grid is not None:
                     # Use provided grid of breakpoints
-                    grids = domain_h.grid[interior.name]
+                    grids = domain_h.grid
                 else:
                     # Create uniform grid
                     grids = [np.linspace(xmin, xmax, num=ne + 1)
