@@ -26,7 +26,7 @@ from sympde.calculus.core        import PlusInterfaceOperator
 
 from psydac.cad.geometry      import Geometry
 from psydac.mapping.discrete  import SplineMapping, NurbsMapping
-from psydac.fem.basic         import FemSpace 
+from psydac.fem.basic         import FemSpace, FemField
 from psydac.fem.vector        import VectorFemSpace
 from psydac.linalg.stencil    import StencilMatrix
 from psydac.linalg.block      import BlockVectorSpace, BlockLinearOperator
