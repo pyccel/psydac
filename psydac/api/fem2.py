@@ -524,6 +524,10 @@ class DiscreteBilinearForm2:
         return self._grid
 
     @property
+    def nquads(self):
+        return self._nquads
+
+    @property
     def free_args(self):
         # TODO: compute by copying what is done in BasicCodeGen.__init__: 
         #
