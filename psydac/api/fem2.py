@@ -2,6 +2,7 @@ import string
 import random
 import sys
 import importlib
+from typing import TypeAlias, TypeVar
 
 import numpy as np
 
@@ -18,7 +19,8 @@ from sympde.topology.derivatives import get_atom_logical_derivatives
 from sympde.topology.derivatives import _logical_partial_derivatives
 from sympde.topology.derivatives import get_index_logical_derivatives
 from sympde.topology.derivatives import get_max_logical_partial_derivatives # NOTE [YG 31.07.2025]: Maybe use the one in ast.utilities
-from sympde.expr.expr            import BilinearForm
+from sympde.expr.basic           import BasicForm
+from sympde.expr.expr            import BilinearForm, LinearForm, Functional
 from sympde.expr.evaluation      import KernelExpression, TerminalExpr
 from sympde.calculus.core        import PlusInterfaceOperator
 
@@ -31,19 +33,25 @@ from psydac.linalg.block      import BlockVectorSpace, BlockLinearOperator
 from psydac.api.grid          import QuadratureGrid, BasisValues
 from psydac.api.utilities     import flatten
 from psydac.api.ast.utilities import math_atoms_as_str, get_max_partial_derivatives
-from psydac.pyccel.ast.core   import _atomic, Assign
 
 NoneType = type(None)
 
 #==============================================================================
-from psydac.api.fem   import (DiscreteBilinearForm,
-                              construct_test_space_arguments,
+# Imports to be avoided in the future
+
+# TODO [YG 01.08.2025]: move functions
+from psydac.api.fem   import (construct_test_space_arguments,
                               construct_trial_space_arguments,
                               construct_quad_grids_arguments,
                               do_nothing,
                               extract_stencil_mats,
                               )
-#from psydac.api.basic import BasicDiscrete
+
+# TODO [YG 01.08.2025]: copy function
+from psydac.api.ast.fem import expand_hdiv_hcurl
+
+# TODO [YG 01.08.2025]: Avoid importing anything from psydac.pyccel
+from psydac.pyccel.ast.core import _atomic, Assign
 
 #==============================================================================
 def id_generator(size=8, chars=string.ascii_lowercase + string.digits):
@@ -57,7 +65,7 @@ def compute_max_nderiv(kernel_expr) -> int:
 
     Parameters
     ----------
-    kernel_expr : KernelExpression
+    kernel_expr : KernelExpression (from sympde.expr.evaluation)
 
     Returns
     -------
@@ -150,9 +158,101 @@ def compute_imports(expr, spaces, *, openmp) -> dict[str, list[str]]:
     return imports
 
 #==============================================================================
-def compute_free_arguments():
-    # TODO [YG 31.07.2025]: Implement this
-    return ()
+def compute_free_arguments(expr: BasicForm, kernel_expr: KernelExpression) -> tuple[str]:
+    """
+    The string representation (i.e. the names) of the free arguments in
+    the given BilinearForm, LinearForm, or Functional.
+
+    Parameters
+    ----------
+    expr : BilinearForm | LinearForm | Functional
+        The expression of which we want to compute the free arguments.
+
+    kernel_expr : sympde.expr.evaluation.KernelExpression
+        The atomic representation of the form, which is obtained after using
+        LogicalExpr (if there is a mapping) and TerminalExpr on `expr`.
+
+    Returns
+    -------
+    tuple[str]
+        The string representation (i.e. the names) of the free arguments in
+        the given BilinearForm, LinearForm, or Functional.
+
+    """
+    assert isinstance(expr, BasicForm)
+    assert isinstance(kernel_expr, KernelExpression)
+
+    #++++++++++++++++++++++++++++++++++++++++++++
+    # Code in BasicCodeGen.__init__, combined with BasicDiscrete.__init__ and
+    # BasicDiscrete._create_ast, yields:
+    #
+    # expr : BilinearForm (sympde.topology.)
+    # ast : AST (psydac.api.ast.fem)
+    # ast.expr : DefNode (psydac.api.ast.fem)
+    # ast.expr.arguments : dict[str, tuple[str]]
+#    ast = AST( expr=expr, tag=tag, discrete_space=discrete_space,
+#                kernel_expr=kernel_expr, nquads=nquads, is_rational_mapping=is_rational_mapping,
+#                mapping=mapping, mapping_space=mapping_space, num_threads=num_threads, backend=backend )
+#
+#    arguments = ast.expr.arguments.copy()
+#    free_args = arguments.pop('fields', ()) +  arguments.pop('constants', ())
+#    free_args = tuple(str(i) for i in free_args)
+#
+#    # Only expr is needed to compute the fields and the constants.
+#    #
+#    # The arguments are actually just passed to the constructor of DefNode from
+#    # function _create_ast_bilinear_form:
+#    DefNode(name, arguments, local_variables, body, imports, results, kind, domain_dtype='real')
+
+    #++++++++++++++++++++++++++++++++++++++++++++
+    # The fields dictionary is created by AST.__init__ in various ways
+    # depending on the type of expr. For BilinearForms terminal_expr.expr
+    # is actually used:
+    #
+    # expr : BasicForm
+    # expr.fields : dict[str, tuple[ScalarFunction | VectorFunction]]
+    if isinstance(expr, LinearForm):
+        fields = expr.fields
+    elif isinstance(expr, BilinearForm):
+        tests  = expr.test_functions
+        trials = expr.trial_functions
+        atoms  = kernel_expr.expr.atoms(ScalarFunction, VectorFunction)
+        fields = tuple(i for i in atoms if i not in tests + trials)
+    elif isinstance(expr, Functional):
+        fields = tuple(expr.atoms(ScalarFunction, VectorFunction))
+    else:
+        raise NotImplementedError('TODO')
+
+    # At this point the function `expand_hdiv_hcurl` is called to expand the
+    # vector functions in H(div) and H(curl) into indexed functions. This is
+    # needed because the generated assembly functions take as arguments the
+    # FEM coefficients of each vector component as separate arrays.
+    fields = expand_hdiv_hcurl(fields)
+
+    # The fields are an input to _create_ast_bilinear form, which only adds the
+    # base of the indexed vector functions:
+    #
+    # fields : tuple[ScalarFunction | VectorFunction | IndexedVectorFunction]
+    fields = tuple(f.base if isinstance(f, IndexedVectorFunction) else f for f in fields)
+
+    # The constants are just the union of the input constants, and firstprivate
+    # OpenMP variables. The input constants are obtained here from our input expr
+    #
+    # expr : BilinearForm
+    # expr.constants : tuple[Constant]
+    constants = expr.constants
+    free_args = (*fields, *constants)
+    free_args_str = tuple(str(i) for i in free_args)
+
+    #++++++++++++++++++++++++++++++++++++++++++++
+    # TEST
+#    assert isinstance(expr, BasicForm)
+#    free_args_dict = expr.get_free_variables()
+#    free_args      = [*free_args_dict.keys()]
+#    free_args_str  = tuple(str(i) for i in free_args)
+    #++++++++++++++++++++++++++++++++++++++++++++
+
+    return free_args_str
 
 #==============================================================================
 class DiscreteBilinearForm2:
@@ -405,7 +505,7 @@ class DiscreteBilinearForm2:
         self._max_nderiv = compute_max_nderiv(kernel_expr)
 
         # TODO [YG 31.07.2025]: Implement this
-        self._free_args = compute_free_arguments()
+        self._free_args = compute_free_arguments(expr, kernel_expr)
 
         #... Handle the special case where the current MPI process does not need to do anything
         if isinstance(target, (Boundary, Interface)):
@@ -525,28 +625,10 @@ class DiscreteBilinearForm2:
 
     @property
     def nquads(self):
-        return self._nquads
+        return self._grid[0].nquads
 
     @property
     def free_args(self):
-        # TODO: compute by copying what is done in BasicCodeGen.__init__: 
-        #
-        # ast : AST
-        # ast.expr : DefNode
-        # ast.expr.arguments : dict[str, tuple[str]]
-        #
-        # ast.expr.arguments is populated toward the end of _create_ast_bilinear_form:
-        #   arguments = ast.expr.arguments.copy()
-        #   free_args = arguments.pop('fields', ()) +  arguments.pop('constants', ())
-        #   free_args = tuple(str(i) for i in free_args)
-        #
-        # The fields 
-        #
-        # The constants are just the union of the input constants, and firstprivate
-        # OpenMP variables. The input constants are obtained here from our input expr
-        #
-        # expr : BilinearForm
-        # expr.constants : tuple[str]
         return self._free_args
 
     @property
