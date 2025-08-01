@@ -605,6 +605,10 @@ class DiscreteBilinearForm2:
         return self._mapping
 
     @property
+    def is_rational_mapping(self):
+        return self._is_rational_mapping
+
+    @property
     def target(self):
         return self._target
 
@@ -640,6 +644,14 @@ class DiscreteBilinearForm2:
     @property
     def backend(self):
         return self._backend
+
+    @property
+    def args(self):
+        return self._args
+
+    @property
+    def global_matrices(self):
+        return self._global_matrices
 
     #--------------------------------------------------------------------------
     def allocate_matrices(self, backend=None):
