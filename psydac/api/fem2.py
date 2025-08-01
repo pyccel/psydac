@@ -45,6 +45,7 @@ from psydac.api.fem   import (construct_test_space_arguments,
                               construct_quad_grids_arguments,
                               do_nothing,
                               extract_stencil_mats,
+                              reset_arrays,
                               )
 
 # TODO [YG 01.08.2025]: copy function
