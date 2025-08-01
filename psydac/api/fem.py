@@ -4,8 +4,6 @@
 #         nderiv has not been changed. shall we add nquads too?
 
 import numpy as np
-#import inspect
-
 from sympy import ImmutableDenseMatrix, Matrix
 
 from sympde.expr          import BilinearForm as sym_BilinearForm
@@ -17,7 +15,7 @@ from sympde.topology      import Boundary, Interface
 from sympde.topology      import VectorFunctionSpace
 from sympde.topology      import ProductSpace
 from sympde.topology      import H1SpaceType, L2SpaceType, UndefinedSpaceType
-from sympde.calculus.core        import PlusInterfaceOperator
+from sympde.calculus.core import PlusInterfaceOperator
 
 from psydac.api.basic        import BasicDiscrete
 from psydac.api.basic        import random_string
@@ -27,7 +25,7 @@ from psydac.linalg.stencil   import StencilVector, StencilMatrix, StencilInterfa
 from psydac.linalg.basic     import ComposedLinearOperator
 from psydac.linalg.block     import BlockVectorSpace, BlockVector, BlockLinearOperator
 from psydac.cad.geometry     import Geometry
-from psydac.mapping.discrete import SplineMapping, NurbsMapping
+from psydac.mapping.discrete import NurbsMapping
 from psydac.fem.vector       import VectorFemSpace
 from psydac.fem.basic        import FemField
 from psydac.fem.projectors   import knot_insertion_projection_operator
@@ -221,12 +219,7 @@ class DiscreteBilinearForm(BasicDiscrete):
     def __init__(self, expr, kernel_expr, domain_h, spaces, *, nquads,
                  matrix=None, update_ghost_regions=True, backend=None,
                  linalg_backend=None, assembly_backend=None,
-                 symbolic_mapping=None,
-                 sum_factorization=False):
-        
-        print()
-        print('>> Old Assembly!')
-        print()
+                 symbolic_mapping=None):
 
         if not isinstance(expr, sym_BilinearForm):
             raise TypeError('> Expecting a symbolic BilinearForm')
@@ -431,9 +424,6 @@ class DiscreteBilinearForm(BasicDiscrete):
             grid   = trial_grid
         )
 
-        assert isinstance(sum_factorization, bool)
-        self._sum_factorization = sum_factorization
-
         # Allocate the output matrix, if needed
         self.allocate_matrices(linalg_backend)
 
@@ -441,15 +431,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         with_openmp = (assembly_backend['name'] == 'pyccel' and assembly_backend['openmp']) if assembly_backend else False
 
         # Construct the arguments to be passed to the assemble() function, which is stored in self._func
-        # If sum_factorization == True: First generate the assembly file
-        if self._sum_factorization == True:
-            # pyccelize process of computing the test_trial arrays
-            # currently set to False, as a Python 3.9 test fails, and due to the "speed up" not being significant
-            self._pyccelize_test_trial_computation = False
-            # no openmp support yet
-            self._args, self._threads_args = self.construct_arguments_generate_assembly_file()
-        else:
-            self._args, self._threads_args = self.construct_arguments(with_openmp)
+        self._args, self._threads_args = self.construct_arguments(with_openmp)
 
     @property
     def domain(self):
@@ -1140,7 +1122,7 @@ class DiscreteLinearForm(BasicDiscrete):
             nquads = nquads,
             grid   = test_grid
         )
-        verbose = False
+
         # Allocate the output vector, if needed
         self.allocate_matrices()
 
@@ -1243,7 +1225,7 @@ class DiscreteLinearForm(BasicDiscrete):
 
         # TODO : uncomment this line when the conjugate is applied on the dot product in the complex case
         # self._vector.conjugate(out=self._vector)
-        verbose = False
+
         if self._vector:
             self._vector.ghost_regions_in_sync = False
 
@@ -1681,8 +1663,16 @@ class DiscreteSumForm(BasicDiscrete):
 
     def __init__(self, a, kernel_expr, *args, **kwargs):
 
-        # Remove sum_factorization from the dict with the keyword options
-        sum_factorization = kwargs.pop('sum_factorization', True)
+        # Sum factorization is only implemented for bilinear forms in 3D, in
+        # which case we use it by default. A 2D implementation should be the
+        # next step, hence we allow the user to pass `sum_factorization=True`
+        # even if not supported yet. In the case of linear forms or functionals
+        # this option is irrelevant for now, so we ignore it.
+        #
+        # In every case we remove the `sum_factorization` key from the dict
+        # in order to avoid errors, because none of the class constructors
+        # accept this argument.
+        sum_factorization = kwargs.pop('sum_factorization', a.ldim == 3)
 
         # TODO Uncomment when the SesquilinearForm exist in SymPDE
         #if not isinstance(a, (sym_BilinearForm, sym_SesquilinearForm, sym_LinearForm, sym_Functional)):
@@ -1721,8 +1711,7 @@ class DiscreteSumForm(BasicDiscrete):
 
             elif isinstance(a, sym_BilinearForm):
                 kwargs['update_ghost_regions'] = False
-                # Sum factorization is only used for bilinear forms in 3D
-                if sum_factorization and a.ldim == 3:
+                if sum_factorization:
                     from psydac.api.fem2 import DiscreteBilinearForm2
                     ah = DiscreteBilinearForm2(a, e, *args, assembly_backend=backend, **kwargs)
                 else:
