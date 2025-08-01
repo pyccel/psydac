@@ -861,6 +861,80 @@ class DiscreteBilinearForm2:
             self._matrix.set_backend(backend)
 
         self._global_matrices = [M._data for M in extract_stencil_mats(global_mats.values())]
+
+    #--------------------------------------------------------------------------
+    def assemble(self, *, reset=True, **kwargs):
+        """
+        This method assembles the left hand side Matrix by calling the private method `self._func` with proper arguments.
+
+        In the complex case, this function returns the matrix conjugate. This comes from the fact that the
+        problem `a(u,v)=b(v)` is discretized as `A @ conj(U) = B` due to the antilinearity of `a` in the first variable.
+        Thus, to obtain `U`, the assemble function returns `conj(A)`.
+
+        TODO: remove these lines when the dot product is changed for complex.
+        For now, since the dot product does not compute the conjugate in the complex case. We do not use the conjugate in the assemble function.
+        It should work if the complex only comes from the `rhs` in the linear form.
+        """
+
+        if self._free_args:
+            basis   = []
+            spans   = []
+            degrees = []
+            pads    = []
+            coeffs  = []
+            consts  = []
+
+            for key in self._free_args:
+                v = kwargs[key]
+
+                if len(self.domain) > 1 and isinstance(v, FemField) and (v.space.is_multipatch or v.space.is_vector_valued):
+                    assert v.space.is_multipatch ## [MCP 27.03.2025] should hold since len(domain) > 1. If Ok we can simplify above if
+                    i, j = self.get_space_indices_from_target(self.domain, self.target)
+                    assert i == j
+                    v = v[i]
+                if isinstance(v, FemField):
+                    assert len(self.grid) == 1
+                    if not v.coeffs.ghost_regions_in_sync:
+                        v.coeffs.update_ghost_regions()
+                    basis_v = BasisValues(
+                        v.space,
+                        nderiv = self.max_nderiv,
+                        nquads = self.nquads,
+                        trial  = True,
+                        grid   = self.grid[0]
+                    )
+                    bs, d, s, p, mult = construct_test_space_arguments(basis_v)
+                    basis   += bs
+                    spans   += s
+                    degrees += [np.int64(a) for a in d]
+                    pads    += [np.int64(a) for a in p]
+                    if v.space.is_multipatch or v.space.is_vector_valued:
+                        coeffs += (e._data for e in v.coeffs)
+                    else:
+                        coeffs += (v.coeffs._data, )
+                else:
+                    consts += (v, )
+
+            args = (*self.args, *basis, *spans, *degrees, *pads, *coeffs, *consts)
+
+        else:
+            args = self._args
+
+        if reset:
+            reset_arrays(*self.global_matrices)
+
+        self._func(*args, *self._threads_args)
+        if self._matrix and self._update_ghost_regions:
+            self._matrix.exchange_assembly_data()
+
+        # TODO : uncomment this line when the conjugate is applied on the dot product in the complex case
+        #self._matrix.conjugate(out=self._matrix)
+
+        if self._matrix:
+            self._matrix.ghost_regions_in_sync = False
+
+        return self._matrix
+
     #--------------------------------------------------------------------------
     @property
     def _assembly_template_head(self):
