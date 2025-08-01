@@ -352,12 +352,6 @@ class ConjugateGradient(InverseLinearOperator):
         return x
 
     def dot(self, b, out=None):
-        options = self._options
-        if options["pc"]:
-            pc = options["pc"]
-            self.solve = self.solve_with_pc
-        else: 
-            self.solve = self.solve_without_pc
         return self.solve(b, out=out)
 
 #===============================================================================
@@ -948,13 +942,6 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
         return x
 
     def dot(self, b, out=None):
-        options = self._options
-        
-        if options["pc"]:
-            pc = options["pc"]
-            self.solve = self.solve_with_pc
-        else:
-            self.solve = self.solve_without_pc
         return self.solve(b, out=out)
 
 #===============================================================================

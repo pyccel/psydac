@@ -54,12 +54,11 @@ def define_data(n, p, matrix_data, dtype=float):
     xe[s:e + 1] = np.random.random(e + 1 - s)
     return(V, A, xe)
 
-
 #===============================================================================
 @pytest.mark.parametrize( 'n', [5, 10, 13] )
 @pytest.mark.parametrize('p', [2, 3])
 @pytest.mark.parametrize('dtype', [float, complex])
-@pytest.mark.parametrize('solver', ['cg', 'bicg', 'bicgstab', 'minres', 'lsmr', 'gmres'])
+@pytest.mark.parametrize('solver', ['cg', 'pcg', 'bicg', 'bicgstab', 'pbicgstab', 'minres', 'lsmr', 'gmres'])
 
 def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
 
@@ -67,26 +66,22 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
     # PARAMETERS
     #---------------------------------------------------------------------------
 
-    if solver in ['bicg', 'bicgstab', 'lsmr']:
+    if solver in ['bicg', 'bicgstab', 'pbicgstab', 'lsmr']:
         if dtype==complex:
             diagonals = [1-10j,6+9j,3+5j]
         else:
             diagonals = [1,6,3]
             
-            if solver == 'bicgstab' and dtype == complex:
-                try:
-                    if pc is not None:
-                        # pbicgstab only works for real matrices
-                        return
-                except NameError:
-                    pass 
+        if solver == 'pbicgstab' and dtype == complex:
+            # pbicgstab only works for real matrices
+            return
     elif solver == 'gmres':
         if dtype==complex:
             diagonals = [-7-2j,-6-2j,-1-10j]
         else:
             diagonals = [-7,-1,-3]
 
-    if solver in ['cg', 'minres']:
+    if solver in ['cg', 'pcg', 'minres']:
         # pcg runs with Jacobi preconditioner
         V, A, xe = define_data_hermitian(n, p, dtype=dtype)
         if solver == 'minres' and dtype == complex:
@@ -110,17 +105,16 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
         print()
 
     #Create the solvers
-    if solver in ['cg', 'bicgstab']:
-        if dtype == complex and solver == 'bicgstab':
-            pc = None
-        else: 
-            pc = A.diagonal(inverse=True)
-        solv = inverse(A, solver, pc=pc, tol=1e-13, verbose=verbose, recycle=True)
+    if solver in ['pcg', 'pbicgstab']:
+        base_solver = solver[1:]
+        pc = A.diagonal(inverse=True)
+        solv = inverse(A, base_solver, pc=pc, tol=1e-13, verbose=verbose, recycle=True)
     else:
-        solv = inverse(A, solver, tol=1e-13, verbose=verbose, recycle=True)
+        base_solver = solver
+        solv = inverse(A, base_solver, tol=1e-13, verbose=verbose, recycle=True)
     solvt = solv.transpose()
     solvh = solv.H
-    solv2 = inverse(A@A, solver, tol=1e-13, verbose=verbose, recycle=True) # Test solver of composition of operators
+    solv2 = inverse(A@A, base_solver, tol=1e-13, verbose=verbose, recycle=True) # Test solver of composition of operators
 
     # Manufacture right-hand-side vector from exact solution
     be  = A @ xe
@@ -151,7 +145,7 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
     assert np.array_equal(xh.toarray(), solvh_x0.toarray())
     assert xh is not solvh_x0
 
-    if (solver != 'cg' or (solver == 'cg' and ('pc' == None or pc not in locals()) )):
+    if solver != 'pcg':
         # PCG only works with operators with diagonal
         xc = solv2 @ be2
         solv2_x0 = solv2._options["x0"]
@@ -164,7 +158,7 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
     b2 = A @ x2
     bt = A.T @ xt
     bh = A.H @ xh
-    if (solver != 'cg' or (solver == 'cg' and ('pc' == None or pc not in locals()) )):
+    if solver != 'pcg':
         bc = A @ A @ xc
 
     err = b - be
@@ -176,7 +170,7 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
     errh = bh - beh
     errh_norm = np.linalg.norm( errh.toarray() )
 
-    if (solver != 'cg' or (solver == 'cg' and ('pc' == None or pc not in locals()) )):
+    if solver != 'pcg': 
         errc = bc - be2
         errc_norm = np.linalg.norm( errc.toarray() )
 
@@ -209,7 +203,7 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
         assert err2_norm < tol
         assert errt_norm < tol
         assert errh_norm < tol
-        assert (solver == 'cg' and pc!=None) or errc_norm < tol
+        assert solver == 'pcg' or errc_norm < tol
 
 # ===============================================================================
 # SCRIPT FUNCTIONALITY

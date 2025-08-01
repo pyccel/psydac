@@ -81,7 +81,7 @@ def test_fake_matrix_free(n1, n2, p1, p2):
     print(f'error = {np.linalg.norm( (x - y).toarray() )}')
     assert np.linalg.norm( (x - y).toarray() ) < tol
 
-@pytest.mark.parametrize('solver', ['cg', 'bicg', 'minres', 'lsmr'])
+@pytest.mark.parametrize('solver', ['cg', 'pcg', 'bicg', 'minres', 'lsmr'])
 
 def test_solvers_matrix_free(solver):
     print(f'solver = {solver}')
@@ -103,9 +103,10 @@ def test_solvers_matrix_free(solver):
 
     # Create Inverse with A
     tol = 1e-6
-    if solver == 'cg':
+    if solver == 'pcg':
+        base_solver = solver[1:]
         inv_diagonal = A_SM.diagonal(inverse=True)
-        A_inv = inverse(A, solver, pc=inv_diagonal, tol=tol)
+        A_inv = inverse(A, base_solver, pc=inv_diagonal, tol=tol)
     else:
         A_inv = inverse(A, solver, tol=tol)    
 
