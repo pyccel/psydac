@@ -324,12 +324,6 @@ class DiscreteBilinearForm2:
                  linalg_backend=None, assembly_backend=None,
                  symbolic_mapping=None):
 
-        print()
-        print('>> Sum Factorization!')
-        print(f'type(kernel_expr) = {type(kernel_expr)}')
-        print(f'kernel_expr = {kernel_expr}')
-        print()
-
         #... Sanity checks
         assert isinstance(expr, BilinearForm)
         assert isinstance(domain_h, Geometry)
