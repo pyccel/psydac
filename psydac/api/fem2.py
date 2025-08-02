@@ -1,6 +1,7 @@
 import string
 import random
 import sys
+import os
 import importlib
 from typing import TypeAlias, TypeVar
 
@@ -31,6 +32,7 @@ from psydac.fem.vector        import VectorFemSpace
 from psydac.linalg.stencil    import StencilMatrix
 from psydac.linalg.block      import BlockVectorSpace, BlockLinearOperator
 from psydac.api.grid          import QuadratureGrid, BasisValues
+from psydac.api.settings      import PSYDAC_BACKENDS
 from psydac.api.utilities     import flatten
 from psydac.api.ast.utilities import math_atoms_as_str, get_max_partial_derivatives
 
@@ -471,12 +473,18 @@ class DiscreteBilinearForm2:
         # Store the MPI communicator (or None)
         self._comm = comm
 
+        #...
+        # Get default backend from environment, or use 'python'.
+        default_backend = PSYDAC_BACKENDS.get(os.environ.get('PSYDAC_BACKEND'))\
+                       or PSYDAC_BACKENDS['python']
+
         # Backends for code generation
         assembly_backend = backend or assembly_backend
         linalg_backend   = backend or linalg_backend
 
-        # Store the backend dictionary (or None)
-        self._backend = assembly_backend
+        # Store backend dictionary
+        self._backend = assembly_backend or default_backend
+        #...
 
         # TODO: remove
         # BasicDiscrete generates the assembly code and sets the following attributes that are used afterwards:
@@ -484,6 +492,7 @@ class DiscreteBilinearForm2:
 #        BasicDiscrete.__init__(self, expr, kernel_expr, comm=comm, root=0, discrete_space=discrete_space,
 #                       nquads=nquads, is_rational_mapping=is_rational_mapping, mapping=symbolic_mapping,
 #                       mapping_space=mapping_space, num_threads=self._num_threads, backend=assembly_backend)
+
 
         #... Compute the string with all the imports
         texpr = kernel_expr
