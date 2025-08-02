@@ -237,6 +237,7 @@ def compute_free_arguments(expr: BasicForm, kernel_expr: KernelExpression) -> tu
     #
     # fields : tuple[ScalarFunction | VectorFunction | IndexedVectorFunction]
     fields = tuple(f.base if isinstance(f, IndexedVectorFunction) else f for f in fields)
+    fields = tuple(dict.fromkeys(fields))
 
     # The constants are just the union of the input constants, and firstprivate
     # OpenMP variables. The input constants are obtained here from our input expr
