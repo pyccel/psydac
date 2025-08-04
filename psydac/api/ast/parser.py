@@ -174,14 +174,14 @@ class Parser(object):
             raise ValueError('dim not provided')
         else:
             assert isinstance(dim, int)
-            assert dim > 0
 
+            assert dim > 0
         nderiv = settings.pop('nderiv', None)
         if nderiv is None:
             raise ValueError('nderiv not provided')
         else:
             assert isinstance(nderiv, int)
-            assert nderiv > 0
+            assert nderiv >= 0
 
         target = settings.pop('target', None)
         if target is None:
@@ -194,13 +194,18 @@ class Parser(object):
             assert isinstance(mapping, Mapping)
         # ...
 
-        self._dim = dim
-        self._nderiv = nderiv
-        self._target = target
-        self._mapping = mapping
-
+        # Store extracted values and other settings
+        self._dim      = dim
+        self._nderiv   = nderiv
+        self._target   = target
+        self._mapping  = mapping
         self._settings = settings
-        self.backend   = backend
+
+        # Store backend dictionary
+        if backend is not None:
+            assert isinstance(backend, dict)
+            assert 'name' in backend.keys()
+        self.backend = backend
 
         # TODO improve
         self.indices          = {}
