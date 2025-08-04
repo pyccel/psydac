@@ -12,8 +12,7 @@ import numpy as np
 from sympde.topology import Square, Line, Cube
 from sympde.topology import ScalarFunctionSpace
 
-from psydac.cad.geometry import Geometry
-from psydac.api.discretization import discretize_space
+from psydac.api.discretization import discretize
 
 
 def test_discretize_space_custom_grid_1d():
@@ -27,16 +26,15 @@ def test_discretize_space_custom_grid_1d():
     
     # Create geometry with custom grid
     ncells = {domain.name: [5]}
-    mappings = {domain.name: None}
-    geo = Geometry(domain=domain, ncells=ncells, mappings=mappings, grid=custom_grid)
+    domain_h = discretize(domain, ncells=ncells, grid=custom_grid)
     
     # Create symbolic space
     symbolic_space = ScalarFunctionSpace('V', domain)
     
     # Discretize the space - this should use our custom grid
     degree = {domain.name: [2]}
-    discrete_space = discretize_space(symbolic_space, domain_h=geo, degree=degree)
-    
+    discrete_space = discretize(symbolic_space, domain_h=domain_h, degree=degree)
+
     # Verify that the breaks match our custom grid
     breaks = discrete_space.spaces[0].breaks
     assert np.allclose(breaks, custom_grid[0]), f"Expected {custom_grid[0]}, got {breaks}"
@@ -59,16 +57,16 @@ def test_discretize_space_custom_grid_2d():
     
     # Create geometry with custom grid
     ncells = {domain.name: [3, 4]}
-    mappings = {domain.name: None}
-    geo = Geometry(domain=domain, ncells=ncells, mappings=mappings, grid=custom_grid)
+    domain_h = discretize(domain, ncells=ncells, grid=custom_grid)
+    
     
     # Create symbolic space
     symbolic_space = ScalarFunctionSpace('V', domain)
     
     # Discretize the space - this should use our custom grid
     degree = {domain.name: [2, 2]}
-    discrete_space = discretize_space(symbolic_space, domain_h=geo, degree=degree)
-    
+    discrete_space = discretize(symbolic_space, domain_h=domain_h, degree=degree)
+
     # Verify that the breaks match our custom grid for both directions
     for i, (space, expected_grid) in enumerate(zip(discrete_space.spaces, custom_grid)):
         breaks = space.breaks
@@ -87,15 +85,14 @@ def test_discretize_space_fallback_uniform_grid():
     
     # Create geometry without custom grid (grid=None)
     ncells = {domain.name: [4, 4]}
-    mappings = {domain.name: None}
-    geo = Geometry(domain=domain, ncells=ncells, mappings=mappings, grid=None)
+    domain_h = discretize(domain, ncells=ncells)
     
     # Create symbolic space
     symbolic_space = ScalarFunctionSpace('V', domain)
     
     # Discretize the space - this should use uniform grid
     degree = {domain.name: [2, 2]}
-    discrete_space = discretize_space(symbolic_space, domain_h=geo, degree=degree)
+    discrete_space = discretize(symbolic_space, domain_h=domain_h, degree=degree)
     
     # Verify that uniform grids are used
     for i, space in enumerate(discrete_space.spaces):
@@ -118,16 +115,16 @@ def test_discretize_space_custom_grid_1d_various_degrees(degree):
     
     # Create geometry with custom grid
     ncells = {domain.name: [4]}
-    mappings = {domain.name: None}
-    geo = Geometry(domain=domain, ncells=ncells, mappings=mappings, grid=custom_grid)
+    
+    domain_h = discretize(domain, ncells=ncells, grid=custom_grid)
     
     # Create symbolic space
     symbolic_space = ScalarFunctionSpace('V', domain)
     
     # Discretize the space
     degree_dict = {domain.name: degree}
-    discrete_space = discretize_space(symbolic_space, domain_h=geo, degree=degree_dict)
-    
+    discrete_space = discretize(symbolic_space, domain_h=domain_h, degree=degree_dict)
+
     # Verify that the breaks match our custom grid
     breaks = discrete_space.spaces[0].breaks
     assert np.allclose(breaks, custom_grid[0])
@@ -152,16 +149,16 @@ def test_discretize_space_custom_grid_1d_various_ncells(ncells, expected_cells):
     
     # Create geometry with custom grid
     ncells_dict = {domain.name: ncells}
-    mappings = {domain.name: None}
-    geo = Geometry(domain=domain, ncells=ncells_dict, mappings=mappings, grid=custom_grid)
     
+    domain_h = discretize(domain, ncells=ncells_dict, grid=custom_grid)
+
     # Create symbolic space
     symbolic_space = ScalarFunctionSpace('V', domain)
     
     # Discretize the space
     degree = {domain.name: [2]}
-    discrete_space = discretize_space(symbolic_space, domain_h=geo, degree=degree)
-    
+    discrete_space = discretize(symbolic_space, domain_h=domain_h, degree=degree)
+
     # Verify that the breaks match our custom grid
     breaks = discrete_space.spaces[0].breaks
     assert np.allclose(breaks, custom_grid[0])
@@ -184,16 +181,16 @@ def test_discretize_space_custom_grid_2d_non_uniform():
     
     # Create geometry with custom grid
     ncells = {domain.name: [6, 3]}
-    mappings = {domain.name: None}
-    geo = Geometry(domain=domain, ncells=ncells, mappings=mappings, grid=custom_grid)
+    
+    domain_h = discretize(domain, ncells=ncells, grid=custom_grid)
     
     # Create symbolic space
     symbolic_space = ScalarFunctionSpace('V', domain)
     
     # Discretize the space
     degree = {domain.name: [3, 2]}
-    discrete_space = discretize_space(symbolic_space, domain_h=geo, degree=degree)
-    
+    discrete_space = discretize(symbolic_space, domain_h=domain_h, degree=degree)
+
     # Verify that the breaks match our custom grid for both directions
     for i, (space, expected_grid) in enumerate(zip(discrete_space.spaces, custom_grid)):
         breaks = space.breaks
@@ -219,16 +216,16 @@ def test_discretize_space_custom_grid_3d():
     
     # Create geometry with custom grid
     ncells = {domain.name: [3, 4, 2]}
-    mappings = {domain.name: None}
-    geo = Geometry(domain=domain, ncells=ncells, mappings=mappings, grid=custom_grid)
     
+    domain_h = discretize(domain, ncells=ncells, grid=custom_grid)
+
     # Create symbolic space
     symbolic_space = ScalarFunctionSpace('V', domain)
     
     # Discretize the space - this should use our custom grid
     degree = {domain.name: [2, 2, 2]}
-    discrete_space = discretize_space(symbolic_space, domain_h=geo, degree=degree)
-    
+    discrete_space = discretize(symbolic_space, domain_h=domain_h, degree=degree)
+
     # Verify that the breaks match our custom grid for all directions
     for i, (space, expected_grid) in enumerate(zip(discrete_space.spaces, custom_grid)):
         breaks = space.breaks
@@ -254,15 +251,15 @@ def test_discretize_space_custom_grid_3d_non_uniform():
     
     # Create geometry with custom grid
     ncells = {domain.name: [4, 3, 5]}
-    mappings = {domain.name: None}
-    geo = Geometry(domain=domain, ncells=ncells, mappings=mappings, grid=custom_grid)
     
+    domain_h = discretize(domain, ncells=ncells, grid=custom_grid)
+
     # Create symbolic space
     symbolic_space = ScalarFunctionSpace('V', domain)
     
     # Discretize the space
     degree = {domain.name: [2, 3, 2]}
-    discrete_space = discretize_space(symbolic_space, domain_h=geo, degree=degree)
+    discrete_space = discretize(symbolic_space, domain_h=domain_h, degree=degree)
     
     # Verify that the breaks match our custom grid for all directions
     for i, (space, expected_grid) in enumerate(zip(discrete_space.spaces, custom_grid)):
@@ -290,16 +287,16 @@ def test_discretize_space_custom_grid_3d_various_degrees(degree):
     
     # Create geometry with custom grid
     ncells = {domain.name: [4, 3, 2]}
-    mappings = {domain.name: None}
-    geo = Geometry(domain=domain, ncells=ncells, mappings=mappings, grid=custom_grid)
     
+    domain_h = discretize(domain, ncells=ncells, grid=custom_grid)
+
     # Create symbolic space
     symbolic_space = ScalarFunctionSpace('V', domain)
     
     # Discretize the space
     degree_dict = {domain.name: degree}
-    discrete_space = discretize_space(symbolic_space, domain_h=geo, degree=degree_dict)
-    
+    discrete_space = discretize(symbolic_space, domain_h=domain_h, degree=degree_dict)
+
     # Verify that the breaks match our custom grid for all directions
     for i, (space, expected_grid) in enumerate(zip(discrete_space.spaces, custom_grid)):
         breaks = space.breaks
@@ -324,16 +321,16 @@ def test_discretize_space_custom_grid_3d_preserves_boundary_values():
     
     # Create geometry with custom grid
     ncells = {domain.name: [3, 3, 4]}
-    mappings = {domain.name: None}
-    geo = Geometry(domain=domain, ncells=ncells, mappings=mappings, grid=custom_grid)
     
+    domain_h = discretize(domain, ncells=ncells, grid=custom_grid)
+
     # Create symbolic space
     symbolic_space = ScalarFunctionSpace('V', domain)
     
     # Discretize the space
     degree = {domain.name: [2, 2, 2]}
-    discrete_space = discretize_space(symbolic_space, domain_h=geo, degree=degree)
-    
+    discrete_space = discretize(symbolic_space, domain_h=domain_h, degree=degree)
+
     # Verify that the breaks match our custom grid for all directions
     for i, (space, expected_grid) in enumerate(zip(discrete_space.spaces, custom_grid)):
         breaks = space.breaks
@@ -360,16 +357,16 @@ def test_discretize_space_fallback_uniform_grid_3d():
     
     # Create geometry without custom grid (grid=None)
     ncells = {domain.name: [3, 4, 2]}
-    mappings = {domain.name: None}
-    geo = Geometry(domain=domain, ncells=ncells, mappings=mappings, grid=None)
     
+    domain_h = discretize(domain, ncells=ncells, grid=None)
+
     # Create symbolic space
     symbolic_space = ScalarFunctionSpace('V', domain)
     
     # Discretize the space - this should use uniform grid
     degree = {domain.name: [2, 2, 2]}
-    discrete_space = discretize_space(symbolic_space, domain_h=geo, degree=degree)
-    
+    discrete_space = discretize(symbolic_space, domain_h=domain_h, degree=degree)
+
     # Verify that uniform grids are used in all directions
     for i, space in enumerate(discrete_space.spaces):
         breaks = space.breaks
@@ -391,11 +388,11 @@ def test_grid_security_type_validation():
     
     # Test invalid grid type
     ncells = {domain.name: [4]}
-    mappings = {domain.name: None}
+    
     
     with pytest.raises(TypeError, match="Grid must be a list or tuple"):
-        geo = Geometry(domain=domain, ncells=ncells, mappings=mappings, grid="invalid")
-        discretize_space(symbolic_space, domain_h=geo, degree={domain.name: [2]})
+        domain_h = discretize(domain, ncells=ncells, grid="invalid")
+        discretize(symbolic_space, domain_h=domain_h, degree={domain.name: [2]})
 
 
 def test_grid_security_dimension_mismatch():
@@ -406,12 +403,12 @@ def test_grid_security_dimension_mismatch():
     
     # Test 2D grid for 1D domain
     ncells = {domain.name: [4]}
-    mappings = {domain.name: None}
+    
     
     with pytest.raises(ValueError, match="Grid dimensions .* must match domain dimensions"):
         invalid_grid = [[0, 0.25, 0.5, 0.75, 1], [0, 0.5, 1]]  # 2D grid for 1D domain
-        geo = Geometry(domain=domain, ncells=ncells, mappings=mappings, grid=invalid_grid)
-        discretize_space(symbolic_space, domain_h=geo, degree={domain.name: [2]})
+        domain_h = discretize(domain, ncells=ncells, grid=invalid_grid)
+        discretize(symbolic_space, domain_h=domain_h, degree={domain.name: [2]})
 
 
 def test_grid_security_length_consistency():
@@ -422,12 +419,12 @@ def test_grid_security_length_consistency():
     
     # Test grid length inconsistent with ncells
     ncells = {domain.name: [4]}
-    mappings = {domain.name: None}
+    
     
     with pytest.raises(ValueError, match="grid length .* must be ncells\\+1"):
         invalid_grid = [[0, 0.33, 0.66, 1]]  # 3 cells but ncells=[4]
-        geo = Geometry(domain=domain, ncells=ncells, mappings=mappings, grid=invalid_grid)
-        discretize_space(symbolic_space, domain_h=geo, degree={domain.name: [2]})
+        domain_h = discretize(domain, ncells=ncells, grid=invalid_grid)
+        discretize(symbolic_space, domain_h=domain_h, degree={domain.name: [2]})
 
 
 def test_grid_security_monotonic_order():
@@ -438,12 +435,12 @@ def test_grid_security_monotonic_order():
     
     # Test non-monotonic grid
     ncells = {domain.name: [4]}
-    mappings = {domain.name: None}
+    
     
     with pytest.raises(ValueError, match="grid points must be strictly increasing"):
         invalid_grid = [[0, 0.5, 0.25, 0.75, 1]]  # Not monotonic
-        geo = Geometry(domain=domain, ncells=ncells, mappings=mappings, grid=invalid_grid)
-        discretize_space(symbolic_space, domain_h=geo, degree={domain.name: [2]})
+        domain_h = discretize(domain, ncells=ncells, grid=invalid_grid)
+        discretize(symbolic_space, domain_h=domain_h, degree={domain.name: [2]})
 
 
 def test_grid_security_boundary_mismatch():
@@ -454,18 +451,18 @@ def test_grid_security_boundary_mismatch():
     
     # Test start boundary mismatch
     ncells = {domain.name: [4]}
-    mappings = {domain.name: None}
+    
     
     with pytest.raises(ValueError, match="grid start .* must match domain minimum"):
         invalid_grid = [[0.1, 0.3, 0.6, 0.8, 1]]  # Start doesn't match domain [0,1]
-        geo = Geometry(domain=domain, ncells=ncells, mappings=mappings, grid=invalid_grid)
-        discretize_space(symbolic_space, domain_h=geo, degree={domain.name: [2]})
-    
+        domain_h = discretize(domain, ncells=ncells, grid=invalid_grid)
+        discretize(symbolic_space, domain_h=domain_h, degree={domain.name: [2]})
+
     # Test end boundary mismatch
     with pytest.raises(ValueError, match="grid end .* must match domain maximum"):
         invalid_grid = [[0, 0.2, 0.4, 0.6, 0.9]]  # End doesn't match domain [0,1]
-        geo = Geometry(domain=domain, ncells=ncells, mappings=mappings, grid=invalid_grid)
-        discretize_space(symbolic_space, domain_h=geo, degree={domain.name: [2]})
+        domain_h = discretize(domain, ncells=ncells, grid=invalid_grid)
+        discretize(symbolic_space, domain_h=domain_h, degree={domain.name: [2]})
 
 
 def test_grid_security_2d_validation():
@@ -476,15 +473,15 @@ def test_grid_security_2d_validation():
     
     # Test inconsistent 2D grid dimensions
     ncells = {domain.name: [3, 2]}
-    mappings = {domain.name: None}
+    
     
     with pytest.raises(ValueError, match="Dimension 1: grid length .* must be ncells\\+1"):
         invalid_grid = [
             [0, 0.33, 0.66, 1],      # 3 cells ✓
             [0, 0.5, 1, 1.5]         # 4 points but should be 3 ✗
         ]
-        geo = Geometry(domain=domain, ncells=ncells, mappings=mappings, grid=invalid_grid)
-        discretize_space(symbolic_space, domain_h=geo, degree={domain.name: [2, 2]})
+        domain_h = discretize(domain, ncells=ncells, grid=invalid_grid)
+        discretize(symbolic_space, domain_h=domain_h, degree={domain.name: [2, 2]})
 
 
 def test_grid_security_boundary_tolerance():
@@ -495,14 +492,14 @@ def test_grid_security_boundary_tolerance():
     
     # Test grid within tolerance (should work)
     ncells = {domain.name: [2]}
-    mappings = {domain.name: None}
+    
     
     # Small boundary differences (within tolerance)
     tolerance_grid = [[1e-15, 0.5, 1.0 - 1e-15]]
-    geo = Geometry(domain=domain, ncells=ncells, mappings=mappings, grid=tolerance_grid)
-    
+    domain_h = discretize(domain, ncells=ncells, grid=tolerance_grid)
+
     # This should work without raising an exception
-    discrete_space = discretize_space(symbolic_space, domain_h=geo, degree={domain.name: [2]})
+    discrete_space = discretize(symbolic_space, domain_h=domain_h, degree={domain.name: [2]})
     assert discrete_space.spaces[0].ncells == 2
 
 
@@ -514,13 +511,13 @@ def test_grid_security_boundary_tolerance_exceeded():
     
     # Test boundaries outside tolerance
     ncells = {domain.name: [2]}
-    mappings = {domain.name: None}
+    
     
     with pytest.raises(ValueError, match="grid start .* must match domain minimum"):
         # Boundaries outside tolerance
         invalid_grid = [[1e-10, 0.5, 1.0 - 1e-10]]
-        geo = Geometry(domain=domain, ncells=ncells, mappings=mappings, grid=invalid_grid)
-        discretize_space(symbolic_space, domain_h=geo, degree={domain.name: [2]})
+        domain_h = discretize(domain, ncells=ncells, grid=invalid_grid)
+        discretize(symbolic_space, domain_h=domain_h, degree={domain.name: [2]})
 
 
 def test_grid_security_3d_validation():
@@ -531,16 +528,16 @@ def test_grid_security_3d_validation():
     
     # Test valid 3D grid (should work)
     ncells = {domain.name: [2, 3, 2]}
-    mappings = {domain.name: None}
+    
     
     valid_grid = [
         [0, 0.5, 1.0],           # 2 cells in x
         [0, 0.33, 0.67, 1.0],    # 3 cells in y  
         [0, 0.4, 1.0]            # 2 cells in z
     ]
-    geo = Geometry(domain=domain, ncells=ncells, mappings=mappings, grid=valid_grid)
-    discrete_space = discretize_space(symbolic_space, domain_h=geo, degree={domain.name: [2, 2, 2]})
-    
+    domain_h = discretize(domain, ncells=ncells, grid=valid_grid)
+    discrete_space = discretize(symbolic_space, domain_h=domain_h, degree={domain.name: [2, 2, 2]})
+
     # Verify all dimensions work correctly
     for i, expected_ncells in enumerate([2, 3, 2]):
         assert discrete_space.spaces[i].ncells == expected_ncells
@@ -552,8 +549,8 @@ def test_grid_security_3d_validation():
             [0, 0.33, 0.67, 1.0],       # 3 cells ✓
             [0, 0.25, 0.5, 0.75, 1.0]   # 4 cells instead of 2 ✗
         ]
-        geo = Geometry(domain=domain, ncells=ncells, mappings=mappings, grid=invalid_grid)
-        discretize_space(symbolic_space, domain_h=geo, degree={domain.name: [2, 2, 2]})
+        domain_h = discretize(domain, ncells=ncells, grid=invalid_grid)
+        discretize(symbolic_space, domain_h=domain_h, degree={domain.name: [2, 2, 2]})
 
 
 @pytest.mark.parametrize("error_type,grid_config,error_pattern", [
@@ -569,16 +566,16 @@ def test_grid_security_parametrized_errors(error_type, grid_config, error_patter
     domain = Line('Omega', bounds=(0.0, 1.0))
     symbolic_space = ScalarFunctionSpace('V', domain)
     ncells = {domain.name: [4]}
-    mappings = {domain.name: None}
+    
     
     if error_type == "type":
         with pytest.raises(TypeError, match=error_pattern):
-            geo = Geometry(domain=domain, ncells=ncells, mappings=mappings, grid=grid_config)
-            discretize_space(symbolic_space, domain_h=geo, degree={domain.name: [2]})
+            domain_h = discretize(domain, ncells=ncells, grid=grid_config)
+            discretize(symbolic_space, domain_h=domain_h, degree={domain.name: [2]})
     else:
         with pytest.raises(ValueError, match=error_pattern):
-            geo = Geometry(domain=domain, ncells=ncells, mappings=mappings, grid=grid_config)
-            discretize_space(symbolic_space, domain_h=geo, degree={domain.name: [2]})
+            geo = discretize(domain, ncells=ncells, grid=grid_config)
+            discretize(symbolic_space, domain_h=geo, degree={domain.name: [2]})
 
 
 def test_grid_security_preserves_functionality():
@@ -590,16 +587,16 @@ def test_grid_security_preserves_functionality():
     
     # Define valid but complex custom grid
     ncells = {domain.name: [4, 3]}
-    mappings = {domain.name: None}
+    
     
     valid_grid = [
         [0, 0.1, 0.3, 0.7, 1.0],    # 4 cells, non-uniform
         [0, 0.2, 0.8, 1.0]          # 3 cells, non-uniform
     ]
-    
-    geo = Geometry(domain=domain, ncells=ncells, mappings=mappings, grid=valid_grid)
-    discrete_space = discretize_space(symbolic_space, domain_h=geo, degree={domain.name: [3, 2]})
-    
+
+    domain_h = discretize(domain, ncells=ncells, grid=valid_grid)
+    discrete_space = discretize(symbolic_space, domain_h=domain_h, degree={domain.name: [3, 2]})
+
     # Verify that everything works as expected
     for i, (space, expected_grid) in enumerate(zip(discrete_space.spaces, valid_grid)):
         assert np.allclose(space.breaks, expected_grid)

@@ -161,7 +161,7 @@ class Geometry( object ):
     # Option [3]: discrete topological line/square/cube
     #--------------------------------------------------------------------------
     @classmethod
-    def from_topological_domain(cls, domain, ncells, *, periodic=None, comm=None, mpi_dims_mask=None):
+    def from_topological_domain(cls, domain, ncells, *, periodic=None, comm=None, mpi_dims_mask=None, grid=None):
         interior = domain.interior
         if not isinstance(interior, Union):
             interior = [interior]
@@ -183,7 +183,7 @@ class Geometry( object ):
         if isinstance(periodic, (list, tuple)):
             periodic = {itr.name:periodic for itr in interior}
 
-        geo = Geometry(domain=domain, mappings=mappings, ncells=ncells, periodic=periodic, comm=comm, mpi_dims_mask=mpi_dims_mask)
+        geo = Geometry(domain=domain, mappings=mappings, ncells=ncells, periodic=periodic, comm=comm, mpi_dims_mask=mpi_dims_mask, grid=grid)
 
         return geo
 
