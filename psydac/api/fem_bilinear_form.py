@@ -18,7 +18,7 @@ from sympde.topology.derivatives import get_atom_logical_derivatives
 from sympde.topology.derivatives import _logical_partial_derivatives
 from sympde.topology.derivatives import get_index_logical_derivatives
 from sympde.topology.derivatives import get_max_logical_partial_derivatives # NOTE [YG 31.07.2025]: Maybe use the one in ast.utilities
-from sympde.expr.expr            import BilinearForm, LinearForm, Functional
+from sympde.expr.expr            import BilinearForm
 from sympde.expr.evaluation      import KernelExpression, TerminalExpr
 from sympde.calculus.core        import PlusInterfaceOperator
 
@@ -30,9 +30,8 @@ from psydac.linalg.stencil    import StencilMatrix
 from psydac.linalg.block      import BlockVectorSpace, BlockLinearOperator
 from psydac.api.grid          import QuadratureGrid, BasisValues
 from psydac.api.settings      import PSYDAC_BACKENDS
-from psydac.api.utilities     import flatten
+from psydac.api.utilities     import flatten, random_string
 from psydac.api.fem_common    import (
-    generate_random_id,
     compute_imports,
     compute_max_nderiv,
     compute_free_arguments,
@@ -964,7 +963,7 @@ class DiscreteBilinearForm2:
 
         # Root process generates a random string to be used as file_id
         if comm is None or comm.rank == 0:
-            file_id = generate_random_id(size=8)
+            file_id = random_string(size=8)
         else:
             file_id = None
 

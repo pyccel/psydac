@@ -34,7 +34,6 @@ __all__ = (
     'construct_quad_grids_arguments',
     'do_nothing',
     'extract_stencil_mats',
-    'generate_random_id',
     'reset_arrays',
 )
 
@@ -287,25 +286,3 @@ def extract_stencil_mats(mats):
 def reset_arrays(*args):
     for a in args:
         a[:]= 0.j if a.dtype==complex else 0.
-
-#==============================================================================
-def generate_random_id(size: int = 8,
-                chars: int = string.ascii_lowercase + string.digits) -> str:
-    """
-    Create a random string of given length to be used in generated file names.
-
-    Parameters
-    ----------
-    size : int, optional
-        Length of the string (default: 8).
-
-    chars : str, optional
-        A string with the avalailable characters for random drawing (default:
-        ASCII lower case characters + decimal digits)
-
-    Returns
-    -------
-    str
-        A random string of given length, made of the given characters.
-    """
-    return ''.join(random.choice(chars) for _ in range(size))
