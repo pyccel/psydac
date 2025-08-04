@@ -25,10 +25,11 @@ from sympde.topology import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceT
 
 from gelato.expr import GltExpr as sym_GltExpr
 
+from psydac.api.fem_bilinear_form import DiscreteBilinearForm2 as DiscreteBilinearForm_SF
+from psydac.api.fem_sum_form import DiscreteSumForm
 from psydac.api.fem          import DiscreteBilinearForm
 from psydac.api.fem          import DiscreteLinearForm
 from psydac.api.fem          import DiscreteFunctional
-from psydac.api.fem          import DiscreteSumForm
 from psydac.api.feec         import DiscreteDerham
 from psydac.api.glt          import DiscreteGltExpr
 from psydac.api.expr         import DiscreteExpr
@@ -40,7 +41,6 @@ from psydac.fem.tensor       import TensorFemSpace
 from psydac.fem.partitioning import create_cart, construct_connectivity, construct_interface_spaces, construct_reduced_interface_spaces
 from psydac.fem.vector       import MultipatchFemSpace, VectorFemSpace
 from psydac.cad.geometry     import Geometry
-from psydac.mapping.discrete import NurbsMapping
 from psydac.linalg.stencil   import StencilVectorSpace
 from psydac.linalg.block     import BlockVectorSpace
 
@@ -615,8 +615,7 @@ def discretize(a, *args, **kwargs):
 
     if isinstance(a, sym_BilinearForm):
         if kwargs.pop('sum_factorization'):
-            from psydac.api.fem_bilinear_form import DiscreteBilinearForm2
-            return DiscreteBilinearForm2(a, kernel_expr, *args, **kwargs)
+            return DiscreteBilinearForm_SF(a, kernel_expr, *args, **kwargs)
         else:
             return DiscreteBilinearForm(a, kernel_expr, *args, **kwargs)
 
