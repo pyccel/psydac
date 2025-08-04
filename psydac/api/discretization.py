@@ -615,7 +615,7 @@ def discretize(a, *args, **kwargs):
 
     if isinstance(a, sym_BilinearForm):
         if kwargs.pop('sum_factorization'):
-            from psydac.api.fem2 import DiscreteBilinearForm2
+            from psydac.api.fem_bilinear_form import DiscreteBilinearForm2
             return DiscreteBilinearForm2(a, kernel_expr, *args, **kwargs)
         else:
             return DiscreteBilinearForm(a, kernel_expr, *args, **kwargs)

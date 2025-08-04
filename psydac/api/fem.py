@@ -1712,7 +1712,7 @@ class DiscreteSumForm(BasicDiscrete):
             elif isinstance(a, sym_BilinearForm):
                 kwargs['update_ghost_regions'] = False
                 if sum_factorization:
-                    from psydac.api.fem2 import DiscreteBilinearForm2
+                    from psydac.api.fem_bilinear_form import DiscreteBilinearForm2
                     ah = DiscreteBilinearForm2(a, e, *args, assembly_backend=backend, **kwargs)
                 else:
                     ah = DiscreteBilinearForm(a, e, *args, assembly_backend=backend, **kwargs)
