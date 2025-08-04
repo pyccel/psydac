@@ -57,8 +57,24 @@ from psydac.api.ast.fem import expand_hdiv_hcurl
 from psydac.pyccel.ast.core import _atomic, Assign
 
 #==============================================================================
-def id_generator(size=8, chars=string.ascii_lowercase + string.digits):
-    """Creates an 8 digit random string used in file names."""
+def generate_random_id(size=8, chars=string.ascii_lowercase + string.digits):
+    """
+    Create a random string of given length to be used in generated file names.
+
+    Parameters
+    ----------
+    size : int, optional
+        Length of the string (default: 8).
+
+    chars : str, optional
+        A string with the avalailable characters for random drawing (default:
+        ASCII lower case characters + decimal digits)
+
+    Returns
+    -------
+    str
+        A random string of given length, made of the given characters.
+    """
     return ''.join(random.choice(chars) for _ in range(size))
 
 #==============================================================================
@@ -1173,7 +1189,7 @@ class DiscreteBilinearForm2:
 
         # Root process generates a random string to be used as file_id
         if comm is None or comm.rank == 0:
-            file_id = id_generator(size=8)
+            file_id = generate_random_id(size=8)
         else:
             file_id = None
 
