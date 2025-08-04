@@ -25,7 +25,7 @@ from sympde.topology import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceT
 
 from gelato.expr import GltExpr as sym_GltExpr
 
-from psydac.api.fem_bilinear_form import DiscreteBilinearForm2 as DiscreteBilinearForm_SF
+from psydac.api.fem_bilinear_form import DiscreteBilinearForm as DiscreteBilinearForm_SF
 from psydac.api.fem_sum_form import DiscreteSumForm
 from psydac.api.fem          import DiscreteBilinearForm
 from psydac.api.fem          import DiscreteLinearForm

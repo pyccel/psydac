@@ -45,10 +45,12 @@ from psydac.api.fem_common    import (
 # TODO [YG 01.08.2025]: Avoid importing anything from psydac.pyccel
 from psydac.pyccel.ast.core import _atomic, Assign
 
+__all__ = ('DiscreteBilinearForm',)
+
 NoneType = type(None)
 
 #==============================================================================
-class DiscreteBilinearForm2:
+class DiscreteBilinearForm:
     """
     Discrete bilinear form ready to be assembled into a matrix.
 

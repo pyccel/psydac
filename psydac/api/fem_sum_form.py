@@ -6,12 +6,13 @@ from sympde.expr.expr import (
     Functional as sym_Functional
 )
 
-from psydac.api.basic      import BasicDiscrete
-from psydac.api.fem        import DiscreteLinearForm
-from psydac.api.fem        import DiscreteBilinearForm
-from psydac.api.fem        import DiscreteFunctional
-from psydac.api.fem_common import reset_arrays
-from psydac.api.utilities  import random_string
+from .basic             import BasicDiscrete
+from .fem               import DiscreteFunctional
+from .fem               import DiscreteLinearForm
+from .fem               import DiscreteBilinearForm
+from .fem_bilinear_form import DiscreteBilinearForm as DiscreteBilinearForm_SF
+from .fem_common        import reset_arrays
+from .utilities         import random_string
 
 __all__ = ('DiscreteSumForm',)
 
@@ -69,8 +70,7 @@ class DiscreteSumForm(BasicDiscrete):
             elif isinstance(a, sym_BilinearForm):
                 kwargs['update_ghost_regions'] = False
                 if sum_factorization:
-                    from psydac.api.fem_bilinear_form import DiscreteBilinearForm2
-                    ah = DiscreteBilinearForm2(a, e, *args, assembly_backend=backend, **kwargs)
+                    ah = DiscreteBilinearForm_SF(a, e, *args, assembly_backend=backend, **kwargs)
                 else:
                     ah = DiscreteBilinearForm(a, e, *args, assembly_backend=backend, **kwargs)
                 kwargs['matrix'] = ah._matrix
