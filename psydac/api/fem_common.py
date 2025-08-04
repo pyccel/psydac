@@ -4,39 +4,39 @@ from typing import Iterable
 
 from sympy import Expr, ImmutableDenseMatrix, Matrix
 
+import numpy as np
+
 from sympde.expr.basic           import BasicForm
 from sympde.expr.evaluation      import KernelExpression
 from sympde.topology.space       import ScalarFunction, VectorFunction, IndexedVectorFunction
+from sympde.topology.space       import ProductSpace, VectorFunctionSpace
+from sympde.topology.datatype    import H1SpaceType, L2SpaceType, UndefinedSpaceType
 from sympde.topology.derivatives import get_atom_logical_derivatives
 from sympde.topology.derivatives import _logical_partial_derivatives
 
 from psydac.fem.basic         import FemSpace
+from psydac.linalg.stencil    import StencilMatrix, StencilInterfaceMatrix
+from psydac.linalg.basic      import ComposedLinearOperator
+from psydac.api.utilities     import flatten
 from psydac.api.ast.utilities import math_atoms_as_str, get_max_partial_derivatives
 
 # TODO [YG 01.08.2025]: Avoid importing anything from psydac.pyccel
 from psydac.pyccel.ast.core import _atomic
 
-#==============================================================================
-def generate_random_id(size: int = 8,
-                chars: int = string.ascii_lowercase + string.digits) -> str:
-    """
-    Create a random string of given length to be used in generated file names.
-
-    Parameters
-    ----------
-    size : int, optional
-        Length of the string (default: 8).
-
-    chars : str, optional
-        A string with the avalailable characters for random drawing (default:
-        ASCII lower case characters + decimal digits)
-
-    Returns
-    -------
-    str
-        A random string of given length, made of the given characters.
-    """
-    return ''.join(random.choice(chars) for _ in range(size))
+__all__ = (
+    'compute_max_nderiv',
+    'compute_imports',
+    'compute_free_arguments',
+    'collect_spaces',
+    'compute_diag_len',
+    'construct_test_space_arguments',
+    'construct_trial_space_arguments',
+    'construct_quad_grids_arguments',
+    'do_nothing',
+    'extract_stencil_mats',
+    'generate_random_id',
+    'reset_arrays',
+)
 
 #==============================================================================
 def compute_max_nderiv(kernel_expr: KernelExpression) -> int:
@@ -173,3 +173,139 @@ def compute_free_arguments(expr: BasicForm, kernel_expr: KernelExpression) -> tu
     free_args_str  = tuple(str(a) for a in free_args_dict)
 
     return free_args_str
+
+#==============================================================================
+def collect_spaces(space, *args):
+    """
+    This function collect the arguments used in the assembly function
+
+    Parameters
+    ----------
+    space: <FunctionSpace>
+        the symbolic space
+
+    args : <list>
+        list of discrete space components like basis values, spans, ...
+
+    Returns
+    -------
+    args : <list>
+        list of discrete space components elements used in the asembly
+
+    """
+
+    if isinstance(space, ProductSpace):
+        spaces = space.spaces
+        indices = []
+        i = 0
+        for space in spaces:
+            if isinstance(space, VectorFunctionSpace):
+                if isinstance(space.kind, (H1SpaceType, L2SpaceType, UndefinedSpaceType)):
+                    indices.append(i)
+                else:
+                    indices += [i+j for j in range(space.ldim)]
+                i = i + space.ldim
+            else:
+                indices.append(i)
+                i = i + 1
+        args = [[e[i] for i in indices] for e in args]
+
+    elif isinstance(space, VectorFunctionSpace):
+        if isinstance(space.kind, (H1SpaceType, L2SpaceType, UndefinedSpaceType)):
+            args = [[e[0]] for e in args]
+
+    return args
+
+#==============================================================================
+def compute_diag_len(p, md, mc):
+    n = ((np.ceil((p+1)/mc)-1)*md).astype('int')
+    n = n-np.minimum(0, n-p)+p+1
+    return n.astype('int')
+
+#==============================================================================
+def construct_test_space_arguments(basis_values):
+    space          = basis_values.space
+    test_basis     = basis_values.basis
+    spans          = basis_values.spans
+    test_degrees   = space.degree
+    pads           = space.pads
+    multiplicity   = space.multiplicity
+
+    test_basis, test_degrees, spans = collect_spaces(space.symbolic_space, test_basis, test_degrees, spans)
+
+    test_basis    = flatten(test_basis)
+    test_degrees  = flatten(test_degrees)
+    spans         = flatten(spans)
+    pads          = flatten(pads)
+    multiplicity  = flatten(multiplicity)
+    pads          = [p*m for p,m in zip(pads, multiplicity)]
+    return test_basis, test_degrees, spans, pads, multiplicity
+
+def construct_trial_space_arguments(basis_values):
+    space          = basis_values.space
+    trial_basis    = basis_values.basis
+    trial_degrees  = space.degree
+    pads           = space.pads
+    multiplicity   = space.multiplicity
+    trial_basis, trial_degrees = collect_spaces(space.symbolic_space, trial_basis, trial_degrees)
+
+    trial_basis    = flatten(trial_basis)
+    trial_degrees  = flatten(trial_degrees)
+    pads           = flatten(pads)
+    multiplicity   = flatten(multiplicity)
+    pads           = [p*m for p,m in zip(pads, multiplicity)]
+    return trial_basis, trial_degrees, pads, multiplicity
+
+#==============================================================================
+def construct_quad_grids_arguments(grid, use_weights=True):
+    points         = grid.points
+    if use_weights:
+        weights        = grid.weights
+        quads          = flatten(list(zip(points, weights)))
+    else:
+        quads = flatten(list(zip(points)))
+
+    nquads        = flatten(grid.nquads)
+    n_elements    = grid.n_elements
+    return n_elements, quads, nquads
+
+#==============================================================================
+def do_nothing(*args):
+    return 0
+
+#==============================================================================
+def extract_stencil_mats(mats):
+    new_mats = []
+    for M in mats:
+        if isinstance(M, (StencilInterfaceMatrix, StencilMatrix)):
+            new_mats.append(M)
+        elif isinstance(M, ComposedLinearOperator):
+            new_mats += [i for i in M.multiplicants if isinstance(i, (StencilInterfaceMatrix, StencilMatrix))]
+    return new_mats
+
+#==============================================================================
+def reset_arrays(*args):
+    for a in args:
+        a[:]= 0.j if a.dtype==complex else 0.
+
+#==============================================================================
+def generate_random_id(size: int = 8,
+                chars: int = string.ascii_lowercase + string.digits) -> str:
+    """
+    Create a random string of given length to be used in generated file names.
+
+    Parameters
+    ----------
+    size : int, optional
+        Length of the string (default: 8).
+
+    chars : str, optional
+        A string with the avalailable characters for random drawing (default:
+        ASCII lower case characters + decimal digits)
+
+    Returns
+    -------
+    str
+        A random string of given length, made of the given characters.
+    """
+    return ''.join(random.choice(chars) for _ in range(size))

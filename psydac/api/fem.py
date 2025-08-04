@@ -12,15 +12,8 @@ from sympde.expr          import Functional as sym_Functional
 from sympde.expr          import Norm as sym_Norm
 from sympde.expr          import SemiNorm as sym_SemiNorm
 from sympde.topology      import Boundary, Interface
-from sympde.topology      import VectorFunctionSpace
-from sympde.topology      import ProductSpace
-from sympde.topology      import H1SpaceType, L2SpaceType, UndefinedSpaceType
 from sympde.calculus.core import PlusInterfaceOperator
 
-from psydac.api.basic        import BasicDiscrete
-from psydac.api.basic        import random_string
-from psydac.api.grid         import QuadratureGrid, BasisValues
-from psydac.api.utilities    import flatten
 from psydac.linalg.stencil   import StencilVector, StencilMatrix, StencilInterfaceMatrix
 from psydac.linalg.basic     import ComposedLinearOperator
 from psydac.linalg.block     import BlockVectorSpace, BlockVector, BlockLinearOperator
@@ -31,132 +24,25 @@ from psydac.fem.basic        import FemField
 from psydac.fem.projectors   import knot_insertion_projection_operator
 from psydac.core.bsplines    import find_span, basis_funs_all_ders
 from psydac.ddm.cart         import InterfaceCartDecomposition
+from psydac.api.basic        import BasicDiscrete
+from psydac.api.grid         import QuadratureGrid, BasisValues
+from psydac.api.utilities    import flatten, random_string
+from psydac.api.fem_common import (
+    collect_spaces,
+    construct_test_space_arguments,
+    construct_trial_space_arguments,
+    construct_quad_grids_arguments,
+    reset_arrays,
+    do_nothing,
+    extract_stencil_mats,
+)
 
 __all__ = (
-    'collect_spaces',
-    'compute_diag_len',
-    'construct_test_space_arguments',
-    'construct_trial_space_arguments',
-    'construct_quad_grids_arguments',
-    'reset_arrays',
-    'do_nothing',
-    'extract_stencil_mats',
     'DiscreteBilinearForm',
     'DiscreteFunctional',
     'DiscreteLinearForm',
     'DiscreteSumForm',
 )
-
-#==============================================================================
-def collect_spaces(space, *args):
-    """
-    This function collect the arguments used in the assembly function
-
-    Parameters
-    ----------
-    space: <FunctionSpace>
-        the symbolic space
-
-    args : <list>
-        list of discrete space components like basis values, spans, ...
-
-    Returns
-    -------
-    args : <list>
-        list of discrete space components elements used in the asembly
-
-    """
-
-    if isinstance(space, ProductSpace):
-        spaces = space.spaces
-        indices = []
-        i = 0
-        for space in spaces:
-            if isinstance(space, VectorFunctionSpace):
-                if isinstance(space.kind, (H1SpaceType, L2SpaceType, UndefinedSpaceType)):
-                    indices.append(i)
-                else:
-                    indices += [i+j for j in range(space.ldim)]
-                i = i + space.ldim
-            else:
-                indices.append(i)
-                i = i + 1
-        args = [[e[i] for i in indices] for e in args]
-
-    elif isinstance(space, VectorFunctionSpace):
-        if isinstance(space.kind, (H1SpaceType, L2SpaceType, UndefinedSpaceType)):
-            args = [[e[0]] for e in args]
-
-    return args
-
-#==============================================================================
-def compute_diag_len(p, md, mc):
-    n = ((np.ceil((p+1)/mc)-1)*md).astype('int')
-    n = n-np.minimum(0, n-p)+p+1
-    return n.astype('int')
-
-#==============================================================================
-def construct_test_space_arguments(basis_values):
-    space          = basis_values.space
-    test_basis     = basis_values.basis
-    spans          = basis_values.spans
-    test_degrees   = space.degree
-    pads           = space.pads
-    multiplicity   = space.multiplicity
-
-    test_basis, test_degrees, spans = collect_spaces(space.symbolic_space, test_basis, test_degrees, spans)
-
-    test_basis    = flatten(test_basis)
-    test_degrees  = flatten(test_degrees)
-    spans         = flatten(spans)
-    pads          = flatten(pads)
-    multiplicity  = flatten(multiplicity)
-    pads          = [p*m for p,m in zip(pads, multiplicity)]
-    return test_basis, test_degrees, spans, pads, multiplicity
-
-def construct_trial_space_arguments(basis_values):
-    space          = basis_values.space
-    trial_basis    = basis_values.basis
-    trial_degrees  = space.degree
-    pads           = space.pads
-    multiplicity   = space.multiplicity
-    trial_basis, trial_degrees = collect_spaces(space.symbolic_space, trial_basis, trial_degrees)
-
-    trial_basis    = flatten(trial_basis)
-    trial_degrees  = flatten(trial_degrees)
-    pads           = flatten(pads)
-    multiplicity   = flatten(multiplicity)
-    pads           = [p*m for p,m in zip(pads, multiplicity)]
-    return trial_basis, trial_degrees, pads, multiplicity
-
-#==============================================================================
-def construct_quad_grids_arguments(grid, use_weights=True):
-    points         = grid.points
-    if use_weights:
-        weights        = grid.weights
-        quads          = flatten(list(zip(points, weights)))
-    else:
-        quads = flatten(list(zip(points)))
-
-    nquads        = flatten(grid.nquads)
-    n_elements    = grid.n_elements
-    return n_elements, quads, nquads
-
-def reset_arrays(*args):
-    for a in args:
-        a[:]= 0.j if a.dtype==complex else 0.
-
-def do_nothing(*args):
-    return 0
-
-def extract_stencil_mats(mats):
-    new_mats = []
-    for M in mats:
-        if isinstance(M, (StencilInterfaceMatrix, StencilMatrix)):
-            new_mats.append(M)
-        elif isinstance(M, ComposedLinearOperator):
-            new_mats += [i for i in M.multiplicants if isinstance(i, (StencilInterfaceMatrix, StencilMatrix))]
-    return new_mats
 
 #==============================================================================
 class DiscreteBilinearForm(BasicDiscrete):

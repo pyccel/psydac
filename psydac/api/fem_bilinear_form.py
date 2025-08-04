@@ -31,28 +31,23 @@ from psydac.linalg.block      import BlockVectorSpace, BlockLinearOperator
 from psydac.api.grid          import QuadratureGrid, BasisValues
 from psydac.api.settings      import PSYDAC_BACKENDS
 from psydac.api.utilities     import flatten
-from psydac.api.fem_common    import (compute_imports,
-                                      compute_max_nderiv,
-                                      compute_free_arguments,
-                                      generate_random_id,
+from psydac.api.fem_common    import (
+    generate_random_id,
+    compute_imports,
+    compute_max_nderiv,
+    compute_free_arguments,
+    construct_test_space_arguments,
+    construct_trial_space_arguments,
+    construct_quad_grids_arguments,
+    reset_arrays,
+    do_nothing,
+    extract_stencil_mats,
 )
-
-NoneType = type(None)
-
-#==============================================================================
-# Imports to be avoided in the future
-
-# TODO [YG 01.08.2025]: move functions as they cause circular imports
-from psydac.api.fem import (construct_test_space_arguments,
-                            construct_trial_space_arguments,
-                            construct_quad_grids_arguments,
-                            do_nothing,
-                            extract_stencil_mats,
-                            reset_arrays,
-                            )
 
 # TODO [YG 01.08.2025]: Avoid importing anything from psydac.pyccel
 from psydac.pyccel.ast.core import _atomic, Assign
+
+NoneType = type(None)
 
 #==============================================================================
 class DiscreteBilinearForm2:
