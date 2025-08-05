@@ -61,7 +61,7 @@ class Geometry( object ):
         True if the dimension is to be used in the domain decomposition (=default for each dimension). 
         If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
   
-    grid: list of breakpoints
+    grid: list | tuple | dict
         The grid of breakpoints in each direction.
         If not given, the grid will be constructed from the ncells and periodicity.
     """
@@ -84,6 +84,7 @@ class Geometry( object ):
             assert isinstance(domain, Domain) 
             assert isinstance(ncells, dict)
             assert isinstance(mappings, dict)
+            assert isinstance(grid, dict)
             if periodic is not None:
                 assert isinstance(periodic, dict)
 
@@ -114,6 +115,7 @@ class Geometry( object ):
             else:
                 ncells    = [ncells[itr] for itr in interior_names]
                 periodic  = [periodic[itr] for itr in interior_names]
+                grid      = [grid[itr] for itr in interior_names]
                 self._ddm = MultiPatchDomainDecomposition(ncells, periodic, comm=comm)
 
         else:
@@ -154,7 +156,7 @@ class Geometry( object ):
         ncells   = {domain.name: mapping.space.domain_decomposition.ncells}
         periodic = {domain.name: mapping.space.domain_decomposition.periods}
 
-        return Geometry(domain=domain, ncells=ncells, periodic=periodic, mappings=mappings, comm=comm)
+        return Geometry(domain=domain, ncells=ncells, periodic=periodic, mappings=mappings, comm=comm, grid=None)
 
 
     #--------------------------------------------------------------------------
@@ -185,8 +187,8 @@ class Geometry( object ):
         mpi_dims_mask: list of bool
             True if the dimension is to be used in the domain decomposition (=default for each dimension). 
             If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
-    
-        grid: list of breakpoints
+
+        grid: list | tuple | dict
             The grid of breakpoints in each direction.
             If not given, the grid will be constructed from the ncells and periodicity.
 
@@ -215,6 +217,9 @@ class Geometry( object ):
 
         if isinstance(periodic, (list, tuple)):
             periodic = {itr.name:periodic for itr in interior}
+
+        if isinstance(grid, (list, tuple)):
+            grid = {itr.name:grid for itr in interior}
 
         geo = Geometry(domain=domain, mappings=mappings, ncells=ncells, periodic=periodic, comm=comm, mpi_dims_mask=mpi_dims_mask, grid=grid)
 
