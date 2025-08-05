@@ -162,6 +162,39 @@ class Geometry( object ):
     #--------------------------------------------------------------------------
     @classmethod
     def from_topological_domain(cls, domain, ncells, *, periodic=None, comm=None, mpi_dims_mask=None, grid=None):
+        """
+        Create a Geometry object from a topological domain and discretization parameters.
+
+        Parameters
+        ----------
+        cls : type
+            The class type (typically `Geometry`) to instantiate.
+
+        domain : Sympde.topology.Domain
+            The symbolic domain to be discretized.
+            
+        ncells : list | tuple | dict
+            The number of cells of the discretized topological domain in each direction.
+
+        periodic : list | tuple | dict
+        The periodicity of the topological domain in each direction.
+
+        comm: MPI.Comm
+            MPI intra-communicator.
+            
+        mpi_dims_mask: list of bool
+            True if the dimension is to be used in the domain decomposition (=default for each dimension). 
+            If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
+    
+        grid: list of breakpoints
+            The grid of breakpoints in each direction.
+            If not given, the grid will be constructed from the ncells and periodicity.
+
+        Returns
+        -------
+        geo : Geometry
+            The constructed Geometry object.
+        """
         interior = domain.interior
         if not isinstance(interior, Union):
             interior = [interior]
