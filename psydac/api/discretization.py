@@ -461,35 +461,9 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
 
             if knots is None:
                 # Check if grid is provided in domain_h
-                if hasattr(domain_h, 'grid') and domain_h.grid is not None:
+                if hasattr(domain_h, 'grid') and domain_h.grid is not None and interior.name in domain_h.grid:
                     # Use provided grid of breakpoints
-                    grids = domain_h.grid
-                    
-                    # Safety checks for grid consistency
-                    if not isinstance(grids, (list, tuple)):
-                        raise TypeError(f"Grid must be a list or tuple, got {type(grids)}")
-                    
-                    if len(grids) != len(ncells):
-                        raise ValueError(f"Grid dimensions ({len(grids)}) must match domain dimensions ({len(ncells)})")
-                    
-                    for dim, (grid, nc, xmin, xmax) in enumerate(zip(grids, ncells, min_coords, max_coords)):
-                        grid = np.asarray(grid)
-                        
-                        # Check grid length vs ncells consistency
-                        expected_grid_length = nc + 1
-                        if len(grid) != expected_grid_length:
-                            raise ValueError(f"Dimension {dim}: grid length ({len(grid)}) must be ncells+1 ({expected_grid_length})")
-                        
-                        # Check if grid is sorted
-                        if not np.all(np.diff(grid) > 0):
-                            raise ValueError(f"Dimension {dim}: grid points must be strictly increasing")
-                        
-                        # Check domain boundaries (with tolerance for numerical precision)
-                        tol = 1e-12
-                        if abs(grid[0] - xmin) > tol:
-                            raise ValueError(f"Dimension {dim}: grid start ({grid[0]}) must match domain minimum ({xmin})")
-                        if abs(grid[-1] - xmax) > tol:
-                            raise ValueError(f"Dimension {dim}: grid end ({grid[-1]}) must match domain maximum ({xmax})")
+                    grids = domain_h.grid[interior.name]
                 else:
                     # Create uniform grid
                     grids = [np.linspace(xmin, xmax, num=ne + 1)
@@ -554,20 +528,29 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
 
 #==============================================================================
 def discretize_domain(domain, *, filename=None, ncells=None, periodic=None, comm=None, mpi_dims_mask=None, grid=None):
+
     if comm is not None:
         # Create a copy of the communicator
         comm = comm.Dup()
 
-    if not (filename or ncells):
-        raise ValueError("Must provide either 'filename' or 'ncells'")
+    if not (filename or ncells or grid):
+        raise ValueError("Must provide either 'filename' or 'ncells' or 'grid'")
 
     elif filename and ncells:
         raise ValueError("Cannot provide both 'filename' and 'ncells'")
+    
+    elif filename and grid:
+        raise ValueError("Cannot provide both 'filename' and 'grid'")
 
     elif filename:
         return Geometry(filename=filename, comm=comm)
 
     elif ncells:
+        # Validate grid parameter if provided - basic validation only
+        if grid is not None:
+            if not isinstance(grid, (list, tuple, dict)):
+                raise TypeError("Grid must be a list, tuple, or dict")
+
         return Geometry.from_topological_domain(domain, ncells, periodic=periodic, comm=comm, mpi_dims_mask=mpi_dims_mask, grid=grid)
 
 #==============================================================================

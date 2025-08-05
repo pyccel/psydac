@@ -84,7 +84,7 @@ class Geometry( object ):
             assert isinstance(domain, Domain) 
             assert isinstance(ncells, dict)
             assert isinstance(mappings, dict)
-            assert isinstance(grid, dict)
+            assert grid is None or isinstance(grid, dict)
             if periodic is not None:
                 assert isinstance(periodic, dict)
 
@@ -106,7 +106,14 @@ class Geometry( object ):
             self._mappings = mappings
             self._cart     = None
             self._is_parallel = comm is not None
-            self._grid = grid
+            # Process and validate grid parameter if provided
+            if grid is not None:
+                # Process None values first, then validate
+                processed_grid = self._process_grid_with_none_values(domain, ncells, grid)
+                self._validate_grid_consistency(domain, ncells, processed_grid)
+                self._grid = processed_grid
+            else:
+                self._grid = grid
 
             if len(domain) == 1:
                 #name = domain.name
@@ -115,7 +122,8 @@ class Geometry( object ):
             else:
                 ncells    = [ncells[itr] for itr in interior_names]
                 periodic  = [periodic[itr] for itr in interior_names]
-                grid      = [grid[itr] for itr in interior_names]
+                if grid is not None:
+                    grid  = [grid[itr] for itr in interior_names]
                 self._ddm = MultiPatchDomainDecomposition(ncells, periodic, comm=comm)
 
         else:
@@ -224,6 +232,216 @@ class Geometry( object ):
         geo = Geometry(domain=domain, mappings=mappings, ncells=ncells, periodic=periodic, comm=comm, mpi_dims_mask=mpi_dims_mask, grid=grid)
 
         return geo
+    
+    #--------------------------------------------------------------------------
+    def _generate_uniform_grid(self, domain_interior, ncells_dim, dim):
+        """
+        Generate a uniform grid for a given dimension.
+        
+        Parameters
+        ----------
+        domain_interior : NCubeInterior
+            The domain interior.
+        ncells_dim : int
+            Number of cells in this dimension.
+        dim : int
+            The dimension index.
+            
+        Returns
+        -------
+        list
+            Uniform grid points for the dimension.
+        """
+        if domain_interior is not None:
+            domain_min = domain_interior.min_coords[dim]
+            domain_max = domain_interior.max_coords[dim]
+        else:
+            # Default to [0, 1] if no domain interior available
+            domain_min = 0.0
+            domain_max = 1.0
+        
+        return list(np.linspace(domain_min, domain_max, ncells_dim + 1))
+
+    #--------------------------------------------------------------------------
+    def _process_grid_with_none_values(self, domain, ncells, grid):
+        """
+        Process grid parameter, replacing None values with uniform grids.
+        
+        Parameters
+        ----------
+        domain : Sympde.topology.Domain
+            The symbolic domain.
+        ncells : dict
+            Number of cells per patch and direction.
+        grid : dict
+            Grid of breakpoints per patch and direction, may contain None values.
+            
+        Returns
+        -------
+        dict
+            Processed grid with None values replaced by uniform grids.
+        """
+        processed_grid = {}
+        
+        for patch_name, patch_grid in grid.items():
+            if patch_name not in ncells:
+                raise ValueError(f"Grid patch '{patch_name}' not found in ncells")
+            
+            patch_ncells = ncells[patch_name]
+            
+            # Get domain interior for this patch
+            if len(domain) == 1:
+                domain_interior = domain.interior
+            else:
+                # Find the interior corresponding to this patch
+                domain_interior = None
+                for interior in domain.interior.args:
+                    if interior.name == patch_name:
+                        domain_interior = interior
+                        break
+            
+            if not isinstance(patch_grid, (list, tuple, np.ndarray)):
+                raise TypeError(f"Grid must be a list or tuple")
+            
+            # Process the grid, replacing None values with uniform grids
+            processed_patch_grid = []
+            
+            # Check if this is a 1D grid or multi-dimensional
+            # For 1D: either [None] or [points...] where points are not lists
+            # For nD: [[...], [...], ...] where each inner element is a list/array or None
+            if len(patch_grid) == 1 and not isinstance(patch_grid[0], (list, tuple, np.ndarray)):
+                # 1D case with single element that's not a list (could be None or a number)
+                if patch_grid[0] is None:
+                    # Generate uniform grid for 1D
+                    processed_patch_grid = self._generate_uniform_grid(domain_interior, patch_ncells[0], 0)
+                else:
+                    # This shouldn't happen in normal 1D usage, but handle gracefully
+                    processed_patch_grid = patch_grid
+            elif len(patch_grid) > 1 and not any(isinstance(x, (list, tuple, np.ndarray, type(None))) for x in patch_grid):
+                # 1D case with multiple points [x0, x1, x2, ...]
+                processed_patch_grid = patch_grid
+            else:
+                # Multi-dimensional case: [[...], [...], ...] or [None, [...], None, ...]
+                for dim in range(len(patch_grid)):
+                    if patch_grid[dim] is None:
+                        # Generate uniform grid for this dimension
+                        uniform_grid = self._generate_uniform_grid(domain_interior, patch_ncells[dim], dim)
+                        processed_patch_grid.append(uniform_grid)
+                    else:
+                        processed_patch_grid.append(patch_grid[dim])
+            
+            processed_grid[patch_name] = processed_patch_grid
+        
+        return processed_grid
+
+    #--------------------------------------------------------------------------
+    def _validate_grid_consistency(self, domain, ncells, grid):
+        """
+        Validate grid parameter consistency with domain and ncells.
+        Note: This method expects that None values have already been processed.
+        
+        Parameters
+        ----------
+        domain : Sympde.topology.Domain
+            The symbolic domain.
+        ncells : dict
+            Number of cells per patch and direction.
+        grid : dict
+            Grid of breakpoints per patch and direction (already processed).
+        """
+        if not isinstance(grid, dict):
+            raise TypeError("Grid must be a dictionary when domain has multiple patches")
+        
+        # Get domain dimension for validation
+        domain_dim = domain.dim
+        
+        # Validate each patch
+        for patch_name, patch_grid in grid.items():
+            if patch_name not in ncells:
+                raise ValueError(f"Grid patch '{patch_name}' not found in ncells")
+            patch_ncells = ncells[patch_name]
+            
+            # Check if grid is list/tuple/array format
+            if not isinstance(patch_grid, (list, tuple, np.ndarray)):
+                raise TypeError(f"Grid must be a list, tuple, or numpy array")
+            
+            # Check grid dimensions consistency
+            if isinstance(patch_grid[0], (list, tuple, np.ndarray)):
+                # Multi-dimensional grid
+                grid_dim = len(patch_grid)
+            else:
+                # 1D grid
+                grid_dim = 1
+            
+            if grid_dim != domain_dim:
+                raise ValueError(f"Grid dimensions ({grid_dim}) must match domain dimensions ({domain_dim})")
+            
+            # Get domain interior for boundary validation
+            if len(domain) == 1:
+                domain_interior = domain.interior
+            else:
+                # Find the interior corresponding to this patch
+                domain_interior = None
+                for interior in domain.interior.args:
+                    if interior.name == patch_name:
+                        domain_interior = interior
+                        break
+                if domain_interior is None:
+                    continue  # Skip validation if interior not found
+            
+            # Validate grid length vs ncells consistency and other checks
+            if isinstance(patch_ncells, (list, tuple)):
+                if grid_dim == 1:
+                    # For 1D case, grid is either [points] or [[points]]
+                    if isinstance(patch_grid[0], (list, tuple, np.ndarray)):
+                        grid_points = patch_grid[0]  # [[points]] format
+                    else:
+                        grid_points = patch_grid  # [points] format
+                    
+                    expected_length = patch_ncells[0] + 1
+                    if len(grid_points) != expected_length:
+                        raise ValueError(f"Dimension 0: grid length ({len(grid_points)}) must be ncells+1 ({expected_length})")
+                    
+                    # Check if grid points are strictly increasing
+                    grid_array = np.asarray(grid_points)
+                    if not np.all(np.diff(grid_array) > 0):
+                        raise ValueError(f"grid points must be strictly increasing")
+                    
+                    # Check if grid boundaries match domain boundaries
+                    if domain_interior is not None:
+                        domain_min = domain_interior.min_coords[0]
+                        domain_max = domain_interior.max_coords[0]
+                        tolerance = 1e-14  # Numerical tolerance for boundary comparison
+                        
+                        if abs(grid_array[0] - domain_min) > tolerance:
+                            raise ValueError(f"grid start ({grid_array[0]}) must match domain minimum ({domain_min})")
+                        
+                        if abs(grid_array[-1] - domain_max) > tolerance:
+                            raise ValueError(f"grid end ({grid_array[-1]}) must match domain maximum ({domain_max})")
+                else:
+                    # For multi-dimensional case
+                    for dim in range(grid_dim):
+                        grid_points = patch_grid[dim]
+                        expected_length = patch_ncells[dim] + 1
+                        if len(grid_points) != expected_length:
+                            raise ValueError(f"Dimension {dim}: grid length ({len(grid_points)}) must be ncells+1 ({expected_length})")
+                        
+                        # Check if grid points are strictly increasing
+                        grid_array = np.asarray(grid_points)
+                        if not np.all(np.diff(grid_array) > 0):
+                            raise ValueError(f"grid points must be strictly increasing")
+                        
+                        # Check if grid boundaries match domain boundaries
+                        if domain_interior is not None:
+                            domain_min = domain_interior.min_coords[dim]
+                            domain_max = domain_interior.max_coords[dim]
+                            tolerance = 1e-14  # Numerical tolerance for boundary comparison
+                            
+                            if abs(grid_array[0] - domain_min) > tolerance:
+                                raise ValueError(f"grid start ({grid_array[0]}) must match domain minimum ({domain_min})")
+                            
+                            if abs(grid_array[-1] - domain_max) > tolerance:
+                                raise ValueError(f"grid end ({grid_array[-1]}) must match domain maximum ({domain_max})")
 
     #--------------------------------------------------------------------------
     @property
