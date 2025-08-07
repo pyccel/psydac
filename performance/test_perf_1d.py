@@ -1,40 +1,27 @@
 # -*- coding: UTF-8 -*-
 
-from sympy import pi, cos, sin
-from sympy import S
+import time
+from collections import namedtuple
 
-from sympde.core     import Constant
-from sympde.calculus import grad, dot, inner, cross, rot, curl, div
+from tabulate import tabulate
+from sympy import pi, sin
 
-from sympde.topology import dx, dy, dz
-from sympde.topology import ScalarField
-from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
+from sympde.calculus import grad, dot
+from sympde.topology import ScalarFunctionSpace
 from sympde.topology import element_of
-from sympde.topology import Domain
-from sympde.topology import Boundary, trace_0, trace_1
-from sympde.expr     import BilinearForm, LinearForm
+from sympde.expr     import BilinearForm, LinearForm, integral
 from sympde.expr     import Norm
-from sympde.expr     import find, EssentialBC
-from sympde.topology import Domain, Line, Square, Cube
+from sympde.topology import Line
 
 from psydac.fem.basic   import FemField
-from psydac.fem.splines import SplineSpace
-from psydac.fem.tensor  import TensorFemSpace
 from psydac.api.discretization import discretize
-from psydac.api.settings import PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_GPYCCEL
-
-from numpy import linspace, zeros, allclose, ones
-
-import time
-from tabulate import tabulate
-from collections import namedtuple
+from psydac.api.settings import PSYDAC_BACKENDS
 
 Timing = namedtuple('Timing', ['kind', 'python', 'pyccel'])
 
 DEBUG = False
 
 domain = Line()
-
 
 
 def print_timing(ls):
@@ -55,20 +42,19 @@ def test_api_poisson_1d():
     print('============ test_api_poisson_1d =============')
 
     # ... abstract model
-    U = ScalarFunctionSpace('U', domain)
+    V = ScalarFunctionSpace('V', domain)
 
     x = domain.coordinates
 
-    F = element_of(U, 'F')
-
-    v = element_of(U, 'v')
-    u = element_of(U, 'u')
+    F = element_of(V, 'F')
+    v = element_of(V, 'v')
+    u = element_of(V, 'u')
 
     expr = dot(grad(v), grad(u))
-    a = BilinearForm((v,u), expr)
+    a = BilinearForm((v, u), integral(domain, expr))
 
     expr = pi**2*sin(pi*x)*v
-    l = LinearForm(v, expr)
+    l = LinearForm(v, integral(domain, expr))
 
     error = F-sin(pi*x)
     l2norm = Norm(error, domain, kind='l2')
@@ -77,13 +63,13 @@ def test_api_poisson_1d():
 
     # ... discrete spaces
     # ... create the computational domain from a topological domain
-    domain_h = discretize(domain, ncells=[2**6])
+    domain_h = discretize(domain, ncells=[2**8])
     # ...
 
     # ... discrete spaces
     Vh = discretize(V, domain_h, degree=[3])
     # ...
-    ah = discretize(a, domain_h, [Vh, Vh], backend=PSYDAC_BACKEND_GPYCCEL)
+    ah = discretize(a, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS['pyccel-gcc'])
     tb = time.time()
     M_f90 = ah.assemble()
     te = time.time()
@@ -101,14 +87,14 @@ def test_api_poisson_1d():
     # ...
 
     # ...
-    lh = discretize(l, domain_h, Vh, backend=PSYDAC_BACKEND_GPYCCEL)
+    lh = discretize(l, domain_h, Vh, backend=PSYDAC_BACKENDS['pyccel-gcc'])
     tb = time.time()
     L_f90 = lh.assemble()
     te = time.time()
     print('> [pyccel] elapsed time (rhs) = ', te-tb)
     t_f90 = te-tb
 
-    lh = discretize(l, domain_h, Vh, backend=PSYDAC_BACKEND_PYTHON)
+    lh = discretize(l, domain_h, Vh, backend=PSYDAC_BACKENDS['python'])
     tb = time.time()
     L_py = lh.assemble()
     te = time.time()
@@ -119,18 +105,18 @@ def test_api_poisson_1d():
     # ...
 
     # ... coeff of phi are 0
-    phi = FemField( Vh)
+    phi = FemField(Vh)
     # ...
 
     # ...
-    l2norm_h = discretize(l2norm, domain_h, Vh, backend=PSYDAC_BACKEND_GPYCCEL)
+    l2norm_h = discretize(l2norm, domain_h, Vh, backend=PSYDAC_BACKENDS['pyccel-gcc'])
     tb = time.time()
     L_f90 = l2norm_h.assemble(F=phi)
     te = time.time()
     print('> [pyccel] elapsed time (L2 norm) = ', te-tb)
     t_f90 = te-tb
 
-    l2norm_h = discretize(l2norm, domain_h, Vh, backend=PSYDAC_BACKEND_PYTHON)
+    l2norm_h = discretize(l2norm, domain_h, Vh, backend=PSYDAC_BACKENDS['python'])
     tb = time.time()
     L_py = l2norm_h.assemble(F=phi)
     te = time.time()
