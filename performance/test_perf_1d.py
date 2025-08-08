@@ -17,33 +17,18 @@ from psydac.fem.basic   import FemField
 from psydac.api.discretization import discretize
 from psydac.api.settings import PSYDAC_BACKENDS
 
-Timing = namedtuple('Timing', ['kind', 'python', 'pyccel'])
+from utilities import print_timings_table
 
-DEBUG = False
-
-domain = Line()
-
-
-def print_timing(ls):
-    # ...
-    table   = []
-    headers = ['Assembly time', 'Python', 'Pyccel', 'Speedup']
-
-    for timing in ls:
-        speedup = timing.python / timing.pyccel
-        line   = [timing.kind, timing.python, timing.pyccel, speedup]
-        table.append(line)
-
-    print(tabulate(table, headers=headers, tablefmt='latex'))
-    # ...
-
-
+#==============================================================================
 def test_api_poisson_1d():
     print('============ test_api_poisson_1d =============')
 
-    # ... abstract model
-    V = ScalarFunctionSpace('V', domain)
+    python_timings = {}
+    pyccel_timings = {}
 
+    # ... abstract model
+    domain = Line()
+    V = ScalarFunctionSpace('V', domain)
     x = domain.coordinates
 
     F = element_of(V, 'F')
@@ -74,16 +59,14 @@ def test_api_poisson_1d():
     M_f90 = ah.assemble()
     te = time.time()
     print('> [pyccel] elapsed time (matrix) = ', te-tb)
-    t_f90 = te-tb
+    pyccel_timings['matrix'] = te - tb
     
     ah = discretize(a, domain_h, [Vh, Vh])
     tb = time.time()
     M_py = ah.assemble()
     te = time.time()
     print('> [python] elapsed time (matrix) = ', te-tb)
-    t_py = te-tb
-    
-    matrix_timing = Timing('matrix', t_py, t_f90)
+    python_timings['matrix'] = te - tb
     # ...
 
     # ...
@@ -92,16 +75,14 @@ def test_api_poisson_1d():
     L_f90 = lh.assemble()
     te = time.time()
     print('> [pyccel] elapsed time (rhs) = ', te-tb)
-    t_f90 = te-tb
+    pyccel_timings['rhs'] = te - tb
 
     lh = discretize(l, domain_h, Vh, backend=PSYDAC_BACKENDS['python'])
     tb = time.time()
     L_py = lh.assemble()
     te = time.time()
     print('> [python] elapsed time (rhs) = ', te-tb)
-    t_py = te-tb
-
-    rhs_timing = Timing('rhs', t_py, t_f90)
+    python_timings['rhs'] = te - tb
     # ...
 
     # ... coeff of phi are 0
@@ -114,24 +95,43 @@ def test_api_poisson_1d():
     L_f90 = l2norm_h.assemble(F=phi)
     te = time.time()
     print('> [pyccel] elapsed time (L2 norm) = ', te-tb)
-    t_f90 = te-tb
+    pyccel_timings['L2 norm'] = te - tb
 
     l2norm_h = discretize(l2norm, domain_h, Vh, backend=PSYDAC_BACKENDS['python'])
     tb = time.time()
     L_py = l2norm_h.assemble(F=phi)
     te = time.time()
     print('> [python] elapsed time (L2 norm) = ', te-tb)
-    t_py = te-tb
-
-    l2norm_timing = Timing('l2norm', t_py, t_f90)
+    python_timings['L2 norm'] = te - tb
     # ...
 
     # ...
-    print_timing([matrix_timing, rhs_timing, l2norm_timing])
+    # TODO [YG 08.08.2025]: understand why the call to discretize fails
+#    h1norm_h = discretize(h1norm, domain_h, Vh, backend=PSYDAC_BACKENDS['pyccel-gcc'])
+#    tb = time.time()
+#    L_f90 = l2norm_h.assemble(F=phi)
+#    te = time.time()
+#    print('> [pyccel] elapsed time (H1 norm) = ', te-tb)
+#    pyccel_timings['H1 norm'] = te - tb
+#
+#    h1norm_h = discretize(h1norm, domain_h, Vh, backend=PSYDAC_BACKENDS['python'])
+#    tb = time.time()
+#    L_py = h1norm_h.assemble(F=phi)
+#    te = time.time()
+#    print('> [python] elapsed time (L2 norm) = ', te-tb)
+#    python_timings['H1 norm'] = te - tb
     # ...
 
+    # ...
+    print()
+    print_timings_table(python_timings, pyccel_timings)
+    print('NOTE: Pyccel = Fortran language, GFortran compiler, no OpenMP')
+    print()
+    # ...
 
-###############################################
+#==============================================================================
+# SCRIPT USAGE
+#==============================================================================
 if __name__ == '__main__':
 
     # ... examples without mapping
