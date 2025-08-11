@@ -113,22 +113,21 @@ def test_api_laplace_3d_neu_identity():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #==============================================================================
-## TODO DEBUG, not working since merge with devel
-#def test_api_laplace_3d_neu_collela():
-#    filename = os.path.join(mesh_dir, 'collela_3d.h5')
-#
-#    from sympy.abc import x,y,z
-#
-#    solution = cos(pi*x)*cos(pi*y)*cos(pi*z)
-#    f        = (3.*pi**2 + 1.)*solution
-#
-#    l2_error, h1_error = run_laplace_3d_neu(filename, solution, f)
-#
-#    expected_l2_error =  0.1768000505351402
-#    expected_h1_error =  1.7036022067226382
-#
-#    assert( abs(l2_error - expected_l2_error) < 1.e-7)
-#    assert( abs(h1_error - expected_h1_error) < 1.e-7)
+def test_api_laplace_3d_neu_collela():
+    filename = os.path.join(mesh_dir, 'collela_3d.h5')
+
+    x, y, z = symbols('x, y, z', real=True)
+
+    solution = cos(pi*x) * cos(pi*y) * cos(pi*z)
+    f        = (3.*pi**2 + 1.) * solution
+
+    l2_error, h1_error = run_laplace_3d_neu(filename, solution, f)
+
+    expected_l2_error =  0.1768000505351402
+    expected_h1_error =  1.7036022067226382
+
+    assert( abs(l2_error - expected_l2_error) < 1.e-7)
+    assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #==============================================================================
 # CLEAN UP SYMPY NAMESPACE
