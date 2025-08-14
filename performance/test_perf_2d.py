@@ -88,10 +88,12 @@ from utilities import print_timings_table
 # IMPORT FUNCTIONS TO BE PROFILED
 from psydac.api.tests.test_2d_poisson import test_2d_poisson_dir0_1234
 from psydac.api.tests.test_2d_vector_poisson import test_2d_vector_poisson_dir0
+from psydac.api.tests.test_2d_system import test_2d_system_dir0
 
 test_functions = (
     test_2d_poisson_dir0_1234,
     test_2d_vector_poisson_dir0,
+    test_2d_system_dir0,
 )
 
 #==============================================================================
