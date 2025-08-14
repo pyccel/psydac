@@ -103,7 +103,7 @@ def test_compare_python_with_pyccel_gcc(func):
 
     # Simple Python run
     python_timing = {}
-    func(timing=python_timing)
+    func(backend=None, timing=python_timing)
 
     # Use Pyccel with Fortran code generation, serial
     backend = PSYDAC_BACKENDS['pyccel-gcc']
