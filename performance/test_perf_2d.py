@@ -14,11 +14,8 @@
 #from sympde.topology import Square
 #
 #from psydac.api.discretization import discretize
-from psydac.api.settings       import PSYDAC_BACKENDS
-from psydac.fem.basic          import FemField
-
-from utilities import print_timings_table
-
+#from psydac.api.settings       import PSYDAC_BACKEND_PYCCEL, PSYDAC_BACKEND_PYTHON
+#from psydac.fem.basic          import FemField
 
 #Timing = namedtuple('Timing', ['kind', 'python', 'pyccel'])
 #
@@ -84,42 +81,36 @@ from utilities import print_timings_table
 #    # ...
 
 #==============================================================================
-def test_perf_poisson_2d_dir0_1234():
+import pytest
+from psydac.api.settings import PSYDAC_BACKENDS
+from utilities import print_timings_table
 
-    from psydac.api.tests.test_2d_poisson import test_poisson_2d_dir0_1234
+# IMPORT FUNCTIONS TO BE PROFILED
+from psydac.api.tests.test_2d_poisson import test_poisson_2d_dir0_1234
+from psydac.api.tests.test_2d_vector_poisson import test_vector_poisson_2d_dir0
 
-    print()
-    print('Benchmarking: test_poisson_2d_dir0_1234')
-
-    # Simple Python run
-    python_timings = test_poisson_2d_dir0_1234(profile=True)
-
-    # Use Pyccel with Fortran code generation, serial
-    backend = PSYDAC_BACKENDS['pyccel-gcc']
-    pyccel_timings = test_poisson_2d_dir0_1234(profile=True, backend=backend)
-
-    print_timings_table(python_timings, pyccel_timings)
-    print('NOTE: Pyccel = Fortran language, GFortran compiler, no OpenMP')
-    print()
+test_functions = (
+    test_poisson_2d_dir0_1234,
+    test_vector_poisson_2d_dir0,
+)
 
 #==============================================================================
-def test_perf_api_vector_poisson_2d_dir_1():
-
-    from psydac.api.tests.test_api_2d_vector import \
-        test_api_vector_poisson_2d_dir_1
+@pytest.mark.parametrize('func', test_functions)
+def test_compare_python_with_pyccel_gcc(func):
 
     print()
-    print('Benchmarking: test_api_vector_poisson_2d_dir_1')
+    print(f'Benchmarking: {func.__name__}')
 
     # Simple Python run
-    python_timings = test_api_vector_poisson_2d_dir_1(profile=True)
+    python_timing = {}
+    func(timing=python_timing)
 
     # Use Pyccel with Fortran code generation, serial
     backend = PSYDAC_BACKENDS['pyccel-gcc']
-    pyccel_timings = test_api_vector_poisson_2d_dir_1(profile=True,
-                                                            backend=backend)
+    pyccel_timing = {}
+    func(backend=backend, timing=pyccel_timing)
 
-    print_timings_table(python_timings, pyccel_timings)
+    print_timings_table(python_timing, pyccel_timing)
     print('NOTE: Pyccel = Fortran language, GFortran compiler, no OpenMP')
     print()
 
@@ -129,7 +120,7 @@ def test_perf_api_vector_poisson_2d_dir_1():
 if __name__ == '__main__':
 
     # ... examples without mapping
-    test_perf_poisson_2d_dir0_1234()
-    test_perf_api_vector_poisson_2d_dir_1()
+    for func in test_functions:
+        test_compare_python_with_pyccel_gcc(func)
 
 #    test_api_stokes_2d()
