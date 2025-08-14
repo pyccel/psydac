@@ -20,7 +20,7 @@ from psydac.linalg.solvers     import inverse
 from psydac.fem.basic          import FemField
 
 #==============================================================================
-def run_stokes_2d_dir(Fe, Ge, f0, f1, *, ncells, degree,
+def run_system_2d_dir(Fe, Ge, f0, f1, *, ncells, degree,
                       comm=None, backend=None, timing=None):
 
     # The dictionary for the timings is modified in-place
@@ -171,7 +171,7 @@ def run_stokes_2d_dir(Fe, Ge, f0, f1, *, ncells, degree,
 #            SERIAL TESTS
 ###############################################################################
 
-def test_2d_stokes_dir(backend=None, timing=None):
+def test_2d_system_dir0(backend=None, timing=None):
 
     from sympy import symbols
 
@@ -184,7 +184,7 @@ def test_2d_stokes_dir(backend=None, timing=None):
     Ge = cos(pi*x1)*cos(pi*x2)
     f1 = cos(pi*x1)*cos(pi*x2)
 
-    l2_error, h1_error = run_stokes_2d_dir(Fe, Ge, f0, f1,
+    l2_error, h1_error = run_system_2d_dir(Fe, Ge, f0, f1,
                                            ncells=[2**3, 2**3], degree=[2, 2],
                                            backend=backend, timing=timing)
 
