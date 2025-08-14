@@ -162,7 +162,7 @@ def run_poisson_2d(solution, f, dir_zero_boundary, dir_nonzero_boundary, *,
 #            SERIAL TESTS
 ###############################################################################
 @pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
-def test_poisson_2d_dir0_1234(backend, timing=None):
+def test_2d_poisson_dir0_1234(backend, timing=None):
 
     solution = sin(pi*x)*sin(pi*y)
     f        = 2*pi**2*sin(pi*x)*sin(pi*y)
@@ -181,7 +181,7 @@ def test_poisson_2d_dir0_1234(backend, timing=None):
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #------------------------------------------------------------------------------
-def test_poisson_2d_dir0_234_neu0_1():
+def test_2d_poisson_dir0_234_neu0_1():
 
     solution = cos(0.5*pi*x)*sin(pi*y)
     f        = (5./4.)*pi**2*solution
@@ -199,7 +199,7 @@ def test_poisson_2d_dir0_234_neu0_1():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #------------------------------------------------------------------------------
-def test_poisson_2d_dir0_134_neu0_2():
+def test_2d_poisson_dir0_134_neu0_2():
 
     solution = sin(0.5*pi*x)*sin(pi*y)
     f        = (5./4.)*pi**2*solution
@@ -217,7 +217,7 @@ def test_poisson_2d_dir0_134_neu0_2():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #------------------------------------------------------------------------------
-def test_poisson_2d_dir0_124_neu0_3():
+def test_2d_poisson_dir0_124_neu0_3():
 
     solution = sin(pi*x)*cos(0.5*pi*y)
     f        = (5./4.)*pi**2*solution
@@ -235,7 +235,7 @@ def test_poisson_2d_dir0_124_neu0_3():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #------------------------------------------------------------------------------
-def test_poisson_2d_dir0_123_neu0_4():
+def test_2d_poisson_dir0_123_neu0_4():
 
     solution = sin(pi*x)*sin(0.5*pi*y)
     f        = (5./4.)*pi**2*solution
@@ -253,7 +253,7 @@ def test_poisson_2d_dir0_123_neu0_4():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #------------------------------------------------------------------------------
-def test_poisson_2d_dir0_24_neu0_13():
+def test_2d_poisson_dir0_24_neu0_13():
 
     solution = cos(0.5*pi*x)*cos(0.5*pi*y)
     f        = (1./2.)*pi**2*solution
@@ -271,7 +271,7 @@ def test_poisson_2d_dir0_24_neu0_13():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #------------------------------------------------------------------------------
-def test_poisson_2d_dir0_13_neu0_24():
+def test_2d_poisson_dir0_13_neu0_24():
 
     solution = sin(0.5*pi*x)*sin(0.5*pi*y)
     f        = (1./2.)*pi**2*solution
@@ -289,7 +289,7 @@ def test_poisson_2d_dir0_13_neu0_24():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #------------------------------------------------------------------------------
-def test_poisson_2d_dir0_4_neu0_123():
+def test_2d_poisson_dir0_4_neu0_123():
 
     solution = cos(pi*x)*cos(0.5*pi*y)
     f        = 5./4.*pi**2*solution
@@ -307,7 +307,7 @@ def test_poisson_2d_dir0_4_neu0_123():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #------------------------------------------------------------------------------
-def test_poisson_2d_dir0_234_neui_1():
+def test_2d_poisson_dir0_234_neui_1():
 
     solution = sin(pi*x)*sin(pi*y)
     f        = 2*pi**2*solution
@@ -325,7 +325,7 @@ def test_poisson_2d_dir0_234_neui_1():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #------------------------------------------------------------------------------
-def test_poisson_2d_dir0_134_neui_2():
+def test_2d_poisson_dir0_134_neui_2():
 
     solution = sin(pi*x)*sin(pi*y)
     f        = 2*pi**2*solution
@@ -343,7 +343,7 @@ def test_poisson_2d_dir0_134_neui_2():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #------------------------------------------------------------------------------
-def test_poisson_2d_dir0_124_neui_3():
+def test_2d_poisson_dir0_124_neui_3():
 
     solution = sin(pi*x)*sin(pi*y)
     f        = 2*pi**2*solution
@@ -361,7 +361,7 @@ def test_poisson_2d_dir0_124_neui_3():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #------------------------------------------------------------------------------
-def test_poisson_2d_dir0_123_neui_4():
+def test_2d_poisson_dir0_123_neui_4():
 
     solution = sin(pi*x)*sin(pi*y)
     f        = 2*pi**2*solution
@@ -379,7 +379,7 @@ def test_poisson_2d_dir0_123_neui_4():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #------------------------------------------------------------------------------
-def test_poisson_2d_dir0_123_diri_4():
+def test_2d_poisson_dir0_123_diri_4():
 
     solution = sin(pi * x) * sin(0.5*pi * y)
     f        = 5/4*pi**2 * solution
@@ -397,7 +397,7 @@ def test_poisson_2d_dir0_123_diri_4():
     assert abs(h1_error - expected_h1_error) < 1.e-7
 
 #------------------------------------------------------------------------------
-def test_poisson_2d_dir0_13_diri_24():
+def test_2d_poisson_dir0_13_diri_24():
 
     solution = sin(3*pi/2 * x) * sin(3*pi/2 * y)
     f        = 9/2*pi**2 * solution
@@ -416,7 +416,7 @@ def test_poisson_2d_dir0_13_diri_24():
 
 #------------------------------------------------------------------------------
 @pytest.mark.xfail
-def test_poisson_2d_dir0_1234_user_function():
+def test_2d_poisson_dir0_1234_user_function():
 
     solution = sin(pi*x)*sin(pi*y)
 
@@ -450,7 +450,7 @@ def test_poisson_2d_dir0_1234_user_function():
 
 @pytest.mark.parallel
 @pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
-def test_poisson_2d_dir0_1234_parallel(backend):
+def test_2d_poisson_dir0_1234_parallel(backend):
 
     solution = sin(pi*x)*sin(pi*y)
     f        = 2*pi**2*sin(pi*x)*sin(pi*y)

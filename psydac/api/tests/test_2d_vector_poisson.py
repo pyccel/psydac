@@ -114,7 +114,7 @@ def run_vector_poisson_2d_dir(solution, f, *, ncells, degree,
     return l2_error, h1_error
 
 #==============================================================================
-def test_vector_poisson_2d_dir0(comm=None, backend=None, timing=None):
+def test_2d_vector_poisson_dir0(comm=None, backend=None, timing=None):
 
     from sympy import symbols
     x1, x2 = symbols('x1, x2', real=True)
@@ -164,7 +164,7 @@ if __name__ == "__main__":
     )
 
     functions_to_run = (
-        test_vector_poisson_2d_dir0,
+        test_2d_vector_poisson_dir0,
     )
 
     print(f"> Input parameters:")
