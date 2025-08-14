@@ -1,4 +1,5 @@
 # -*- coding: UTF-8 -*-
+import time
 
 from mpi4py import MPI
 from sympy import pi, cos, sin
@@ -15,6 +16,9 @@ from sympde.expr     import Norm, SemiNorm
 from sympde.expr     import find, EssentialBC
 
 from psydac.api.discretization import discretize
+from psydac.api.essential_bc   import apply_essential_bc
+from psydac.linalg.solvers     import inverse
+from psydac.fem.basic          import FemField
 
 #==============================================================================
 def run_poisson_3d_dir(solution, f, *, ncells, degree, comm=None, backend=None,
@@ -25,18 +29,19 @@ def run_poisson_3d_dir(solution, f, *, ncells, degree, comm=None, backend=None,
     if profile:
         assert isinstance(timing, dict)
 
-    # ... abstract model
+    #+++++++++++++++++++++++++++++++
+    # 1. Abstract model
+    #+++++++++++++++++++++++++++++++
     domain = Cube()
 
     V = ScalarFunctionSpace('V', domain)
-
-    v = element_of(V, name='v')
     u = element_of(V, name='u')
+    v = element_of(V, name='v')
 
     int_0 = lambda expr: integral(domain, expr)
 
-    expr = dot(grad(v), grad(u))
-    a = BilinearForm((v,u), int_0(expr))
+    expr = dot(grad(u), grad(v))
+    a = BilinearForm((u, v), int_0(expr))
 
     expr = f*v
     l = LinearForm(v, int_0(expr))
@@ -47,33 +52,68 @@ def run_poisson_3d_dir(solution, f, *, ncells, degree, comm=None, backend=None,
 
     bc = EssentialBC(u, 0, domain.boundary)
     equation = find(u, forall=v, lhs=a(u, v), rhs=l(v), bc=bc)
-    # ...
 
-    # ... create the computational domain from a topological domain
+    #+++++++++++++++++++++++++++++++
+    # 2. Discretization
+    #+++++++++++++++++++++++++++++++
+
+    # Create computational domain from topological domain
     domain_h = discretize(domain, ncells=ncells, comm=comm)
-    # ...
 
-    # ... discrete spaces
+    # Discrete spaces
     Vh = discretize(V, domain_h, degree=degree)
-    # ...
 
-    # ... dsicretize the equation using Dirichlet bc
+    # Discretize equation using Dirichlet bc
     equation_h = discretize(equation, domain_h, [Vh, Vh], backend=backend)
-    # ...
 
-    # ... discretize norms
+    # Discretize error norms
     l2norm_h = discretize(l2norm, domain_h, Vh, backend=backend)
     h1norm_h = discretize(h1norm, domain_h, Vh, backend=backend)
-    # ...
 
-    # ... solve the discrete equation
-    uh = equation_h.solve()
-    # ...
+    #+++++++++++++++++++++++++++++++
+    # 3. Solution
+    #+++++++++++++++++++++++++++++++
 
-    # ... compute norms
+    if profile:
+        # Assemble matrix corresponding to discrete bilinear form
+        tb = time.time()
+        A  = equation_h.lhs.assemble()
+        te = time.time()
+        timing['matrix'] = te - tb
+
+        # Assemble vector corresponding to discrete linear form
+        tb = time.time()
+        b  = equation_h.rhs.assemble()
+        te = time.time()
+        timing['rhs'] = te - tb
+
+        # Apply essential BCs to A and b
+        apply_essential_bc(A, *equation_h.bc)
+        apply_essential_bc(b, *equation_h.bc)
+
+        # Solve linear system
+        tb = time.time()
+        A_inv = inverse(A, solver='cg')
+        x = A_inv.dot(b)
+        te = time.time()
+        timing['solution'] = te - tb
+
+        # Store result in a new FEM field
+        uh = FemField(Vh, coeffs=x)
+
+    else:
+        uh = equation_h.solve()
+
+    # Compute error norms
+    if profile: tb = time.time()
     l2_error = l2norm_h.assemble(u=uh)
+    if profile: te = time.time()
+    if profile: timing['L2 error'] = te - tb
+
+    if profile: tb = time.time()
     h1_error = h1norm_h.assemble(u=uh)
-    # ...
+    if profile: te = time.time()
+    if profile: timing['H1 error'] = te - tb
 
     return l2_error, h1_error
 
@@ -156,7 +196,7 @@ def run_poisson_3d_dirneu(solution, f, boundary, ncells, degree, comm=None):
 #            SERIAL TESTS
 ###############################################################################
 
-def test_api_poisson_3d_dir_1():
+def test_api_poisson_3d_dir_1(backend=None, timing=None):
 
     from sympy import symbols
     x1, x2, x3 = symbols('x1, x2, x3', real=True)
@@ -166,7 +206,8 @@ def test_api_poisson_3d_dir_1():
 
     l2_error, h1_error = run_poisson_3d_dir(solution, f,
                                             ncells=[2**2, 2**2, 2**2],
-                                            degree=[2, 2, 2])
+                                            degree=[2, 2, 2],
+                                            backend=backend, timing=timing)
 
     expected_l2_error =  0.0017546148822053188
     expected_h1_error =  0.048189500102744275
