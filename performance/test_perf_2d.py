@@ -117,6 +117,92 @@ def test_compare_python_with_pyccel_gcc(func):
     print()
 
 #==============================================================================
+def test_compare_psydac_with_petsc():
+
+    import time as time
+    from sympy import pi, cos, sin, Tuple
+    from sympde.calculus import grad
+    from sympde.topology import Square
+    from sympde.calculus import laplace, grad
+    from sympde.expr import TerminalExpr
+
+    from psydac.api.tests.test_api_2d_compatible_spaces import run_stokes_2d_dir_petsc
+
+    # ...
+    TOL = 1e-6
+    ITER = 10**3
+
+    #+++++++++++++++++++++++++++++++
+    # Construct exact solution
+    #+++++++++++++++++++++++++++++++
+
+    domain = Square()
+    x, y   = domain.coordinates
+
+    ux =  sin(pi * x) * cos(pi * y)
+    uy = -cos(pi * x) * sin(pi * y)
+    ue = Tuple(ux, uy)
+    pe = cos(2*pi * (x + y)) * sin(2*pi * (x - y))
+    # ...
+
+    # Verify that div(u) = 0
+    assert (ux.diff(x) + uy.diff(y)).simplify() == 0
+
+    # ... Compute right-hand side
+    a = TerminalExpr(-laplace(ue), domain)
+    b = TerminalExpr(    grad(pe), domain)
+    f = (a.T + b).simplify()
+
+    fx = -ux.diff(x, 2) - ux.diff(y, 2) + pe.diff(x)
+    fy = -uy.diff(x, 2) - uy.diff(y, 2) + pe.diff(y)
+    f  = Tuple(fx, fy)
+
+    #+++++++++++++++++++++++++++++++
+    # Solve Stokes' equation and compute error norms
+    #+++++++++++++++++++++++++++++++
+    namespace = run_stokes_2d_dir_petsc(domain, f, ue, pe,
+            homogeneous=False, ncells=[20, 20], degree=[3, 3])
+
+    # Matrix of main bilinear form
+    A = namespace['equation_h'].linear_system.lhs
+    A_petsc = namespace['A0']
+
+    # Vector of main linear form
+    b = namespace['equation_h'].linear_system.rhs
+    b_petsc = namespace['b0']
+
+    # Solution vector
+    x = namespace['x']
+    x_petsc = x.topetsc()
+
+    # Check correctness of solution vector
+    e = A @ x
+    e-= b
+    assert e.inner(e) < TOL**2
+
+    # Time matrix-vector product
+    r = b.space.zeros()
+    r_petsc = r.topetsc()
+    timing = {}
+
+    tb = time.time()
+    for _ in range(ITER):
+        A.dot(x, out=r)
+    te = time.time()
+    timing['psydac'] = (te - tb) / ITER
+
+    tb = time.time()
+    for _ in range(ITER):
+        A_petsc.mult(x_petsc, r_petsc)
+    te = time.time()
+    timing['petsc'] = (te - tb) / ITER
+
+    print()
+    print("Comparing PSYDAC with PETSc. Time for matrix-vector product:")
+    print("  PSYDAC  |  PETSc")
+    print(f"{timing['psydac']:.3e} | {timing['petsc']:.3e}")
+
+#==============================================================================
 # SCRIPT USAGE
 #==============================================================================
 if __name__ == '__main__':
@@ -126,3 +212,5 @@ if __name__ == '__main__':
         test_compare_python_with_pyccel_gcc(func)
 
 #    test_api_stokes_2d()
+
+    test_compare_psydac_with_petsc()
