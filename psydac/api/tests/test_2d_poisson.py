@@ -17,6 +17,9 @@ from sympde.expr     import Norm, SemiNorm
 from sympde.expr     import find, EssentialBC
 
 from psydac.api.discretization import discretize
+from psydac.api.essential_bc   import apply_essential_bc
+from psydac.linalg.solvers     import inverse
+from psydac.fem.basic          import FemField
 from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL
 
 x,y,z = symbols('x1, x2, x3', real=True)
@@ -42,13 +45,15 @@ def get_boundaries(*args):
 
 #==============================================================================
 def run_poisson_2d(solution, f, dir_zero_boundary, dir_nonzero_boundary, *,
-        ncells, degree, backend=None, comm=None, profile=False):
+        ncells, degree, comm=None, backend=None, timing=None):
 
     assert isinstance(dir_zero_boundary   , (list, tuple))
     assert isinstance(dir_nonzero_boundary, (list, tuple))
 
-    # Dictionary for the timing, which will remain empty if profile is False
-    timing = {}
+    # The dictionary for the timings is modified in-place
+    profile = (timing is not None)
+    if profile:
+        assert isinstance(timing, dict)
 
     #+++++++++++++++++++++++++++++++
     # 1. Abstract model
@@ -110,8 +115,35 @@ def run_poisson_2d(solution, f, dir_zero_boundary, dir_nonzero_boundary, *,
     # 3. Solution
     #+++++++++++++++++++++++++++++++
 
-    # Solve linear system
-    uh = equation_h.solve()
+    if profile:
+        # Assemble matrix corresponding to discrete bilinear form
+        tb = time.time()
+        A  = equation_h.lhs.assemble()
+        te = time.time()
+        timing['matrix'] = te - tb
+
+        # Assemble vector corresponding to discrete linear form
+        tb = time.time()
+        b  = equation_h.rhs.assemble()
+        te = time.time()
+        timing['rhs'] = te - tb
+
+        # Apply essential BCs to A and b
+        apply_essential_bc(A, *equation_h.bc)
+        apply_essential_bc(b, *equation_h.bc)
+
+        # Solve linear system
+        tb = time.time()
+        A_inv = inverse(A, solver='cg')
+        x = A_inv.dot(b)
+        te = time.time()
+        timing['solution'] = te - tb
+
+        # Store result in a new FEM field
+        uh = FemField(Vh, coeffs=x)
+
+    else:
+        uh = equation_h.solve()
 
     # Compute error norms
     if profile: tb = time.time()
@@ -124,13 +156,13 @@ def run_poisson_2d(solution, f, dir_zero_boundary, dir_nonzero_boundary, *,
     if profile: te = time.time()
     if profile: timing['H1 error'] = te - tb
 
-    return l2_error, h1_error, timing
+    return l2_error, h1_error
 
 ###############################################################################
 #            SERIAL TESTS
 ###############################################################################
 @pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
-def test_poisson_2d_dir0_1234(backend=None, profile=False):
+def test_poisson_2d_dir0_1234(backend, timing=None):
 
     solution = sin(pi*x)*sin(pi*y)
     f        = 2*pi**2*sin(pi*x)*sin(pi*y)
@@ -138,17 +170,15 @@ def test_poisson_2d_dir0_1234(backend=None, profile=False):
     dir_zero_boundary    = get_boundaries(1, 2, 3, 4)
     dir_nonzero_boundary = get_boundaries()
 
-    l2_error, h1_error, timing = run_poisson_2d(solution, f, dir_zero_boundary,
+    l2_error, h1_error = run_poisson_2d(solution, f, dir_zero_boundary,
             dir_nonzero_boundary, ncells=[2**3, 2**3], degree=[2, 2],
-            comm=MPI.COMM_WORLD, backend=backend, profile=profile)
+            comm=MPI.COMM_WORLD, backend=backend, timing=timing)
 
     expected_l2_error =  0.00021808678604760232
     expected_h1_error =  0.013023570720360362
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
-
-    return timing
 
 #------------------------------------------------------------------------------
 def test_poisson_2d_dir0_234_neu0_1():
@@ -159,7 +189,7 @@ def test_poisson_2d_dir0_234_neu0_1():
     dir_zero_boundary    = get_boundaries(2, 3, 4)
     dir_nonzero_boundary = get_boundaries()
 
-    l2_error, h1_error, timing = run_poisson_2d(solution, f, dir_zero_boundary,
+    l2_error, h1_error = run_poisson_2d(solution, f, dir_zero_boundary,
             dir_nonzero_boundary, ncells=[2**3, 2**3], degree=[2, 2])
 
     expected_l2_error =  0.00015546057796452772
@@ -177,7 +207,7 @@ def test_poisson_2d_dir0_134_neu0_2():
     dir_zero_boundary    = get_boundaries(1, 3, 4)
     dir_nonzero_boundary = get_boundaries()
 
-    l2_error, h1_error, timing = run_poisson_2d(solution, f, dir_zero_boundary,
+    l2_error, h1_error = run_poisson_2d(solution, f, dir_zero_boundary,
             dir_nonzero_boundary, ncells=[2**3, 2**3], degree=[2, 2])
 
     expected_l2_error =  0.0001554605779481901
@@ -195,7 +225,7 @@ def test_poisson_2d_dir0_124_neu0_3():
     dir_zero_boundary    = get_boundaries(1, 2, 4)
     dir_nonzero_boundary = get_boundaries()
 
-    l2_error, h1_error, timing = run_poisson_2d(solution, f, dir_zero_boundary,
+    l2_error, h1_error = run_poisson_2d(solution, f, dir_zero_boundary,
             dir_nonzero_boundary, ncells=[2**3, 2**3], degree=[2, 2])
 
     expected_l2_error =  0.0001554605779681901
@@ -213,7 +243,7 @@ def test_poisson_2d_dir0_123_neu0_4():
     dir_zero_boundary    = get_boundaries(1, 2, 3)
     dir_nonzero_boundary = get_boundaries()
 
-    l2_error, h1_error, timing = run_poisson_2d(solution, f, dir_zero_boundary,
+    l2_error, h1_error = run_poisson_2d(solution, f, dir_zero_boundary,
             dir_nonzero_boundary, ncells=[2**3, 2**3], degree=[2, 2])
 
     expected_l2_error =  0.00015546057796339546
@@ -231,7 +261,7 @@ def test_poisson_2d_dir0_24_neu0_13():
     dir_zero_boundary    = get_boundaries(2, 4)
     dir_nonzero_boundary = get_boundaries()
 
-    l2_error, h1_error, timing = run_poisson_2d(solution, f, dir_zero_boundary,
+    l2_error, h1_error = run_poisson_2d(solution, f, dir_zero_boundary,
             dir_nonzero_boundary, ncells=[2**3, 2**3], degree=[2, 2])
 
     expected_l2_error =  2.6119892736036942e-05
@@ -249,7 +279,7 @@ def test_poisson_2d_dir0_13_neu0_24():
     dir_zero_boundary    = get_boundaries(1, 3)
     dir_nonzero_boundary = get_boundaries()
 
-    l2_error, h1_error, timing = run_poisson_2d(solution, f, dir_zero_boundary,
+    l2_error, h1_error = run_poisson_2d(solution, f, dir_zero_boundary,
             dir_nonzero_boundary, ncells=[2**3, 2**3], degree=[2, 2])
 
     expected_l2_error =  2.611989253883369e-05
@@ -267,7 +297,7 @@ def test_poisson_2d_dir0_4_neu0_123():
     dir_zero_boundary    = get_boundaries(4)
     dir_nonzero_boundary = get_boundaries()
 
-    l2_error, h1_error, timing = run_poisson_2d(solution, f, dir_zero_boundary,
+    l2_error, h1_error = run_poisson_2d(solution, f, dir_zero_boundary,
             dir_nonzero_boundary, ncells=[2**3, 2**3], degree=[2, 2])
 
     expected_l2_error =  0.00015494478505412876
@@ -285,7 +315,7 @@ def test_poisson_2d_dir0_234_neui_1():
     dir_zero_boundary    = get_boundaries(2, 3, 4)
     dir_nonzero_boundary = get_boundaries()
 
-    l2_error, h1_error, timing = run_poisson_2d(solution, f, dir_zero_boundary,
+    l2_error, h1_error = run_poisson_2d(solution, f, dir_zero_boundary,
             dir_nonzero_boundary, ncells=[2**3, 2**3], degree=[2, 2])
 
     expected_l2_error = 0.00021786960672322118
@@ -303,7 +333,7 @@ def test_poisson_2d_dir0_134_neui_2():
     dir_zero_boundary    = get_boundaries(1, 3, 4)
     dir_nonzero_boundary = get_boundaries()
 
-    l2_error, h1_error, timing = run_poisson_2d(solution, f, dir_zero_boundary,
+    l2_error, h1_error = run_poisson_2d(solution, f, dir_zero_boundary,
             dir_nonzero_boundary, ncells=[2**3, 2**3], degree=[2, 2])
 
     expected_l2_error = 0.00021786960672322118
@@ -321,7 +351,7 @@ def test_poisson_2d_dir0_124_neui_3():
     dir_zero_boundary    = get_boundaries(1, 2, 4)
     dir_nonzero_boundary = get_boundaries()
 
-    l2_error, h1_error, timing = run_poisson_2d(solution, f, dir_zero_boundary,
+    l2_error, h1_error = run_poisson_2d(solution, f, dir_zero_boundary,
             dir_nonzero_boundary, ncells=[2**3, 2**3], degree=[2, 2])
 
     expected_l2_error = 0.00021786960672322118
@@ -339,7 +369,7 @@ def test_poisson_2d_dir0_123_neui_4():
     dir_zero_boundary    = get_boundaries(1, 2, 3)
     dir_nonzero_boundary = get_boundaries()
 
-    l2_error, h1_error, timing = run_poisson_2d(solution, f, dir_zero_boundary,
+    l2_error, h1_error = run_poisson_2d(solution, f, dir_zero_boundary,
             dir_nonzero_boundary, ncells=[2**3, 2**3], degree=[2, 2])
 
     expected_l2_error = 0.00021786960672322118
@@ -357,7 +387,7 @@ def test_poisson_2d_dir0_123_diri_4():
     dir_zero_boundary    = get_boundaries(1, 2, 3)
     dir_nonzero_boundary = get_boundaries(4)
 
-    l2_error, h1_error, timing = run_poisson_2d(solution, f, dir_zero_boundary,
+    l2_error, h1_error = run_poisson_2d(solution, f, dir_zero_boundary,
             dir_nonzero_boundary, ncells=[2**3, 2**3], degree=[2, 2])
 
     expected_l2_error = 0.00015292215711784052
@@ -375,7 +405,7 @@ def test_poisson_2d_dir0_13_diri_24():
     dir_zero_boundary    = get_boundaries(1, 3)
     dir_nonzero_boundary = get_boundaries(2, 4)
 
-    l2_error, h1_error, timing = run_poisson_2d(solution, f, dir_zero_boundary,
+    l2_error, h1_error = run_poisson_2d(solution, f, dir_zero_boundary,
             dir_nonzero_boundary, ncells=[2**3, 2**3], degree=[2, 2])
 
     expected_l2_error = 0.0007786454571731944
@@ -404,7 +434,7 @@ def test_poisson_2d_dir0_1234_user_function():
     dir_zero_boundary    = get_boundaries(1, 2, 3, 4)
     dir_nonzero_boundary = get_boundaries()
 
-    l2_error, h1_error, timing = run_poisson_2d(solution, f, dir_zero_boundary,
+    l2_error, h1_error = run_poisson_2d(solution, f, dir_zero_boundary,
             dir_nonzero_boundary, ncells=[2**3, 2**3], degree=[2, 2])
 
     expected_l2_error =  0.00021808678604760232
@@ -428,7 +458,7 @@ def test_poisson_2d_dir0_1234_parallel(backend):
     dir_zero_boundary    = get_boundaries(1, 2, 3, 4)
     dir_nonzero_boundary = get_boundaries()
 
-    l2_error, h1_error, timing = run_poisson_2d(solution, f, dir_zero_boundary,
+    l2_error, h1_error = run_poisson_2d(solution, f, dir_zero_boundary,
             dir_nonzero_boundary, ncells=[2**4, 2**4], degree=[2, 2],
             comm=MPI.COMM_WORLD, backend=backend)
 
