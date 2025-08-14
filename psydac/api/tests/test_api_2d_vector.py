@@ -1,6 +1,5 @@
 # -*- coding: UTF-8 -*-
 import time
-from collections import namedtuple
 
 from sympy import Tuple, Matrix
 from sympy import pi, sin
@@ -20,10 +19,12 @@ from psydac.fem.basic          import FemField
 
 #==============================================================================
 def run_vector_poisson_2d_dir(solution, f, *, ncells, degree,
-                              backend = None, profile = False):
+                              comm=None, backend=None, timing=None):
 
-    # Dictionary for the timings, which will remain empty if profile is False
-    timing = {}
+    # The dictionary for the timings is modified in-place
+    profile = (timing is not None)
+    if profile:
+        assert isinstance(timing, dict)
 
     # ... abstract model
     domain = Square()
@@ -52,14 +53,14 @@ def run_vector_poisson_2d_dir(solution, f, *, ncells, degree,
     # ...
 
     # ... create the computational domain from a topological domain
-    domain_h = discretize(domain, ncells=ncells)
+    domain_h = discretize(domain, ncells=ncells, comm=comm)
     # ...
 
     # ... discrete spaces
     Vh = discretize(V, domain_h, degree=degree)
     # ...
 
-    # ... discretize the equation using Dirichlet bc
+    # ... discretize the equation
     equation_h = discretize(equation, domain_h, [Vh, Vh], backend=backend)
     # ...
 
@@ -85,8 +86,11 @@ def run_vector_poisson_2d_dir(solution, f, *, ncells, degree,
         apply_essential_bc(b, *equation_h.bc)
 
         # Solve linear system
+        tb = time.time()
         A_inv = inverse(A, solver='cg')
         x = A_inv.dot(b)
+        te = time.time()
+        timing['solution'] = te - tb
 
         # Store result in a new FEM field
         uh = FemField(Vh, coeffs=x)
@@ -96,41 +100,42 @@ def run_vector_poisson_2d_dir(solution, f, *, ncells, degree,
     # ...
 
     # ... compute norms
-    l2_error = l2norm_h.assemble(u = uh)
-    h1_error = h1norm_h.assemble(u = uh)
+    if profile: tb = time.time()
+    l2_error = l2norm_h.assemble(u=uh)
+    if profile: te = time.time()
+    if profile: timing['L2 error'] = te - tb
+
+    if profile: tb = time.time()
+    h1_error = h1norm_h.assemble(u=uh)
+    if profile: te = time.time()
+    if profile: timing['H1 error'] = te - tb
     # ...
 
-    return l2_error, h1_error, timing
+    return l2_error, h1_error
 
 #==============================================================================
-def test_api_vector_poisson_2d_dir_1(backend=None, profile=False):
+def test_vector_poisson_2d_dir0(comm=None, backend=None, timing=None):
 
     from sympy import symbols
     x1, x2 = symbols('x1, x2', real=True)
 
-    u1 = sin(pi*x1)*sin(pi*x2)
-    u2 = sin(pi*x1)*sin(pi*x2)
+    u1 = sin(pi*x1) * sin(pi*x2)
+    u2 = sin(pi*x1) * sin(pi*x2)
     solution = Tuple(u1, u2)
 
-    f1 = 2*pi**2*sin(pi*x1)*sin(pi*x2)
-    f2 = 2*pi**2*sin(pi*x1)*sin(pi*x2)
+    f1 = 2*pi**2 * sin(pi*x1) * sin(pi*x2)
+    f2 = 2*pi**2 * sin(pi*x1) * sin(pi*x2)
     f = Tuple(f1, f2)
 
-#    l2_error, h1_error = run_vector_poisson_2d_dir(solution, f,
-#                                            ncells=[2**3,2**3], degree=[2,2])
-
-    l2_error, h1_error, timing = run_vector_poisson_2d_dir(solution, f,
-                                        ncells=[2**3,2**3], degree=[2,2],
-                                        backend = backend,
-                                        profile = profile)
+    l2_error, h1_error = run_vector_poisson_2d_dir(solution, f,
+                                    ncells=[2**3, 2**3], degree=[2, 2],
+                                    comm=comm, backend=backend, timing=timing)
 
     expected_l2_error =  0.00030842129060800865
     expected_h1_error =  0.018418110343256442
 
     assert abs(l2_error - expected_l2_error) < 1.e-7
     assert abs(h1_error - expected_h1_error) < 1.e-7
-
-    return timing
 
 #==============================================================================
 # CLEAN UP SYMPY NAMESPACE
@@ -143,3 +148,46 @@ def teardown_module():
 def teardown_function():
     from sympy.core import cache
     cache.clear_cache()
+
+#==============================================================================
+# SCRIPT USAGE
+#==============================================================================
+
+if __name__ == "__main__":
+
+    from mpi4py import MPI
+    from psydac.api.settings import PSYDAC_BACKENDS
+
+    params = dict(
+        comm = MPI.COMM_WORLD,
+        backend = PSYDAC_BACKENDS['pyccel-gcc'],
+    )
+
+    functions_to_run = (
+        test_vector_poisson_2d_dir0,
+    )
+
+    print(f"> Input parameters:")
+    for k, v in params.items():
+        if isinstance(v, dict):
+            print(f">   {k} = ")
+            for kk, vv in v.items():
+                print(f">     {kk} = {vv}")
+        else:
+            print(f">   {k} = {v}")
+    print()
+
+    print("> Functions to run:")
+    for f in functions_to_run:
+        print(f">   {f.__name__}")
+
+    for f in functions_to_run:
+        print()
+        print(f"> Running function: {f.__name__}... ", end='')
+        timing = {}
+        f(**params, timing=timing)
+        print(f"PASSED!")
+        print(f"> Timings:")
+        for k, v in timing.items():
+            print(f">   {k} = {v}")
+    print()
