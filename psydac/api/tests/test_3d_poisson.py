@@ -196,7 +196,7 @@ def run_poisson_3d_dirneu(solution, f, boundary, ncells, degree, comm=None):
 #            SERIAL TESTS
 ###############################################################################
 
-def test_api_poisson_3d_dir_1(backend=None, timing=None):
+def test_3d_poisson_dir_1(backend=None, timing=None):
 
     from sympy import symbols
     x1, x2, x3 = symbols('x1, x2, x3', real=True)
@@ -216,7 +216,7 @@ def test_api_poisson_3d_dir_1(backend=None, timing=None):
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #==============================================================================
-def test_api_poisson_3d_dirneu_1():
+def test_3d_poisson_dirneu_1():
 
     from sympy import symbols
     x1, x2, x3 = symbols('x1, x2, x3', real=True)
@@ -236,7 +236,7 @@ def test_api_poisson_3d_dirneu_1():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #==============================================================================
-def test_api_poisson_3d_dirneu_2():
+def test_3d_poisson_dirneu_2():
 
     from sympy import symbols
     x1, x2, x3 = symbols('x1, x2, x3', real=True)
@@ -256,7 +256,7 @@ def test_api_poisson_3d_dirneu_2():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #==============================================================================
-def test_api_poisson_3d_dirneu_13():
+def test_3d_poisson_dirneu_13():
 
     from sympy import symbols
     x1, x2, x3 = symbols('x1, x2, x3', real=True)
@@ -277,7 +277,7 @@ def test_api_poisson_3d_dirneu_13():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #==============================================================================
-def test_api_poisson_3d_dirneu_24():
+def test_3d_poisson_dirneu_24():
 
     from sympy import symbols
     x1, x2, x3 = symbols('x1, x2, x3', real=True)
@@ -298,7 +298,7 @@ def test_api_poisson_3d_dirneu_24():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #==============================================================================
-def test_api_poisson_3d_dirneu_123():
+def test_3d_poisson_dirneu_123():
 
     from sympy import symbols
     x1, x2, x3 = symbols('x1, x2, x3', real=True)
@@ -320,7 +320,7 @@ def test_api_poisson_3d_dirneu_123():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #==============================================================================
-def test_api_poisson_3d_dirneu_1235():
+def test_3d_poisson_dirneu_1235():
 
     from sympy import symbols
     x1, x2, x3 = symbols('x1, x2, x3', real=True)
@@ -347,7 +347,7 @@ def test_api_poisson_3d_dirneu_1235():
 ###############################################################################
 
 @pytest.mark.parallel
-def test_api_poisson_3d_dir_1_parallel():
+def test_3d_poisson_dir_1_parallel():
 
     from sympy import symbols
     x1, x2, x3 = symbols('x1, x2, x3', real=True)

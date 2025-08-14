@@ -129,7 +129,7 @@ def run_laplace_3d_neu(filename, solution, f, *,
 #            SERIAL TESTS
 ###############################################################################
 
-def test_laplace_3d_neu_identity(comm=None, backend=None, timing=None):
+def test_3d_laplace_neu_identity(comm=None, backend=None, timing=None):
 
     filename = os.path.join(mesh_dir, 'identity_3d.h5')
 
@@ -148,7 +148,7 @@ def test_laplace_3d_neu_identity(comm=None, backend=None, timing=None):
     assert abs(h1_error - expected_h1_error) < 1.e-7
 
 #==============================================================================
-def test_laplace_3d_neu_collela(comm=None, backend=None, timing=None):
+def test_3d_laplace_neu_collela(comm=None, backend=None, timing=None):
 
     filename = os.path.join(mesh_dir, 'collela_3d.h5')
 
@@ -193,8 +193,8 @@ if __name__ == "__main__":
     )
 
     functions_to_run = (
-        test_laplace_3d_neu_identity,
-        test_laplace_3d_neu_collela,
+        test_3d_laplace_neu_identity,
+        test_3d_laplace_neu_collela,
     )
 
     print(f"> Input parameters:")
