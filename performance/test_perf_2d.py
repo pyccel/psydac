@@ -193,6 +193,7 @@ def test_compare_psydac_with_petsc():
 
     backend = PSYDAC_BACKENDS['pyccel-gcc']
     backend['language'] = 'fortran'
+    backend['openmp'] = True
     A.set_backend(backend)
 
     tb = time.time()
