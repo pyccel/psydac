@@ -191,6 +191,25 @@ def test_compare_psydac_with_petsc():
     te = time.time()
     timing['psydac'] = (te - tb) / ITER
 
+    backend = PSYDAC_BACKENDS['pyccel-gcc']
+    backend['language'] = 'fortran'
+    A.set_backend(backend)
+
+    tb = time.time()
+    for _ in range(ITER):
+        A.dot(x, out=r)
+    te = time.time()
+    timing['psydac_fortran'] = (te - tb) / ITER
+
+    backend['language'] = 'c'
+    A.set_backend(backend)
+
+    tb = time.time()
+    for _ in range(ITER):
+        A.dot(x, out=r)
+    te = time.time()
+    timing['psydac_c'] = (te - tb) / ITER
+
     tb = time.time()
     for _ in range(ITER):
         A_petsc.mult(x_petsc, r_petsc)
@@ -199,8 +218,8 @@ def test_compare_psydac_with_petsc():
 
     print()
     print("Comparing PSYDAC with PETSc. Time for matrix-vector product:")
-    print("  PSYDAC  |  PETSc")
-    print(f"{timing['psydac']:.3e} | {timing['petsc']:.3e}")
+    print("  PSYDAC  | PSYDAC (fortran) | PSYDAC (c) |  PETSc")
+    print(f"{timing['psydac']:.3e} |    {timing['psydac_fortran']:.3e}     | {timing['psydac_c']:.3e}  | {timing['petsc']:.3e}")
 
 #==============================================================================
 # SCRIPT USAGE
