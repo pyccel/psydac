@@ -258,10 +258,12 @@ class BasicCodeGen:
         flags           = self.backend['flags']
         openmp          = self.backend["openmp"]
         _PYCCEL_FOLDER  = self.backend['folder']
+        language = self.backend.get('language', None)
 
         # from pyccel.epyccel import epyccel
         from pyccel import epyccel
         fmod = epyccel(mod,
+                       language = language,
                        openmp  = openmp,
                        compiler_family = compiler_family,
                        flags   = flags,
