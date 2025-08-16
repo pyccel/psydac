@@ -167,7 +167,7 @@ def test_compare_psydac_with_petsc_poisson():
     backend['language'] = 'fortran'
     backend['openmp'] = True
     timing = {}
-    ITER = 100
+    ITER = {'solution': 10, 'matmul': 100}
 
     #+++++++++++++++++++++++++++++++
     # 1. Abstract model
@@ -246,20 +246,20 @@ def test_compare_psydac_with_petsc_poisson():
 
     # Solve linear system
     tb = time.time()
-    for _ in range(ITER):
+    for _ in range(ITER['solution']):
         A_inv = inverse(A, solver='cg')
         x = A_inv.dot(b)
     te = time.time()
-    timing['solution'] = (te - tb) / ITER
+    timing['solution'] = (te - tb) / ITER['solution']
 
     # Solve linear system
     tb = time.time()
-    for _ in range(ITER):
+    for _ in range(ITER['solution']):
         ksp.setOperators(A_petsc)
         x_petsc = b_petsc.duplicate()
         ksp.solve(b_petsc, x_petsc)
     te = time.time()
-    timing['solution_petsc'] = (te - tb) / ITER
+    timing['solution_petsc'] = (te - tb) / ITER['solution']
 
     print('Solution with petsc4py: success = {}'.format(ksp.is_converged))
 
@@ -284,16 +284,16 @@ def test_compare_psydac_with_petsc_poisson():
     r_petsc = r.topetsc()
 
     tb = time.time()
-    for _ in range(ITER):
+    for _ in range(ITER['matmul']):
         A.dot(x, out=r)
     te = time.time()
-    timing['matmul'] = (te - tb) / ITER
+    timing['matmul'] = (te - tb) / ITER['matmul']
 
     tb = time.time()
-    for _ in range(ITER):
+    for _ in range(ITER['matmul']):
         A_petsc.mult(x_petsc, r_petsc)
     te = time.time()
-    timing['matmul_petsc'] = (te - tb) / ITER
+    timing['matmul_petsc'] = (te - tb) / ITER['matmul']
 
     print()
     print("Comparing PSYDAC with PETSc. Time to solve matrix equation:")
