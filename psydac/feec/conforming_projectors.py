@@ -494,9 +494,9 @@ def get_1d_moment_correction(space_1d, p_moments=-1):
         return []
 
     if space_1d.ncells <= p_moments + 1:
-        print("The correction term is currently not independent of the mesh. The order of moment conservation has been reduced.")
         p_moments = space_1d.ncells - 2
-
+        print(f"The prescribed degree of preserved moments was too high, given the number of cells in the patch. It has been reduced to degree {p_moments}.")
+    
     if p_moments >= 0:
         # to preserve moments of degree p we need 1+p conforming basis functions in the patch (the "interior" ones)
         # and for the given regularity constraint, there are
