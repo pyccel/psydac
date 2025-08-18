@@ -5,7 +5,7 @@ from psydac.core.bsplines          import make_knots
 from psydac.fem.basic              import FemField
 from psydac.fem.splines            import SplineSpace
 from psydac.fem.tensor             import TensorFemSpace
-from psydac.feec.global_projectors import Projector_H1, Projector_L2
+from psydac.feec.global_projectors import ProjectorH1, ProjectorL2
 from psydac.ddm.cart               import DomainDecomposition
 from sympde.topology               import Square, Cube
 from psydac.api.discretization     import discretize
@@ -33,7 +33,7 @@ def test_H1_projector_1d(domain, ncells, degree, periodic, multiplicity):
     V0 = TensorFemSpace(domain_decomposition, N)
 
     # Projector onto H1 space (1D interpolation)
-    P0 = Projector_H1(V0)
+    P0 = ProjectorH1(V0)
 
     # Function to project
     f  = lambda xi1 : np.sin( xi1 + 0.5 )
@@ -79,7 +79,7 @@ def test_L2_projector_1d(domain, ncells, degree, periodic, nquads, multiplicity)
     V1 = V0.reduce_degree(axes=[0], basis='M')
 
     # Projector onto L2 space (1D histopolation)
-    P1 = Projector_L2(V1, nquads=[nquads])
+    P1 = ProjectorL2(V1, nquads=[nquads])
 
     # Function to project
     f  = lambda xi1 : np.sin( xi1 + 0.5 )

@@ -6,11 +6,11 @@ from psydac.feec.derivatives           import Divergence_2D, Divergence_3D
 from psydac.feec.derivatives           import BrokenGradient_2D
 from psydac.feec.derivatives           import BrokenScalarCurl_2D
 
-from psydac.feec.global_projectors     import Projector_H1, Projector_Hcurl, Projector_H1vec
-from psydac.feec.global_projectors     import Projector_Hdiv, Projector_L2
-from psydac.feec.global_projectors     import Multipatch_Projector_H1
-from psydac.feec.global_projectors     import Multipatch_Projector_Hcurl
-from psydac.feec.global_projectors     import Multipatch_Projector_L2
+from psydac.feec.global_projectors     import ProjectorH1, ProjectorHcurl, ProjectorH1vec
+from psydac.feec.global_projectors     import ProjectorHdiv, ProjectorL2
+from psydac.feec.global_projectors     import MultipatchProjectorH1
+from psydac.feec.global_projectors     import MultipatchProjectorHcurl
+from psydac.feec.global_projectors     import MultipatchProjectorL2
 
 from psydac.feec.conforming_projectors import ConformingProjection_V0
 from psydac.feec.conforming_projectors import ConformingProjection_V1
@@ -214,8 +214,8 @@ class DiscreteDeRham(BasicDiscrete):
         assert all(nq >= 1 for nq in nquads)
 
         if self.dim == 1:
-            P0 = Projector_H1(self.V0)
-            P1 = Projector_L2(self.V1, nquads)
+            P0 = ProjectorH1(self.V0)
+            P1 = ProjectorL2(self.V1, nquads)
             if self.mapping:
                 P0_m = lambda f: P0(pull_1d_h1(f, self.callable_mapping))
                 P1_m = lambda f: P1(pull_1d_l2(f, self.callable_mapping))
@@ -223,19 +223,19 @@ class DiscreteDeRham(BasicDiscrete):
             return P0, P1
 
         elif self.dim == 2:
-            P0 = Projector_H1(self.V0)
-            P2 = Projector_L2(self.V2, nquads)
+            P0 = ProjectorH1(self.V0)
+            P2 = ProjectorL2(self.V2, nquads)
 
             kind = self.V1.symbolic_space.kind.name
             if kind == 'hcurl':
-                P1 = Projector_Hcurl(self.V1, nquads)
+                P1 = ProjectorHcurl(self.V1, nquads)
             elif kind == 'hdiv':
-                P1 = Projector_Hdiv(self.V1, nquads)
+                P1 = ProjectorHdiv(self.V1, nquads)
             else:
                 raise TypeError('projector of space type {} is not available'.format(kind))
 
             if self.has_vec : 
-                Pvec = Projector_H1vec(self.H1vec, nquads)
+                Pvec = ProjectorH1vec(self.H1vec, nquads)
 
             if self.mapping:
                 P0_m = lambda f: P0(pull_2d_h1(f, self.callable_mapping))
@@ -256,12 +256,12 @@ class DiscreteDeRham(BasicDiscrete):
                 return P0, P1, P2
 
         elif self.dim == 3:
-            P0 = Projector_H1   (self.V0)
-            P1 = Projector_Hcurl(self.V1, nquads)
-            P2 = Projector_Hdiv (self.V2, nquads)
-            P3 = Projector_L2   (self.V3, nquads)
+            P0 = ProjectorH1   (self.V0)
+            P1 = ProjectorHcurl(self.V1, nquads)
+            P2 = ProjectorHdiv (self.V2, nquads)
+            P3 = ProjectorL2   (self.V3, nquads)
             if self.has_vec : 
-                Pvec = Projector_H1vec(self.H1vec)
+                Pvec = ProjectorH1vec(self.H1vec)
             if self.mapping:
                 P0_m = lambda f: P0(pull_3d_h1   (f, self.callable_mapping))
                 P1_m = lambda f: P1(pull_3d_hcurl(f, self.callable_mapping))
@@ -561,13 +561,13 @@ class DiscreteDeRhamMultipatch(DiscreteDeRham):
 
         Returns
         -------
-        P0: <Multipatch_Projector_H1>
+        P0: <MultipatchProjectorH1>
          Patch wise H1 projector
 
-        P1: <Multipatch_Projector_Hcurl>
+        P1: <MultipatchProjectorHcurl>
          Patch wise Hcurl projector
 
-        P2: <Multipatch_Projector_L2>
+        P2: <MultipatchProjectorL2>
          Patch wise L2 projector
 
         Notes
@@ -583,15 +583,15 @@ class DiscreteDeRhamMultipatch(DiscreteDeRham):
             raise NotImplementedError("1D projectors are not available")
 
         elif self.dim == 2:
-            P0 = Multipatch_Projector_H1(self.V0)
+            P0 = MultipatchProjectorH1(self.V0)
 
             if self.sequence[1] == 'hcurl':
-                P1 = Multipatch_Projector_Hcurl(self.V1, nquads=nquads)
+                P1 = MultipatchProjectorHcurl(self.V1, nquads=nquads)
             else:
-                P1 = None # TODO: Multipatch_Projector_Hdiv(self.V1, nquads=nquads)
+                P1 = None # TODO: Multipatch_ProjectorHdiv(self.V1, nquads=nquads)
                 raise NotImplementedError('2D sequence with H-div not available yet')
 
-            P2 = Multipatch_Projector_L2(self.V2, nquads=nquads)
+            P2 = MultipatchProjectorL2(self.V2, nquads=nquads)
             
             if self.mapping:
 

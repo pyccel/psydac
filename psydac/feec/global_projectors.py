@@ -17,8 +17,8 @@ from psydac.utilities.utils import roll_edges
 
 from abc import ABCMeta, abstractmethod
 
-__all__ = ('GlobalProjector', 'Projector_H1', 'Projector_Hcurl', 'Projector_Hdiv', 'Projector_L2',
-           'Multipatch_Projector_H1', 'Multipatch_Projector_Hcurl', 'Multipatch_Projector_L2',
+__all__ = ('GlobalProjector', 'ProjectorH1', 'ProjectorHcurl', 'ProjectorHdiv', 'ProjectorL2',
+           'MultipatchProjectorH1', 'MultipatchProjectorHcurl', 'MultipatchProjectorL2',
            'evaluate_dofs_1d_0form', 'evaluate_dofs_1d_1form',
            'evaluate_dofs_2d_0form', 'evaluate_dofs_2d_1form_hcurl', 'evaluate_dofs_2d_1form_hdiv', 'evaluate_dofs_2d_2form',
            'evaluate_dofs_3d_0form', 'evaluate_dofs_3d_1form', 'evaluate_dofs_3d_2form', 'evaluate_dofs_3d_3form')
@@ -392,7 +392,7 @@ class GlobalProjector(metaclass=ABCMeta):
 #==============================================================================
 # SINGLEPATCH PROJECTORS
 #==============================================================================
-class Projector_H1(GlobalProjector):
+class ProjectorH1(GlobalProjector):
     """
     Projector from H1 to an H1-conforming finite element space (i.e. a finite
     dimensional subspace of H1) constructed with tensor-product B-splines in 1,
@@ -442,7 +442,7 @@ class Projector_H1(GlobalProjector):
         return super().__call__(fun)
 
 #==============================================================================
-class Projector_Hcurl(GlobalProjector):
+class ProjectorHcurl(GlobalProjector):
     """
     Projector from H(curl) to an H(curl)-conforming finite element space, i.e.
     a finite dimensional subspace of H(curl), constructed with tensor-product
@@ -515,7 +515,7 @@ class Projector_Hcurl(GlobalProjector):
         return super().__call__(fun)
 
 #==============================================================================
-class Projector_Hdiv(GlobalProjector):
+class ProjectorHdiv(GlobalProjector):
     """
     Projector from H(div) to an H(div)-conforming finite element space, i.e. a
     finite dimensional subspace of H(div), constructed with tensor-product
@@ -592,7 +592,7 @@ class Projector_Hdiv(GlobalProjector):
         return super().__call__(fun)
 
 #==============================================================================
-class Projector_L2(GlobalProjector):
+class ProjectorL2(GlobalProjector):
     """
     Projector from L2 to an L2-conforming finite element space (i.e. a finite
     dimensional subspace of L2) constructed with tensor-product M-splines in 1,
@@ -652,7 +652,7 @@ class Projector_L2(GlobalProjector):
         return super().__call__(fun)
 
 #==============================================================================
-class Projector_H1vec(GlobalProjector):
+class ProjectorH1vec(GlobalProjector):
     """
     Projector from H1^3 = H1 x H1 x H1 to a conforming finite element space, i.e.
     a finite dimensional subspace of H1^3, constructed with tensor-product
@@ -719,14 +719,14 @@ class Projector_H1vec(GlobalProjector):
 #==============================================================================
 # MULTIPATCH PROJECTORS (2D)
 #==============================================================================
-class Multipatch_Projector_H1:
+class MultipatchProjectorH1:
     """
     to apply the H1 projection (2D) on every patch
     """
 
     def __init__(self, V0h):
 
-        self._P0s = [Projector_H1(V) for V in V0h.spaces]
+        self._P0s = [ProjectorH1(V) for V in V0h.spaces]
         self._V0h = V0h   # multipatch Fem Space
 
     def __call__(self, funs):
@@ -741,7 +741,7 @@ class Multipatch_Projector_H1:
         return FemField(self._V0h, coeffs=u0_coeffs)
 
 #==============================================================================
-class Multipatch_Projector_Hcurl:
+class MultipatchProjectorHcurl:
 
     """
     to apply the Hcurl projection (2D) on every patch
@@ -749,7 +749,7 @@ class Multipatch_Projector_Hcurl:
 
     def __init__(self, V1h, nquads=None):
 
-        self._P1s = [Projector_Hcurl(V, nquads=nquads) for V in V1h.spaces]
+        self._P1s = [ProjectorHcurl(V, nquads=nquads) for V in V1h.spaces]
         self._V1h = V1h   # multipatch Fem Space
 
     def __call__(self, funs):
@@ -764,7 +764,7 @@ class Multipatch_Projector_Hcurl:
         return FemField(self._V1h, coeffs=E1_coeffs)
 
 #==============================================================================
-class Multipatch_Projector_L2:
+class MultipatchProjectorL2:
 
     """
     to apply the L2 projection (2D) on every patch
@@ -772,7 +772,7 @@ class Multipatch_Projector_L2:
 
     def __init__(self, V2h, nquads=None):
 
-        self._P2s = [Projector_L2(V, nquads=nquads) for V in V2h.spaces]
+        self._P2s = [ProjectorL2(V, nquads=nquads) for V in V2h.spaces]
         self._V2h = V2h   # multipatch Fem Space
 
     def __call__(self, funs):

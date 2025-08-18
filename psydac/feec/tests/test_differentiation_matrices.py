@@ -12,7 +12,7 @@ from psydac.feec.derivatives import Derivative_1D, Gradient_2D, Gradient_3D
 from psydac.feec.derivatives import ScalarCurl_2D, VectorCurl_2D, Curl_3D
 from psydac.feec.derivatives import Divergence_2D, Divergence_3D
 
-from psydac.feec.global_projectors import Projector_H1
+from psydac.feec.global_projectors import ProjectorH1
 
 from psydac.ddm.cart         import DomainDecomposition
 from mpi4py                  import MPI
