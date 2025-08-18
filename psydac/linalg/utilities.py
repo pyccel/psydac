@@ -12,7 +12,7 @@ __all__ = (
     'array_to_psydac',
     'petsc_to_psydac',
     '_sym_ortho',
-    'SparseMatrixLinearOperator'
+    'SparseMatrixLinearOperator',
 )
 
 #==============================================================================
