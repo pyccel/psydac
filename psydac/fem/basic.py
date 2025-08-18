@@ -452,7 +452,7 @@ class FemLinearOperator:
         return self._sparse_matrix
 
 
-    def __call__(self, u):
+    def __call__(self, u, *, out=None):
         assert isinstance(u, FemField)
         assert u.space == self.fem_domain
 
