@@ -1422,7 +1422,7 @@ def construct_hcurl_singlepatch_conforming_projection(Vh, reg_orders=0, p_moment
 
 # ===============================================================================
 
-class ConformingProjection_V0(FemLinearOperator):
+class ConformingProjectionV0(FemLinearOperator):
     """
     Conforming projection from global broken V0 space to conforming global V0 space
     Defined by averaging of interface (including vertex) dofs 
@@ -1462,7 +1462,7 @@ class ConformingProjection_V0(FemLinearOperator):
         self._linop = SparseMatrixLinearOperator(self.linop_domain, self.linop_codomain, self._sparse_matrix)
 
 
-class ConformingProjection_V1(FemLinearOperator):
+class ConformingProjectionV1(FemLinearOperator):
     """
     Conforming projection from global broken V1 space to conforming V1 global space
     Defined by averaging of (only) interface dofs 

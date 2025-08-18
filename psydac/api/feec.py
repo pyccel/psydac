@@ -12,8 +12,8 @@ from psydac.feec.global_projectors     import MultipatchProjectorH1
 from psydac.feec.global_projectors     import MultipatchProjectorHcurl
 from psydac.feec.global_projectors     import MultipatchProjectorL2
 
-from psydac.feec.conforming_projectors import ConformingProjection_V0
-from psydac.feec.conforming_projectors import ConformingProjection_V1
+from psydac.feec.conforming_projectors import ConformingProjectionV0
+from psydac.feec.conforming_projectors import ConformingProjectionV1
 
 from psydac.feec.hodge                 import HodgeOperator
 
@@ -321,8 +321,8 @@ class DiscreteDeRham(BasicDiscrete):
                 raise NotImplementedError('2D sequence with H-div not available yet')
 
             else:
-                cP0 = ConformingProjection_V0(self.V0, mom_pres=mom_pres, p_moments=p_moments, hom_bc=hom_bc)
-                cP1 = ConformingProjection_V1(self.V1, mom_pres=mom_pres, p_moments=p_moments, hom_bc=hom_bc)
+                cP0 = ConformingProjectionV0(self.V0, mom_pres=mom_pres, p_moments=p_moments, hom_bc=hom_bc)
+                cP1 = ConformingProjectionV1(self.V1, mom_pres=mom_pres, p_moments=p_moments, hom_bc=hom_bc)
 
                 I2 = IdentityOperator(self.V2.coeff_space)
                 cP2 = FemLinearOperator(fem_domain=self.V2, fem_codomain=self.V2, linop=I2, sparse_matrix=I2.tosparse())
