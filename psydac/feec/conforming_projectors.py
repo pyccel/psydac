@@ -1477,9 +1477,6 @@ class ConformingProjection_V1(FemLinearOperator):
     hom_bc : <bool>
      Apply homogenous boundary conditions if True
     """
-    # todo (MCP, 16.03.2021):
-    #   - allow case without interfaces (single or multipatch)
-
     def __init__(
             self,
             V1h,
