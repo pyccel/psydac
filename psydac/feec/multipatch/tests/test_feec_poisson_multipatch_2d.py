@@ -20,6 +20,7 @@ def test_poisson_pretzel_f():
 
     assert abs(l2_error - 1.0585687717792318e-05) < 1e-10
 
+
 def test_poisson_pretzel_f_nc():
 
     source_type = 'manu_poisson_2'
