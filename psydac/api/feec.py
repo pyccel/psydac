@@ -282,8 +282,6 @@ class DiscreteDeRham(BasicDiscrete):
     def derivatives(self, kind='femlinop'):
         if kind == 'femlinop':
             return self._derivatives
-        elif kind == 'sparse':
-            return tuple(b_diff.tosparse for b_diff in self._derivatives)
         elif kind == 'linop': 
             return tuple(b_diff.linop for b_diff in self._derivatives)
     
@@ -302,14 +300,13 @@ class DiscreteDeRham(BasicDiscrete):
           Apply homogenous boundary conditions if True
 
         kind : <str>
-            The kind of the projector, can be 'femlinop', 'sparse' or 'linop'.
+            The kind of the projector, can be 'femlinop' or 'linop'.
             - 'femlinop' returns a psydac FemLinearOperator (default)
-            - 'sparse' returns a scipy sparse matrix
             - 'linop' returns a psydac LinearOperator
 
         Returns
         -------
-        cP0, cP1, cP2 : Tuple of <psydac.fem.basic.FemLinearOperator>, <scipy.sparse.spmatrix> or <psydac.linalg.basic.LinearOperator>
+        cP0, cP1, cP2 : Tuple of <psydac.fem.basic.FemLinearOperator> or <psydac.linalg.basic.LinearOperator>
           The conforming projectors of each space and in desired form.
 
         """
@@ -337,8 +334,6 @@ class DiscreteDeRham(BasicDiscrete):
 
         if kind == 'femlinop':
             return cP0, cP1, cP2
-        elif kind == 'sparse':
-            return cP0.tosparse, cP1.tosparse, cP2.tosparse
         elif kind == 'linop': 
             return cP0.linop, cP1.linop, cP2.linop
 
@@ -395,9 +390,8 @@ class DiscreteDeRham(BasicDiscrete):
                 If True, returns the dual Hodge operator
 
             kind : <str>
-                The kind of the projector, can be 'femlinop', 'sparse' or 'linop'.
+                The kind of the projector, can be 'femlinop' or 'linop'.
                 - 'femlinop' returns a psydac FemLinearOperator (default)
-                - 'sparse' returns a scipy sparse matrix
                 - 'linop' returns a psydac LinearOperator
 
         Returns
@@ -408,15 +402,11 @@ class DiscreteDeRham(BasicDiscrete):
         if not dual: 
             if kind == 'femlinop':
                 return H.hodge
-            elif kind == 'sparse':
-                return H.tosparse
             elif kind == 'linop':
                 return H.linop
         else: 
             if kind == 'femlinop':
                 return H.dual_hodge
-            elif kind == 'sparse':
-                return H.dual_tosparse
             elif kind == 'linop':
                 return H.dual_linop
 
@@ -435,9 +425,8 @@ class DiscreteDeRham(BasicDiscrete):
             If True, returns the dual Hodge operator.
 
         kind : <str>
-            The kind of the projector, can be 'femlinop', 'sparse' or 'linop'.
+            The kind of the projector, can be 'femlinop' or 'linop'.
             - 'femlinop' returns a psydac FemLinearOperator (default)
-            - 'sparse' returns a scipy sparse matrix
             - 'linop' returns a psydac LinearOperator
 
         backend_language : str
@@ -450,11 +439,11 @@ class DiscreteDeRham(BasicDiscrete):
         -------
         Either one of the following Hodge operators of the specified kind and space or all of them if space is None.
 
-        H0 : <psydac.fem.basic.FemLinearOperator>, <scipy.sparse.spmatrix> or <psydac.linalg.basic.LinearOperator>
+        H0 : <psydac.fem.basic.FemLinearOperator> or <psydac.linalg.basic.LinearOperator>
 
-        H1 : <psydac.fem.basic.FemLinearOperator>, <scipy.sparse.spmatrix> or <psydac.linalg.basic.LinearOperator>
+        H1 : <psydac.fem.basic.FemLinearOperator> or <psydac.linalg.basic.LinearOperator>
 
-        H2 : <psydac.fem.basic.FemLinearOperator>, <scipy.sparse.spmatrix> or <psydac.linalg.basic.LinearOperator>
+        H2 : <psydac.fem.basic.FemLinearOperator> or <psydac.linalg.basic.LinearOperator>
         """
 
         if not self._hodge_operators:
