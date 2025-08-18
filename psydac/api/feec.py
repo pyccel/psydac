@@ -25,10 +25,10 @@ from psydac.fem.basic                  import FemSpace, FemLinearOperator
 from psydac.fem.vector                 import VectorFemSpace
 from psydac.linalg.basic               import IdentityOperator
 
-__all__ = ('DiscreteDerham', 'DiscreteDerhamMultipatch',)
+__all__ = ('DiscreteDeRham', 'DiscreteDeRhamMultipatch',)
 
 #==============================================================================
-class DiscreteDerham(BasicDiscrete):
+class DiscreteDeRham(BasicDiscrete):
     """ A discrete de Rham sequence built over a single-patch geometry.
 
     Parameters
@@ -479,7 +479,7 @@ class DiscreteDerham(BasicDiscrete):
 
 
 #==============================================================================
-class DiscreteDerhamMultipatch(DiscreteDerham):
+class DiscreteDeRhamMultipatch(DiscreteDeRham):
     """ Represents the discrete De Rham sequence for multipatch domains.
         It only works when the number of patches>1.
 

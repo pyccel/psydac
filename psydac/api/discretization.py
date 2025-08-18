@@ -29,7 +29,7 @@ from psydac.api.fem          import DiscreteBilinearForm
 from psydac.api.fem          import DiscreteLinearForm
 from psydac.api.fem          import DiscreteFunctional
 from psydac.api.fem          import DiscreteSumForm
-from psydac.api.feec         import DiscreteDerham, DiscreteDerhamMultipatch
+from psydac.api.feec         import DiscreteDeRham, DiscreteDeRhamMultipatch
 from psydac.api.glt          import DiscreteGltExpr
 from psydac.api.expr         import DiscreteExpr
 from psydac.api.equation     import DiscreteEquation
@@ -151,7 +151,7 @@ def discretize_derham(derham, domain_h, *, get_H1vec_space=False, **kwargs):
     Create a discrete De Rham sequence from a symbolic one.
     
     This function creates the discrete spaces from the symbolic ones, and then
-    creates a DiscreteDerham object from them.
+    creates a DiscreteDeRham object from them.
 
     Parameters
     ----------
@@ -169,7 +169,7 @@ def discretize_derham(derham, domain_h, *, get_H1vec_space=False, **kwargs):
 
     Returns
     -------
-    DiscreteDerham
+    DiscreteDeRham
       The discrete De Rham sequence containing the discrete spaces, 
       differential operators and projectors.
 
@@ -191,7 +191,7 @@ def discretize_derham(derham, domain_h, *, get_H1vec_space=False, **kwargs):
         #We still need to specify the symbolic space because of "_recursive_element_of" not implemented in sympde
         spaces.append(Xh)
 
-    return DiscreteDerham(domain_h, *spaces)
+    return DiscreteDeRham(domain_h, *spaces)
 
 #==============================================================================
 def discretize_derham_multipatch(derham, domain_h, *args, **kwargs):
@@ -199,7 +199,7 @@ def discretize_derham_multipatch(derham, domain_h, *args, **kwargs):
     Create a discrete multipatch De Rham sequence from a symbolic one.
     
     This function creates the broken discrete spaces from the symbolic ones, and then
-    creates a DiscreteDerhamMultipatch object from them.
+    creates a DiscreteDeRhamMultipatch object from them.
 
     Parameters
     ----------
@@ -214,7 +214,7 @@ def discretize_derham_multipatch(derham, domain_h, *args, **kwargs):
 
     Returns
     -------
-    DiscreteDerhamMultipatch
+    DiscreteDeRhamMultipatch
       The discrete multipatch De Rham sequence containing the discrete spaces, 
       differential operators and projectors.
 
@@ -229,7 +229,7 @@ def discretize_derham_multipatch(derham, domain_h, *args, **kwargs):
     spaces = [discretize_space(V, domain_h, *args, basis=basis, **kwargs) \
             for V, basis in zip(derham.spaces, bases)]
 
-    return DiscreteDerhamMultipatch(
+    return DiscreteDeRhamMultipatch(
         domain_h = domain_h,
         spaces   = spaces
     )
