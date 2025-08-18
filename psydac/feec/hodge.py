@@ -249,3 +249,4 @@ class HodgeOperator:
             self.assemble_dual_sparse_matrix()
 
         return self._dual_hodge
+        
