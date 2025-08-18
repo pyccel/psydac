@@ -404,9 +404,14 @@ class FemLinearOperator:
         Sparse matrix representation of the linear operator.
     """
 
-    def __init__(self, fem_domain, fem_codomain, linop=None, sparse_matrix=None):
+    def __init__(self, fem_domain, fem_codomain, *, linop=None, sparse_matrix=None):
         assert isinstance(fem_domain, FemSpace)
         assert isinstance(fem_codomain, FemSpace)
+        if linop is not None:
+            assert isinstance(linop, LinearOperator)
+        if sparse_matrix is not None:
+            from scipy.sparse import spmatrix
+            assert isinstance(sparse_matrix, spmatrix)
 
         self._fem_domain = fem_domain
         self._fem_codomain = fem_codomain
