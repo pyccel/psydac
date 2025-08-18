@@ -178,14 +178,14 @@ class DiscreteDeRham(BasicDiscrete):
     #--------------------------------------------------------------------------
     def projectors(self, *, kind='global', nquads=None):
         """Projectors mapping callable functions of the physical coordinates to a 
-        corresponding `FemField` object in the De Rham sequence.
+        corresponding `FemField` object in the de Rham sequence.
 
         Parameters
         ----------
         kind : str
             Type of the projection : at the moment, only global is accepted and
             returns geometric commuting projectors based on interpolation/histopolation 
-            for the De Rham sequence (GlobalProjector objects).
+            for the de Rham sequence (GlobalProjector objects).
 
         nquads : list(int) | tuple(int)
             Number of quadrature points along each direction, to be used in Gauss
@@ -196,7 +196,7 @@ class DiscreteDeRham(BasicDiscrete):
         P0, ..., Pn : callables
             Projectors that can be called on any callable function that maps 
             from the physical space to R (scalar case) or R^d (vector case) and
-            returns a FemField belonging to the i-th space of the De Rham sequence
+            returns a FemField belonging to the i-th space of the de Rham sequence
         """
 
         if not (kind == 'global'):
@@ -491,7 +491,7 @@ class DiscreteDeRham(BasicDiscrete):
 
 #==============================================================================
 class DiscreteDeRhamMultipatch(DiscreteDeRham):
-    """ Represents the discrete De Rham sequence for multipatch domains.
+    """ Represents the discrete de Rham sequence for multipatch domains.
         It only works when the number of patches>1.
 
     Parameters
@@ -500,7 +500,7 @@ class DiscreteDeRhamMultipatch(DiscreteDeRham):
      The discrete domain
 
     spaces: <list,tuple>
-      The discrete spaces that are contained in the De Rham sequence
+      The discrete spaces that are contained in the de Rham sequence
     """
     
     def __init__(self, *, domain_h, spaces):

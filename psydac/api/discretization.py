@@ -148,7 +148,7 @@ def get_max_degree(*spaces):
 #==============================================================================           
 def discretize_derham(derham, domain_h, *, get_H1vec_space=False, **kwargs):
     """
-    Create a discrete De Rham sequence from a symbolic one.
+    Create a discrete de Rham sequence from a symbolic one.
     
     This function creates the discrete spaces from the symbolic ones, and then
     creates a DiscreteDeRham object from them.
@@ -170,7 +170,7 @@ def discretize_derham(derham, domain_h, *, get_H1vec_space=False, **kwargs):
     Returns
     -------
     DiscreteDeRham
-      The discrete De Rham sequence containing the discrete spaces, 
+      The discrete de Rham sequence containing the discrete spaces, 
       differential operators and projectors.
 
     See Also
@@ -196,7 +196,7 @@ def discretize_derham(derham, domain_h, *, get_H1vec_space=False, **kwargs):
 #==============================================================================
 def discretize_derham_multipatch(derham, domain_h, *args, **kwargs):
     """
-    Create a discrete multipatch De Rham sequence from a symbolic one.
+    Create a discrete multipatch de Rham sequence from a symbolic one.
     
     This function creates the broken discrete spaces from the symbolic ones, and then
     creates a DiscreteDeRhamMultipatch object from them.
@@ -215,7 +215,7 @@ def discretize_derham_multipatch(derham, domain_h, *args, **kwargs):
     Returns
     -------
     DiscreteDeRhamMultipatch
-      The discrete multipatch De Rham sequence containing the discrete spaces, 
+      The discrete multipatch de Rham sequence containing the discrete spaces, 
       differential operators and projectors.
 
     See Also
