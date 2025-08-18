@@ -105,9 +105,9 @@ def solve_h1_source_pbm(
 
     print('Hodge operators...')
     # multi-patch (broken) linear operators 
-    H0 = derham_h.hodge_operators(space='V0', kind='linop', backend_language=backend_language)
-    H1 = derham_h.hodge_operators(space='V1', kind='linop', backend_language=backend_language)
-    dH0 = derham_h.hodge_operators(space='V0', kind='linop', dual=True, backend_language=backend_language)
+    H0 = derham_h.hodge_operator(space='V0', kind='linop', backend_language=backend_language)
+    H1 = derham_h.hodge_operator(space='V1', kind='linop', backend_language=backend_language)
+    dH0 = derham_h.hodge_operator(space='V0', kind='linop', dual=True, backend_language=backend_language)
 
     print('conforming projection operators...')
     # conforming Projections (should take into account the boundary conditions
