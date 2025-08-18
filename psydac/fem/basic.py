@@ -386,9 +386,9 @@ class FemField:
 #===============================================================================
 class FemLinearOperator:
     """
-    Linear operators with an additional Fem layer. 
-    There is also a shorthand access to sparse matrices as they are sometimes used in the FEEC interfaces.
-
+    Linear operators with an additional FEM layer. 
+    There is also a shorthand access to sparse matrices as they are sometimes
+    used in the FEEC interfaces.
     Parameters
     ----------
     fem_domain : psydac.fem.basic.FemSpace
