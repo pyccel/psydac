@@ -729,11 +729,11 @@ class Multipatch_Projector_H1:
         self._P0s = [Projector_H1(V) for V in V0h.spaces]
         self._V0h = V0h   # multipatch Fem Space
 
-    def __call__(self, funs_log):
+    def __call__(self, funs):
         """
         project a list of functions given in the logical domain
         """
-        u0s = [P(fun) for P, fun, in zip(self._P0s, funs_log)]
+        u0s = [P(fun) for P, fun, in zip(self._P0s, funs)]
 
         u0_coeffs = BlockVector(self._V0h.coeff_space,
                                 blocks=[u0j.coeffs for u0j in u0s])
@@ -752,11 +752,11 @@ class Multipatch_Projector_Hcurl:
         self._P1s = [Projector_Hcurl(V, nquads=nquads) for V in V1h.spaces]
         self._V1h = V1h   # multipatch Fem Space
 
-    def __call__(self, funs_log):
+    def __call__(self, funs):
         """
         project a list of functions given in the logical domain
         """
-        E1s = [P(fun) for P, fun, in zip(self._P1s, funs_log)]
+        E1s = [P(fun) for P, fun, in zip(self._P1s, funs)]
 
         E1_coeffs = BlockVector(self._V1h.coeff_space,
                                 blocks=[E1j.coeffs for E1j in E1s])
@@ -775,11 +775,11 @@ class Multipatch_Projector_L2:
         self._P2s = [Projector_L2(V, nquads=nquads) for V in V2h.spaces]
         self._V2h = V2h   # multipatch Fem Space
 
-    def __call__(self, funs_log):
+    def __call__(self, funs):
         """
         project a list of functions given in the logical domain
         """
-        B2s = [P(fun) for P, fun, in zip(self._P2s, funs_log)]
+        B2s = [P(fun) for P, fun, in zip(self._P2s, funs)]
 
         B2_coeffs = BlockVector(self._V2h.coeff_space,
                                 blocks=[B2j.coeffs for B2j in B2s])
