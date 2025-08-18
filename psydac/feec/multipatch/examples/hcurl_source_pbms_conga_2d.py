@@ -144,8 +144,8 @@ def solve_hcurl_source_pbm(
     print(' .. Hodge operators...')
     # multi-patch (broken) linear operators / matrices
     # other option: define as Hodge Operators:
-    H0, H1, H2 = derham_h.Hodge_operators(kind='linop', backend_language=backend_language)
-    dH0, dH1, dH2 = derham_h.Hodge_operators(kind='linop', dual=True, backend_language=backend_language)
+    H0, H1, H2 = derham_h.hodge_operators(kind='linop', backend_language=backend_language)
+    dH0, dH1, dH2 = derham_h.hodge_operators(kind='linop', dual=True, backend_language=backend_language)
 
 
     t_stamp = time_count(t_stamp)

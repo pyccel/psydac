@@ -132,8 +132,8 @@ def hcurl_solve_eigen_pbm(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), doma
     t_stamp = time_count(t_stamp)
     print('Hodge operators...')
     # multi-patch (broken) linear operators / matrices
-    H0, H1, H2 = derham_h.Hodge_operators(kind='linop', backend_language=backend_language, load_dir=m_load_dir)
-    dH0, dH1, dH2 = derham_h.Hodge_operators(kind='linop', dual=True, backend_language=backend_language, load_dir=m_load_dir)
+    H0, H1, H2 = derham_h.hodge_operators(kind='linop', backend_language=backend_language, load_dir=m_load_dir)
+    dH0, dH1, dH2 = derham_h.hodge_operators(kind='linop', dual=True, backend_language=backend_language, load_dir=m_load_dir)
 
     t_stamp = time_count(t_stamp)
     print('conforming projection operators...')
