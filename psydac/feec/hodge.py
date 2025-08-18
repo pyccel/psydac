@@ -165,8 +165,10 @@ class HodgeOperator:
                 self._dual_hodge = FemLinearOperator(self._fem_codomain, self._fem_domain, linop=self._dual_linop, sparse_matrix=self._dual_sparse_matrix)
 
             else:
+                from scipy.sparse import csr_matrix
                 M_m = M.toarray()
                 inv_M = inv(M_m)
+                inv_M = csr_matrix(inv_M)
 
                 self._dual_sparse_matrix = inv_M
                 self._dual_linop = SparseMatrixLinearOperator(M.codomain, M.domain, inv_M)
