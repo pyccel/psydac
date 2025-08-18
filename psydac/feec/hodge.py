@@ -3,7 +3,7 @@ import numpy as np
 
 from scipy.sparse import save_npz, load_npz
 from scipy.sparse import block_diag
-from scipy.sparse.linalg import inv
+from scipy.linalg import inv
 
 from sympde.topology import element_of, elements_of
 from sympde.topology.space import ScalarFunction
@@ -154,12 +154,11 @@ class HodgeOperator:
 
                 inv_M_blocks = []
                 for i in range(nrows):
-                    Mii = M[i, i].tosparse()
-                    inv_Mii = inv(Mii.tocsc())
-                    inv_Mii.eliminate_zeros()
+                    Mii = M[i, i].toarray()
+                    inv_Mii = inv(Mii)
                     inv_M_blocks.append(inv_Mii)
 
-                inv_M = block_diag(inv_M_blocks)
+                inv_M = block_diag(inv_M_blocks, format='csr')
 
                 self._dual_sparse_matrix = inv_M
                 self._dual_linop = SparseMatrixLinearOperator(M.codomain, M.domain, inv_M)
