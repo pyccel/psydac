@@ -411,7 +411,7 @@ class DiscreteDeRham(BasicDiscrete):
                 return H.dual_linop
 
     #--------------------------------------------------------------------------
-    def hodge_operators(self, space=None, dual=False, kind='femlinop', backend_language='python', load_dir=None):
+    def hodge_operator(self, space=None, dual=False, kind='femlinop', backend_language='python', load_dir=None):
         """
         Returns the Hodge operator for the given space and specified kind.
         
@@ -437,20 +437,14 @@ class DiscreteDeRham(BasicDiscrete):
 
         Returns
         -------
-        Either one of the following Hodge operators of the specified kind and space or all of them if space is None.
+        The Hodge operator of the space of the specified kind.
 
-        H0 : <psydac.fem.basic.FemLinearOperator> or <psydac.linalg.basic.LinearOperator>
-
-        H1 : <psydac.fem.basic.FemLinearOperator> or <psydac.linalg.basic.LinearOperator>
-
-        H2 : <psydac.fem.basic.FemLinearOperator> or <psydac.linalg.basic.LinearOperator>
+        H : <psydac.fem.basic.FemLinearOperator> or <psydac.linalg.basic.LinearOperator>
         """
 
         if not self._hodge_operators:
             self._init_hodge_operators(backend_language=backend_language, load_dir=load_dir)
             
-        H0, H1, H2 = self._hodge_operators
-
         if space == 'V0':
            return self._get_hodge_operator(self._hodge_operators[0], dual=dual, kind=kind)
 
@@ -463,8 +457,36 @@ class DiscreteDeRham(BasicDiscrete):
         elif space == 'V3':
             return self._get_hodge_operator(self._hodge_operators[3], dual=dual, kind=kind)
 
-        elif space is None:
-            return tuple(self._get_hodge_operator(H, dual=dual, kind=kind) for H in self._hodge_operators)
+    #--------------------------------------------------------------------------
+    def hodge_operators(self, dual=False, kind='femlinop', backend_language='python', load_dir=None):
+        """
+        Returns the Hodge operators for the specified kind.
+        
+        Parameters
+        ----------
+        dual : bool
+            If True, returns the dual Hodge operator.
+
+        kind : <str>
+            The kind of the projector, can be 'femlinop' or 'linop'.
+            - 'femlinop' returns a psydac FemLinearOperator (default)
+            - 'linop' returns a psydac LinearOperator
+
+        backend_language : str
+            The backend used to accelerate the code, default is 'python'.
+
+        load_dir : str or None
+            Directory to load the Hodge operator from, if None the operator is computed on demand.
+
+        Returns
+        -------
+        The Hodge operators of all spaces and of the specified kind.
+        """
+
+        if not self._hodge_operators:
+            self._init_hodge_operators(backend_language=backend_language, load_dir=load_dir)
+            
+        return tuple(self._get_hodge_operator(H, dual=dual, kind=kind) for H in self._hodge_operators)
 
 
 #==============================================================================
