@@ -17,7 +17,7 @@ from psydac.linalg.utilities        import SparseMatrixLinearOperator
 
 __all__ = (
     'ConformingProjectionV0',
-    'ConformingProjectionV1'
+    'ConformingProjectionV1',
 )
 
 def get_patch_index_from_face(domain, face):
@@ -1425,7 +1425,8 @@ def construct_hcurl_singlepatch_conforming_projection(Vh, reg_orders=0, p_moment
 class ConformingProjection_V0(FemLinearOperator):
     """
     Conforming projection from global broken V0 space to conforming global V0 space
-    Defined by averaging of interface dofs
+    Defined by averaging of interface (including vertex) dofs 
+    and adding moment correction terms
 
     Parameters
     ----------
@@ -1464,8 +1465,8 @@ class ConformingProjection_V0(FemLinearOperator):
 class ConformingProjection_V1(FemLinearOperator):
     """
     Conforming projection from global broken V1 space to conforming V1 global space
-
-    proj.dot(v) returns the conforming projection of v, computed by solving linear system
+    Defined by averaging of (only) interface dofs 
+    and adding moment correction terms
 
     Parameters
     ----------
