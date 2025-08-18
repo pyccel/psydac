@@ -4,10 +4,6 @@ import numpy as np
 
 from sympy import pi, cos, sin, Tuple, exp, atan, atan2
 from sympy.functions.special.error_functions import erf
-
-
-
-
 # todo [MCP, 12/02/2022]:  add an 'equation' argument to be able to return
 # 'exact solution'
 
