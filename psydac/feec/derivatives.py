@@ -15,18 +15,18 @@ from psydac.ddm.cart        import DomainDecomposition, CartDecomposition
 
 __all__ = (
     'DirectionalDerivativeOperator',
-    'Derivative_1D',
-    'Gradient_2D',
-    'Gradient_3D',
-    'ScalarCurl_2D',
-    'VectorCurl_2D',
-    'Curl_3D',
-    'Divergence_2D',
-    'Divergence_3D',
-    'BrokenGradient_2D',
-    'BrokenTransposedGradient_2D',
-    'BrokenScalarCurl_2D',
-    'BrokenTransposedScalarCurl_2D',
+    'Derivative1D',
+    'Gradient2D',
+    'Gradient3D',
+    'ScalarCurl2D',
+    'VectorCurl2D',
+    'Curl3D',
+    'Divergence2D',
+    'Divergence3D',
+    'BrokenGradient2D',
+    'BrokenTransposedGradient2D',
+    'BrokenScalarCurl2D',
+    'BrokenTransposedScalarCurl2D',
     'block_tostencil'
 )
 
@@ -366,7 +366,7 @@ class DirectionalDerivativeOperator(LinearOperator):
                 self._diffdir, negative=self._negative, transposed=self._transposed)
 
 #====================================================================================================
-class Derivative_1D(FemLinearOperator):
+class Derivative1D(FemLinearOperator):
     """
     1D derivative.
 
@@ -390,7 +390,7 @@ class Derivative_1D(FemLinearOperator):
         super().__init__(fem_domain = H1, fem_codomain = L2, linop = DirectionalDerivativeOperator(H1.coeff_space, L2.coeff_space, 0))
 
 #====================================================================================================
-class Gradient_2D(FemLinearOperator):
+class Gradient2D(FemLinearOperator):
     """
     Gradient operator in 2D.
 
@@ -429,7 +429,7 @@ class Gradient_2D(FemLinearOperator):
         super().__init__(fem_domain = H1, fem_codomain = Hcurl, linop = matrix)
 
 #====================================================================================================
-class Gradient_3D(FemLinearOperator):
+class Gradient3D(FemLinearOperator):
     """
     Gradient operator in 3D.
 
@@ -471,7 +471,7 @@ class Gradient_3D(FemLinearOperator):
         super().__init__(fem_domain = H1, fem_codomain = Hcurl, linop = matrix)
 
 #====================================================================================================
-class ScalarCurl_2D(FemLinearOperator):
+class ScalarCurl2D(FemLinearOperator):
     """
     Scalar curl operator in 2D: computes a scalar field from a vector field.
 
@@ -510,7 +510,7 @@ class ScalarCurl_2D(FemLinearOperator):
         super().__init__(fem_domain = Hcurl, fem_codomain = L2, linop = matrix)
 
 #====================================================================================================
-class VectorCurl_2D(FemLinearOperator):
+class VectorCurl2D(FemLinearOperator):
     """
     Vector curl operator in 2D: computes a vector field from a scalar field.
     This is sometimes called the 'rot' operator.
@@ -550,7 +550,7 @@ class VectorCurl_2D(FemLinearOperator):
         super().__init__(fem_domain = H1, fem_codomain = Hdiv, linop = matrix)
 
 #====================================================================================================
-class Curl_3D(FemLinearOperator):
+class Curl3D(FemLinearOperator):
     """
     Curl operator in 3D.
 
@@ -600,7 +600,7 @@ class Curl_3D(FemLinearOperator):
         super().__init__(fem_domain = Hcurl, fem_codomain = Hdiv, linop = matrix)
 
 #====================================================================================================
-class Divergence_2D(FemLinearOperator):
+class Divergence2D(FemLinearOperator):
     """
     Divergence operator in 2D.
 
@@ -639,7 +639,7 @@ class Divergence_2D(FemLinearOperator):
         super().__init__(fem_domain = Hdiv, fem_codomain = L2, linop = matrix)
 
 #====================================================================================================
-class Divergence_3D(FemLinearOperator):
+class Divergence3D(FemLinearOperator):
     """
     Divergence operator in 3D.
 
@@ -683,65 +683,65 @@ class Divergence_3D(FemLinearOperator):
 #====================================================================================================
 # 2D Multipatch derivative operators
 #====================================================================================================
-class BrokenGradient_2D(FemLinearOperator):
+class BrokenGradient2D(FemLinearOperator):
 
     def __init__(self, V0h, V1h):
 
         FemLinearOperator.__init__(self, fem_domain=V0h, fem_codomain=V1h)
 
-        D0s = [Gradient_2D(V0, V1) for V0, V1 in zip(V0h.spaces, V1h.spaces)]
+        D0s = [Gradient2D(V0, V1) for V0, V1 in zip(V0h.spaces, V1h.spaces)]
 
         self._linop = BlockLinearOperator(self.linop_domain, self.linop_codomain, blocks={
                                            (i, i): D0i.linop for i, D0i in enumerate(D0s)})
 
     def transpose(self, conjugate=False):
         # todo (MCP): define as the dual differential operator
-        return BrokenTransposedGradient_2D(self.fem_domain, self.fem_codomain)
+        return BrokenTransposedGradient2D(self.fem_domain, self.fem_codomain)
 
 # ==============================================================================
-class BrokenTransposedGradient_2D(FemLinearOperator):
+class BrokenTransposedGradient2D(FemLinearOperator):
 
     def __init__(self, V0h, V1h):
 
         FemLinearOperator.__init__(self, fem_domain=V1h, fem_codomain=V0h)
 
-        D0s = [Gradient_2D(V0, V1) for V0, V1 in zip(V0h.spaces, V1h.spaces)]
+        D0s = [Gradient2D(V0, V1) for V0, V1 in zip(V0h.spaces, V1h.spaces)]
 
         self._linop = BlockLinearOperator(self.linop_domain, self.linop_codomain, blocks={
                                            (i, i): D0i.linop.T for i, D0i in enumerate(D0s)})
 
     def transpose(self, conjugate=False):
         # todo (MCP): discard
-        return BrokenGradient_2D(self.fem_codomain, self.fem_domain)
+        return BrokenGradient2D(self.fem_codomain, self.fem_domain)
 
 # ==============================================================================
-class BrokenScalarCurl_2D(FemLinearOperator):
-    
+class BrokenScalarCurl2D(FemLinearOperator):
+
     def __init__(self, V1h, V2h):
 
         FemLinearOperator.__init__(self, fem_domain=V1h, fem_codomain=V2h)
 
-        D1s = [ScalarCurl_2D(V1, V2) for V1, V2 in zip(V1h.spaces, V2h.spaces)]
+        D1s = [ScalarCurl2D(V1, V2) for V1, V2 in zip(V1h.spaces, V2h.spaces)]
 
         self._linop = BlockLinearOperator(self.linop_domain, self.linop_codomain, blocks={
                                            (i, i): D1i.linop for i, D1i in enumerate(D1s)})
 
     def transpose(self, conjugate=False):
-        return BrokenTransposedScalarCurl_2D(
+        return BrokenTransposedScalarCurl2D(
             V1h=self.fem_domain, V2h=self.fem_codomain)
 
 
 # ==============================================================================
-class BrokenTransposedScalarCurl_2D(FemLinearOperator):
+class BrokenTransposedScalarCurl2D(FemLinearOperator):
 
     def __init__(self, V1h, V2h):
 
         FemLinearOperator.__init__(self, fem_domain=V2h, fem_codomain=V1h)
 
-        D1s = [ScalarCurl_2D(V1, V2) for V1, V2 in zip(V1h.spaces, V2h.spaces)]
+        D1s = [ScalarCurl2D(V1, V2) for V1, V2 in zip(V1h.spaces, V2h.spaces)]
 
         self._linop = BlockLinearOperator(self.linop_domain, self.linop_codomain, blocks={
                                            (i, i): D1i.linop.T for i, D1i in enumerate(D1s)})
 
     def transpose(self, conjugate=False):
-        return BrokenScalarCurl_2D(V1h=self.fem_codomain, V2h=self.fem_domain)
+        return BrokenScalarCurl2D(V1h=self.fem_codomain, V2h=self.fem_domain)

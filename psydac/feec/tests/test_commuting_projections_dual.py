@@ -1,6 +1,6 @@
-from psydac.feec.derivatives        import Gradient_3D
-from psydac.feec.derivatives        import Curl_3D
-from psydac.feec.derivatives        import Divergence_3D
+from psydac.feec.derivatives        import Gradient3D
+from psydac.feec.derivatives        import Curl3D
+from psydac.feec.derivatives        import Divergence3D
 from sympde.expr                    import LinearForm, integral      
 from sympde.topology                import Derham, element_of, Cube  
 from psydac.api.discretization      import discretize
@@ -39,7 +39,7 @@ def test_transpose_div_3d(Nel, Nq, p, bc, m):
 
     v2 = element_of(derham.V2, name='v2')
     v3 = element_of(derham.V3, name='v3')
-    div = Divergence_3D(derham_h.V2, derham_h.V3)
+    div = Divergence3D(derham_h.V2, derham_h.V3)
 
     f2 = LinearForm(v2, integral(domain, D1fun1(*domain.coordinates)*v2[0] + D2fun1(*domain.coordinates)*v2[1] + D3fun1(*domain.coordinates)*v2[2]))
     f3 = LinearForm(v3, integral(domain, fun1(*domain.coordinates) * v3))
@@ -97,7 +97,7 @@ def test_transpose_curl_3d(Nel, Nq, p, bc, m):
 
     v1 = element_of(derham.V1, name='v1')
     v2 = element_of(derham.V2, name='v2')
-    curl = Curl_3D(derham_h.V1, derham_h.V2)
+    curl = Curl3D(derham_h.V1, derham_h.V2)
 
     f1 = LinearForm(v1, integral(domain, cf1(*domain.coordinates)*v1[0] + cf2(*domain.coordinates)*v1[1] + cf3(*domain.coordinates)*v1[2]))
     f2 = LinearForm(v2, integral(domain, fun1(*domain.coordinates)*v2[0] + fun2(*domain.coordinates)*v2[1] + fun3(*domain.coordinates)*v2[2]))
@@ -144,7 +144,7 @@ def test_transpose_grad_3d(Nel, Nq, p, bc, m):
 
     v0 = element_of(derham.V0, name='v0')
     v1 = element_of(derham.V1, name='v1')
-    grad = Gradient_3D(derham_h.V0, derham_h.V1)    
+    grad = Gradient3D(derham_h.V0, derham_h.V1)    
 
     f0 = LinearForm(v0, integral(domain, (D1fun1(*domain.coordinates) + D2fun2(*domain.coordinates) + D3fun3(*domain.coordinates))*v0))
     f1 = LinearForm(v1, integral(domain, fun1(*domain.coordinates)*v1[0] + fun2(*domain.coordinates)*v1[1] + fun3(*domain.coordinates)*v1[2]))

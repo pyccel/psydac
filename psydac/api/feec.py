@@ -1,10 +1,10 @@
 from psydac.api.basic                  import BasicDiscrete
 
-from psydac.feec.derivatives           import Derivative_1D, Gradient_2D, Gradient_3D
-from psydac.feec.derivatives           import ScalarCurl_2D, VectorCurl_2D, Curl_3D
-from psydac.feec.derivatives           import Divergence_2D, Divergence_3D
-from psydac.feec.derivatives           import BrokenGradient_2D
-from psydac.feec.derivatives           import BrokenScalarCurl_2D
+from psydac.feec.derivatives           import Derivative1D, Gradient2D, Gradient3D
+from psydac.feec.derivatives           import ScalarCurl2D, VectorCurl2D, Curl3D
+from psydac.feec.derivatives           import Divergence2D, Divergence3D
+from psydac.feec.derivatives           import BrokenGradient2D
+from psydac.feec.derivatives           import BrokenScalarCurl2D
 
 from psydac.feec.global_projectors     import ProjectorH1, ProjectorHcurl, ProjectorH1vec
 from psydac.feec.global_projectors     import ProjectorHdiv, ProjectorL2
@@ -66,7 +66,7 @@ class DiscreteDeRham(BasicDiscrete):
         self._callable_mapping = self._mapping.get_callable_mapping() if self._mapping else None
 
         if dim == 1:
-            D0 = Derivative_1D(spaces[0], spaces[1])
+            D0 = Derivative1D(spaces[0], spaces[1])
 
             spaces[0].diff = spaces[0].grad = D0
 
@@ -77,8 +77,8 @@ class DiscreteDeRham(BasicDiscrete):
 
             if kind == 'hcurl':
 
-                D0 =   Gradient_2D(spaces[0], spaces[1])
-                D1 = ScalarCurl_2D(spaces[1], spaces[2])
+                D0 =   Gradient2D(spaces[0], spaces[1])
+                D1 = ScalarCurl2D(spaces[1], spaces[2])
 
                 spaces[0].diff = spaces[0].grad = D0
                 spaces[1].diff = spaces[1].curl = D1
@@ -87,8 +87,8 @@ class DiscreteDeRham(BasicDiscrete):
 
             elif kind == 'hdiv':
 
-                D0 = VectorCurl_2D(spaces[0], spaces[1])
-                D1 = Divergence_2D(spaces[1], spaces[2])
+                D0 = VectorCurl2D(spaces[0], spaces[1])
+                D1 = Divergence2D(spaces[1], spaces[2])
 
                 spaces[0].diff = spaces[0].rot = D0
                 spaces[1].diff = spaces[1].div = D1
@@ -98,9 +98,9 @@ class DiscreteDeRham(BasicDiscrete):
 
         elif dim == 3:
 
-            D0 =   Gradient_3D(spaces[0], spaces[1])
-            D1 =       Curl_3D(spaces[1], spaces[2])
-            D2 = Divergence_3D(spaces[2], spaces[3])
+            D0 =   Gradient3D(spaces[0], spaces[1])
+            D1 =       Curl3D(spaces[1], spaces[2])
+            D2 = Divergence3D(spaces[2], spaces[3])
 
             spaces[0].diff = spaces[0].grad = D0
             spaces[1].diff = spaces[1].curl = D1
@@ -522,8 +522,8 @@ class DiscreteDeRhamMultipatch(DiscreteDeRham):
             if self._sequence[1] == 'hcurl':
 
                 self._derivatives = (
-                    BrokenGradient_2D(self.V0, self.V1),
-                    BrokenScalarCurl_2D(self.V1, self.V2),  # None,
+                    BrokenGradient2D(self.V0, self.V1),
+                    BrokenScalarCurl2D(self.V1, self.V2),  # None,
                 )
 
             elif self._sequence[1] == 'hdiv':
