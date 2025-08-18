@@ -699,7 +699,6 @@ class BrokenGradient_2D(FemLinearOperator):
         return BrokenTransposedGradient_2D(self.fem_domain, self.fem_codomain)
 
 # ==============================================================================
-
 class BrokenTransposedGradient_2D(FemLinearOperator):
 
     def __init__(self, V0h, V1h):
@@ -717,6 +716,7 @@ class BrokenTransposedGradient_2D(FemLinearOperator):
 
 # ==============================================================================
 class BrokenScalarCurl_2D(FemLinearOperator):
+    
     def __init__(self, V1h, V2h):
 
         FemLinearOperator.__init__(self, fem_domain=V1h, fem_codomain=V2h)
