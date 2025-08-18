@@ -71,7 +71,9 @@ class HodgeOperator:
         self._domain_h = domain_h
         self._backend_language = backend_language
 
-        assert metric == 'identity'
+        if not (metric == 'identity'):
+            raise NotImplementedError('only the identity metric is available')
+
         self._metric = metric
 
         if load_dir and isinstance(load_dir, str):
