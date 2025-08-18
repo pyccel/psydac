@@ -15,6 +15,10 @@ from psydac.fem.splines             import SplineSpace
 from psydac.utilities.quadratures   import gauss_legendre
 from psydac.linalg.utilities        import SparseMatrixLinearOperator
 
+__all__ = (
+    'ConformingProjectionV0',
+    'ConformingProjectionV1'
+)
 
 def get_patch_index_from_face(domain, face):
     """
