@@ -465,7 +465,7 @@ class FemLinearOperator:
 
         return FemField(self.fem_codomain, coeffs=coeffs)
     
-    def dot( self, f_coeffs, out=None ):
+    def dot(self, f_coeffs, *, out=None):
         assert isinstance(f_coeffs, Vector)
         assert f_coeffs.space is self._linop_domain
 
