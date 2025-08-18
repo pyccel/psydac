@@ -392,10 +392,10 @@ class FemLinearOperator:
     Parameters
     ----------
     fem_domain : psydac.fem.basic.FemSpace
-        The discrete space
+        The discrete space of the domain
 
     fem_codomain : psydac.fem.basic.FemSpace
-        Number of polynomial moments to be preserved in the projection.
+        The discrete space of the codomain
 
     linop : <psydac.linalg.basic.LinearOperator> (optional)
         Linear Operator. 
