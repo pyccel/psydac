@@ -385,14 +385,6 @@ def test_st_navier_stokes_2d():
 #------------------------------------------------------------------------------
 def test_navier_stokes_2d():
     Tf       = 1.
-    dt_h     = 0.05
-    nt       = Tf//dt_h
-    filename = os.path.join(mesh_dir, 'bent_pipe.h5')
-    solutions, p_h, domain, domain_h = run_time_dependent_navier_stokes_2d(filename, dt_h=dt_h, nt=nt, newton_tol=1e-10, scipy=True)
-
-#------------------------------------------------------------------------------
-def test_navier_stokes_2d_fast():
-    Tf       = 1.0
     dt_h     = 0.1
     nt       = Tf//dt_h
     filename = os.path.join(mesh_dir, 'bent_pipe.h5')
