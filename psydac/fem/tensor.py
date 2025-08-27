@@ -277,9 +277,9 @@ class TensorFemSpace(FemSpace):
             # Determine local span
             wrap_x   = space.periodic and fx > xlim[1]
             loc_span = span - space.nbasis if wrap_x else span
-            start    = self.vector_space.starts[i]
-            pad      = self.vector_space.pads  [i]
-            shift    = self.vector_space.shifts[i]
+            start    = self.coeff_space.starts[i]
+            pad      = self.coeff_space.pads  [i]
+            shift    = self.coeff_space.shifts[i]
             index.append(slice(loc_span - degree - start + shift * pad,
                                     loc_span + 1 - start + shift * pad))
             if weights:
@@ -348,7 +348,7 @@ class TensorFemSpace(FemSpace):
             # be sure it's the right type for kernels
             fx = float(x)
             span   =  find_span_p( knots, degree, fx )
-            vs = space.vector_space
+            vs = space.coeff_space
 
             #-------------------------------------------------#
             # Fix span for boundaries between subdomains      #
@@ -369,9 +369,9 @@ class TensorFemSpace(FemSpace):
             # Determine local span
             wrap_x   = space.periodic and fx > xlim[1]
             loc_span = span - space.nbasis if wrap_x else span
-            start = self.vector_space.starts[i]
-            pad = self.vector_space.pads[i]
-            shift = self.vector_space.shifts[i]
+            start = self.coeff_space.starts[i]
+            pad = self.coeff_space.pads[i]
+            shift = self.coeff_space.shifts[i]
             index.append( slice( loc_span-degree-start+shift*pad, loc_span+1-start+shift*pad ) )
             if weights:
                 w_index.append(slice(loc_span-degree, loc_span+1))
@@ -756,7 +756,7 @@ class TensorFemSpace(FemSpace):
             # be sure it's the right type for kernels
             fx = float(x)
             span    =  find_span_p( knots, degree, fx )
-            vs = space.vector_space
+            vs = space.coeff_space
             #-------------------------------------------------#
             # Fix span for boundaries between subdomains      #
             #-------------------------------------------------#
@@ -783,9 +783,9 @@ class TensorFemSpace(FemSpace):
             wrap_x   = space.periodic and fx > xlim[1]
             loc_span = span - space.nbasis if wrap_x else span
 
-            start = self.vector_space.starts[i]
-            pad = self.vector_space.pads[i]
-            shift = self.vector_space.shifts[i]
+            start = self.coeff_space.starts[i]
+            pad = self.coeff_space.pads[i]
+            shift = self.coeff_space.shifts[i]
             index.append( slice( loc_span-degree-start+shift*pad, loc_span+1-start+shift*pad ) )
             if weights:
                 w_index.append(slice( loc_span-degree, loc_span+1))
@@ -838,7 +838,7 @@ class TensorFemSpace(FemSpace):
             # be sure it's the right type for kernels
             fx = float(x)
             span    =  find_span_p( knots, degree, fx )
-            vs = space.vector_space
+            vs = space.coeff_space
             #-------------------------------------------------#
             # Fix span for boundaries between subdomains      #
             #-------------------------------------------------#
@@ -863,9 +863,9 @@ class TensorFemSpace(FemSpace):
             wrap_x   = space.periodic and fx > xlim[1]
             loc_span = span - space.nbasis if wrap_x else span
 
-            start = self.vector_space.starts[i]
-            pad = self.vector_space.pads[i]
-            shift = self.vector_space.shifts[i]
+            start = self.coeff_space.starts[i]
+            pad = self.coeff_space.pads[i]
+            shift = self.coeff_space.shifts[i]
             index.append( slice( loc_span-degree-start+shift*pad, loc_span+1-start+shift*pad ) )
             if weights:
                 w_index.append(slice( loc_span-degree, loc_span+1))
