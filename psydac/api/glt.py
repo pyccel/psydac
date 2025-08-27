@@ -19,7 +19,7 @@ from psydac.mapping.discrete  import SplineMapping, NurbsMapping
 
 from psydac.fem.splines import SplineSpace
 from psydac.fem.tensor  import TensorFemSpace
-from psydac.fem.vector  import ProductFemSpace
+from psydac.fem.vector  import MultipatchFemSpace
 
 from sympde.expr.basic            import BasicForm
 from psydac.api.printing.pycode   import pycode
@@ -334,12 +334,12 @@ class GltBasicCodeGen(object):
         module_name = self.dependencies_modname
 
         # ...
-        from pyccel.epyccel import epyccel
+        from pyccel import epyccel
 
         # ... convert python to fortran using pyccel
-        compiler       = self.backend['compiler']
-        fflags         = self.backend['flags']
-        _PYCCEL_FOLDER = self.backend['folder']
+        compiler_family = self.backend['compiler_family']
+        flags           = self.backend['flags']
+        _PYCCEL_FOLDER  = self.backend['folder']
         # ...
 
         # ...
@@ -351,11 +351,11 @@ class GltBasicCodeGen(object):
         sys.path.append(self.folder)
         package = importlib.import_module( module_name )
         f2py_module = epyccel( package,
-                               compiler    = compiler,
-                               fflags      = fflags,
-                               comm        = self.comm,
-                               bcast       = False,
-                               folder      = _PYCCEL_FOLDER )
+                               compiler_family = compiler_family,
+                               flags  = flags,
+                               comm   = self.comm,
+                               bcast  = False,
+                               folder = _PYCCEL_FOLDER )
         sys.path.remove(self.folder)
         # ...
 
@@ -556,7 +556,7 @@ class DiscreteGltExpr(GltBasicCodeGen):
 
         Vh = self.spaces[0]
         is_block = False
-        if isinstance(Vh, ProductFemSpace):
+        if isinstance(Vh, MultipatchFemSpace):
             Vh = Vh.spaces[0]
             is_block = True
 
@@ -645,7 +645,7 @@ class DiscreteGltExpr(GltBasicCodeGen):
         the current algorithm is based on a uniform sampling of the glt symbol.
         """
         Vh = self.spaces[0]
-        if isinstance(Vh, ProductFemSpace):
+        if isinstance(Vh, MultipatchFemSpace):
             Vh = Vh.spaces[0]
 
         if not isinstance(Vh, TensorFemSpace):

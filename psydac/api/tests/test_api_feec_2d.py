@@ -59,7 +59,7 @@ class CavitySolution:
 
         params = {'a': a, 'b': b, 'c': c, 'nx': nx, 'ny': ny}
         repl = [(sym_params[k], params[k]) for k in sym_params.keys()]
-        args = symbols('t, x, y')
+        args = symbols('t, x, y', real=True)
 
         # Callable functions
         fields = {k: lambdify(args   , v.subs(repl), 'numpy') for k, v in sym_fields.items()}
@@ -529,8 +529,8 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
     half_step_faraday_2d = (dt/2) * D1
     #minus_half_step_faraday_2d = (-dt/2) * D1
 
-    de = derham_h.V1.vector_space.zeros()
-    db = derham_h.V2.vector_space.zeros()
+    de = derham_h.V1.coeff_space.zeros()
+    db = derham_h.V2.coeff_space.zeros()
 
     # Time loop
     for ts in range(1, nsteps+1):

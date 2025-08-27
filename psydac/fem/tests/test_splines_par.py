@@ -27,15 +27,15 @@ def test_2d_1():
     V = TensorFemSpace(domain_decomposition, V1, V2)
 
     if rank == 0:
-        print(V.vector_space.cart.nprocs)
+        print(V.coeff_space.cart.nprocs)
     for i in range(comm.Get_size()):
         if rank == i:
             print('rank ', rank)
             print('TensorFemSpace ', V)
             print('VectorSpace ')
-            print('> npts ::', V.vector_space.npts)
-            print('> starts ::', V.vector_space.starts)
-            print('> ends ::', V.vector_space.ends)
+            print('> npts ::', V.coeff_space.npts)
+            print('> starts ::', V.coeff_space.starts)
+            print('> ends ::', V.coeff_space.ends)
             print('', flush=True)
         comm.Barrier()
 

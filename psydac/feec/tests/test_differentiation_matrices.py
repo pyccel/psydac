@@ -45,30 +45,30 @@ def run_directional_derivative_operator(comm, domain, ncells, degree, periodic, 
     # reduced space
     V1 = V0.reduce_degree(axes=[direction], basis='M')
 
-    diffop = DirectionalDerivativeOperator(V0.vector_space, V1.vector_space, direction, negative=negative, transposed=transposed)
+    diffop = DirectionalDerivativeOperator(V0.coeff_space, V1.coeff_space, direction, negative=negative, transposed=transposed)
 
     # some boundary, and transposed handling
-    vpads = np.array(V0.vector_space.pads, dtype=int)
-    pads = np.array(V1.vector_space.pads, dtype=int)
+    vpads = np.array(V0.coeff_space.pads, dtype=int)
+    pads = np.array(V1.coeff_space.pads, dtype=int)
 
     # transpose, if needed
     if transposed:
         V0, V1 = V1, V0
     
-    counts = np.array(V1.vector_space.ends, dtype=int) - np.array(V1.vector_space.starts, dtype=int) + 1
+    counts = np.array(V1.coeff_space.ends, dtype=int) - np.array(V1.coeff_space.starts, dtype=int) + 1
     diffadd = np.zeros((len(ncells),), dtype=int)
     diffadd[direction] = 1
 
-    localslice = tuple([slice(p,-p) for p in V1.vector_space.pads])
+    localslice = tuple([slice(p,-p) for p in V1.coeff_space.pads])
 
     # random vector, scaled-up data (with fixed seed)
-    v = V0.vector_space.zeros()
+    v = V0.coeff_space.zeros()
     v._data[:] = np.random.random(v._data.shape) * 100
     v.update_ghost_regions()
 
     # compute reference solution (do it element-wise for now...)
     # (but we only test small domains here)
-    ref = V1.vector_space.zeros()
+    ref = V1.coeff_space.zeros()
 
     outslice = tuple([slice(s, s+c) for s,c in zip(pads, counts)])
     idslice = tuple([slice(s, s+c) for s,c in zip(vpads, counts)])
@@ -99,7 +99,7 @@ def run_directional_derivative_operator(comm, domain, ncells, degree, periodic, 
     assert np.allclose(ref._data[localslice], res1._data[localslice])
 
     # case two: dot(v, out=w)
-    out = V1.vector_space.zeros()
+    out = V1.coeff_space.zeros()
     res2 = diffop.dot(v, out=out)
 
     assert res2 is out
@@ -130,7 +130,7 @@ def compare_diff_operators_by_matrixassembly(lo1, lo2):
 
 def test_directional_derivative_operator_invalid_wrongsized1():
     # test if we detect incorrectly-sized spaces
-    # i.e. V0.vector_space.npts != V1.vector_space.npts
+    # i.e. V0.coeff_space.npts != V1.coeff_space.npts
     # (NOTE: if periodic was [True,True], this test would most likely pass)
 
     periodic = [False, False]
@@ -153,7 +153,7 @@ def test_directional_derivative_operator_invalid_wrongsized1():
     V1 = V0.reduce_degree(axes=[1], basis='M')
 
     with pytest.raises(AssertionError):
-        _ = DirectionalDerivativeOperator(V0.vector_space, V1.vector_space, direction, negative=negative)
+        _ = DirectionalDerivativeOperator(V0.coeff_space, V1.coeff_space, direction, negative=negative)
 
 def test_directional_derivative_operator_invalid_wrongspace2():
     # test, if it fails when the pads are not the same
@@ -179,7 +179,7 @@ def test_directional_derivative_operator_invalid_wrongspace2():
     V1 = TensorFemSpace(domain_decomposition, *Ms)
 
     with pytest.raises(AssertionError):
-        _ = DirectionalDerivativeOperator(V0.vector_space, V1.vector_space, direction, negative=negative)
+        _ = DirectionalDerivativeOperator(V0.coeff_space, V1.coeff_space, direction, negative=negative)
 
 def test_directional_derivative_operator_transposition_correctness():
     # interface tests, to see if negation and transposition work as their methods suggest
@@ -202,7 +202,7 @@ def test_directional_derivative_operator_transposition_correctness():
     # reduced space
     V1 = V0.reduce_degree(axes=[0], basis='M')
 
-    diff = DirectionalDerivativeOperator(V0.vector_space, V1.vector_space, direction, negative=False, transposed=False)
+    diff = DirectionalDerivativeOperator(V0.coeff_space, V1.coeff_space, direction, negative=False, transposed=False)
 
     # compare, if the transpose is actually correct
     M = diff.tokronstencil().tostencil()
@@ -245,10 +245,10 @@ def test_directional_derivative_operator_interface():
     # reduced space
     V1 = V0.reduce_degree(axes=[0], basis='M')
 
-    diff = DirectionalDerivativeOperator(V0.vector_space, V1.vector_space, direction, negative=False, transposed=False)
-    diffT = DirectionalDerivativeOperator(V0.vector_space, V1.vector_space, direction, negative=False, transposed=True)
-    diffN = DirectionalDerivativeOperator(V0.vector_space, V1.vector_space, direction, negative=True, transposed=False)
-    diffNT = DirectionalDerivativeOperator(V0.vector_space, V1.vector_space, direction, negative=True, transposed=True)
+    diff = DirectionalDerivativeOperator(V0.coeff_space, V1.coeff_space, direction, negative=False, transposed=False)
+    diffT = DirectionalDerivativeOperator(V0.coeff_space, V1.coeff_space, direction, negative=False, transposed=True)
+    diffN = DirectionalDerivativeOperator(V0.coeff_space, V1.coeff_space, direction, negative=True, transposed=False)
+    diffNT = DirectionalDerivativeOperator(V0.coeff_space, V1.coeff_space, direction, negative=True, transposed=True)
 
     # compare all with all by assembling matrices
     compare_diff_operators_by_matrixassembly(diff.T, diffT)
@@ -375,8 +375,8 @@ def test_Derivative_1D(domain, ncells, degree, periodic, seed, multiplicity):
     grad = Derivative_1D(V0, V1)
 
     # Create random field in V0
-    s, = V0.vector_space.starts
-    e, = V0.vector_space.ends
+    s, = V0.coeff_space.starts
+    e, = V0.coeff_space.ends
 
     u0.coeffs[s:e+1] = np.random.random(e-s+1)
 
@@ -426,8 +426,8 @@ def test_Gradient_2D(domain, ncells, degree, periodic, seed, multiplicity):
     # Create random field in V0
     u0 = FemField(V0)
 
-    s1, s2 = V0.vector_space.starts
-    e1, e2 = V0.vector_space.ends
+    s1, s2 = V0.coeff_space.starts
+    e1, e2 = V0.coeff_space.ends
 
     u0.coeffs[s1:e1+1, s2:e2+1] = np.random.random((e1-s1+1, e2-s2+1))
 
@@ -493,8 +493,8 @@ def test_Gradient_3D(domain, ncells, degree, periodic, seed, multiplicity):
 
     # Create random field in V0
     u0 = FemField(V0)
-    s1, s2, s3 = V0.vector_space.starts
-    e1, e2, e3 = V0.vector_space.ends
+    s1, s2, s3 = V0.coeff_space.starts
+    e1, e2, e3 = V0.coeff_space.ends
     u0.coeffs[s1:e1+1, s2:e2+1, s3:e3+1] = np.random.random((e1-s1+1, e2-s2+1, e3-s3+1))
 
     # Compute gradient of u0
@@ -561,12 +561,12 @@ def test_ScalarCurl_2D(domain, ncells, degree, periodic, seed, multiplicity):
     # Create random field in V1
     u1 = FemField(V1)
 
-    s1, s2 = V1.vector_space[0].starts
-    e1, e2 = V1.vector_space[0].ends
+    s1, s2 = V1.coeff_space[0].starts
+    e1, e2 = V1.coeff_space[0].ends
     u1.coeffs[0][s1:e1+1, s2:e2+1] = np.random.random((e1-s1+1, e2-s2+1))
 
-    s1, s2 = V1.vector_space[1].starts
-    e1, e2 = V1.vector_space[1].ends
+    s1, s2 = V1.coeff_space[1].starts
+    e1, e2 = V1.coeff_space[1].ends
     u1.coeffs[1][s1:e1+1, s2:e2+1] = np.random.random((e1-s1+1, e2-s2+1))
     # ...
 
@@ -630,8 +630,8 @@ def test_VectorCurl_2D(domain, ncells, degree, periodic, seed, multiplicity):
     # Create random field in V0
     u0 = FemField(V0)
 
-    s1, s2 = V0.vector_space.starts
-    e1, e2 = V0.vector_space.ends
+    s1, s2 = V0.coeff_space.starts
+    e1, e2 = V0.coeff_space.ends
 
     u0.coeffs[s1:e1+1, s2:e2+1] = np.random.random((e1-s1+1, e2-s2+1))
 
@@ -709,16 +709,16 @@ def test_Curl_3D(domain, ncells, degree, periodic, seed, multiplicity):
     # Create random field in V1
     u1 = FemField(V1)
 
-    s1, s2, s3 = V1.vector_space[0].starts
-    e1, e2, e3 = V1.vector_space[0].ends
+    s1, s2, s3 = V1.coeff_space[0].starts
+    e1, e2, e3 = V1.coeff_space[0].ends
     u1.coeffs[0][s1:e1+1, s2:e2+1, s3:e3+1] = np.random.random((e1-s1+1, e2-s2+1, e3-s3+1))
 
-    s1, s2, s3 = V1.vector_space[1].starts
-    e1, e2, e3 = V1.vector_space[1].ends
+    s1, s2, s3 = V1.coeff_space[1].starts
+    e1, e2, e3 = V1.coeff_space[1].ends
     u1.coeffs[1][s1:e1+1, s2:e2+1, s3:e3+1] = np.random.random((e1-s1+1, e2-s2+1, e3-s3+1))
 
-    s1, s2, s3 = V1.vector_space[2].starts
-    e1, e2, e3 = V1.vector_space[2].ends
+    s1, s2, s3 = V1.coeff_space[2].starts
+    e1, e2, e3 = V1.coeff_space[2].ends
     u1.coeffs[2][s1:e1+1, s2:e2+1, s3:e3+1] = np.random.random((e1-s1+1, e2-s2+1, e3-s3+1))
     # ...
 
@@ -793,12 +793,12 @@ def test_Divergence_2D(domain, ncells, degree, periodic, seed, multiplicity):
     # Create random field in V1
     u1 = FemField(V1)
 
-    s1, s2 = V1.vector_space[0].starts
-    e1, e2 = V1.vector_space[0].ends
+    s1, s2 = V1.coeff_space[0].starts
+    e1, e2 = V1.coeff_space[0].ends
     u1.coeffs[0][s1:e1+1, s2:e2+1] = np.random.random((e1-s1+1, e2-s2+1))
 
-    s1, s2 = V1.vector_space[1].starts
-    e1, e2 = V1.vector_space[1].ends
+    s1, s2 = V1.coeff_space[1].starts
+    e1, e2 = V1.coeff_space[1].ends
     u1.coeffs[1][s1:e1+1, s2:e2+1] = np.random.random((e1-s1+1, e2-s2+1))
     # ...
 
@@ -871,16 +871,16 @@ def test_Divergence_3D(domain, ncells, degree, periodic, seed, multiplicity):
     # Create random field in V2
     u2 = FemField(V2)
 
-    s1, s2, s3 = V2.vector_space[0].starts
-    e1, e2, e3 = V2.vector_space[0].ends
+    s1, s2, s3 = V2.coeff_space[0].starts
+    e1, e2, e3 = V2.coeff_space[0].ends
     u2.coeffs[0][s1:e1+1, s2:e2+1, s3:e3+1] = np.random.random((e1-s1+1, e2-s2+1, e3-s3+1))
 
-    s1, s2, s3 = V2.vector_space[1].starts
-    e1, e2, e3 = V2.vector_space[1].ends
+    s1, s2, s3 = V2.coeff_space[1].starts
+    e1, e2, e3 = V2.coeff_space[1].ends
     u2.coeffs[1][s1:e1+1, s2:e2+1, s3:e3+1] = np.random.random((e1-s1+1, e2-s2+1, e3-s3+1))
 
-    s1, s2, s3 = V2.vector_space[2].starts
-    e1, e2, e3 = V2.vector_space[2].ends
+    s1, s2, s3 = V2.coeff_space[2].starts
+    e1, e2, e3 = V2.coeff_space[2].ends
     u2.coeffs[2][s1:e1+1, s2:e2+1, s3:e3+1] = np.random.random((e1-s1+1, e2-s2+1, e3-s3+1))
     # ...
 

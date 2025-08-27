@@ -81,7 +81,7 @@ def run_system_1_1d_dir(f0, sol, ncells, degree):
 def test_api_system_1_1d_dir_1():
 
     from sympy import symbols
-    x1 = symbols('x1')
+    x1 = symbols('x1', real=True)
 
     f0 = -(2*pi)**2*sin(2*pi*x1)
     u  = sin(2*pi*x1)

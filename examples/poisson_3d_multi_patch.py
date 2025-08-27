@@ -161,9 +161,7 @@ if __name__ == '__main__':
     from collections                               import OrderedDict
     from sympy                                     import lambdify
     from psydac.api.tests.build_domain             import build_pretzel
-    from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, get_grid_vals
-    from psydac.feec.multipatch.plotting_utilities import get_patch_knots_gridlines, my_small_plot
-
+    
     A1 = Cube('A1', bounds1=(0, 0.5), bounds2=(0, 0.5), bounds3=(0, 1))
     A2 = Cube('A2', bounds1=(0.5, 1), bounds2=(0, 0.5), bounds3=(0, 1))
     A3 = Cube('A3', bounds1=(1, 1.5), bounds2=(0, 0.5), bounds3=(0, 1))

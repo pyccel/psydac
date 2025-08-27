@@ -6,7 +6,7 @@ import scipy.sparse as spa
 from psydac.linalg.stencil  import StencilVector, StencilMatrix, StencilVectorSpace
 from psydac.linalg.kron     import KroneckerStencilMatrix
 from psydac.linalg.block    import BlockVector, BlockLinearOperator
-from psydac.fem.vector      import ProductFemSpace, VectorFemSpace
+from psydac.fem.vector      import VectorFemSpace
 from psydac.fem.tensor      import TensorFemSpace
 from psydac.linalg.basic    import IdentityOperator
 from psydac.fem.basic       import FemField, FemSpace
@@ -366,8 +366,8 @@ class DiffOperator:
         assert isinstance(domain, FemSpace)
         assert isinstance(codomain, FemSpace)
         assert isinstance(matrix, LinearOperator)
-        assert domain.vector_space is matrix.domain
-        assert codomain.vector_space is matrix.codomain
+        assert domain.coeff_space is matrix.domain
+        assert codomain.coeff_space is matrix.codomain
 
         self._domain = domain
         self._codomain = codomain
@@ -415,7 +415,7 @@ class Derivative_1D(DiffOperator):
         assert H1.degree[0] == L2.degree[0] + 1
 
         # Store data in object   
-        super().__init__(H1, L2, DirectionalDerivativeOperator(H1.vector_space, L2.vector_space, 0))
+        super().__init__(H1, L2, DirectionalDerivativeOperator(H1.coeff_space, L2.coeff_space, 0))
 
 #====================================================================================================
 class Gradient_2D(DiffOperator):
@@ -443,15 +443,15 @@ class Gradient_2D(DiffOperator):
         assert tuple(Hcurl.spaces[1].degree) == (H1.degree[0]  , H1.degree[1]-1)
 
         # Tensor-product spaces of coefficients - domain
-        B_B = H1.vector_space
+        B_B = H1.coeff_space
 
         # Tensor-product spaces of coefficients - codomain
-        (M_B, B_M) = Hcurl.vector_space.spaces
+        (M_B, B_M) = Hcurl.coeff_space.spaces
 
         # Build Gradient matrix block by block
         blocks = [[DirectionalDerivativeOperator(B_B, M_B, 0)],
                   [DirectionalDerivativeOperator(B_B, B_M, 1)]]
-        matrix = BlockLinearOperator(H1.vector_space, Hcurl.vector_space, blocks=blocks)
+        matrix = BlockLinearOperator(H1.coeff_space, Hcurl.coeff_space, blocks=blocks)
 
         # Store data in object   
         super().__init__(H1, Hcurl, matrix)
@@ -485,16 +485,16 @@ class Gradient_3D(DiffOperator):
         assert tuple(Hcurl.spaces[2].degree) == (H1.degree[0]  , H1.degree[1]  , H1.degree[2]-1)
 
         # Tensor-product spaces of coefficients - domain
-        B_B_B = H1.vector_space
+        B_B_B = H1.coeff_space
 
         # Tensor-product spaces of coefficients - codomain
-        (M_B_B, B_M_B, B_B_M) = Hcurl.vector_space.spaces
+        (M_B_B, B_M_B, B_B_M) = Hcurl.coeff_space.spaces
 
         # Build Gradient matrix block by block
         blocks = [[DirectionalDerivativeOperator(B_B_B, M_B_B, 0)],
                   [DirectionalDerivativeOperator(B_B_B, B_M_B, 1)],
                   [DirectionalDerivativeOperator(B_B_B, B_B_M, 2)]]
-        matrix = BlockLinearOperator(H1.vector_space, Hcurl.vector_space, blocks=blocks)
+        matrix = BlockLinearOperator(H1.coeff_space, Hcurl.coeff_space, blocks=blocks)
 
         # Store data in object   
         super().__init__(H1, Hcurl, matrix)
@@ -525,15 +525,15 @@ class ScalarCurl_2D(DiffOperator):
         assert tuple(Hcurl.spaces[1].degree) == (L2.degree[0]+1, L2.degree[1]  )
 
         # Tensor-product spaces of coefficients - domain
-        (M_B, B_M) = Hcurl.vector_space.spaces
+        (M_B, B_M) = Hcurl.coeff_space.spaces
 
         # Tensor-product spaces of coefficients - codomain
-        M_M = L2.vector_space
+        M_M = L2.coeff_space
 
         # Build Curl matrix block by block
         blocks = [[-DirectionalDerivativeOperator(M_B, M_M, 1),
                   DirectionalDerivativeOperator(B_M, M_M, 0)]]
-        matrix = BlockLinearOperator(Hcurl.vector_space, L2.vector_space, blocks=blocks)
+        matrix = BlockLinearOperator(Hcurl.coeff_space, L2.coeff_space, blocks=blocks)
 
         # Store data in object   
         super().__init__(Hcurl, L2, matrix)
@@ -565,15 +565,15 @@ class VectorCurl_2D(DiffOperator):
         assert tuple(Hdiv.spaces[1].degree) == (H1.degree[0]-1, H1.degree[1]  )
 
         # Tensor-product spaces of coefficients - domain
-        B_B = H1.vector_space
+        B_B = H1.coeff_space
 
         # Tensor-product spaces of coefficients - codomain
-        (B_M, M_B) = Hdiv.vector_space.spaces
+        (B_M, M_B) = Hdiv.coeff_space.spaces
 
         # Build Curl matrix block by block
         blocks = [[DirectionalDerivativeOperator(B_B, B_M, 1)],
                   [-DirectionalDerivativeOperator(B_B, M_B, 0)]]
-        matrix = BlockLinearOperator(H1.vector_space, Hdiv.vector_space, blocks=blocks)
+        matrix = BlockLinearOperator(H1.coeff_space, Hdiv.coeff_space, blocks=blocks)
 
         # Store data in object   
         super().__init__(H1, Hdiv, matrix)
@@ -610,10 +610,10 @@ class Curl_3D(DiffOperator):
         assert tuple(Hcurl.spaces[1].degree) == (Hdiv2.degree[0]+1, Hdiv2.degree[1]  , Hdiv2.degree[2]  )
 
         # Tensor-product spaces of coefficients - domain
-        (M_B_B, B_M_B, B_B_M) = Hcurl.vector_space.spaces
+        (M_B_B, B_M_B, B_B_M) = Hcurl.coeff_space.spaces
 
         # Tensor-product spaces of coefficients - codomain
-        (B_M_M, M_B_M, M_M_B) = Hdiv.vector_space.spaces
+        (B_M_M, M_B_M, M_M_B) = Hdiv.coeff_space.spaces
 
         # ...
         # Build Curl matrix block by block
@@ -622,7 +622,7 @@ class Curl_3D(DiffOperator):
                   [ D(M_B_B, M_B_M, 2) ,        None,          -D(B_B_M, M_B_M, 0)],
                   [-D(M_B_B, M_M_B, 1) ,  D(B_M_B, M_M_B, 0) ,        None        ]]
 
-        matrix = BlockLinearOperator(Hcurl.vector_space, Hdiv.vector_space, blocks=blocks)
+        matrix = BlockLinearOperator(Hcurl.coeff_space, Hdiv.coeff_space, blocks=blocks)
         # ...
 
         # Store data in object        
@@ -654,15 +654,15 @@ class Divergence_2D(DiffOperator):
         assert tuple(Hdiv.spaces[1].degree) == (L2.degree[0]  , L2.degree[1]+1)
 
         # Tensor-product spaces of coefficients - domain
-        (B_M, M_B) = Hdiv.vector_space.spaces
+        (B_M, M_B) = Hdiv.coeff_space.spaces
 
         # Tensor-product spaces of coefficients - codomain
-        M_M = L2.vector_space
+        M_M = L2.coeff_space
 
         # Build Divergence matrix block by block
         f = KroneckerStencilMatrix
         blocks = [[DirectionalDerivativeOperator(B_M, M_M, 0), DirectionalDerivativeOperator(M_B, M_M, 1)]]
-        matrix = BlockLinearOperator(Hdiv.vector_space, L2.vector_space, blocks=blocks) 
+        matrix = BlockLinearOperator(Hdiv.coeff_space, L2.coeff_space, blocks=blocks)
 
         # Store data in object   
         super().__init__(Hdiv, L2, matrix)
@@ -695,16 +695,16 @@ class Divergence_3D(DiffOperator):
         assert tuple(Hdiv.spaces[2].degree) == (L2.degree[0]  , L2.degree[1]  , L2.degree[2]+1)
 
         # Tensor-product spaces of coefficients - domain
-        (B_M_M, M_B_M, M_M_B) = Hdiv.vector_space.spaces
+        (B_M_M, M_B_M, M_M_B) = Hdiv.coeff_space.spaces
 
         # Tensor-product spaces of coefficients - codomain
-        M_M_M = L2.vector_space
+        M_M_M = L2.coeff_space
 
         # Build Divergence matrix block by block
         blocks = [[DirectionalDerivativeOperator(B_M_M, M_M_M, 0),
                    DirectionalDerivativeOperator(M_B_M, M_M_M, 1),
                    DirectionalDerivativeOperator(M_M_B, M_M_M, 2)]]
-        matrix = BlockLinearOperator(Hdiv.vector_space, L2.vector_space, blocks=blocks) 
+        matrix = BlockLinearOperator(Hdiv.coeff_space, L2.coeff_space, blocks=blocks)
 
         # Store data in object   
         super().__init__(Hdiv, L2, matrix)

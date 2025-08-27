@@ -30,3 +30,6 @@ __test__/
 
 # pycharm directory
 .idea
+
+# Visual Studio Code workspace files
+*.code-workspace

@@ -40,13 +40,12 @@ def compute_global_starts_ends(domain_decomposition, npts):
 
     return global_starts, global_ends
 
-def get_StencilVectorSpace(n1, n2, p1, p2, P1, P2):
-    npts = [n1, n2]
-    pads = [p1, p2]
-    periods = [P1, P2]
+def get_StencilVectorSpace(npts, pads, periods):
+    assert len(npts) == len(pads) == len(periods)
+    shifts = [1] * len(npts)
     D = DomainDecomposition(npts, periods=periods)
     global_starts, global_ends = compute_global_starts_ends(D, npts)
-    C = CartDecomposition(D, npts, global_starts, global_ends, pads=pads, shifts=[1,1])
+    C = CartDecomposition(D, npts, global_starts, global_ends, pads=pads, shifts=shifts)
     V = StencilVectorSpace(C)
     return V
 
@@ -94,7 +93,7 @@ def test_square_stencil_basic(n1, n2, p1, p2, P1=False, P2=False):
     ###
 
     # Initiate StencilVectorSpace
-    V = get_StencilVectorSpace(n1, n2, p1, p2, P1, P2)
+    V = get_StencilVectorSpace([n1, n2], [p1, p2], [P1, P2])
     
     # Initiate Linear Operators
     Z = ZeroOperator(V, V)
@@ -280,7 +279,7 @@ def test_square_block_basic(n1, n2, p1, p2, P1=False, P2=False):
     # 3. Test special cases
 
     # Initiate StencilVectorSpace
-    V = get_StencilVectorSpace(n1, n2, p1, p2, P1, P2)
+    V = get_StencilVectorSpace([n1, n2], [p1, p2], [P1, P2])
        
     # Initiate Linear Operators
     Z = ZeroOperator(V, V)    
@@ -449,30 +448,38 @@ def test_in_place_operations(n1, n2, p1, p2, P1=False, P2=False):
     # testing __imul__ although not explicitly implemented (in the LinearOperator class)
 
     # Initiate StencilVectorSpace
-    V = get_StencilVectorSpace(n1, n2, p1, p2, P1, P2)
-
+    V  = get_StencilVectorSpace([n1, n2], [p1, p2], [P1, P2])
+    Vc = get_StencilVectorSpace([n1, n2], [p1, p2], [P1, P2])
+    Vc._dtype = complex
     v = StencilVector(V)
+    vc = StencilVector(Vc)
     v_array = np.zeros(n1*n2)
 
     for i in range(n1):
         for j in range(n2):
             v[i,j] = i+1
             v_array[i*n2+j] = i+1
+            vc[i,j] = i+1       
     
     I1 = IdentityOperator(V,V)
     I2 = IdentityOperator(V,V)
     I3 = IdentityOperator(V,V)
+    I4 = IdentityOperator(Vc,Vc)
 
     I1 *= 0
     I2 *= 1
     I3 *= 3
     v3 = I3.dot(v)
+    I4 *= 3j
+    v4 = I4.dot(vc)
 
     assert np.array_equal(v.toarray(), v_array)
     assert isinstance(I1, ZeroOperator)
     assert isinstance(I2, IdentityOperator)
     assert isinstance(I3, ScaledLinearOperator)
     assert np.array_equal(v3.toarray(), np.dot(v_array, 3))
+    assert isinstance(I4, ScaledLinearOperator)
+    assert np.array_equal(v4.toarray(), np.dot(v_array, 3j))
 
     # testing __iadd__ and __isub__ although not explicitly implemented (in the LinearOperator class)
 
@@ -522,7 +529,7 @@ def test_in_place_operations(n1, n2, p1, p2, P1=False, P2=False):
     assert isinstance(Z3, StencilMatrix)
     assert isinstance(T, StencilMatrix)
     assert np.array_equal(w2.toarray(), np.dot(np.dot(2, Sa), v_array))
-    
+ 
 #===============================================================================
 @pytest.mark.parametrize('n1', n1array)
 @pytest.mark.parametrize('n2', n2array)
@@ -536,9 +543,9 @@ def test_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
     # 2. For both B and S, check whether all possible combinations of the transpose and the inverse behave as expected
 
     # Initiate StencilVectorSpace
-    V = get_StencilVectorSpace(n1, n2, p1, p2, P1, P2)
-    V2 = get_StencilVectorSpace(n1, n2, p1, p2, P1, P2)
-    W = get_StencilVectorSpace(n1+2, n2, p1, p2+1, P1, P2)
+    V  = get_StencilVectorSpace([n1, n2], [p1, p2], [P1, P2])
+    V2 = get_StencilVectorSpace([n1, n2], [p1, p2], [P1, P2])
+    W  = get_StencilVectorSpace([n1+2, n2], [p1, p2+1], [P1, P2])
     
     # Initiate positive definite StencilMatrices for which the cg inverse works (necessary for certain tests)
     S = StencilMatrix(V, V)
@@ -635,26 +642,26 @@ def test_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
     assert isinstance(C_T, ConjugateGradient)
     assert isinstance(inverse(B_T, 'cg', tol=tol), ConjugateGradient)
     diff = C_T @ u - inverse(B_T, 'cg', tol=tol) @ u
-    assert diff.dot(diff) == 0
+    assert diff.inner(diff) == 0
 
     # -1,T,T -> equal -1
     diff = C_T.T @ u - C @ u
-    assert diff.dot(diff) == 0
+    assert diff.inner(diff) == 0
 
     # -1,T,-1 -> equal T
     assert isinstance(inverse(C_T, 'bicg'), BlockLinearOperator)
     diff = inverse(C_T, 'bicg') @ u - B_T @ u
-    assert diff.dot(diff) == 0
+    assert diff.inner(diff) == 0
 
     # T,-1,-1 -> equal T
     assert isinstance(inverse(inverse(B_T, 'cg', tol=tol), 'pcg', pc=P), BlockLinearOperator)
     diff = inverse(inverse(B_T, 'cg', tol=tol), 'pcg', pc=P) @ u - B_T @ u
-    assert diff.dot(diff) == 0
+    assert diff.inner(diff) == 0
 
     # T,-1,T -> equal -1
     assert isinstance(inverse(B_T, 'cg', tol=tol).T, ConjugateGradient)
     diff = inverse(B_T, 'cg', tol=tol) @ u - C @ u
-    assert diff.dot(diff) == 0
+    assert diff.inner(diff) == 0
 
     ###
     ### StencilMatrix Transpose - Inverse Tests
@@ -672,26 +679,26 @@ def test_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
     assert isinstance(C_T, ConjugateGradient)
     assert isinstance(inverse(S_T, 'cg', tol=tol), ConjugateGradient)
     diff = C_T @ v - inverse(S_T, 'cg', tol=tol) @ v
-    assert diff.dot(diff) == 0
+    assert diff.inner(diff) == 0
 
     # -1,T,T -> equal -1
     diff = C_T.T @ v - C @ v
-    assert diff.dot(diff) == 0
+    assert diff.inner(diff) == 0
 
     # -1,T,-1 -> equal T
     assert isinstance(inverse(C_T, 'bicg'), StencilMatrix)
     diff = inverse(C_T, 'bicg') @ v - S_T @ v
-    assert diff.dot(diff) == 0
+    assert diff.inner(diff) == 0
 
     # T,-1,-1 -> equal T
     assert isinstance(inverse(inverse(S_T, 'cg', tol=tol), 'pcg', pc=P), StencilMatrix)
     diff = inverse(inverse(S_T, 'cg', tol=tol), 'pcg', pc=P) @ v - S_T @ v
-    assert diff.dot(diff) == 0
+    assert diff.inner(diff) == 0
 
     # T,-1,T -> equal -1
     assert isinstance(inverse(S_T, 'cg', tol=tol).T, ConjugateGradient)
     diff = inverse(S_T, 'cg', tol=tol) @ v - C @ v
-    assert diff.dot(diff) == 0
+    assert diff.inner(diff) == 0
 
 #===============================================================================
 @pytest.mark.parametrize('n1', [3, 5])
@@ -702,7 +709,7 @@ def test_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
 def test_positive_definite_matrix(n1, n2, p1, p2):
     P1 = False
     P2 = False
-    V = get_StencilVectorSpace(n1, n2, p1, p2, P1, P2)
+    V = get_StencilVectorSpace([n1, n2], [p1, p2], [P1, P2])
     S = get_positive_definite_StencilMatrix(V)
 
     assert_pos_def(S)
@@ -745,7 +752,7 @@ def test_operator_evaluation(n1, n2, p1, p2):
     P2 = False
 
     # Initiate StencilVectorSpace V
-    V = get_StencilVectorSpace(n1, n2, p1, p2, P1, P2)
+    V = get_StencilVectorSpace([n1, n2], [p1, p2], [P1, P2])
     
     # Initiate positive definite StencilMatrices for which the cg inverse works (necessary for certain tests)
     S = get_positive_definite_StencilMatrix(V)
@@ -911,7 +918,7 @@ def test_internal_storage():
     p2=1
     P1=False
     P2=False
-    V = get_StencilVectorSpace(n1, n2, p1, p2, P1, P2)
+    V = get_StencilVectorSpace([n1, n2], [p1, p2], [P1, P2])
     U1 = BlockVectorSpace(V, V)
     U2 = BlockVectorSpace(V, V, V)
 
@@ -962,7 +969,7 @@ def test_x0update(solver):
     p2 = 2
     P1 = False
     P2 = False
-    V = get_StencilVectorSpace(n1, n2, p1, p2, P1, P2)
+    V = get_StencilVectorSpace([n1, n2], [p1, p2], [P1, P2])
     A = get_positive_definite_StencilMatrix(V)
     assert_pos_def(A)
     b = StencilVector(V)
@@ -996,6 +1003,59 @@ def test_x0update(solver):
     # Apply inverse using out=x0 and check for updated x0
     x = A_inv.dot(b, out=b)
     assert A_inv.get_options('x0') is x
+
+#===============================================================================
+def test_dot_inner():
+
+    n1, n2 = 4, 7
+    p1, p2 = 2, 3
+    P1, P2 = False, False
+
+    V = get_StencilVectorSpace([n1, n2], [p1, p2], [P1, P2])
+    M = get_positive_definite_StencilMatrix(V)
+    N = get_positive_definite_StencilMatrix(V)
+
+    U1 = BlockVectorSpace(V, V)
+    U2 = BlockVectorSpace(V, V, V)
+    A  = BlockLinearOperator(U1, U2, ((M, None),
+                                      (M,    N),
+                                      (None, N)))
+
+    b = A.domain.zeros()
+    c = A.codomain.zeros()
+
+    # Set the values of b and c randomly from a uniform distribution over the
+    # interval [0, 1)
+    rng = np.random.default_rng(seed=42)
+    for bj in b:
+        Vj = bj.space
+        rng.random(size=Vj.shape, dtype=Vj.dtype, out=bj._data)
+    for ci in c:
+        Vi = ci.space
+        rng.random(size=Vi.shape, dtype=Vi.dtype, out=ci._data)
+
+    # Create a work vector for the dot product, needed to compare results
+    work_vec = A.codomain.zeros()
+
+    # Result of dot product is a temporary vector, which is allocated and then
+    # discarded. This is the default behavior of the dot method.
+    r0 = A.dot(b).inner(c)
+
+    # Result of dot product is stored in work_vec and used in the next line
+    A.dot(b, out=work_vec)
+    r1 = work_vec.inner(c)
+
+    # Result of dot product is stored in work_vec and used in the same line
+    r2 = A.dot(b, out=work_vec).inner(c)
+
+    # Calling the dot_inner method, which uses an internal work vector to store
+    # the result of the dot product, and then uses it for the inner product.
+    r3 = A.dot_inner(b, c)
+
+    # Check if the results are equal
+    assert r0 == r1
+    assert r0 == r2
+    assert r0 == r3
 
 #===============================================================================
 # SCRIPT FUNCTIONALITY

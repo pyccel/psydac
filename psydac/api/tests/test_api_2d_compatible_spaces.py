@@ -21,7 +21,6 @@ from sympde.expr import Norm
 from sympde.expr import find, EssentialBC
 
 from psydac.fem.basic          import FemField
-from psydac.fem.vector         import ProductFemSpace
 from psydac.api.discretization import discretize
 from psydac.linalg.utilities   import array_to_psydac
 from psydac.linalg.solvers     import inverse
@@ -77,7 +76,7 @@ def run_poisson_mixed_form_2d_dir(f0, sol, ncells, degree):
     rhs = ah.linear_system.rhs.toarray()
 
     x   = spsolve(M, rhs)
-    x   = array_to_psydac(x, Xh.vector_space)
+    x   = array_to_psydac(x, Xh.coeff_space)
     
     # ...
     Fh = FemField( V2h )
@@ -159,7 +158,7 @@ def run_stokes_2d_dir(domain, f, ue, pe, *, homogeneous, ncells, degree, scipy=F
             print('Solution with scipy.sparse: success = {}'.format(info == 0))
 
         # Convert to stencil format
-        x = array_to_psydac(x, Xh.vector_space)
+        x = array_to_psydac(x, Xh.coeff_space)
 
     else:
         equation_h.set_solver('cg', info=True)
@@ -303,7 +302,7 @@ def run_stokes_2d_dir_petsc(domain, f, ue, pe, *, homogeneous, ncells, degree):
         print('Solution with petsc4py: success = {}'.format(ksp.is_converged))
 
 
-    x = petsc_to_psydac(x, Xh.vector_space)
+    x = petsc_to_psydac(x, Xh.coeff_space)
     # Numerical solution: velocity field
     # TODO: allow this: uh = FemField(V1h, coeffs=x[0:2]) or similar
     uh = FemField(V1h)
@@ -413,7 +412,7 @@ def run_maxwell_time_harmonic_2d_dir(uex, f, alpha, ncells, degree):
 ###############################################################################
 def test_poisson_mixed_form_2d_dir_1():
     from sympy import symbols
-    x1, x2 = symbols('x1, x2')
+    x1, x2 = symbols('x1, x2', real=True)
 
     f0 =  -2*x1*(1-x1) -2*x2*(1-x2)
     u  = x1*(1-x1)*x2*(1-x2)
@@ -509,7 +508,7 @@ def test_stokes_2d_dir_non_homogeneous(scipy):
 #------------------------------------------------------------------------------
 def test_maxwell_time_harmonic_2d_dir_1():
     from sympy import symbols
-    x,y,z    = symbols('x1, x2, x3')
+    x,y,z    = symbols('x1, x2, x3', real=True)
 
     alpha    = 1.
     uex      = Tuple(sin(pi*y), sin(pi*x)*cos(pi*y))
