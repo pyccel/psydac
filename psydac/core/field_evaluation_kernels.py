@@ -8,7 +8,6 @@ T = TypeVar('T', float, complex)
 # -----------------------------------------------------------------------------
 # 0: Evaluation of single 3d field at single point
 # -----------------------------------------------------------------------------
-@template(name='T', types=[float, complex])
 def eval_field_3d_once(local_coeffs : 'T[:,:,:]', 
                        local_bases_0: 'float[:]',
                        local_bases_1: 'float[:]',
