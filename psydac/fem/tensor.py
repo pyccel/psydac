@@ -52,6 +52,63 @@ from psydac.core.field_evaluation_kernels import (eval_fields_1d_no_weights,
 __all__ = ('TensorFemSpace',)
 
 #===============================================================================
+def eval_field_nd_once(coeffs, *args):
+    """
+    Evaluate a scalar field of a tensor-product space in any number of dimensions.
+
+    Uses sum factorization for greater efficiency. Does not allocate temporary
+    arrays, instead uses work arrays given as function arguments.
+
+    Parameters
+    ----------
+    coeffs : ndarray[float|complex]
+        Active (local) degrees of freedom of the field, i.e. the coefficients
+        of the non-zero N-dimensional basis functions, given as an N-dimensional
+        array.
+
+    *args : tuple[Any]
+        Essentially, args = (*bases, *works). See Notes.
+
+    Notes
+    -----
+    bases : tuple[ndarray[float]]
+        Active (local) 1D basis functions along each of the N dimensions.
+
+    works : tuple[ndarray[float|complex]]
+        N-1 work arrays of increasing rank (from 1 to N-1) for partial reductions.
+    """
+    # Extract useful information from the coeffs array
+    ldim  = coeffs.ndim
+    dtype = coeffs.dtype
+    shape = coeffs.shape
+
+    # Extract values of 1D basis functions along each direction and check arrays
+    bases = args[:ldim]
+
+    for basis, n in zip(bases, coeffs.shape):
+        assert basis.ndim == 1
+        assert basis.size == n
+        assert basis.dtype == float
+
+    # Extract work arrays and check them
+    works = (np.array(0, dtype=dtype), *args[ldim:])
+
+    assert len(works) == ldim
+    for i, work in enumerate(works):
+        ndim = work.ndim
+        assert ndim == i
+        assert all(s >= n for s, n in zip(work.shape, shape[:ndim]))
+        assert work.dtype == dtype
+
+    # Compute reduction using sum factorization in N dimensions
+    res = coeffs
+    for basis, work in zip(bases[::-1], works[::-1]):
+        np.dot(res, basis, out=work)
+        res = work
+
+    return res.item()
+
+#===============================================================================
 class TensorFemSpace(FemSpace):
     """
     Tensor-product Finite Element space V.
@@ -137,6 +194,14 @@ class TensorFemSpace(FemSpace):
 
         # Store information about nested grids
         self.set_refined_space(self.ncells, self)
+
+        # Always use generic NumPy implementation
+        self.eval_field_once = eval_field_nd_once
+
+        # Create work arrays based on dimensionality
+        nbasis = [p+1 for p in self.degree]
+        work = [np.zeros(nbasis[:d], dtype=dtype) for d in range(1, self.ldim)]
+        self._work = tuple(work)
 
     #--------------------------------------------------------------------------
     # Abstract interface: read-only attributes
@@ -297,19 +362,14 @@ class TensorFemSpace(FemSpace):
 
         # Option 1: contract indices one by one and store intermediate results
         #   - Pros: small number of Python iterations = ldim
-        #   - Cons: we create ldim-1 temporary objects of decreasing size
+        #   - Cons: we need ldim-1 work arrays of decreasing size
         #
-        if len(bases) == 3:
-            res = eval_field_3d_once(coeffs, *bases)
-        else:
-            res = coeffs
-            for basis in bases[::-1]:
-                res = np.dot(res, basis)
+        res = self.eval_field_once(coeffs, *bases, *self._work)
 
-#        # Option 2: cycle over each element of 'coeffs' (touched only once)
-#        #   - Pros: no temporary objects are created
-#        #   - Cons: large number of Python iterations = number of elements in 'coeffs'
-#        #
+        # Option 2: cycle over each element of 'coeffs' (touched only once)
+        #   - Pros: no work arrays are needed
+        #   - Cons: large number of Python iterations = number of elements in 'coeffs'
+        #
 #        res = 0.0
 #        for idx, c in np.ndenumerate(coeffs):
 #            ndbasis = np.prod([b[i] for i, b in zip(idx, bases)])
@@ -375,7 +435,7 @@ class TensorFemSpace(FemSpace):
             index.append( slice( loc_span-degree-start+shift*pad, loc_span+1-start+shift*pad ) )
             if weights:
                 w_index.append(slice(loc_span-degree, loc_span+1))
-        
+
         bases = self._tmp_bf
         res_tot = []
         for field in fields:
@@ -384,13 +444,8 @@ class TensorFemSpace(FemSpace):
             coeffs[:] = field.coeffs._data[index]
             if weights:
                 coeffs *= weights[w_index]
-
-            if len(bases) == 3:
-                res = eval_field_3d_once(coeffs, bases[0], bases[1], bases[2])
-            else:
-                res = coeffs
-                for basis in bases[::-1]:
-                    res = np.dot( res, basis )
+            # Evaluate field and append result to list
+            res = self.eval_field_once(coeffs, *bases, *self._work)
             res_tot.append(res)
 
         return res_tot
