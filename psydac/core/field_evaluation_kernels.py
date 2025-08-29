@@ -1,39 +1,191 @@
 import numpy as np
 from typing import TypeVar
 
+
 T = TypeVar('T', float, complex)
+
 # =============================================================================
 # Field evaluation functions
 # =============================================================================
+
 # -----------------------------------------------------------------------------
 # 0: Evaluation of single 3d field at single point
 # -----------------------------------------------------------------------------
 def eval_field_3d_once(local_coeffs : 'T[:,:,:]', 
-                       local_bases_0: 'float[:]',
                        local_bases_1: 'float[:]',
-                       local_bases_2: 'float[:]'):
+                       local_bases_2: 'float[:]',
+                       local_bases_3: 'float[:]',
+                       work_1d: 'T[:]',
+                       work_2d: 'T[:,:]') -> T:
     """
+    Evaluate a scalar field in 3D, given the basis values along each direction.
+
+    Compute the point value of a field, given the values of the non-zero 1D
+    basis functions at the point location. We assume that the 3D basis has a
+    tensor-product structure, hence each 3D basis function can be written as
+    the product of three 1D basis functions:
+
+    phi(x1, x2, x3) = phi_1(x1) * phi_2(x2) * phi_3(x3).
+
+    The algorithm uses sum factorization to compute the reduction. This needs
+    work arrays in 1D and 2D, which are provided to this function rather than
+    allocated at each function call.
+
     Parameters
     ----------
-    local_coeffs: ndarray of floats
-        Active (local) coefficients of the fields in all directions
+    local_coeffs: ndarray[float|complex]
+        Active (local) coefficients of the field in all directions.
 
-    local_bases: list of ndarrays
-        Active (local) 1D-basis functions values at the point of evaluation. 
+    local_bases_1: ndarray[float].
+        Active (local) 1D-basis functions values at the point of evaluation x1.
+
+    local_bases_2: ndarray[float].
+        Active (local) 1D-basis functions values at the point of evaluation x2.
+
+    local_bases_3: ndarray[float].
+        Active (local) 1D-basis functions values at the point of evaluation x3.
+
+    work_1d: ndarray[float|complex]
+        x1-dependent work array for the partial reduction in (x2, x3).
+
+    work_2d: ndarray[float|complex]
+        (x1, x2)-dependent work array for the partial reduction in x3.
+
+    Returns
+    -------
+    res : float | complex
+        The scalar value of the field at the location of interest.
+
     """
     n1, n2, n3 = local_coeffs.shape
 
-    res = local_coeffs[0, 0, 0] - local_coeffs[0, 0, 0]
+    # Verify that local bases have the correct size
+    assert local_bases_1.size == n1
+    assert local_bases_2.size == n2
+    assert local_bases_3.size == n3
+
+    # Verify that provided work arrays are large enough
+    assert work_1d.shape[0] >= n1
+    assert work_2d.shape[0] >= n1
+    assert work_2d.shape[1] >= n2
+
+    # Obtain zero of correct type (float or complex) from input array
+    c0 = local_coeffs[0, 0, 0]
+    zero = c0 - c0
+
+    # Compute reduction using sum factorization in 3D
+    res = zero
     for i1 in range(n1):
+        work_1d[i1] = zero
         for i2 in range(n2):
+            work_2d[i1, i2] = zero
             for i3 in range(n3):
-                res += (local_coeffs[i1, i2, i3] *
-                        local_bases_0[i1] *
-                        local_bases_1[i2] *
-                        local_bases_2[i3])
+                work_2d[i1, i2] += local_coeffs[i1, i2, i3] * local_bases_3[i3]
+            work_1d[i1] += work_2d[i1, i2] * local_bases_2[i2]
+        res += work_1d[i1] * local_bases_1[i1]
 
     return res
 
+
+def eval_field_2d_once(local_coeffs : 'T[:,:]',
+                       local_bases_1: 'float[:]',
+                       local_bases_2: 'float[:]',
+                       work_1d: 'T[:]') -> T:
+    """
+    Evaluate a scalar field in 2D, given the basis values along each direction.
+
+    Compute the point value of a field, given the values of the non-zero 1D
+    basis functions at the point location. We assume that the 2D basis has a
+    tensor-product structure, hence each 2D basis function can be written as
+    the product of three 1D basis functions:
+
+    phi(x1, x2) = phi_1(x1) * phi_2(x2).
+
+    The algorithm uses sum factorization to compute the reduction. This needs
+    a 1D work array, which is provided to this function rather than allocated
+    at each function call.
+
+    Parameters
+    ----------
+    local_coeffs: ndarray[float|complex]
+        Active (local) coefficients of the field in all directions.
+
+    local_bases_1: ndarray[float].
+        Active (local) 1D-basis functions values at the point of evaluation x1.
+
+    local_bases_2: ndarray[float].
+        Active (local) 1D-basis functions values at the point of evaluation x2.
+
+    work_1d: ndarray[float|complex]
+        x1-dependent work array for the partial reduction in x2.
+
+    Returns
+    -------
+    res : float | complex
+        The scalar value of the field at the location of interest.
+
+    """
+    n1, n2 = local_coeffs.shape
+
+    # Verify that local bases have the correct size
+    assert local_bases_1.size == n1
+    assert local_bases_2.size == n2
+
+    # Verify that provided work arrays are large enough
+    assert work_1d.shape[0] >= n1
+
+    # Obtain zero of correct type (float or complex) from input array
+    c0 = local_coeffs[0, 0]
+    zero = c0 - c0
+
+    # Compute reduction using sum factorization in 2D
+    res = zero
+    for i1 in range(n1):
+        work_1d[i1] = zero
+        for i2 in range(n2):
+            work_1d[i1] += local_coeffs[i1, i2] * local_bases_2[i2]
+        res += work_1d[i1] * local_bases_1[i1]
+
+    return res
+
+
+def eval_field_1d_once(local_coeffs : 'T[:]',
+                       local_bases_1: 'float[:]') -> T:
+    """
+    Evaluate a scalar field in 1D, given the basis values.
+
+    Compute the point value of a field, given the values of the non-zero 1D
+    basis functions at the point location.
+
+    Parameters
+    ----------
+    local_coeffs: ndarray[float|complex]
+        Active (local) coefficients of the field in all directions.
+
+    local_bases_1: ndarray[float].
+        Active (local) 1D-basis functions values at the point of evaluation x1.
+
+    Returns
+    -------
+    res : float | complex
+        The scalar value of the field at the location of interest.
+
+    """
+    n1, = local_coeffs.shape
+
+    # Verify that local bases have the correct size
+    assert local_bases_1.size == n1
+
+    # Obtain zero of correct type (float or complex) from input array
+    c0 = local_coeffs[0]
+    zero = c0 - c0
+
+    # Compute reduction as a simple scalar product
+    res = zero
+    for i1 in range(n1):
+        res += local_coeffs[i1] * local_bases_1[i1]
+
+    return res
 
 # -----------------------------------------------------------------------------
 # 1: Regular tensor grid without weight
