@@ -6,7 +6,7 @@ import pytest
 from psydac.feec.multipatch.examples.hcurl_source_pbms_conga_2d import solve_hcurl_source_pbm
 from psydac.feec.multipatch.examples.hcurl_eigen_pbms_conga_2d import hcurl_solve_eigen_pbm
 from psydac.feec.multipatch.examples.hcurl_eigen_pbms_dg_2d import hcurl_solve_eigen_pbm_dg
-# from psydac.feec.multipatch.examples.timedomain_maxwell import solve_td_maxwell_pbm
+from psydac.feec.multipatch.examples.timedomain_maxwell import solve_td_maxwell_pbm
 
 def test_time_harmonic_maxwell_pretzel_f():
     nc = 4
@@ -183,7 +183,6 @@ def test_maxwell_eigen_curved_L_shape_dg():
     
     assert abs(error - 0.035139029534570064) < 1e-10
 
-@pytest.mark.skip(reason="need to adapt notation")
 def test_maxwell_timedomain():
     solve_td_maxwell_pbm(nc = 4, deg = 2, final_time = 2, domain_name = 'square_2')
 
