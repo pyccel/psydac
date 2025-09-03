@@ -35,3 +35,5 @@ __test__/
 env/
 env*/
 *env/
+# Visual Studio Code workspace files
+*.code-workspace

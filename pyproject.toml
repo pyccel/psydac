@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools >= 64.0", "wheel", "numpy", "pyccel >= 1.11.2"]
+requires = ["setuptools >= 64.0, != 67.2.0", "wheel", "numpy", "pyccel >= 2.0.1"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,7 +8,7 @@ version         = "2.4.5.dev0"
 description     = "Python package for isogeometric analysis (IGA)"
 readme          = "README.md"
 requires-python = ">= 3.10"
-license         = "MIT"
+license         = {file = "LICENSE"}
 authors         = [
     {name = "Psydac development team", email = "psydac@googlegroups.com"}
 ]
@@ -30,13 +30,7 @@ dependencies = [
     'pyevtk',
 
     # Our packages from PyPi
-    'pyccel >= 2.0',
-
-    # In addition, we depend on mpi4py and h5py (MPI version).
-    # Since h5py must be built from source, we run the commands
-    #
-    # python3 -m pip install requirements.txt
-    # python3 -m pip install .
+    'pyccel >= 2.0.1',
     'mpi4py >= 4',
     'h5py',
 
