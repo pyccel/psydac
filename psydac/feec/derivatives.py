@@ -27,22 +27,7 @@ __all__ = (
     'BrokenTransposedGradient2D',
     'BrokenScalarCurl2D',
     'BrokenTransposedScalarCurl2D',
-    'block_tostencil'
 )
-
-#====================================================================================================
-def block_tostencil(M):
-    """
-    Convert a BlockLinearOperator that contains KroneckerStencilMatrix objects
-    to a BlockLinearOperator that contains StencilMatrix objects
-    """
-    blocks = [list(b) for b in M.blocks]
-    for i1,b in enumerate(blocks):
-        for i2, mat in enumerate(b):
-            if mat is None:
-                continue
-            blocks[i1][i2] = mat.tostencil()
-    return BlockLinearOperator(M.domain, M.codomain, blocks=blocks)
 
 #====================================================================================================
 # Singlepatch derivative operators
