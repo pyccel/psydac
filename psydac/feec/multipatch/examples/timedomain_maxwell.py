@@ -340,7 +340,8 @@ def solve_td_maxwell_pbm(*,
     print(' -- getting source --')
     f0_h = None
     f0_harmonic_h = None
-
+    rho0_h = None
+    
     if source_type == 'zero':
 
         f0 = None
@@ -464,6 +465,7 @@ def solve_td_maxwell_pbm(*,
 
     # initial B sol
     B_h = array_to_psydac(np.zeros(V2h.nbasis), V2h.coeff_space)
+    E_h = array_to_psydac(np.zeros(V1h.nbasis), V1h.coeff_space)
 
     # initial E sol
     if E0_type == 'zero':
