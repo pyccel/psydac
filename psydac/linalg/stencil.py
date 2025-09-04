@@ -214,6 +214,56 @@ class StencilVectorSpace(VectorSpace):
         """
         return StencilVector(self)
 
+    #...
+    def inner(self, x, y):
+        """
+        Evaluate the inner vector product between two vectors of this space V.
+
+        If the field of V is real, compute the classical scalar product.
+        If the field of V is complex, compute the classical sesquilinear
+        product with linearity on the second vector.
+
+        TODO [YG 01.05.2025]: Currently, the first vector is conjugated. We
+        want to reverse this behavior in order to align with the convention
+        of FEniCS.
+
+        Parameters
+        ----------
+        x : Vector
+            The first vector in the scalar product. In the case of a complex
+            field, the inner product is antilinear w.r.t. this vector (hence
+            this vector is conjugated).
+
+        y : Vector
+            The second vector in the scalar product. The inner product is
+            linear w.r.t. this vector.
+
+        Returns
+        -------
+        float | complex
+            The scalar product of the two vectors. Note that inner(x, x) is
+            a non-negative real number which is zero if and only if x = 0.
+
+        """
+
+        assert isinstance(x, StencilVector)
+        assert isinstance(y, StencilVector)
+        assert x.space is self
+        assert y.space is self
+
+        inner_func = self._inner_func
+        inner_args = (x._data, y._data, *self._inner_consts)
+
+        if self.parallel:
+            # Sometimes in the parallel case, we can get an empty vector that breaks our kernel
+            x._dot_send_data[0] = 0 if x._data.shape[0] == 0 else inner_func(*inner_args)
+            self.cart.global_comm.Allreduce((x._dot_send_data, self.mpi_type),
+                                            (x._dot_recv_data, self.mpi_type),
+                                             op=MPI.SUM )
+            return x._dot_recv_data[0]
+        else:
+            return inner_func(*inner_args)
+
     # ...
     def axpy(self, a, x, y):
         """
@@ -424,46 +474,47 @@ class StencilVector(Vector):
     def space(self):
         return self._space
 
-    #...
-    @property
-    def dtype(self):
-        return self._space.dtype
-
-    #...
-    def dot(self, v):
+    # ...
+    def toarray(self, *, order='C', with_pads=False):
         """
-        Return the inner vector product between self and v.
-
-        If the values are real, it returns the classical scalar product.
-        If the values are complex, it returns the classical sesquilinear product with linearity on the vector v.
+        Return a numpy 1D array corresponding to the given StencilVector,
+        with or without pads.
 
         Parameters
         ----------
-        v : StencilVector
-            Vector of the same space than self needed for the scalar product.
+        with_pads : bool
+            If True, include pads in output array (ignored in serial case).
+
+        order: {'C','F'}
+             Memory representation of the data ‘C’ for row-major ordering (C-style), ‘F’ column-major ordering (Fortran-style).
 
         Returns
         -------
-        null: self._space.dtype
-            Scalar containing scalar product of v and self.
+        array : numpy.ndarray
+            A copy of the data array collapsed into one dimension.
 
         """
 
-        assert isinstance(v, StencilVector)
-        assert v._space is self._space
+        # In parallel case, call different functions based on 'with_pads' flag
+        if self.space.parallel:
+            if with_pads:
+                return self._toarray_parallel_with_pads(order=order)
+            else:
+                return self._toarray_parallel_no_pads(order=order)
 
-        inner_func = self._space._inner_func
-        inner_args = (self._data, v._data, *self._space._inner_consts)
+        # In serial case, ignore 'with_pads' flag
+        return self.toarray_local(order=order)
 
-        if self._space.parallel:
-            # Sometimes in the parallel case, we can get an empty vector that breaks our kernel
-            self._dot_send_data[0] = 0 if self._data.shape[0] == 0 else inner_func(*inner_args)
-            self._space.cart.global_comm.Allreduce((self._dot_send_data, self._space.mpi_type),
-                                                   (self._dot_recv_data, self._space.mpi_type),
-                                                   op=MPI.SUM )
-            return self._dot_recv_data[0]
-        else:
-            return inner_func(*inner_args)
+    #...
+    def copy(self, out=None):
+        if self is out:
+            return self
+        w = out or StencilVector( self._space )
+        np.copyto(w._data, self._data, casting='no')
+        for axis, ext in self._space.interfaces:
+            np.copyto(w._interface_data[axis, ext], self._interface_data[axis, ext], casting='no')
+        w._sync = self._sync
+        return w
 
     #...
     def conjugate(self, out=None):
@@ -477,17 +528,6 @@ class StencilVector(Vector):
             np.conjugate(self._interface_data[axis, ext], out=out._interface_data[axis, ext], casting='no')
         out._sync = self._sync
         return out
-
-    #...
-    def copy(self, out=None):
-        if self is out:
-            return self
-        w = out or StencilVector( self._space )
-        np.copyto(w._data, self._data, casting='no')
-        for axis, ext in self._space.interfaces:
-            np.copyto(w._interface_data[axis, ext], self._interface_data[axis, ext], casting='no')
-        w._sync = self._sync
-        return w
 
     #...
     def __neg__(self):
@@ -584,48 +624,15 @@ class StencilVector(Vector):
         return txt
 
     # ...
-    def toarray(self, *, order='C', with_pads=False):
-        """
-        Return a numpy 1D array corresponding to the given StencilVector,
-        with or without pads.
-
-        Parameters
-        ----------
-        with_pads : bool
-            If True, include pads in output array.
-
-        order: {'C','F'}
-             Memory representation of the data ‘C’ for row-major ordering (C-style), ‘F’ column-major ordering (Fortran-style).
-
-        Returns
-        -------
-        array : numpy.ndarray
-            A copy of the data array collapsed into one dimension.
-
-        """
-
-
-        # In parallel case, call different functions based on 'with_pads' flag
-        if self.space.parallel:
-            if with_pads:
-                return self._toarray_parallel_with_pads(order=order)
-            else:
-                return self._toarray_parallel_no_pads(order=order)
-
-        # In serial case, ignore 'with_pads' flag
-        return self.toarray_local(order=order)
-
-    # ...
     def toarray_local(self , *, order='C'):
         """ return the local array without the padding"""
-
-        idx = tuple( slice(m*p,-m*p) for p,m in zip(self.pads, self.space.shifts) )
+        idx = tuple( slice(m*p,-m*p) if p != 0 else slice(0, None) for p,m in zip(self.pads, self.space.shifts) )
         return self._data[idx].flatten( order=order)
 
     # ...
     def _toarray_parallel_no_pads(self, order='C'):
         a         = np.zeros( self.space.npts, self.dtype )
-        idx_from  = tuple( slice(m*p,-m*p) for p,m in zip(self.pads, self.space.shifts) )
+        idx_from  = tuple( slice(m*p,-m*p) if p != 0 else slice(0, None) for p,m in zip(self.pads, self.space.shifts) )
         idx_to    = tuple( slice(s,e+1) for s,e in zip(self.starts,self.ends) )
         a[idx_to] = self._data[idx_from]
         return a.flatten( order=order)
@@ -656,6 +663,9 @@ class StencilVector(Vector):
 
                 p = pads[direction]
 
+                if p == 0:
+                    continue
+
                 # Left-most process: copy data from left to right
                 if coord == 0:
                     idx_from = tuple(
@@ -681,7 +691,7 @@ class StencilVector(Vector):
                     a[idx_to] = a[idx_from]
 
         # Step 3: remove ghost regions from global array
-        idx = tuple( slice(p,-p) for p in pads )
+        idx = tuple( slice(p,-p) if p != 0 else slice(0, None) for p in pads  )
         out = a[idx]
 
         # Step 4: return flattened array
@@ -768,6 +778,9 @@ class StencilVector(Vector):
             periodic = self._space.periods[direction]
             p        = self._space.pads   [direction] * self._space.shifts[direction]
 
+            if p == 0:
+                continue
+
             idx_front = [slice(None)] * direction
             idx_back  = [slice(None)] * (ndim-direction-1)
 
@@ -812,6 +825,10 @@ class StencilVector(Vector):
 
             p        = self._space.pads  [direction]
             m        = self._space.shifts[direction]
+
+            if p == 0:
+                continue
+
             idx_from = tuple(idx_front + [slice(-m*p,None) if (-m*p+p)!=0 else slice(-m*p,None)] + idx_back)
             self._data[idx_from] = 0.
             idx_from = tuple(idx_front + [slice(0,m*p)] + idx_back)
@@ -826,6 +843,9 @@ class StencilVector(Vector):
             periodic = self._space.periods[direction]
             p        = self._space.pads   [direction]
             m        = self._space.shifts [direction]
+
+            if p == 0:
+                continue
 
             if periodic:
                 idx_front = [slice(None)] * direction
@@ -1347,6 +1367,10 @@ class StencilMatrix(LinearOperator):
 
             p        = self._codomain.pads   [direction]
             m        = self._codomain.shifts[direction]
+
+            if p == 0:
+                continue
+
             idx_from = tuple( idx_front + [ slice(-m*p,None) if (-m*p+p)!=0 else slice(-m*p,None)] + idx_back )
             self._data[idx_from] = 0.
             idx_from = tuple( idx_front + [ slice(0,m*p)] + idx_back )
@@ -1361,6 +1385,9 @@ class StencilMatrix(LinearOperator):
             periodic = self._codomain.periods[direction]
             p        = self._codomain.pads   [direction]
             m        = self._codomain.shifts[direction]
+
+            if p == 0:
+                continue
 
             if periodic:
                 idx_front = [slice(None)]*direction
@@ -1540,7 +1567,7 @@ class StencilMatrix(LinearOperator):
         pp = [np.int64(compute_diag_len(p,mj,mi)-(p+1)) for p,mi,mj in zip(self._pads, cm, dm)]
 
         # Range of data owned by local process (no ghost regions)
-        local = tuple( [slice(mi*p,-mi*p) for p,mi in zip(cpads, cm)] + [slice(None)] * nd )
+        local = tuple( [slice(mi*p,-mi*p) if p != 0 else slice(p, None) for p,mi in zip(cpads, cm)] + [slice(None)] * nd )
         size  = self._data[local].size
 
         # COO storage
@@ -1672,6 +1699,9 @@ class StencilMatrix(LinearOperator):
 
             periodic = self._codomain.periods[direction]
             p        = self._codomain.pads   [direction]
+
+            if p == 0:
+                continue
 
             idx_front = [slice(None)]*direction
             idx_back  = [slice(None)]*(ndim-direction-1 + ndim)
@@ -2590,7 +2620,7 @@ class StencilInterfaceMatrix(LinearOperator):
         cols = []
         data = []
         # Range of data owned by local process (no ghost regions)
-        local = tuple( [slice(m*p,-m*p) for m,p in zip(cm, pp)] + [slice(None)] * nd )
+        local = tuple( [slice(m*p,-m*p) if p != 0 else slice(0, None) for m,p in zip(cm, pp)] + [slice(None)] * nd )
         pp = [compute_diag_len(p,mj,mi)-(p+1) for p,mi,mj in zip(self._pads, cm, dm)]
 
         for (index,value) in np.ndenumerate( self._data[local] ):
@@ -2649,6 +2679,9 @@ class StencilInterfaceMatrix(LinearOperator):
         ndim     = self._codomain.ndim
         periodic = self._codomain.periods[direction]
         p        = self._codomain.pads   [direction]
+
+        if p == 0:
+            return    
 
         idx_front = [slice(None)] * direction
         idx_back  = [slice(None)] * (ndim-direction-1)

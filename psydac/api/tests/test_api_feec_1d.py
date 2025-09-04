@@ -344,8 +344,8 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
 
     half_step_faraday_1d = (dt/2) * D0
 
-    de = derham_h.V0.vector_space.zeros()
-    db = derham_h.V1.vector_space.zeros()
+    de = derham_h.V0.coeff_space.zeros()
+    db = derham_h.V1.coeff_space.zeros()
 
     # Time loop
     for i in range(nsteps):
@@ -499,6 +499,32 @@ def test_maxwell_1d_periodic():
 
     assert abs(namespace['error_E'] - ref['error_E']) / ref['error_E'] <= TOL
     assert abs(namespace['error_B'] - ref['error_B']) / ref['error_B'] <= TOL
+
+def test_maxwell_1d_periodic_deg_1():
+
+    namespace = run_maxwell_1d(
+        L        = 1.0,
+        eps      = 0.5,
+        ncells   = 30,
+        degree   = 1,
+        periodic = True,
+        Cp       = 0.5,
+        nsteps   = 1,
+        tend     = None,
+        splitting_order      = 2,
+        plot_interval        = 0,
+        diagnostics_interval = 0,
+        tol = 1e-6,
+        bc_mode = None,
+        verbose = False
+    )
+
+    TOL = 1e-6
+    ref = dict(error_E = 0.0072675885645832605,
+               error_B = 0.06600368653495972)
+
+    assert abs(namespace['error_E'] - ref['error_E']) / ref['error_E'] <= TOL
+    assert abs(namespace['error_B'] - ref['error_B']) / ref['error_B'] <= TOL
     
 def test_maxwell_1d_periodic_mult():
 
@@ -604,6 +630,33 @@ def test_maxwell_1d_periodic_par():
     TOL = 1e-6
     ref = dict(error_l2_E = 1.3958706745655869e-04,
                error_l2_B = 1.2635727360749016e-04)
+
+    assert abs(namespace['error_l2_E'] - ref['error_l2_E']) / ref['error_l2_E'] <= TOL
+    assert abs(namespace['error_l2_B'] - ref['error_l2_B']) / ref['error_l2_B'] <= TOL
+
+@pytest.mark.parallel
+def test_maxwell_1d_periodic_par_deg_1():
+
+    namespace = run_maxwell_1d(
+        L        = 1.0,
+        eps      = 0.5,
+        ncells   = 30,
+        degree   = 1,
+        periodic = True,
+        Cp       = 0.5,
+        nsteps   = 1,
+        tend     = None,
+        splitting_order      = 2,
+        plot_interval        = 0,
+        diagnostics_interval = 0,
+        tol = 1e-6,
+        bc_mode = None,
+        verbose = False
+    )
+
+    TOL = 1e-6
+    ref = dict(error_l2_E = 0.0024771477815803107,
+               error_l2_B = 0.016857601931265228)
 
     assert abs(namespace['error_l2_E'] - ref['error_l2_E']) / ref['error_l2_E'] <= TOL
     assert abs(namespace['error_l2_B'] - ref['error_l2_B']) / ref['error_l2_B'] <= TOL

@@ -410,25 +410,25 @@ class LinearOperatorDot(SplBasic):
     def _compile_pyccel(self, mod, backend, verbose=False):
 
         # ... convert python to fortran using pyccel
-        compiler       = backend['compiler']
-        fflags         = backend['flags']
-        _PYCCEL_FOLDER = backend['folder']
-        accelerators   = ["openmp"] if backend["openmp"] else []
+        compiler_family = backend['compiler_family']
+        flags           = backend['flags']
+        _PYCCEL_FOLDER  = backend['folder']
+        openmp          = backend["openmp"]
 
-        from pyccel.epyccel import epyccel
+        from pyccel import epyccel
 
         fmod = epyccel(mod,
-                       accelerators = accelerators,
-                       compiler     = compiler,
-                       fflags       = fflags,
-                       comm         = self.comm,
-                       bcast        = True,
-                       folder       = _PYCCEL_FOLDER,
-                       verbose      = verbose)
+                       openmp  = openmp,
+                       compiler_family = compiler_family,
+                       flags   = flags,
+                       comm    = self.comm,
+                       bcast   = True,
+                       folder  = _PYCCEL_FOLDER,
+                       verbose = verbose)
         return fmod
 
 #==============================================================================
-class VectorDot(SplBasic):
+class VectorInner(SplBasic):
 
     def __new__(cls, ndim, backend=None):
         tag = random_string(8)

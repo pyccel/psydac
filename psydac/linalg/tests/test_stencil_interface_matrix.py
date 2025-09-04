@@ -369,7 +369,7 @@ def test_stencil_interface_matrix_2d_parallel_dot(n1, n2, p1, p2, expected):
     y = A.dot(x)
 
     # Check the results
-    assert y.dot(y) == expected
+    assert y.inner(y) == expected
 
 #===============================================================================
 # SCRIPT FUNCTIONALITY

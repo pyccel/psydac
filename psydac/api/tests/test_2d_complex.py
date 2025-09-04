@@ -424,8 +424,8 @@ def test_complex_helmholtz_2d(plot_sol=False):
     print('expected errors: l2 = {}, h1 = {}'.format(expected_l2_error, expected_h1_error))
     
     if plot_sol:
-        from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, get_grid_vals
-        from psydac.feec.multipatch.plotting_utilities import get_patch_knots_gridlines, my_small_plot
+        from psydac.fem.plotting_utilities import get_plotting_grid, get_grid_vals
+        from psydac.fem.plotting_utilities import get_patch_knots_gridlines, my_small_plot
         from psydac.feec.pull_push                     import pull_2d_h1
         
         Id_mapping = IdentityMapping('M', 2)
@@ -536,8 +536,8 @@ if __name__ == '__main__':
 
     else:
 
-        from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, get_grid_vals
-        from psydac.feec.multipatch.plotting_utilities import get_patch_knots_gridlines, my_small_plot
+        from psydac.fem.plotting_utilities import get_plotting_grid, get_grid_vals
+        from psydac.fem.plotting_utilities import get_patch_knots_gridlines, my_small_plot
         from psydac.api.tests.build_domain             import build_pretzel
         from psydac.feec.pull_push                     import pull_2d_hcurl
         

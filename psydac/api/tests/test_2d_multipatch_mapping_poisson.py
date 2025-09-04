@@ -22,6 +22,7 @@ from sympde.expr.equation import find, EssentialBC
 from psydac.api.discretization     import discretize
 from psydac.api.tests.build_domain import build_pretzel
 from psydac.api.settings           import PSYDAC_BACKEND_GPYCCEL
+from psydac.fem.plotting_utilities import plot_field_2d as plot_field
 
 # ... get the mesh directory
 try:
@@ -56,12 +57,6 @@ def run_poisson_2d(solution, f, domain, ncells=None, degree=None, filename=None,
     boundary = domain.boundary
 
     kappa  = 10**3
-
-   # expr_I =(
-   #         - dot(grad(plus(u)),nn)*minus(v)  + dot(grad(minus(v)),nn)*plus(u) - kappa*plus(u)*minus(v)
-   #         + dot(grad(minus(u)),nn)*plus(v)  - dot(grad(plus(v)),nn)*minus(u) - kappa*plus(v)*minus(u)
-   #         - dot(grad(plus(v)),nn)*plus(u)   + kappa*plus(u)*plus(v)
-   #         - dot(grad(minus(v)),nn)*minus(u) + kappa*minus(u)*minus(v))
 
     expr_I =- 0.5*dot(grad(plus(u)),nn)*minus(v)  + 0.5*dot(grad(minus(v)),nn)*plus(u)  - kappa*plus(u)*minus(v)\
             + 0.5*dot(grad(minus(u)),nn)*plus(v)  - 0.5*dot(grad(plus(v)),nn)*minus(u)  - kappa*plus(v)*minus(u)\
@@ -182,6 +177,9 @@ def test_poisson_2d_2_patches_dirichlet_2():
     f         = -4
 
     l2_error, h1_error, uh = run_poisson_2d(solution, f, domain, ncells=[2**2,2**2], degree=[2,2])
+
+    plot_fn=f'uh_multipatch_poisson.pdf'
+    plot_field(fem_field=uh, Vh=uh.space, domain=domain, title='uh', filename=plot_fn, hide_plot=True)
 
     expected_l2_error = 0.0019402242901236006
     expected_h1_error = 0.024759527393621895
@@ -386,8 +384,8 @@ def teardown_function():
 
 if __name__ == '__main__':
 
-    from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, get_grid_vals
-    from psydac.feec.multipatch.plotting_utilities import get_patch_knots_gridlines, my_small_plot
+    from psydac.fem.plotting_utilities import get_plotting_grid, get_grid_vals
+    from psydac.fem.plotting_utilities import get_patch_knots_gridlines, my_small_plot
     from collections                               import OrderedDict
 
     domain    = build_pretzel()

@@ -150,8 +150,8 @@ def get_row_col_index(corner1, corner2, interface, axis, V1, V2):
      The StencilInterfaceMatrix index of the corner, it has the form (i1, i2, k1, k2) in 2D,
      where (i1, i2) identifies the row and (k1, k2) the diagonal.
     """
-    start = V1.vector_space.starts
-    end = V1.vector_space.ends
+    start = V1.coeff_space.starts
+    end = V1.coeff_space.ends
     degree = V2.degree
     start_end = (start, end)
 
@@ -254,8 +254,8 @@ def allocate_interface_matrix(corners, test_space, trial_space):
     )[axis].spans[-1 if ext == 1 else 0] - test_space.degree[axis]
 
     mat = StencilInterfaceMatrix(
-        trial_space.vector_space,
-        test_space.vector_space,
+        trial_space.coeff_space,
+        test_space.coeff_space,
         s,
         s,
         axis,
@@ -580,7 +580,7 @@ class ConformingProjection_V1(FemLinearOperator):
             #
             # # self._A = ah.assemble()
             self._A = ah.forms[0]._matrix
-            # C1 = V1h.vector_space
+            # C1 = V1h.coeff_space
             # self._A = BlockLinearOperator(C1, C1)
 
             for b1 in self._A.blocks:
@@ -748,7 +748,7 @@ def get_K0_and_K0_inv(V0h, uniform_patches=False):
     if uniform_patches:
         print(' [[WARNING -- hack in get_K0_and_K0_inv: using copies of 1st-patch matrices in every patch ]] ')
 
-    V0 = V0h.symbolic_space   # VOh is ProductFemSpace
+    V0 = V0h.symbolic_space   # VOh is FemSpace
     domain = V0.domain
     K0_blocks = []
     K0_inv_blocks = []
@@ -798,7 +798,7 @@ def get_K1_and_K1_inv(V1h, uniform_patches=False):
     if uniform_patches:
         print(' [[WARNING -- hack in get_K1_and_K1_inv: using copies of 1st-patch matrices in every patch ]] ')
 
-    V1 = V1h.symbolic_space   # V1h is ProductFemSpace
+    V1 = V1h.symbolic_space   # V1h is FemSpace
     domain = V1.domain
     K1_blocks = []
     K1_inv_blocks = []
@@ -808,7 +808,7 @@ def get_K1_and_K1_inv(V1h, uniform_patches=False):
             K1_inv_k = K1_inv_blocks[0].copy()
 
         else:
-            # fem space on patch k: (ProductFemSpace (of TensorFemSpace (s))
+            # fem space on patch k:
             V1_k = V1h.spaces[k]
             K1_k_blocks = []
             for c in [0, 1]:    # dim of component
@@ -858,7 +858,7 @@ def get_K1_and_K1_inv(V1h, uniform_patches=False):
 #     """
 #     from pprint import pprint
 #
-#     V = Vh.symbolic_space   # VOh is ProductFemSpace
+#     V = Vh.symbolic_space   # VOh is FemSpace
 #     domain = V.domain
 #     M_blocks = []
 #     M_inv_blocks = []
@@ -1192,7 +1192,7 @@ class Multipatch_Projector_H1:
         """
         u0s = [P(fun) for P, fun, in zip(self._P0s, funs_log)]
 
-        u0_coeffs = BlockVector(self._V0h.vector_space,
+        u0_coeffs = BlockVector(self._V0h.coeff_space,
                                 blocks=[u0j.coeffs for u0j in u0s])
 
         return FemField(self._V0h, coeffs=u0_coeffs)
@@ -1217,7 +1217,7 @@ class Multipatch_Projector_Hcurl:
         """
         E1s = [P(fun) for P, fun, in zip(self._P1s, funs_log)]
 
-        E1_coeffs = BlockVector(self._V1h.vector_space,
+        E1_coeffs = BlockVector(self._V1h.coeff_space,
                                 blocks=[E1j.coeffs for E1j in E1s])
 
         return FemField(self._V1h, coeffs=E1_coeffs)
@@ -1242,7 +1242,7 @@ class Multipatch_Projector_L2:
         """
         B2s = [P(fun) for P, fun, in zip(self._P2s, funs_log)]
 
-        B2_coeffs = BlockVector(self._V2h.vector_space,
+        B2_coeffs = BlockVector(self._V2h.coeff_space,
                                 blocks=[B2j.coeffs for B2j in B2s])
 
         return FemField(self._V2h, coeffs=B2_coeffs)

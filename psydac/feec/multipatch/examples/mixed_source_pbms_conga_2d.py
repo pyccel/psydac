@@ -22,7 +22,7 @@ from psydac.feec.pull_push import pull_2d_h1, pull_2d_hcurl, pull_2d_l2
 from psydac.feec.multipatch.api import discretize
 from psydac.feec.multipatch.fem_linear_operators import IdLinearOperator
 from psydac.feec.multipatch.operators import HodgeOperator
-from psydac.feec.multipatch.plotting_utilities import plot_field
+from psydac.fem.plotting_utilities import plot_field_2d as plot_field
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
 from psydac.feec.multipatch.examples.ppc_test_cases import get_source_and_sol_for_magnetostatic_pbm
 from psydac.feec.multipatch.examples.hcurl_eigen_pbms_conga_2d import get_eigenvalues
@@ -253,7 +253,7 @@ def solve_magnetostatic_pbm(
         # matrix of the coefs of the harmonic fields (Lambda^H_i) in the basis (Lambda_i), in the form:
         # hf_m = (c^H_{i,j})_{i < dim_harmonic_space, j < dim_V1}  such that
         # Lambda^H_i = sum_j c^H_{i,j} Lambda^1_j
-        hf_m = bmat(hf_cs).transpose()
+        hf_m = np.array(hf_cs).transpose()
         MH_m = M1_m @ hf_m
 
         # check:
@@ -395,13 +395,13 @@ def solve_magnetostatic_pbm(
     plot_field(numpy_coeffs=hh_c, Vh=V1h, space_kind='hcurl',
                domain=domain, title=title, filename=plot_dir + params_str + '_hh.png', hide_plot=hide_plots)
     title = r'solution {} (amplitude)'.format(u_name)
-    plot_field(numpy_coeffs=uh_c, Vh=V1h, space_kind='hcurl',
+    plot_field(numpy_coeffs=uh_c, Vh=V1h, space_kind='hcurl', plot_type='amplitude',
                domain=domain, title=title, filename=plot_dir + params_str + '_uh.png', hide_plot=hide_plots)
     title = r'solution {} (vector field)'.format(u_name)
-    plot_field(numpy_coeffs=uh_c, Vh=V1h, space_kind='hcurl',
+    plot_field(numpy_coeffs=uh_c, Vh=V1h, space_kind='hcurl', plot_type='vector_field',
                domain=domain, title=title, filename=plot_dir + params_str + '_uh_vf.png', hide_plot=hide_plots)
     title = r'solution {} (components)'.format(u_name)
-    plot_field(numpy_coeffs=uh_c, Vh=V1h, space_kind='hcurl',
+    plot_field(numpy_coeffs=uh_c, Vh=V1h, space_kind='hcurl', plot_type='components',
                domain=domain, title=title, filename=plot_dir + params_str + '_uh_xy.png', hide_plot=hide_plots)
 
 
@@ -413,8 +413,9 @@ if __name__ == '__main__':
     # bc_type = 'pseudo-vacuum'
     source_type = 'dipole_J'
 
-    source_proj = 'P_L2_wcurl_J'
-
+    # source_proj = 'P_L2_wcurl_J'
+    source_proj = 'P_geom'
+    
     domain_name = 'pretzel_f'
     dim_harmonic_space = 3
 

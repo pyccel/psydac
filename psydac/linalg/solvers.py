@@ -143,7 +143,7 @@ class ConjugateGradient(InverseLinearOperator):
         b : psydac.linalg.basic.Vector
             Right-hand-side vector of linear system Ax = b. Individual entries b[i] need
             not be accessed, but b has 'shape' attribute and provides 'copy()' and
-            'dot(p)' functions (dot(p) is the vector inner product b*p ); moreover,
+            'inner(p)' functions (b.inner(p) is the vector inner product b*p); moreover,
             scalar multiplication and sum operations are available.
 
         out : psydac.linalg.basic.Vector | NoneType
@@ -190,7 +190,7 @@ class ConjugateGradient(InverseLinearOperator):
         A.dot(x, out=v)
         b.copy(out=r)
         r -= v
-        am = r.dot(r).real
+        am = r.inner(r).real
         r.copy(out=p)
 
         tol_sqr = tol**2
@@ -209,12 +209,12 @@ class ConjugateGradient(InverseLinearOperator):
                 m -= 1
                 break
             A.dot(p, out=v)
-            l   = am / v.dot(p)
+            l   = am / v.inner(p)
 
             x.mul_iadd(l, p)  # this is x += l*p
             r.mul_iadd(-l, v) # this is r -= l*v
 
-            am1 = r.dot(r).real
+            am1 = r.inner(r).real
             p  *= (am1/am)
             p  += r
             am  = am1
@@ -351,9 +351,9 @@ class PConjugateGradient(InverseLinearOperator):
         A.dot(x, out=v)
         b.copy(out=r)
         r       -= v
-        nrmr_sqr = r.dot(r).real
+        nrmr_sqr = r.inner(r).real
         pc.dot(r, out=s)
-        am       = s.dot(r)
+        am       = s.inner(r)
         s.copy(out=p)
 
         tol_sqr  = tol**2
@@ -374,15 +374,15 @@ class PConjugateGradient(InverseLinearOperator):
                 break
 
             v  = A.dot(p, out=v)
-            l  = am / v.dot(p)
+            l  = am / v.inner(p)
 
             x.mul_iadd(l, p) # this is x += l*p
             r.mul_iadd(-l, v) # this is r -= l*v
 
-            nrmr_sqr = r.dot(r).real
+            nrmr_sqr = r.inner(r).real
             pc.dot(r, out=s)
 
-            am1 = s.dot(r)
+            am1 = s.inner(r)
 
             # we are computing p = (am1 / am) * p + s by using axpy on s and exchanging the arrays
             s.mul_iadd((am1/am), p)
@@ -466,7 +466,7 @@ class BiConjugateGradient(InverseLinearOperator):
         b : psydac.linalg.basic.Vector
             Right-hand-side vector of linear system. Individual entries b[i] need
             not be accessed, but b has 'shape' attribute and provides 'copy()' and
-            'dot(p)' functions (dot(p) is the vector inner product b*p ); moreover,
+            'inner(p)' functions (b.inner(p) is the vector inner product b*p); moreover,
             scalar multiplication and sum operations are available.
 
         out : psydac.linalg.basic.Vector | NoneType
@@ -523,7 +523,7 @@ class BiConjugateGradient(InverseLinearOperator):
         p.copy(out=ps)
         v.copy(out=vs)
 
-        res_sqr = r.dot(r).real
+        res_sqr = r.inner(r).real
         tol_sqr = tol**2
 
         if verbose:
@@ -548,10 +548,10 @@ class BiConjugateGradient(InverseLinearOperator):
             #-----------------------
 
             # c := (rs, r)
-            c = rs.dot(r)
+            c = rs.inner(r)
 
             # a := (rs, r) / (ps, v)
-            a = c / ps.dot(v)
+            a = c / ps.inner(v)
 
             #-----------------------
             # SOLUTION UPDATE
@@ -567,10 +567,10 @@ class BiConjugateGradient(InverseLinearOperator):
             rs.mul_iadd(-a.conjugate(), vs)
 
             # ||r||_2 := (r, r)
-            res_sqr = r.dot(r).real
+            res_sqr = r.inner(r).real
 
             # b := (rs, r)_{m+1} / (rs, r)_m
-            b = rs.dot(r) / c
+            b = rs.inner(r) / c
 
             # p := r + b*p
             p *= b
@@ -654,7 +654,7 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
         b : psydac.linalg.basic.Vector
             Right-hand-side vector of linear system. Individual entries b[i] need
             not be accessed, but b has 'shape' attribute and provides 'copy()' and
-            'dot(p)' functions (dot(p) is the vector inner product b*p ); moreover,
+            'inner(p)' functions (b.inner(p) is the vector inner product b*p); moreover,
             scalar multiplication and sum operations are available.
         out : psydac.linalg.basic.Vector | NoneType
             The output vector, or None (optional).
@@ -715,7 +715,7 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
 
         r.copy(out=r0)
 
-        res_sqr = r.dot(r).real
+        res_sqr = r.inner(r).real
         tol_sqr = tol ** 2
 
         if verbose:
@@ -739,10 +739,10 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
             # -----------------------
 
             # c := (r0, r)
-            c = r0.dot(r)
+            c = r0.inner(r)
 
             # a := (r0, r) / (r0, v)
-            a = c / (r0.dot(v))
+            a = c / (r0.inner(v))
 
             # r := r - a*v
             r.mul_iadd(-a, v)
@@ -751,7 +751,7 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
             vr = A.dot(r, out=vr)
 
             # w := (r, A*r) / (A*r, A*r)
-            w = r.dot(vr) / vr.dot(vr)
+            w = r.inner(vr) / vr.inner(vr)
 
             # -----------------------
             # SOLUTION UPDATE
@@ -765,13 +765,13 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
             r.mul_iadd(-w, vr)
 
             # ||r||_2 := (r, r)
-            res_sqr = r.dot(r).real
+            res_sqr = r.inner(r).real
 
             if res_sqr < tol_sqr:
                 break
 
             # b := a / w * (r0, r)_{m+1} / (r0, r)_m
-            b = r0.dot(r) * a / (c * w)
+            b = r0.inner(r) * a / (c * w)
 
             # p := r + b*p- b*w*v
             p *= b
@@ -853,7 +853,7 @@ class PBiConjugateGradientStabilized(InverseLinearOperator):
         b : psydac.linalg.basic.Vector
             Right-hand-side vector of linear system. Individual entries b[i] need
             not be accessed, but b has 'shape' attribute and provides 'copy()' and
-            'dot(p)' functions (dot(p) is the vector inner product b*p ); moreover,
+            'inner(p)' functions (b.inner(p) is the vector inner product b*p); moreover,
             scalar multiplication and sum operations are available.
         out : psydac.linalg.basic.Vector | NoneType
             The output vector, or None (optional).
@@ -939,14 +939,14 @@ class PBiConjugateGradientStabilized(InverseLinearOperator):
         pc.dot(r, out=rp)
         rp.copy(out=pp)
 
-        rhop = rp.dot(rp)
+        rhop = rp.inner(rp)
 
         # save initial residual vector rp0
         rp0 = self._tmps['rp0']
         rp.copy(out=rp0)
 
         # squared residual norm and squared tolerance
-        res_sqr = r.dot(r).real
+        res_sqr = r.inner(r).real
         tol_sqr = tol**2
 
         if verbose:
@@ -964,7 +964,7 @@ class PBiConjugateGradientStabilized(InverseLinearOperator):
             # v = A @ pp, vp = PC @ v, alphap = rhop/(vp.rp0)
             A.dot(pp, out=v)
             pc.dot(v, out=vp)
-            alphap = rhop / vp.dot(rp0)
+            alphap = rhop / vp.inner(rp0)
 
             # s = r - alphap*v, sp = PC @ s
             r.copy(out=s)
@@ -976,7 +976,7 @@ class PBiConjugateGradientStabilized(InverseLinearOperator):
             # t = A @ sp, tp = PC @ t, omegap = (tp.sp)/(tp.tp)
             A.dot(sp, out=t)
             pc.dot(t, out=tp)
-            omegap = tp.dot(sp) / tp.dot(tp)
+            omegap = tp.inner(sp) / tp.inner(tp)
 
             # x = x + alphap*pp + omegap*sp
             pp.copy(out=app)
@@ -996,7 +996,7 @@ class PBiConjugateGradientStabilized(InverseLinearOperator):
             rp -= tp
 
             # rhop_new = rp.rp0, betap = (alphap*rhop_new)/(omegap*rhop)
-            rhop_new = rp.dot(rp0)
+            rhop_new = rp.inner(rp0)
             betap = (alphap*rhop_new) / (omegap*rhop)
             rhop = 1*rhop_new
 
@@ -1007,7 +1007,7 @@ class PBiConjugateGradientStabilized(InverseLinearOperator):
             pp += rp
 
             # new residual norm
-            res_sqr = r.dot(r).real
+            res_sqr = r.inner(r).real
 
             niter += 1
 
@@ -1097,7 +1097,7 @@ class MinimumResidual(InverseLinearOperator):
         b : psydac.linalg.basic.Vector
             Right-hand-side vector of linear system. Individual entries b[i] need
             not be accessed, but b has 'shape' attribute and provides 'copy()' and
-            'dot(p)' functions (dot(p) is the vector inner product b*p ); moreover,
+            'inner(p)' functions (b.inner(p) is the vector inner product b*p); moreover,
             scalar multiplication and sum operations are available.
 
         out : psydac.linalg.basic.Vector | NoneType
@@ -1167,7 +1167,7 @@ class MinimumResidual(InverseLinearOperator):
         y *= -1.0
         y.copy(out=res_old)   # res = b - A*x
 
-        beta = sqrt(res_old.dot(res_old))
+        beta = sqrt(res_old.inner(res_old))
 
         # Initialize other quantities
         oldb    = 0
@@ -1211,7 +1211,7 @@ class MinimumResidual(InverseLinearOperator):
             if itn >= 2:
                 y.mul_iadd(-(beta/oldb), res_old)
 
-            alfa = v.dot(y)
+            alfa = v.inner(y)
             y.mul_iadd(-(alfa/beta), res_new)
 
             # We put res_new in res_old and y in res_new
@@ -1219,7 +1219,7 @@ class MinimumResidual(InverseLinearOperator):
             y.copy(out=res_new)
 
             oldb = beta
-            beta = sqrt(res_new.dot(res_new))
+            beta = sqrt(res_new.inner(res_new))
             tnorm2 += alfa**2 + oldb**2 + beta**2
 
             # Apply previous rotation Qk-1 to get
@@ -1266,7 +1266,7 @@ class MinimumResidual(InverseLinearOperator):
             # Estimate various norms and test for convergence.
 
             Anorm = sqrt(tnorm2)
-            ynorm = sqrt(x.dot(x))
+            ynorm = sqrt(x.inner(x))
 
             rnorm  = phibar
             if ynorm == 0 or Anorm == 0:test1 = inf
@@ -1416,7 +1416,7 @@ class LSMR(InverseLinearOperator):
         b : psydac.linalg.basic.Vector
             Right-hand-side vector of linear system. Individual entries b[i] need
             not be accessed, but b has 'shape' attribute and provides 'copy()' and
-            'dot(p)' functions (dot(p) is the vector inner product b*p ); moreover,
+            'inner(p)' functions (b.inner(p) is the vector inner product b*p); moreover,
             scalar multiplication and sum operations are available.
 
         out : psydac.linalg.basic.Vector | NoneType
@@ -1482,16 +1482,16 @@ class LSMR(InverseLinearOperator):
             btol = tol
 
         b.copy(out=u)
-        normb = sqrt(b.dot(b).real)
+        normb = sqrt(b.inner(b).real)
 
         A.dot(x, out=u_work)
         u -= u_work
-        beta = sqrt(u.dot(u).real)
+        beta = sqrt(u.inner(u).real)
 
         if beta > 0:
             u *= (1 / beta)
             At.dot(u, out=v)
-            alpha = sqrt(v.dot(v).real)
+            alpha = sqrt(v.inner(v).real)
         else:
             x.copy(out=v)
             alpha = 0
@@ -1554,14 +1554,14 @@ class LSMR(InverseLinearOperator):
             u *= -alpha
             A.dot(v, out=u_work)
             u += u_work
-            beta = sqrt(u.dot(u).real)
+            beta = sqrt(u.inner(u).real)
 
             if beta > 0:
                 u     *= (1 / beta)
                 v     *= -beta
                 At.dot(u, out=v_work)
                 v     += v_work
-                alpha = sqrt(v.dot(v).real)
+                alpha = sqrt(v.inner(v).real)
                 if alpha > 0:v *= (1 / alpha)
 
             # At this point, beta = beta_{k+1}, alpha = alpha_{k+1}.
@@ -1638,7 +1638,7 @@ class LSMR(InverseLinearOperator):
 
             # Compute norms for convergence testing.
             normar = abs(zetabar)
-            normx  = sqrt(x.dot(x).real)
+            normx  = sqrt(x.inner(x).real)
 
             # Now use these norms to estimate certain other quantities,
             # some of which will be small near a solution.
@@ -1751,7 +1751,7 @@ class GMRES(InverseLinearOperator):
         b : psydac.linalg.basic.Vector
             Right-hand-side vector of linear system Ax = b. Individual entries b[i] need
             not be accessed, but b has 'shape' attribute and provides 'copy()' and
-            'dot(p)' functions (dot(p) is the vector inner product b*p ); moreover,
+            'inner(p)' functions (b.inner(p) is the vector inner product b*p); moreover,
             scalar multiplication and sum operations are available.
 
         out : psydac.linalg.basic.Vector | NoneType
@@ -1803,7 +1803,7 @@ class GMRES(InverseLinearOperator):
         A.dot( x , out=r)
         r -= b
 
-        am = sqrt(r.dot(r).real)
+        am = sqrt(r.inner(r).real)
         if am < tol:
             self._info = {'niter': 1, 'success': am < tol, 'res_norm': am }
             return x
@@ -1877,10 +1877,10 @@ class GMRES(InverseLinearOperator):
         self._A.dot( self._Q[k] , out=p) # Krylov vector
 
         for i in range(k + 1): # Modified Gram-Schmidt, keeping Hessenberg matrix
-            h[i] = p.dot(self._Q[i])
+            h[i] = p.inner(self._Q[i])
             p.mul_iadd(-h[i], self._Q[i])
         
-        h[k+1] = sqrt(p.dot(p).real)
+        h[k+1] = sqrt(p.inner(p).real)
         p /= h[k+1] # Normalize vector
 
         if len(self._Q) > k + 1:

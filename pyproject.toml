@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools >= 64.0", "wheel", "numpy", "pyccel >= 1.9.2"]
+requires = ["setuptools >= 64.0, != 67.2.0", "wheel", "numpy", "pyccel >= 2.0.1"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,15 +7,15 @@ name            = "psydac"
 version         = "0.1"
 description     = "Python package for isogeometric analysis (IGA)"
 readme          = "README.md"
-requires-python = ">= 3.9, < 3.13"
+requires-python = ">= 3.9"
 license         = {file = "LICENSE"}
 authors         = [
     {name = "Psydac development team", email = "psydac@googlegroups.com"}
 ]
 maintainers = [
-    {name = "Yaman Güçlü"  , email = "yaman.guclu@gmail.com"},
+    {name = "Yaman Güçlü", email = "yaman.guclu@gmail.com"},
+    {name = "Martin Campos Pinto", email = "martin.campos-pinto@ipp.mpg.de"},
     {name = "Ahmed Ratnani", email = "ratnaniahmed@gmail.com"},
-    {name = "Said Hadjout"},
 ]
 keywords     = ["FEM", "IGA", "B-spline", "NURBS"]
 classifiers  = ["Programming Language :: Python :: 3"]
@@ -30,16 +30,21 @@ dependencies = [
     'pyevtk',
 
     # Our packages from PyPi
-    'sympde == 0.19.1',
-    'pyccel >= 1.11.2',
+    'sympde == 0.19.2',
+    'pyccel >= 2.0.1',
     'gelato == 0.12',
 
-    # In addition, we depend on mpi4py and h5py (MPI version).
-    # Since h5py must be built from source, we run the commands
+    # MPI for Python provides Python bindings for the
+    # Message Passing Interface (MPI) standard
+    'mpi4py >= 4',
+
+    # In addition, we depend on h5py (MPI version). Since h5py must
+    # be built from source, we install it with the commands
     #
-    # python3 -m pip install requirements.txt
-    # python3 -m pip install .
-    'mpi4py',
+    # export CC="mpicc"
+    # export HDF5_MPI="ON"
+    # export HDF5_DIR=<PATH-TO-HDF5-ROOT-FOLDER>
+    # pip install --no-cache-dir --no-binary h5py
     'h5py',
 
     # When pyccel is run in parallel with MPI, it uses tblib to pickle
