@@ -36,9 +36,7 @@ from psydac.linalg.solvers     import inverse
 def solve_hcurl_source_pbm(
         nc=4, deg=4, domain_name='pretzel_f', backend_language=None, source_proj='tilde_Pi', source_type='manu_J',
         eta=-10., mu=1., nu=1., gamma_h=10.,
-        project_sol=True, plot_dir=None, 
-        m_load_dir=None,
-):
+        project_sol=True, plot_dir=None):
     """
     solver for the problem: find u in H(curl), such that
 
@@ -71,15 +69,11 @@ def solve_hcurl_source_pbm(
     :param source_proj: approximation operator (in V1h) for the source, possible values are
          - 'tilde_Pi':  dual commuting projection, an L2 projection filtered by the adjoint conforming projection)
     :param source_type: must be implemented in get_source_and_solution()
-    :param m_load_dir: directory for matrix storage
     """
     diags = {}
 
     degree = [deg, deg]
 
-    if m_load_dir is not None:
-        if not os.path.exists(m_load_dir):
-            os.makedirs(m_load_dir)
 
     print('---------------------------------------------------------------------------------------------------------')
     print('Starting solve_hcurl_source_pbm function with: ')

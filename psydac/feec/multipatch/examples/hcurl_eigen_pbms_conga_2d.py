@@ -27,7 +27,7 @@ from psydac.api.postprocessing import OutputManager, PostProcessManager
 
 def hcurl_solve_eigen_pbm(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), domain=([0, np.pi], [0, np.pi]), domain_name='refined_square', backend_language='pyccel-gcc', mu=1, nu=0, gamma_h=0,
                              generalized_pbm=False, sigma=5, nb_eigs_solve=8, nb_eigs_plot=5, skip_eigs_threshold=1e-7,
-                             plot_dir=None, m_load_dir=None,):
+                             plot_dir=None):
     """
     Solve the eigenvalue problem for the curl-curl operator in 2D with DG discretization
 
@@ -61,8 +61,6 @@ def hcurl_solve_eigen_pbm(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), doma
         Threshold for the eigenvalues to skip
     plot_dir : str
         Directory for the plots
-    m_load_dir : str
-        Directory to save and load the matrices
     """
 
     diags = {}
@@ -132,8 +130,8 @@ def hcurl_solve_eigen_pbm(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), doma
     t_stamp = time_count(t_stamp)
     print('Hodge operators...')
     # multi-patch (broken) linear operators / matrices
-    H0, H1, H2 = derham_h.hodge_operators(kind='linop', backend_language=backend_language, load_dir=m_load_dir)
-    dH0, dH1, dH2 = derham_h.hodge_operators(kind='linop', dual=True, backend_language=backend_language, load_dir=m_load_dir)
+    H0, H1, H2 = derham_h.hodge_operators(kind='linop', backend_language=backend_language)
+    dH0, dH1, dH2 = derham_h.hodge_operators(kind='linop', dual=True, backend_language=backend_language)
 
     t_stamp = time_count(t_stamp)
     print('conforming projection operators...')

@@ -1455,11 +1455,11 @@ class ConformingProjectionV0(FemLinearOperator):
         FemLinearOperator.__init__(self, fem_domain=V0h, fem_codomain=V0h)
         
         if V0h.is_multipatch:
-            self._sparse_matrix = construct_h1_conforming_projection(V0h, reg_orders=0, p_moments=p_moments, hom_bc=hom_bc)
+            sparse_matrix = construct_h1_conforming_projection(V0h, reg_orders=0, p_moments=p_moments, hom_bc=hom_bc)
         else:
-            self._sparse_matrix = construct_h1_singlepatch_conforming_projection(V0h, reg_orders=0, p_moments=p_moments, hom_bc=hom_bc)
+            sparse_matrix = construct_h1_singlepatch_conforming_projection(V0h, reg_orders=0, p_moments=p_moments, hom_bc=hom_bc)
 
-        self._linop = SparseMatrixLinearOperator(self.linop_domain, self.linop_codomain, self._sparse_matrix)
+        self._linop = SparseMatrixLinearOperator(self.linop_domain, self.linop_codomain, sparse_matrix)
 
 
 class ConformingProjectionV1(FemLinearOperator):
@@ -1495,8 +1495,8 @@ class ConformingProjectionV1(FemLinearOperator):
         FemLinearOperator.__init__(self, fem_domain=V1h, fem_codomain=V1h)
 
         if V1h.is_multipatch:
-            self._sparse_matrix = construct_hcurl_conforming_projection(V1h, reg_orders=0, p_moments=p_moments, hom_bc=hom_bc)
+            sparse_matrix = construct_hcurl_conforming_projection(V1h, reg_orders=0, p_moments=p_moments, hom_bc=hom_bc)
         else:
-            self._sparse_matrix = construct_hcurl_singlepatch_conforming_projection(V1h, reg_orders=0, p_moments=p_moments, hom_bc=hom_bc)
+            sparse_matrix = construct_hcurl_singlepatch_conforming_projection(V1h, reg_orders=0, p_moments=p_moments, hom_bc=hom_bc)
         
-        self._linop = SparseMatrixLinearOperator(self.linop_domain, self.linop_codomain, self._sparse_matrix)
+        self._linop = SparseMatrixLinearOperator(self.linop_domain, self.linop_codomain, sparse_matrix)
