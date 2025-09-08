@@ -147,16 +147,16 @@ def test_conf_projectors_2d(
 
     # conforming projections (scipy matrices)
     cP0, cP1, cP2 = derham_h.conforming_projectors(p_moments=mom_pres, hom_bc=hom_bc)
-    cP0, cP1, cP2 = (m.tosparse for m in (cP0, cP1, cP2))
+    cP0, cP1, cP2 = (m.tosparse() for m in (cP0, cP1, cP2))
     
     M0, M1, M2 = derham_h.hodge_operators()
-    M0, M1, M2 = (m.tosparse for m in (M0, M1, M2))
+    M0, M1, M2 = (m.tosparse() for m in (M0, M1, M2))
 
     M0_inv, M1_inv, M2_inv = derham_h.hodge_operators(dual=True)
-    M0_inv, M1_inv, M2_inv = (m.tosparse for m in (M0_inv, M1_inv, M2_inv))
+    M0_inv, M1_inv, M2_inv = (m.tosparse() for m in (M0_inv, M1_inv, M2_inv))
 
     bD0, bD1 = derham_h.derivatives()
-    bD0, bD1 = (m.tosparse for m in (bD0, bD1))
+    bD0, bD1 = (m.tosparse() for m in (bD0, bD1))
 
     D0 = bD0 @ cP0              # Conga grad
     D1 = bD1 @ cP1              # Conga curl or div
