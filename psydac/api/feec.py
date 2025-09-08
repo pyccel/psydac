@@ -310,6 +310,7 @@ class DiscreteDeRham(BasicDiscrete):
           The conforming projectors of each space and in desired form.
 
         """
+
         if hom_bc is None:
             raise ValueError('please provide a value for "hom_bc" argument')
 
@@ -321,24 +322,27 @@ class DiscreteDeRham(BasicDiscrete):
                 raise NotImplementedError('2D sequence with H-div not available yet')
 
             else:
-                cP0 = ConformingProjectionV0(self.V0, mom_pres=mom_pres, p_moments=p_moments, hom_bc=hom_bc)
-                cP1 = ConformingProjectionV1(self.V1, mom_pres=mom_pres, p_moments=p_moments, hom_bc=hom_bc)
 
-                I2 = IdentityOperator(self.V2.coeff_space)
-                cP2 = FemLinearOperator(fem_domain=self.V2, fem_codomain=self.V2, linop=I2, sparse_matrix=I2.tosparse())
+                if not self._conf_proj: 
 
-                self._conf_proj = (cP0, cP1, cP2)
+                    cP0 = ConformingProjectionV0(self.V0, mom_pres=mom_pres, p_moments=p_moments, hom_bc=hom_bc)
+                    cP1 = ConformingProjectionV1(self.V1, mom_pres=mom_pres, p_moments=p_moments, hom_bc=hom_bc)
+
+                    I2 = IdentityOperator(self.V2.coeff_space)
+                    cP2 = FemLinearOperator(fem_domain=self.V2, fem_codomain=self.V2, linop=I2)
+
+                    self._conf_proj = (cP0, cP1, cP2)
+                
+                if kind == 'femlinop':
+                    return self._conf_proj[0], self._conf_proj[1], self._conf_proj[2]
+                elif kind == 'linop': 
+                    return self._conf_proj[0].linop, self._conf_proj[1].linop, self._conf_proj[2].linop
 
         elif self.dim == 3:
             raise NotImplementedError("3D projectors are not available")
 
-        if kind == 'femlinop':
-            return cP0, cP1, cP2
-        elif kind == 'linop': 
-            return cP0.linop, cP1.linop, cP2.linop
-
     #--------------------------------------------------------------------------
-    def _init_hodge_operators(self, backend_language='python', load_dir=None):
+    def _init_hodge_operators(self, backend_language='python'):
         """
         Initialize the Hodge operator for the multipatch de Rham sequence.
 
@@ -348,32 +352,29 @@ class DiscreteDeRham(BasicDiscrete):
         backend_language: <str>
           The backend used to accelerate the code
 
-        load_dir: <str|None>
-          Filename for storage in sparse matrix format
-
         """
         if not self._hodge_operators: 
 
             if self.dim == 1:
-                    H0 = HodgeOperator(self.V0, self.domain_h, backend_language=backend_language, load_dir=load_dir, load_space_index=0)
-                    H1 = HodgeOperator(self.V1, self.domain_h, backend_language=backend_language, load_dir=load_dir, load_space_index=1)
+                    H0 = HodgeOperator(self.V0, self.domain_h, backend_language=backend_language)
+                    H1 = HodgeOperator(self.V1, self.domain_h, backend_language=backend_language)
                     
                     self._hodge_operators = (H0, H1)
 
             elif self.dim == 2:
 
-                    H0 = HodgeOperator(self.V0, self.domain_h, backend_language=backend_language, load_dir=load_dir, load_space_index=0)
-                    H1 = HodgeOperator(self.V1, self.domain_h, backend_language=backend_language, load_dir=load_dir, load_space_index=1)
-                    H2 = HodgeOperator(self.V2, self.domain_h, backend_language=backend_language, load_dir=load_dir, load_space_index=2)
+                    H0 = HodgeOperator(self.V0, self.domain_h, backend_language=backend_language)
+                    H1 = HodgeOperator(self.V1, self.domain_h, backend_language=backend_language)
+                    H2 = HodgeOperator(self.V2, self.domain_h, backend_language=backend_language)
 
                     self._hodge_operators = (H0, H1, H2)
 
             elif self.dim == 3:
 
-                    H0 = HodgeOperator(self.V0, self.domain_h, backend_language=backend_language, load_dir=load_dir, load_space_index=0)
-                    H1 = HodgeOperator(self.V1, self.domain_h, backend_language=backend_language, load_dir=load_dir, load_space_index=1)
-                    H2 = HodgeOperator(self.V2, self.domain_h, backend_language=backend_language, load_dir=load_dir, load_space_index=2)
-                    H3 = HodgeOperator(self.V3, self.domain_h, backend_language=backend_language, load_dir=load_dir, load_space_index=3)
+                    H0 = HodgeOperator(self.V0, self.domain_h, backend_language=backend_language)
+                    H1 = HodgeOperator(self.V1, self.domain_h, backend_language=backend_language)
+                    H2 = HodgeOperator(self.V2, self.domain_h, backend_language=backend_language)
+                    H3 = HodgeOperator(self.V3, self.domain_h, backend_language=backend_language)
 
                     self._hodge_operators = (H0, H1, H2, H3)
 
@@ -411,7 +412,7 @@ class DiscreteDeRham(BasicDiscrete):
                 return H.dual_linop
 
     #--------------------------------------------------------------------------
-    def hodge_operator(self, space=None, dual=False, kind='femlinop', backend_language='python', load_dir=None):
+    def hodge_operator(self, space=None, dual=False, kind='femlinop', backend_language='python'):
         """
         Returns the Hodge operator for the given space and specified kind.
         
@@ -432,9 +433,6 @@ class DiscreteDeRham(BasicDiscrete):
         backend_language : str
             The backend used to accelerate the code, default is 'python'.
 
-        load_dir : str or None
-            Directory to load the Hodge operator from, if None the operator is computed on demand.
-
         Returns
         -------
         The Hodge operator of the space of the specified kind.
@@ -443,7 +441,7 @@ class DiscreteDeRham(BasicDiscrete):
         """
 
         if not self._hodge_operators:
-            self._init_hodge_operators(backend_language=backend_language, load_dir=load_dir)
+            self._init_hodge_operators(backend_language=backend_language)
             
         if space == 'V0':
            return self._get_hodge_operator(self._hodge_operators[0], dual=dual, kind=kind)
@@ -458,7 +456,7 @@ class DiscreteDeRham(BasicDiscrete):
             return self._get_hodge_operator(self._hodge_operators[3], dual=dual, kind=kind)
 
     #--------------------------------------------------------------------------
-    def hodge_operators(self, dual=False, kind='femlinop', backend_language='python', load_dir=None):
+    def hodge_operators(self, dual=False, kind='femlinop', backend_language='python'):
         """
         Returns the Hodge operators for the specified kind.
         
@@ -475,16 +473,13 @@ class DiscreteDeRham(BasicDiscrete):
         backend_language : str
             The backend used to accelerate the code, default is 'python'.
 
-        load_dir : str or None
-            Directory to load the Hodge operator from, if None the operator is computed on demand.
-
         Returns
         -------
         The Hodge operators of all spaces and of the specified kind.
         """
 
         if not self._hodge_operators:
-            self._init_hodge_operators(backend_language=backend_language, load_dir=load_dir)
+            self._init_hodge_operators(backend_language=backend_language)
             
         return tuple(self._get_hodge_operator(H, dual=dual, kind=kind) for H in self._hodge_operators)
 

@@ -397,21 +397,16 @@ class FemLinearOperator:
     fem_codomain : psydac.fem.basic.FemSpace
         The discrete space of the codomain
 
-    linop : <psydac.linalg.basic.LinearOperator> (optional)
+    linop : <psydac.linalg.basic.LinearOperator> 
         Linear Operator. 
 
-    sparse_matrix : <scipy.sparse.spmatrix> (optional)
-        Sparse matrix representation of the linear operator.
     """
 
-    def __init__(self, fem_domain, fem_codomain, *, linop=None, sparse_matrix=None):
+    def __init__(self, fem_domain, fem_codomain, *, linop=None):
         assert isinstance(fem_domain, FemSpace)
         assert isinstance(fem_codomain, FemSpace)
         if linop is not None:
             assert isinstance(linop, LinearOperator)
-        if sparse_matrix is not None:
-            from scipy.sparse import spmatrix
-            assert isinstance(sparse_matrix, spmatrix)
 
         self._fem_domain = fem_domain
         self._fem_codomain = fem_codomain
@@ -420,7 +415,6 @@ class FemLinearOperator:
         self._linop_codomain = fem_codomain.coeff_space
 
         self._linop = linop
-        self._sparse_matrix = sparse_matrix
 
     @property
     def fem_domain(self):
@@ -442,19 +436,11 @@ class FemLinearOperator:
     def linop(self):
         return self._linop
 
-    @property
     def toarray(self):
-        if self._sparse_matrix is not None:
-            return self._sparse_matrix.toarray()
-        else:
             return self._linop.toarray()
 
-    @property
     def tosparse(self):
-        if self._sparse_matrix is None:
-            self._sparse_matrix = self._linop.tosparse()
-
-        return self._sparse_matrix
+        return self._linop.tosparse()
 
     #--------------------------------------------------------------------------
     def __call__(self, u, *, out=None):
@@ -463,10 +449,8 @@ class FemLinearOperator:
 
         if self._linop is not None:
             coeffs = self._linop.dot(u.coeffs)
-        elif self._sparse_matrix is not None:
-            coeffs = self._sparse_matrix.dot(u.coeffs)
         else:
-            raise NotImplementedError('Class does not provide a __call__ method without a matrix or linear operator')
+            raise NotImplementedError('Class does not provide a __call__ method without a linear operator')
 
         return FemField(self.fem_codomain, coeffs=coeffs)
     
@@ -474,8 +458,8 @@ class FemLinearOperator:
         assert isinstance(f_coeffs, Vector)
         assert f_coeffs.space is self._linop_domain
 
-        if self._linop is not None or self._sparse_matrix is not None:
+        if self._linop is not None:
             f = FemField(self.fem_domain, coeffs=f_coeffs)
             return self(f).coeffs
         else:
-            raise NotImplementedError('Class does not provide a dot method without a matrix or linear operator')
+            raise NotImplementedError('Class does not provide a dot method without a linear operator')

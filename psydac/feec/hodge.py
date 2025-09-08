@@ -37,21 +37,13 @@ class HodgeOperator:
     backend_language: <str>
      The backend used to accelerate the code
 
-    load_dir: <str>
-     storage files for the primal and dual Hodge sparse matrice
-
-    load_space_index: <str>
-      the space index in the derham sequence
-
     Notes
     -----
-     Either we use a storage, or these matrices are only computed on demand
-     # todo: we compute the sparse matrix when to_sparse_matrix is called -- but never the stencil matrix (should be fixed...)
      We only support the identity metric, this implies that the dual Hodge is the inverse of the primal one.
      # todo: allow for non-identity metrics
     """
 
-    def __init__(self, Vh, domain_h, metric='identity', backend_language='python', load_dir=None, load_space_index=''):
+    def __init__(self, Vh, domain_h, metric='identity', backend_language='python'):
 
         self._fem_domain = Vh
         self._fem_codomain = Vh
@@ -64,10 +56,6 @@ class HodgeOperator:
         self._linop = None
         self._dual_linop = None
 
-        # Sparse matrices
-        self._sparse_matrix = None
-        self._dual_sparse_matrix = None
-
         self._domain_h = domain_h
         self._backend_language = backend_language
 
@@ -75,34 +63,6 @@ class HodgeOperator:
             raise NotImplementedError('only the identity metric is available')
 
         self._metric = metric
-
-        if load_dir and isinstance(load_dir, str):
-            if not os.path.exists(load_dir):
-                os.makedirs(load_dir)
-            assert str(load_space_index) in ['0', '1', '2', '3']
-            primal_hodge_storage_fn = load_dir + '/H{}_m.npz'.format(load_space_index)
-            dual_hodge_storage_fn   = load_dir + '/dH{}_m.npz'.format(load_space_index)
-
-            primal_hodge_is_stored = os.path.exists(primal_hodge_storage_fn)
-            dual_hodge_is_stored = os.path.exists(dual_hodge_storage_fn)
-            if dual_hodge_is_stored:
-                assert primal_hodge_is_stored
-                print(" ...            loading dual Hodge sparse matrix from " + dual_hodge_storage_fn)
-                self._dual_sparse_matrix = load_npz(dual_hodge_storage_fn)
-                print("[HodgeOperator] loading primal Hodge sparse matrix from " + primal_hodge_storage_fn)
-                self._sparse_matrix = load_npz(primal_hodge_storage_fn)
-            else:
-                assert not primal_hodge_is_stored
-                print("[HodgeOperator] assembling both sparse matrices for storage...")
-                self.assemble_matrix()
-                print("[HodgeOperator] storing primal Hodge sparse matrix in " + primal_hodge_storage_fn)
-                save_npz(primal_hodge_storage_fn, self._sparse_matrix)
-                self.assemble_dual_sparse_matrix()
-                print("[HodgeOperator] storing dual Hodge sparse matrix in " + dual_hodge_storage_fn)
-                save_npz(dual_hodge_storage_fn, self._dual_sparse_matrix)
-        else:
-            # matrices are not stored, we will probably compute them later
-            pass
 
     def assemble_matrix(self):
         """
@@ -130,9 +90,8 @@ class HodgeOperator:
             ah = discretize(a, self._domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS[self._backend_language])
 
             self._linop = ah.assemble()  # Mass matrix in stencil format
-            self._sparse_matrix = self._linop.tosparse()
 
-            self._primal_hodge = FemLinearOperator(self._fem_domain, self._fem_codomain, linop=self._linop, sparse_matrix=self._sparse_matrix)
+            self._primal_hodge = FemLinearOperator(self._fem_domain, self._fem_codomain, linop=self._linop)
 
     # which of the two assemblys for the sparse dual matrix is better? For now use the exact one.
     def assemble_dual_sparse_matrix(self):
@@ -142,7 +101,7 @@ class HodgeOperator:
         """
         from psydac.fem.basic import FemLinearOperator
         
-        if self._dual_sparse_matrix is None:
+        if self._dual_linop is None:
             if not self._linop:
                 self.assemble_matrix()
 
@@ -160,9 +119,8 @@ class HodgeOperator:
 
                 inv_M = block_diag(inv_M_blocks, format='csr')
 
-                self._dual_sparse_matrix = inv_M
                 self._dual_linop = SparseMatrixLinearOperator(M.codomain, M.domain, inv_M)
-                self._dual_hodge = FemLinearOperator(self._fem_codomain, self._fem_domain, linop=self._dual_linop, sparse_matrix=self._dual_sparse_matrix)
+                self._dual_hodge = FemLinearOperator(self._fem_codomain, self._fem_domain, linop=self._dual_linop)
 
             else:
                 from scipy.sparse import csr_matrix
@@ -170,9 +128,8 @@ class HodgeOperator:
                 inv_M = inv(M_m)
                 inv_M = csr_matrix(inv_M)
 
-                self._dual_sparse_matrix = inv_M
                 self._dual_linop = SparseMatrixLinearOperator(M.codomain, M.domain, inv_M)
-                self._dual_hodge = FemLinearOperator(self._fem_codomain, self._fem_domain, linop=self._dual_linop, sparse_matrix=self._dual_sparse_matrix)
+                self._dual_hodge = FemLinearOperator(self._fem_codomain, self._fem_domain, linop=self._dual_linop)
  
 
     def assemble_dual_matrix(self, solver ='gmres', **kwargs):
@@ -202,13 +159,11 @@ class HodgeOperator:
                     inv_M_blocks[i][i] = inv_Mii
 
                 self._dual_linop = BlockLinearOperator(M.codomain, M.domain, blocks=inv_M_blocks)
-                self._dual_sparse_matrix = None
-                self._dual_hodge = FemLinearOperator(self._fem_codomain, self._fem_domain, linop=self._dual_linop, sparse_matrix=self._dual_sparse_matrix)
+                self._dual_hodge = FemLinearOperator(self._fem_codomain, self._fem_domain, linop=self._dual_linop)
             
             else:
                 inv_M = inverse(M, solver=solver, **kwargs)
-                self._dual_sparse_matrix = None
-                self._dual_hodge = FemLinearOperator(self._fem_codomain, self._fem_domain, linop=self._dual_linop, sparse_matrix=self._dual_sparse_matrix)
+                self._dual_hodge = FemLinearOperator(self._fem_codomain, self._fem_domain, linop=self._dual_linop)
             
     @property
     def linop(self):
@@ -216,13 +171,6 @@ class HodgeOperator:
             self.assemble_matrix()
 
         return self._linop
-        
-    @property
-    def tosparse(self):
-        if self._sparse_matrix is None:
-            self.assemble_matrix()
-
-        return self._sparse_matrix
 
     @property
     def dual_linop(self):
@@ -230,13 +178,6 @@ class HodgeOperator:
             self.assemble_dual_sparse_matrix()
 
         return self._dual_linop
-        
-    @property
-    def dual_tosparse(self):
-        if self._dual_sparse_matrix is None:
-            self.assemble_dual_sparse_matrix()
-
-        return self._dual_sparse_matrix
 
     @property
     def hodge(self):
@@ -251,4 +192,3 @@ class HodgeOperator:
             self.assemble_dual_sparse_matrix()
 
         return self._dual_hodge
-        
