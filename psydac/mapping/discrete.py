@@ -873,20 +873,30 @@ class NurbsMapping(SplineMapping):
     #--------------------------------------------------------------------------
     # Abstract interface
     #--------------------------------------------------------------------------
+    # def __call__(self, *eta):
+    #     map_W = self._weights_field
+    #     w = map_W(*eta)
+    #     Xd = [map_Xd(*eta , weights=map_W.coeffs) for map_Xd in self._fields]
+    #     return np.asarray(Xd) / w
+
+    # # ...
+    # def jacobian(self, *eta):
+    #     map_W = self._weights_field
+    #     w = map_W(*eta)
+    #     grad_w = np.array(map_W.gradient(*eta))
+    #     v = np.array([map_Xd(*eta, weights=map_W.coeffs)  for map_Xd in self._fields])
+    #     grad_v = np.array([map_Xd.gradient(*eta, weights=map_W.coeffs) for map_Xd in self._fields])
+    #     return grad_v / w - v[:, None] @ grad_w[None, :] / w**2
+
     def __call__(self, *eta):
-        map_W = self._weights_field
-        w = map_W(*eta)
-        Xd = [map_Xd(*eta , weights=map_W.coeffs) for map_Xd in self._fields]
-        return np.asarray(Xd) / w
+        return self.space.eval_fields_one_point(self._fields, *eta,
+                                            weights=self._weights_field.coeffs)
 
     # ...
     def jacobian(self, *eta):
-        map_W = self._weights_field
-        w = map_W(*eta)
-        grad_w = np.array(map_W.gradient(*eta))
-        v = np.array([map_Xd(*eta, weights=map_W.coeffs)  for map_Xd in self._fields])
-        grad_v = np.array([map_Xd.gradient(*eta, weights=map_W.coeffs) for map_Xd in self._fields])
-        return grad_v / w - v[:, None] @ grad_w[None, :] / w**2
+        jac = self.space.eval_fields_gradient_one_point(self._fields, *eta,
+                                            weights=self._weights_field.coeffs)
+        return np.array(jac)
 
     #--------------------------------------------------------------------------
     # Fast evaluation on a grid
