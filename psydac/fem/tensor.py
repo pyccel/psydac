@@ -9,7 +9,6 @@ from mpi4py import MPI
 import numpy as np
 import itertools
 import h5py
-import os
 
 from types import MappingProxyType
 
@@ -23,10 +22,7 @@ from psydac.fem.grid         import FemAssemblyGrid
 from psydac.fem.partitioning import create_cart, partition_coefficients
 from psydac.ddm.cart         import DomainDecomposition, CartDecomposition
 
-from psydac.core.bsplines  import (find_span,
-                                   basis_funs,
-                                   basis_funs_1st_der,
-                                   basis_ders_on_quad_grid,
+from psydac.core.bsplines  import (basis_ders_on_quad_grid,
                                    elements_spans,
                                    cell_index,
                                    basis_ders_on_irregular_grid)
@@ -237,10 +233,6 @@ class TensorFemSpace(FemSpace):
         return tuple(V.periodic for V in self.spaces)
 
     @property
-    def domain_decomposition(self):
-        return self._domain_decomposition
-
-    @property
     def mapping(self):
         # [YG, 28.03.2025]: not clear why there should be no mapping here...
         # Clearly this property is never used in Psydac.
@@ -255,12 +247,16 @@ class TensorFemSpace(FemSpace):
         return self._coeff_space
 
     @property
-    def symbolic_space(self):
-        return self._symbolic_space 
+    def is_multipatch(self):
+        return False
 
     @property
-    def interfaces(self):
-        return self._interfaces_readonly
+    def is_vector_valued(self):
+        return False
+
+    @property
+    def symbolic_space(self):
+        return self._symbolic_space
 
     @symbolic_space.setter
     def symbolic_space(self, symbolic_space):
@@ -279,48 +275,99 @@ class TensorFemSpace(FemSpace):
     def axis_spaces(self):
         return self._spaces
 
+    #--------------------------------------------------------------------------
+    # Other properties
+    #--------------------------------------------------------------------------
     @property
-    def is_multipatch(self):
-        return False
+    def interfaces(self):
+        return self._interfaces_readonly
 
     @property
-    def is_vector_valued(self):
-        return False
+    def domain_decomposition(self):
+        return self._domain_decomposition
 
     #--------------------------------------------------------------------------
     # Abstract interface: evaluation methods
     #--------------------------------------------------------------------------
     def eval_field(self, field, *eta, weights=None):
+        """
+        Evaluate a single field at a single point location (eta1, eta2, ...).
 
-        assert isinstance(field, FemField)
-        assert field.space is self
+        Parameters
+        ----------
+        field : FemField
+            The field to be evaluated, element of this space (`self`).
+
+        *eta : Iterable[float]
+            The logical coordinates of the point of evaluation.
+
+        weights : Vector
+            The weights of `field`, necessary if it is a NURBS (optional).
+            They must belong to the coefficient space of `self`.
+
+        Returns
+        -------
+        float | complex
+            The value of the field at the point of interest.
+        """
+        values_list = self.eval_fields_one_point([field], *eta, weights=weights)
+
+        return values_list[0]
+
+    # ...
+    def eval_field_gradient(self, field, *eta, weights=None):
+        """
+        Evaluate the gradient of a single field at the point (eta1, eta2, ...).
+
+        Parameters
+        ----------
+        field : FemField
+            The field to be evaluated, element of this space (`self`).
+
+        *eta : Iterable[float]
+            The logical coordinates of the point of evaluation.
+
+        weights : FemField
+            The weights of `field`, necessary if it is a NURBS (optional).
+
+        Returns
+        -------
+        tuple[float | complex]
+            The gradient of the field at the point of interest.
+        """
+        gradients_list = self.eval_fields_gradient_one_point([field], *eta, weights=weights)
+
+        return gradients_list[0]
+
+    #--------------------------------------------------------------------------
+    # Private utility methods
+    #--------------------------------------------------------------------------
+    def _compute_index_and_bases(self, *eta, deriv=False, rational=False):
+
         assert len(eta) == self.ldim
-        if weights:
-            assert weights.space == field.coeffs.space
-
-        index = []
-        if weights:
-            w_index = []
+        assert isinstance(deriv, bool)
+        assert isinstance(rational, bool)
 
         # -------------------------------
         # Local storage for this function
         # -------------------------------
-        # [a] One N-dim. array w/ coefficients of non-zero N-dim. tensor-product basis functions
-        if not hasattr(self, '_tmp_coeffs'):
-            self._tmp_coeffs = np.zeros([s.degree + 1 for s in self.spaces])
-        #
-        # [b] List of N 1D arrays w/ values of non-zero 1D basis functions along each direction
+        # [a] List of N 1D arrays w/ values of non-zero 1D basis functions
+        #     along each direction
         if not hasattr(self, '_tmp_bf'):
             self._tmp_bf = [np.zeros(s.degree + 1, dtype=float) for s in self.spaces]
+        #
+        # [b] List of N 1D arrays w/ 1st derivative of non-zero 1D basis
+        #     functions along each direction
+        if not hasattr(self, '_tmp_bf1d') and deriv:
+            self._tmp_bf1d = [np.zeros(s.degree + 1, dtype=float) for s in self.spaces]
         # -------------------------------
 
         # Shortcuts
-        coeffs = self._tmp_coeffs
-        bases  = self._tmp_bf
+        bases_0 = self._tmp_bf
+        bases_1 = self._tmp_bf1d if deriv else []
 
-        # Necessary if vector coeffs is distributed across processes
-        if not field.coeffs.ghost_regions_in_sync:
-            field.coeffs.update_ghost_regions()
+        index = []
+        w_index = []
 
         for i, (x, xlim, space) in enumerate(zip(eta, self.eta_lims, self.spaces)):
 
@@ -344,55 +391,38 @@ class TensorFemSpace(FemSpace):
                 span -= 1
             #-------------------------------------------------#
 
-            # Compute values of non-zero B-splines
-            basis_funs_p(knots, degree, fx, span, out = bases[i])
+            # Compute values of non-zero B-splines, and 1st derivative if required
+            basis_funs_p(knots, degree, fx, span, out = bases_0[i])
+            if deriv:
+                basis_funs_1st_der_p(knots, degree, fx, span, out = bases_1[i])
 
             # If needed, rescale B-splines to get M-splines
             if space.basis == 'M':
-                bases[i] *= space.scaling_array[span - degree : span + 1]
+                scaling = space.scaling_array[span - degree : span + 1]
+                bases_0[i] *= scaling
+                if deriv:
+                    bases_1[i] *= scaling
 
             # Determine local span
             wrap_x   = space.periodic and fx > xlim[1]
             loc_span = span - space.nbasis if wrap_x else span
+
+            # Collect indices of coefficients corresponding to non-zero basis functions
             start    = self.coeff_space.starts[i]
             pad      = self.coeff_space.pads  [i]
             shift    = self.coeff_space.shifts[i]
             index.append(slice(loc_span - degree - start + shift * pad,
                                     loc_span + 1 - start + shift * pad))
-            if weights:
+            if rational:
                 w_index.append(slice(loc_span - degree, loc_span + 1))
 
-        # Get contiguous copy of the spline coefficients required for evaluation
-        index = tuple(index)
-        coeffs[:] = field.coeffs._data[index]        
-        if weights:
-            w_index = tuple(w_index)
-            coeffs *= weights[w_index]
+        return tuple(index), tuple(w_index), bases_0, bases_1
 
-        # Evaluation of multi-dimensional spline
-        # TODO: optimize
+    # ...
+    def eval_fields_one_point(self, fields, *eta, weights=None):
 
-        # Option 1: contract indices one by one and store intermediate results
-        #   - Pros: small number of Python iterations = ldim
-        #   - Cons: we need ldim-1 work arrays of decreasing size
-        #
-        res = self.eval_field_once(coeffs, *bases, *self._work)
-
-        # Option 2: cycle over each element of 'coeffs' (touched only once)
-        #   - Pros: no work arrays are needed
-        #   - Cons: large number of Python iterations = number of elements in 'coeffs'
-        #
-#        res = 0.0
-#        for idx, c in np.ndenumerate(coeffs):
-#            ndbasis = np.prod([b[i] for i, b in zip(idx, bases)])
-#            res    += c * ndbasis
-
-        return res
-    
-    def eval_fields_one_point( self, fields, *eta, weights=None):
-
-        for field in fields :
-            assert isinstance( field, FemField )
+        for field in fields:
+            assert isinstance(field, FemField)
             assert field.space is self
             if weights:
                 assert weights.space == field.coeffs.space
@@ -400,67 +430,150 @@ class TensorFemSpace(FemSpace):
                 # Necessary if vector coeffs is distributed across processes
                 field.coeffs.update_ghost_regions()
 
-        assert len( eta ) == self.ldim
-        
-        if not hasattr(self,'_tmp_coeffs'):
-            self._tmp_coeffs = np.zeros([s.degree +1 for s in self.spaces])
-        if not hasattr(self,'_tmp_bf'):
-            self._tmp_bf = [np.zeros(s.degree + 1, dtype=float) for s in self.spaces]
+        assert len(eta) == self.ldim
 
-        coeffs = self._tmp_coeffs
+        # -------------------------------
+        # Local storage for this function
+        # -------------------------------
+        # [a] One N-dim. array w/ coefficients of non-zero N-dim. tensor-product basis functions
+        if not hasattr(self, '_tmp_coeffs'):
+            self._tmp_coeffs = np.zeros([s.degree + 1 for s in self.spaces], dtype=self.dtype)
+        #
+        # [b] Same as [a], but for the weights' coefficients
+        if not hasattr(self, '_tmp_w_coeffs') and weights:
+            self._tmp_w_coeffs = np.zeros([s.degree + 1 for s in self.spaces], dtype=float)
+        # -------------------------------
 
-        index = []
+        # The following tuples contain, for each direction:
+        #
+        # bases: values of the non-zero 1D basis functions at coordinate eta_i
+        # index: indices (as slices) of the coefficients corresponding to
+        #        the non-zero 1D basis functions.
+        # w_index: same as `index`, but for obtaining NURBS weights.
+        index, w_index, bases, _ = self._compute_index_and_bases(*eta,
+                                    rational=(weights is not None))
+
+        # If NURBS, evaluate weights field
         if weights:
-            w_index = []
-        
-        for i, (x, xlim, space) in enumerate(zip( eta, self.eta_lims, self.spaces )):
+            w_coeffs = self._tmp_w_coeffs
+            w_coeffs[:] = weights[w_index]
+            w_value = self.eval_field_once(w_coeffs, *bases, *self._work)
 
-            knots  = space.knots
-            degree = space.degree
-            # be sure it's the right type for kernels
-            fx = float(x)
-            span   =  find_span_p( knots, degree, fx )
-            vs = space.coeff_space
-
-            #-------------------------------------------------#
-            # Fix span for boundaries between subdomains      #
-            #-------------------------------------------------#
-            # TODO: Use local knot sequence instead of global #
-            #       one to get correct span in all situations #
-            #-------------------------------------------------#
-            if fx == xlim[1] and fx != knots[-1-degree]:
-                span -= 1
-            #-------------------------------------------------#
-            basis = self._tmp_bf[i]
-            basis_funs_p( knots, degree, fx, span, out = basis)
-
-            # If needed, rescale B-splines to get M-splines
-            if space.basis == 'M':
-                basis *= space.scaling_array[span-degree : span+1]
-
-            # Determine local span
-            wrap_x   = space.periodic and fx > xlim[1]
-            loc_span = span - space.nbasis if wrap_x else span
-            start = self.coeff_space.starts[i]
-            pad = self.coeff_space.pads[i]
-            shift = self.coeff_space.shifts[i]
-            index.append( slice( loc_span-degree-start+shift*pad, loc_span+1-start+shift*pad ) )
-            if weights:
-                w_index.append(slice(loc_span-degree, loc_span+1))
-
-        bases = self._tmp_bf
-        res_tot = []
+        # Evaluate all fields at the same point
+        coeffs = self._tmp_coeffs
+        values_list = []
         for field in fields:
-            index  = tuple( index )
+
             # Get contiguous copy of the spline coefficients required for evaluation
             coeffs[:] = field.coeffs._data[index]
-            if weights:
-                coeffs *= weights[w_index]
-            # Evaluate field and append result to list
-            res = self.eval_field_once(coeffs, *bases, *self._work)
-            res_tot.append(res)
 
-        return res_tot
+            # If NURBS, rescale field coefficients by the weights' coefficients
+            if weights:
+                coeffs *= w_coeffs
+
+            # Evaluate field
+            value = self.eval_field_once(coeffs, *bases, *self._work)
+
+            # If NURBS, normalize result by the value of the weights field
+            if weights:
+                value /= w_value
+
+            # Append field value to list
+            values_list.append(value)
+
+        return values_list
+
+    # ...
+    def eval_fields_gradient_one_point(self, fields, *eta, weights=None):
+        """
+        Evaluate the gradient of multiple fields at the point (eta1, eta2, ...)
+
+        Parameters
+        ----------
+        field : FemField
+            The field to be evaluated, element of this space (`self`).
+
+        *eta : Iterable[float]
+            The logical coordinates of the point of evaluation.
+
+        weights : FemField
+            The weights of `field`, necessary if it is a NURBS (optional).
+
+        Returns
+        -------
+        list[tuple[float | complex]]
+            The gradient of all fields at the point of interest.
+        """
+        for field in fields:
+            assert isinstance(field, FemField)
+            assert field.space is self
+        assert len(eta) == self.ldim
+
+        # -------------------------------
+        # Local storage for this function
+        # -------------------------------
+        # [a] One N-dim. array w/ coefficients of non-zero N-dim. tensor-product basis functions
+        if not hasattr(self, '_tmp_coeffs'):
+            self._tmp_coeffs = np.zeros([s.degree + 1 for s in self.spaces], dtype=self.dtype)
+        #
+        # [b] Same as [a], but for the weights' coefficients
+        if not hasattr(self, '_tmp_w_coeffs') and weights:
+            self._tmp_w_coeffs = np.zeros([s.degree + 1 for s in self.spaces], dtype=float)
+        # -------------------------------
+
+        # The following tuples contain, for each direction:
+        #
+        # bases_0: values of the non-zero 1D basis functions at coordinate eta_i
+        # bases_1: 1st derivative of the non-zero 1D basis functions at eta_i
+        # index: indices (as slices) of the coefficients corresponding to
+        #        the non-zero 1D basis functions.
+        # w_index: same as `index`, but for obtaining NURBS weights.
+        index, w_index, bases_0, bases_1 = self._compute_index_and_bases(*eta,
+                                    deriv=True, rational=(weights is not None))
+
+
+        # If NURBS, evaluate weights field and its gradient
+        if weights:
+            w_coeffs = self._tmp_w_coeffs
+            w_coeffs[:] = weights[w_index]
+            w_inv_value = 1.0 / self.eval_field_once(w_coeffs, *bases_0, *self._work)
+
+            # Evaluate each component of the gradient
+            w_grad = []
+            for d in range(self.ldim):
+                bases = [(bases_1[d] if i==d else bases_0[i]) for i in range(self.ldim)]
+                w_res = self.eval_field_once(w_coeffs, *bases, *self._work)
+                w_grad.append(w_res)
+
+        # Evaluate all fields at the same point
+        coeffs = self._tmp_coeffs
+        gradients_list = []
+        for field in fields:
+
+            # Get contiguous copy of the spline coefficients required for evaluation
+            coeffs[:] = field.coeffs._data[index]
+
+            # If NURBS, rescale field coefficients by the weights' coefficients
+            if weights:
+                coeffs *=  weights[w_index]
+
+            # Evaluate the field
+            value = self.eval_field_once(coeffs, *bases_0, *self._work)
+
+            # Evaluate each component of the gradient
+            grad = []
+            for d in range(self.ldim):
+                bases = [(bases_1[d] if i==d else bases_0[i]) for i in range(self.ldim)]
+                grad_d = self.eval_field_once(coeffs, *bases, *self._work)
+                # If NURBS, apply chain rule of differentiation
+                if weights:
+                    grad_d = (grad_d - w_grad[d] * value * w_inv_value) * w_inv_value
+                grad.append(grad_d)
+
+            # Append field gradient (as a tuple) to list
+            gradients_list.append(tuple(grad))
+
+        return gradients_list
 
     # ...
     def preprocess_regular_tensor_grid(self, grid, der=0, overlap=0):
@@ -796,171 +909,6 @@ class TensorFemSpace(FemSpace):
                 raise NotImplementedError(f"eval_fields_{self.ldim}d_irregular_weighted not implemented")
 
         return out_fields
-
-    # ...
-    def eval_field_gradient(self, field, *eta, weights=None):
-
-        assert isinstance(field, FemField)
-        assert field.space is self
-        assert len(eta) == self.ldim
-
-        index   = []
-        if weights:
-            w_index = []
-
-        if not hasattr(self,'_tmp_coeffs'):
-            self._tmp_coeffs = np.zeros([s.degree +1 for s in self.spaces])
-        if not hasattr(self,'_tmp_bf'):
-            self._tmp_bf = [np.zeros(s.degree + 1, dtype=float) for s in self.spaces]
-        if not hasattr(self,'_tmp_bf1d'):
-            self._tmp_bf1d = [np.zeros(s.degree + 1, dtype=float) for s in self.spaces]
-        coeffs = self._tmp_coeffs
-
-        for i, (x, xlim, space) in enumerate(zip( eta, self.eta_lims, self.spaces )):
-
-            knots   = space.knots
-            degree  = space.degree
-            # be sure it's the right type for kernels
-            fx = float(x)
-            span    =  find_span_p( knots, degree, fx )
-            vs = space.coeff_space
-            #-------------------------------------------------#
-            # Fix span for boundaries between subdomains      #
-            #-------------------------------------------------#
-            # TODO: Use local knot sequence instead of global #
-            #       one to get correct span in all situations #
-            #-------------------------------------------------#
-            if fx == xlim[1] and fx != knots[-1-degree]:
-                span -= 1
-            #-------------------------------------------------#
-
-            basis_0 = self._tmp_bf[i]
-            basis_1 = self._tmp_bf1d[i]
-            
-            basis_funs_p( knots, degree, fx, span, out = basis_0)
-            basis_funs_1st_der_p(knots, degree, fx, span, out = basis_1)
-
-            # If needed, rescale B-splines to get M-splines
-            if space.basis == 'M':
-                scaling  = space.scaling_array[span-degree : span+1]
-                basis_0 *= scaling
-                basis_1 *= scaling
-
-            # Determine local span
-            wrap_x   = space.periodic and fx > xlim[1]
-            loc_span = span - space.nbasis if wrap_x else span
-
-            start = self.coeff_space.starts[i]
-            pad = self.coeff_space.pads[i]
-            shift = self.coeff_space.shifts[i]
-            index.append( slice( loc_span-degree-start+shift*pad, loc_span+1-start+shift*pad ) )
-            if weights:
-                w_index.append(slice( loc_span-degree, loc_span+1))
-        # Get contiguous copy of the spline coefficients required for evaluation
-        bases_0 = self._tmp_bf
-        bases_1 = self._tmp_bf1d
-        index  = tuple( index )
-        coeffs[:] = field.coeffs._data[index]
-        if weights:
-            w_index = tuple(w_index)
-            coeffs *=  weights[w_index]
-
-        # Evaluate each component of the gradient using algorithm described in "Option 1" above
-        grad = []
-        for d in range( self.ldim ):
-            bases = [(bases_1[d] if i==d else bases_0[i]) for i in range( self.ldim )]
-            res   = coeffs
-            if len(bases) == 3:
-                res = eval_field_3d_once(coeffs, bases[0], bases[1], bases[2])
-            else :
-                for basis in bases[::-1]:
-                    res = np.dot( res, basis )
-            grad.append( res )
-
-        return grad
-    
-    def eval_fields_gradient_one_point( self, fields, *eta , weights=None):
-
-        for field in fields:
-            assert isinstance( field, FemField )
-            assert field.space is self
-        assert len( eta ) == self.ldim
-
-        index   = []
-        if weights:
-            w_index = []
-
-        if not hasattr(self,'_tmp_coeffs'):
-            self._tmp_coeffs = np.zeros([s.degree +1 for s in self.spaces])
-        if not hasattr(self,'_tmp_bf'):
-            self._tmp_bf = [np.zeros(s.degree + 1, dtype=float) for s in self.spaces]
-        if not hasattr(self,'_tmp_bf1d'):
-            self._tmp_bf1d = [np.zeros(s.degree + 1, dtype=float) for s in self.spaces]
-        coeffs = self._tmp_coeffs
-
-        for i, (x, xlim, space) in enumerate(zip( eta, self.eta_lims, self.spaces )):
-
-            knots   = space.knots
-            degree  = space.degree
-            # be sure it's the right type for kernels
-            fx = float(x)
-            span    =  find_span_p( knots, degree, fx )
-            vs = space.coeff_space
-            #-------------------------------------------------#
-            # Fix span for boundaries between subdomains      #
-            #-------------------------------------------------#
-            # TODO: Use local knot sequence instead of global #
-            #       one to get correct span in all situations #
-            #-------------------------------------------------#
-            if fx == xlim[1] and fx != knots[-1-degree]:
-                span -= 1
-            #-------------------------------------------------#
-            basis_0 = self._tmp_bf[i]
-            basis_1 = self._tmp_bf1d[i]
-            basis_funs_p( knots, degree, fx, span, out = basis_0)
-            basis_funs_1st_der_p(knots, degree, fx, span, out = basis_1)
-
-            # If needed, rescale B-splines to get M-splines
-            if space.basis == 'M':
-                scaling  = space.scaling_array[span-degree : span+1]
-                basis_0 *= scaling
-                basis_1 *= scaling
-
-            # Determine local span
-            wrap_x   = space.periodic and fx > xlim[1]
-            loc_span = span - space.nbasis if wrap_x else span
-
-            start = self.coeff_space.starts[i]
-            pad = self.coeff_space.pads[i]
-            shift = self.coeff_space.shifts[i]
-            index.append( slice( loc_span-degree-start+shift*pad, loc_span+1-start+shift*pad ) )
-            if weights:
-                w_index.append(slice( loc_span-degree, loc_span+1))
-        
-        index  = tuple( index )
-        bases_0 = self._tmp_bf
-        bases_1 = self._tmp_bf1d
-        grad_tot = []
-
-        for field in fields:
-            # Get contiguous copy of the spline coefficients required for evaluation
-            coeffs[:] = field.coeffs._data[index]
-            if weights:
-                coeffs *=  weights[w_index]
-
-            # Evaluate each component of the gradient using algorithm described in "Option 1" above
-            
-            grad_tot.append([])
-            for d in range( self.ldim ):
-                bases = [(bases_1[d] if i==d else bases_0[i]) for i in range( self.ldim )]
-                if len(bases) == 3:
-                    res = eval_field_3d_once(coeffs, bases[0], bases[1], bases[2])
-                else :
-                    res   = coeffs
-                    for basis in bases[::-1]:
-                        res = np.dot( res, basis )
-                grad_tot[-1].append( res )
-        return grad_tot
 
     # ...
     def integral(self, f, *, nquads=None):
