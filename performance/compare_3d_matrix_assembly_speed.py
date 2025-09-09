@@ -2,14 +2,14 @@ import  os
 import  time
 from    mpi4py  import  MPI
 import  numpy   as      np
-import matplotlib.pyplot as plt
-from datetime import datetime
+#import matplotlib.pyplot as plt
+from    datetime import datetime
 
 from    sympy   import  sin
 
-from    sympde.calculus             import dot, cross, grad, curl, div
+from    sympde.calculus             import dot, cross, grad, curl
 from    sympde.expr                 import BilinearForm, integral
-from    sympde.topology             import element_of, elements_of, Cube, Mapping, ScalarFunctionSpace, VectorFunctionSpace, Domain, Derham
+from    sympde.topology             import element_of, elements_of, Cube, Mapping, ScalarFunctionSpace, Domain, Derham
 
 from    psydac.api.discretization   import discretize
 from    psydac.api.settings         import PSYDAC_BACKEND_GPYCCEL
@@ -21,8 +21,8 @@ datetime_md = datetime.today().strftime('%Y-%m-%d %H:%M:%S')
 datetime_file = datetime.today().strftime('%Y-%m-%d_%H:%M:%S')
 
 """
-Executing this file will add new tables to the api/README.md file in which we keep track of assembly and discretization speed.
-Estimated runtime: 300s + 230s + 60s = ~10min
+Executing this file will add new tables to the matrix_assembly_speed_log.md file in which we keep track of assembly and discretization speed.
+Estimated runtime: ~4 min.
 
 """
 
@@ -31,17 +31,19 @@ backend = PSYDAC_BACKEND_GPYCCEL
 mpi_rank = comm.rank
 
 if mpi_rank == 0:
-    print('Expected runtime: 10min')
+    print('Expected runtime: 4 min.')
     print()
 
-class HalfHollowTorusMapping3D(Mapping):
-    _expressions = {'x': '(R + r * x1 * cos(2*pi*x3)) * cos(pi*x2)',
-                    'y': '(R + r * x1 * cos(2*pi*x3)) * sin(pi*x2)',
-                    'z': 'r * x1 * sin(2*pi*x3)'}
+class SquareTorus(Mapping):
+
+    _expressions = {'x': 'x1 * cos(x2)',
+                    'y': 'x1 * sin(x2)',
+                    'z': 'x3'}
+    
     _ldim        = 3
     _pdim        = 3
 
-def make_half_hollow_torus_geometry_3d(ncells, degree, comm=None):
+def make_square_torus_geometry_3d(ncells, degree, comm=None):
 
     if comm is not None:
         mpi_rank = comm.Get_rank()
@@ -58,16 +60,18 @@ def make_half_hollow_torus_geometry_3d(ncells, degree, comm=None):
     else:
         de = f'{degree[0]}_{degree[1]}_{degree[2]}'
 
-    name = f'hht_3d_nc_{nc}_d_{de}'
+    name = f'st_3d_nc_{nc}_d_{de}'
 
-    domain = Cube('S', bounds1=(0,1), bounds2=(0,1), bounds3=(0,1))
-    domain_h = discretize(domain, ncells=ncells, comm=comm)
+    r = 0.5
+    R = 1.
+    logical_domain = Cube('C', bounds1=(r, R), bounds2=(0, 2*np.pi), bounds3=(0, 1))
+    domain_h = discretize(logical_domain, ncells=ncells, comm=comm)
 
-    V = ScalarFunctionSpace('V', domain)
+    V = ScalarFunctionSpace('V', logical_domain)
     V_h = discretize(V, domain_h, degree=degree)
 
-    M = HalfHollowTorusMapping3D('M', R=2, r=1)
-    map_discrete = SplineMapping.from_mapping(V_h, M.get_callable_mapping())
+    mapping = SquareTorus('S')
+    map_discrete = SplineMapping.from_mapping(V_h, mapping.get_callable_mapping())
 
     geometry = Geometry.from_discrete_mapping(map_discrete, comm=comm)
 
@@ -84,110 +88,117 @@ def make_half_hollow_torus_geometry_3d(ncells, degree, comm=None):
     return f'geometry/files/{name}.h5'
 
 # ---------- 1 ----------
-t0_1_glob = time.time()
-
-ncells          = [32, 32, 32]
-degree_list     = [[2, 2, 2], [3, 3, 3], [4, 4, 4], [5, 5, 5]]
-degree_list2    = [[2, 2, 2], [3, 3, 3], [4, 4, 4]]
-periodic        = [False, False, False]
-
-mapping = HalfHollowTorusMapping3D('M', R=2, r=1)
-logical_domain = Cube('C', bounds1=(0,1), bounds2=(0,1), bounds3=(0,1))
-
-domain = mapping(logical_domain)
-derham = Derham(domain)
-
-ass_time_H1_old = [[] for _ in degree_list]
-ass_time_H1_new = [[] for _ in degree_list]
-
-ass_time_Hcurl_old = [[] for _ in degree_list2]
-ass_time_Hcurl_new = [[] for _ in degree_list2]
-
-for i, degree in enumerate(degree_list):
-
-    domain_h = discretize(domain, ncells=ncells, periodic=periodic, comm=comm)
-    derham_h = discretize(derham, domain_h, degree=degree)
-
-    V0  = derham.V0
-    V0h = derham_h.V0
-
-    u, v = elements_of(V0, names='u, v')
-
-    a = BilinearForm((u, v), integral(domain, u*v))
-
-    a_h = discretize(a, domain_h, (V0h, V0h), backend=backend, sum_factorization=False)
-    
-    t0_ao = time.time()
-    M_o = a_h.assemble()
-    t1_ao = time.time()
-
-    a_h = discretize(a, domain_h, (V0h, V0h), backend=backend)
-    
-    t0_an = time.time()
-    M_n = a_h.assemble()
-    t1_an = time.time()
-
-    ass_time_H1_old[i].append(t1_ao - t0_ao)
-    ass_time_H1_new[i].append(t1_an - t0_an)
-
-    if degree != [5, 5, 5]:
-
-        V1  = derham.V1
-        V1h = derham_h.V1
-
-        u, v = elements_of(V1, names='u, v')
-
-        a = BilinearForm((u, v), integral(domain, dot(u, v)))
-
-        a_h = discretize(a, domain_h, (V1h, V1h), backend=backend, sum_factorization=False)
-        
-        t0_ao = time.time()
-        M_o = a_h.assemble()
-        t1_ao = time.time()
-
-        a_h = discretize(a, domain_h, (V1h, V1h), backend=backend)
-        
-        t0_an = time.time()
-        M_n = a_h.assemble()
-        t1_an = time.time()
-
-        ass_time_Hcurl_old[i].append(t1_ao - t0_ao)
-        ass_time_Hcurl_new[i].append(t1_an - t0_an)
-
-d = [degree[0] for degree in degree_list]
-d2 = [degree[0] for degree in degree_list2]
-
-ass_time_H1_old_d = [ass_time_H1_old[i][0] for i, _ in enumerate(degree_list)]
-ass_time_H1_new_d = [ass_time_H1_new[i][0] for i, _ in enumerate(degree_list)]
-
-ass_time_Hcurl_old_d = [ass_time_Hcurl_old[i][0] for i, _ in enumerate(degree_list2)]
-ass_time_Hcurl_new_d = [ass_time_Hcurl_new[i][0] for i, _ in enumerate(degree_list2)]
-
-if mpi_rank == 0:
-    plt.plot(d, ass_time_H1_old_d, '--.', label=f'old Algorithm')
-    plt.plot(d, ass_time_H1_new_d, '--.', label=f'new Algorithm')
-    plt.title(r'Assembly times for the $H^1(\Omega)$ mass matrix')
-    plt.legend()
-    plt.yscale('log')
-    plt.ylabel('Wallclock Time [s]')
-    plt.xlabel('d - [d, d, d] Bspline degrees')
-    plt.xticks(d)
-    plt.savefig(f'figures/H1_{datetime_file}.png')
-    plt.clf()
-
-    plt.plot(d2, ass_time_Hcurl_old_d, '--.', label=f'old Algorithm')
-    plt.plot(d2, ass_time_Hcurl_new_d, '--.', label=f'new Algorithm')
-    plt.title(r'Assembly times for the $H(curl;\Omega)$ mass matrix')
-    plt.legend()
-    plt.yscale('log')
-    plt.ylabel('Wallclock Time [s]')
-    plt.xlabel('d - [d, d, d] Bspline degrees')
-    plt.xticks(d2)
-    plt.savefig(f'figures/Hcurl_{datetime_file}.png')
-
-t1_1_glob = time.time()
-if mpi_rank == 0:
-    print(f'Part 1 out of 3 done after {(t1_1_glob-t0_1_glob)/60:.2g}min')
+#t0_1_glob = time.time()
+#
+#ncells          = [32, 32, 32]
+#degree_list     = [[2, 2, 2], [3, 3, 3], [4, 4, 4], [5, 5, 5]]
+#degree_list2    = [[2, 2, 2], [3, 3, 3], [4, 4, 4]]
+#periodic        = [False, False, False]
+#
+##mapping = HalfHollowTorusMapping3D('M', R=2, r=1)
+#mapping = SquareTorus('S')
+##logical_domain = Cube('C', bounds1=(0,1), bounds2=(0,1), bounds3=(0,1))
+#r = 0.5
+#R = 1.
+#logical_domain = Cube('C', bounds1=(r, R), bounds2=(0, 2*np.pi), bounds3=(0, 1))
+#
+#domain = mapping(logical_domain)
+#derham = Derham(domain)
+#plot_domain(domain, draw=True, isolines=True)
+#
+#ass_time_H1_old = [[] for _ in degree_list]
+#ass_time_H1_new = [[] for _ in degree_list]
+#
+#ass_time_Hcurl_old = [[] for _ in degree_list2]
+#ass_time_Hcurl_new = [[] for _ in degree_list2]
+#
+#for i, degree in enumerate(degree_list):
+#
+#    domain_h = discretize(domain, ncells=ncells, periodic=periodic, comm=comm)
+#    derham_h = discretize(derham, domain_h, degree=degree)
+#
+#    V0  = derham.V0
+#    V0h = derham_h.V0
+#
+#    u, v = elements_of(V0, names='u, v')
+#
+#    a = BilinearForm((u, v), integral(domain, u*v))
+#
+#    a_h = discretize(a, domain_h, (V0h, V0h), backend=backend, sum_factorization=False)
+#    
+#    t0_ao = time.time()
+#    M_o = a_h.assemble()
+#    t1_ao = time.time()
+#
+#    a_h = discretize(a, domain_h, (V0h, V0h), backend=backend)
+#    
+#    t0_an = time.time()
+#    M_n = a_h.assemble()
+#    t1_an = time.time()
+#
+#    ass_time_H1_old[i].append(t1_ao - t0_ao)
+#    ass_time_H1_new[i].append(t1_an - t0_an)
+#
+#    if degree != [5, 5, 5]:
+#
+#        V1  = derham.V1
+#        V1h = derham_h.V1
+#
+#        u, v = elements_of(V1, names='u, v')
+#
+#        a = BilinearForm((u, v), integral(domain, dot(u, v)))
+#
+#        a_h = discretize(a, domain_h, (V1h, V1h), backend=backend, sum_factorization=False)
+#        
+#        t0_ao = time.time()
+#        M_o = a_h.assemble()
+#        t1_ao = time.time()
+#
+#        a_h = discretize(a, domain_h, (V1h, V1h), backend=backend)
+#        
+#        t0_an = time.time()
+#        M_n = a_h.assemble()
+#        t1_an = time.time()
+#
+#        ass_time_Hcurl_old[i].append(t1_ao - t0_ao)
+#        ass_time_Hcurl_new[i].append(t1_an - t0_an)
+#
+#d = [degree[0] for degree in degree_list]
+#d2 = [degree[0] for degree in degree_list2]
+#
+#ass_time_H1_old_d = [ass_time_H1_old[i][0] for i, _ in enumerate(degree_list)]
+#ass_time_H1_new_d = [ass_time_H1_new[i][0] for i, _ in enumerate(degree_list)]
+#
+#ass_time_Hcurl_old_d = [ass_time_Hcurl_old[i][0] for i, _ in enumerate(degree_list2)]
+#ass_time_Hcurl_new_d = [ass_time_Hcurl_new[i][0] for i, _ in enumerate(degree_list2)]
+#
+#if mpi_rank == 0:
+#    plt.plot(d, ass_time_H1_old_d, '--.', label=f'old Algorithm')
+#    plt.plot(d, ass_time_H1_new_d, '--.', label=f'new Algorithm')
+#    plt.title(r'Assembly times for the $H^1(\Omega)$ mass matrix')
+#    plt.legend()
+#    plt.yscale('log')
+#    plt.ylabel('Wallclock Time [s]')
+#    plt.xlabel('d - [d, d, d] Bspline degrees')
+#    plt.xticks(d)
+#    #plt.savefig(f'figures/H1_{datetime_file}.png')
+#    plt.show()
+#    plt.clf()
+#
+#    plt.plot(d2, ass_time_Hcurl_old_d, '--.', label=f'old Algorithm')
+#    plt.plot(d2, ass_time_Hcurl_new_d, '--.', label=f'new Algorithm')
+#    plt.title(r'Assembly times for the $H(curl;\Omega)$ mass matrix')
+#    plt.legend()
+#    plt.yscale('log')
+#    plt.ylabel('Wallclock Time [s]')
+#    plt.xlabel('d - [d, d, d] Bspline degrees')
+#    plt.xticks(d2)
+#    #plt.savefig(f'figures/Hcurl_{datetime_file}.png')
+#    plt.show()
+#
+#t1_1_glob = time.time()
+#if mpi_rank == 0:
+#    print(f'Part 1 out of 3 done after {(t1_1_glob-t0_1_glob)/60:.2g}min')
 # -----------------------
 
 # ---------- 2 ----------
@@ -197,13 +208,15 @@ ncells      = [32, 32, 32]
 degree      = [3, 3, 3]
 periodic    = [False, False, False]
 
-logical_domain = Cube('C', bounds1=(0,1), bounds2=(0,1), bounds3=(0,1))
+r = 0.5
+R = 1.
+logical_domain = Cube('C', bounds1=(r, R), bounds2=(0, 2*np.pi), bounds3=(0, 1))
 logical_derham = Derham(logical_domain)
 
 logical_domain_h = discretize(logical_domain, ncells=ncells, periodic=periodic, comm=comm)
 logical_derham_h = discretize(logical_derham, logical_domain_h, degree=degree)
 
-filename = make_half_hollow_torus_geometry_3d(ncells, degree, comm=comm)
+filename = make_square_torus_geometry_3d(ncells, degree, comm=comm)
 
 bspline_domain = Domain.from_file(filename)
 bspline_derham = Derham(bspline_domain)
@@ -211,7 +224,7 @@ bspline_derham = Derham(bspline_domain)
 bspline_domain_h = discretize(bspline_domain, filename=filename, comm=comm)
 bspline_derham_h = discretize(bspline_derham, bspline_domain_h, degree=bspline_domain.mapping.get_callable_mapping().space.degree)
 
-mapping = HalfHollowTorusMapping3D('M', R=2, r=1)
+mapping = SquareTorus('S')
 
 analytical_domain = mapping(logical_domain)
 analytical_derham = Derham(analytical_domain)
@@ -322,13 +335,15 @@ ncells      = [16, 8, 32]
 degree      = [2, 4, 3]
 periodic    = [False, True, False]
 
-logical_domain = Cube('C', bounds1=(0,1), bounds2=(0,1), bounds3=(0,1))
+r = 0.5
+R = 1.
+logical_domain = Cube('C', bounds1=(r, R), bounds2=(0, 2*np.pi), bounds3=(0, 1))
 logical_derham = Derham(logical_domain)
 
 logical_domain_h = discretize(logical_domain, ncells=ncells, periodic=periodic, comm=comm)
 logical_derham_h = discretize(logical_derham, logical_domain_h, degree=degree)
 
-filename = make_half_hollow_torus_geometry_3d(ncells, degree, comm=comm)
+filename = make_square_torus_geometry_3d(ncells, degree, comm=comm)
 
 bspline_domain = Domain.from_file(filename)
 bspline_derham = Derham(bspline_domain)
@@ -336,7 +351,7 @@ bspline_derham = Derham(bspline_domain)
 bspline_domain_h = discretize(bspline_domain, filename=filename, comm=comm)
 bspline_derham_h = discretize(bspline_derham, bspline_domain_h, degree=bspline_domain.mapping.get_callable_mapping().space.degree)
 
-mapping = HalfHollowTorusMapping3D('M', R=2, r=1)
+mapping = SquareTorus('S')
 
 analytical_domain = mapping(logical_domain)
 analytical_derham = Derham(analytical_domain)
@@ -588,8 +603,8 @@ template = '''| Test case | old assembly | new assembly | old discretization | n
 txt = ''
 txt += f'{datetime_md}\n'
 txt += f'----------\n\n'
-txt += f'![](tests/figures/H1_{datetime_file}.png)\n'
-txt += f'![](tests/figures/Hcurl_{datetime_file}.png)\n\n'
+#txt += f'![](tests/figures/H1_{datetime_file}.png)\n'
+#txt += f'![](tests/figures/Hcurl_{datetime_file}.png)\n\n'
 txt += template.format(old_ass_21=old_ass_21, new_ass_21=new_ass_21, old_disc_21=old_disc_21, new_disc_21=new_disc_21,
                        old_ass_22=old_ass_22, new_ass_22=new_ass_22, old_disc_22=old_disc_22, new_disc_22=new_disc_22,
                        old_ass_23=old_ass_23, new_ass_23=new_ass_23, old_disc_23=old_disc_23, new_disc_23=new_disc_23,
@@ -604,6 +619,14 @@ txt += template.format(old_ass_21=old_ass_21, new_ass_21=new_ass_21, old_disc_21
 txt += '\n\n'
 
 if mpi_rank == 0:
-    f = open('../README.md', 'a')
+    #f = open('../README.md', 'a')
+    f = open('matrix_assembly_speed_log.md', 'a')
     f.writelines(txt)
     f.close()
+
+    #os.system('rm -rf geometry/*')
+    os.system('rm -rf geometry/')
+    os.system('rm -rf __psydac__/')
+    os.system('rm -rf __pycache__/')
+    os.system('rm -rf __epyccel__/')
+    os.system('rm -rf __gpyccel__/')

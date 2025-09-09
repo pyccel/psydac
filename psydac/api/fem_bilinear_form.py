@@ -927,29 +927,66 @@ class DiscreteBilinearForm:
 
         Parameters
         ----------
-        temps : 
+        temps : tuple
+            Tuple of Assign statements defining temporary values. 
+            Arithmetic combinations of these make up the coupling terms.
 
-        ordered_stmts : 
+        ordered_stmts : dict
+            Dictionary defining the coupling terms. Keys are combinations of
+            test and trial function components, values are Assign statements
+            in terms of temporaries appearing in temps.
 
-        field_derivatives : 
+        field_derivatives : dict
+            Dictionary containing information on the derivatives of free FemFields.
+            Keys are components of free FemFields. Values are dictionaries again.
+            Their keys are names, as appearing in the assembly file, of partial derivatives of the 
+            corresponding FemField component, and their values are dictionaries again.
+            Example: {F1_0_x3 : {'x1': 0, 'x2': 0, 'x3': 1}, F1_0_x2 : ...}
+            Meaning: There exists a free FemField named F1. Among other, the partial derivative w.r.t. x3
+            of its first component F1_0 appears.
 
-        max_logical_derivative : 
+        max_logical_derivative : int
+            The largest appearing derivative order.
 
-        test_mult :
+        test_mult : list
+            List of length 3(scalar test function) or 9(vector test function) including multiplicity information.
 
-        trial_mult :  
+        trial_mult : list
+            List of length 3(scalar trial function) or 9(vector trial function) including multiplicity information.
 
-        test_v_p : 
+        test_v_p : dict
+            Dictionary of length 1(scalar test function) or length 3(vector test function).
+            Each key corresponds to a component of the funciton (space), and each corresponding value
+            is a list of Bspline degrees of length 3. Example: Discretizing a de de Rham sequence using 
+            a degree vector [2, 3, 4] means that test_v_p for a test function belonging to H(curl) will be
+            {0: [1, 3, 4], 1: [2, 2, 4], 2: [2, 3, 3]}
 
-        trial_u_p : 
+        trial_u_p : dict
+            Dictionary of length 1(scalar trial function) or length 3(vector trial function).
+            Each key corresponds to a component of the funciton (space), and each corresponding value
+            is a list of Bspline degrees of length 3. Example: Discretizing a de de Rham sequence using 
+            a degree vector [2, 3, 4] means that trial_u_p for a trial function belonging to H^1 will be
+            {0: [2, 3, 4]}
 
-        keys_1 : 
+        keys_1 : dict
+            Dictionary relating subexpressions to x1-derivative combinations.
+            Keys are combinations of test and trial function components.
+            Values are lists, each entry corresponding to one appearing partial derivative
+            combination of these components. 
+            Example: keys_1[(u[0], v[1])][3] = [1,0] means that the fourth ([3]) 
+            sub-expression (partial derivative combination) corresponding to the trial-test-function-component-product
+            u[0] * v[1] involves a first derivative in x1 direction of the trial function 
+            and no derivative in x1 direction of the test function.
+            Information on appearing partial derivatives in x2 and x3 direction is stored in keys_2 and keys_3.
 
-        keys_2 : 
+        keys_2 : dict
+            See keys_1.
 
-        keys_3 : 
+        keys_3 : dict
+            See keys_1.
 
-        mapping_option : 
+        mapping_option : None | 'Bspline'
+            None in case of no mapping or an analytical mapping, 'Bspline' in case of a Bspline mapping.
 
         Returns
         -------

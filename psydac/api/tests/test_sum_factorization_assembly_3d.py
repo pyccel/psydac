@@ -11,8 +11,7 @@ from    sympde.topology             import element_of, elements_of, Cube, Mappin
 
 from    psydac.api.discretization   import discretize
 from    psydac.api.settings         import PSYDAC_BACKEND_GPYCCEL
-from    psydac.linalg.block         import BlockLinearOperator, BlockVectorSpace
-from    psydac.linalg.stencil       import StencilMatrix
+from    psydac.linalg.block         import BlockVectorSpace
 from    psydac.fem.basic            import FemField
 
 try:
@@ -583,62 +582,3 @@ def test_assembly_free_FemFields():
     diff = (A_sym-A_fem).tosparse()
 
     assert abs(diff.data).max() < 4e-2
-
-# Not required anymore now that test_assembly has different multiplicity test and trial spaces.
-
-#def test_varying_multiplicity():
-#    """
-#    We test whether a bilinear form is correctly assembled when using a different 
-#    multiplicity vector for trial and test function space.
-#    As the previous assembly algorithm supported this feature, we can check whether we obtain the same matrix as the old algorithm.
-#    
-#    """
-#
-#    backend = PSYDAC_BACKEND_GPYCCEL
-#
-#    ncells  = [5, 7, 4]
-#    degree  = [1, 3, 2]
-#
-#    mult1   = [1, 1, 2]
-#    mult2   = [1, 3, 1]
-#
-#    domain      = Cube('C', bounds1=(0,1), bounds2=(0,1), bounds3=(0,1))
-#    domain_h    = discretize(domain, ncells=ncells)
-#
-#    derham      = Derham(domain)
-#    derham1_h   = discretize(derham, domain_h, degree=degree, multiplicity=mult1)
-#    derham2_h   = discretize(derham, domain_h, degree=degree, multiplicity=mult2)
-#
-#    V0      = derham.V0
-#    V01h    = derham1_h.V0
-#    V02h    = derham2_h.V0
-#
-#    u, v    = elements_of(V0, names='u, v')
-#
-#    a       = BilinearForm((u, v), integral(domain, u*v))
-#
-#    ah      = discretize(a, domain_h, (V01h, V02h), backend=backend)
-#    M0      = ah.assemble()
-#
-#    ah      = discretize(a, domain_h, (V01h, V02h), backend=backend, sum_factorization=False)
-#    M0_old  = ah.assemble()
-#
-#    diff_arr = (M0 - M0_old).toarray()
-#    assert np.linalg.norm(diff_arr) < 1e-12 # arbitrary tol
-#
-#    V1      = derham.V1
-#    V11h    = derham1_h.V1
-#    V12h    = derham2_h.V1
-#
-#    u, v    = elements_of(V1, names='u, v')
-#
-#    a       = BilinearForm((u, v), integral(domain, dot(curl(u), v)))
-#
-#    ah      = discretize(a, domain_h, (V11h, V12h), backend=backend)
-#    A       = ah.assemble()
-#
-#    ah      = discretize(a, domain_h, (V11h, V12h), backend=backend, sum_factorization=False)
-#    A_old   = ah.assemble()
-#
-#    diff_arr = (A - A_old).toarray()
-#    assert np.linalg.norm(diff_arr) < 1e-12 # arbitrary tol
