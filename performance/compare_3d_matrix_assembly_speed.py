@@ -254,20 +254,20 @@ a = BilinearForm((u, v), integral(dom, dot(cross(F, u), cross(F, v))))
 t0 = time.time()
 ah = discretize(a, domh, (Vh, Vh), backend=backend, sum_factorization=False)
 t1 = time.time()
-old_disc_21 = t1-t0
+old_disc_21 = round(t1-t0, 3)
 t0 = time.time()
 M  = ah.assemble(F=f_field)
 t1 = time.time()
-old_ass_21 = t1-t0
+old_ass_21 = round(t1-t0, 3)
 
 t0 = time.time()
 ah = discretize(a, domh, (Vh, Vh), backend=backend)
 t1 = time.time()
-new_disc_21 = t1-t0
+new_disc_21 = round(t1-t0, 3)
 t0 = time.time()
 M  = ah.assemble(F=f_field)
 t1 = time.time()
-new_ass_21 = t1-t0
+new_ass_21 = round(t1-t0, 3)
 
 # 2.2
 dom     = analytical_domain
@@ -281,20 +281,20 @@ a = BilinearForm((u, v), integral(dom, dot(u, v)*agamma))
 t0 = time.time()
 ah = discretize(a, domh, (Vh, Vh), backend=backend, sum_factorization=False)
 t1 = time.time()
-old_disc_22 = t1-t0
+old_disc_22 = round(t1-t0, 3)
 t0 = time.time()
 M  = ah.assemble()
 t1 = time.time()
-old_ass_22 = t1-t0
+old_ass_22 = round(t1-t0, 3)
 
 t0 = time.time()
 ah = discretize(a, domh, (Vh, Vh), backend=backend)
 t1 = time.time()
-new_disc_22 = t1-t0
+new_disc_22 = round(t1-t0, 3)
 t0 = time.time()
 M  = ah.assemble()
 t1 = time.time()
-new_ass_22 = t1-t0
+new_ass_22 = round(t1-t0, 3)
 
 # 2.3
 dom     = bspline_domain
@@ -308,20 +308,20 @@ a = BilinearForm((u, v), integral(dom, dot(curl(u), curl(v))))
 t0 = time.time()
 ah = discretize(a, domh, (Vh, Vh), backend=backend, sum_factorization=False)
 t1 = time.time()
-old_disc_23 = t1-t0
+old_disc_23 = round(t1-t0, 3)
 t0 = time.time()
 M  = ah.assemble()
 t1 = time.time()
-old_ass_23 = t1-t0
+old_ass_23 = round(t1-t0, 3)
 
 t0 = time.time()
 ah = discretize(a, domh, (Vh, Vh), backend=backend)
 t1 = time.time()
-new_disc_23 = t1-t0
+new_disc_23 = round(t1-t0, 3)
 t0 = time.time()
 M  = ah.assemble()
 t1 = time.time()
-new_ass_23 = t1-t0
+new_ass_23 = round(t1-t0, 3)
 
 t1_2_glob = time.time()
 if mpi_rank == 0:
@@ -374,20 +374,20 @@ a       = BilinearForm((u, v), integral(dom, dot(grad(u), grad(v))))
 t0 = time.time()
 ah = discretize(a, domh, (Vh, Vh), backend=backend, sum_factorization=False)
 t1 = time.time()
-old_disc_311 = t1-t0
+old_disc_311 = round(t1-t0, 3)
 t0 = time.time()
 M  = ah.assemble()
 t1 = time.time()
-old_ass_311 = t1-t0
+old_ass_311 = round(t1-t0, 3)
 
 t0 = time.time()
 ah = discretize(a, domh, (Vh, Vh), backend=backend)
 t1 = time.time()
-new_disc_311 = t1-t0
+new_disc_311 = round(t1-t0, 3)
 t0 = time.time()
 M  = ah.assemble()
 t1 = time.time()
-new_ass_311 = t1-t0
+new_ass_311 = round(t1-t0, 3)
 
 # 3.1.2
 dom     = analytical_domain
@@ -401,20 +401,20 @@ a       = BilinearForm((u, v), integral(dom, dot(grad(u), grad(v))))
 t0 = time.time()
 ah = discretize(a, domh, (Vh, Vh), backend=backend, sum_factorization=False)
 t1 = time.time()
-old_disc_312 = t1-t0
+old_disc_312 = round(t1-t0, 3)
 t0 = time.time()
 M = ah.assemble()
 t1 = time.time()
-old_ass_312 = t1-t0
+old_ass_312 = round(t1-t0, 3)
 
 t0 = time.time()
 ah = discretize(a, domh, (Vh, Vh), backend=backend)
 t1 = time.time()
-new_disc_312 = t1-t0
+new_disc_312 = round(t1-t0, 3)
 t0 = time.time()
 M = ah.assemble()
 t1 = time.time()
-new_ass_312 = t1-t0
+new_ass_312 = round(t1-t0, 3)
 
 # 3.1.3
 dom     = bspline_domain
@@ -428,20 +428,20 @@ a       = BilinearForm((u, v), integral(dom, dot(grad(u), grad(v))))
 t0 = time.time()
 ah = discretize(a, domh, (Vh, Vh), backend=backend, sum_factorization=False)
 t1 = time.time()
-old_disc_313 = t1-t0
+old_disc_313 = round(t1-t0, 3)
 t0 = time.time()
 M = ah.assemble()
 t1 = time.time()
-old_ass_313 = t1-t0
+old_ass_313 = round(t1-t0, 3)
 
 t0 = time.time()
 ah = discretize(a, domh, (Vh, Vh), backend=backend)
 t1 = time.time()
-new_disc_313 = t1-t0
+new_disc_313 = round(t1-t0, 3)
 t0 = time.time()
 M = ah.assemble()
 t1 = time.time()
-new_ass_313 = t1-t0
+new_ass_313 = round(t1-t0, 3)
 
 # 3.2
 dom     = analytical_domain
@@ -455,20 +455,20 @@ a       = BilinearForm((u, v), integral(dom, dot(grad(u), grad(v))))
 t0 = time.time()
 ah = discretize(a, domh, (Vh, Vh), backend=backend, sum_factorization=False)
 t1 = time.time()
-old_disc_32 = t1-t0
+old_disc_32 = round(t1-t0, 3)
 t0 = time.time()
 M = ah.assemble()
 t1 = time.time()
-old_ass_32 = t1-t0
+old_ass_32 = round(t1-t0, 3)
 
 t0 = time.time()
 ah = discretize(a, domh, (Vh, Vh), backend=backend)
 t1 = time.time()
-new_disc_32 = t1-t0
+new_disc_32 = round(t1-t0, 3)
 t0 = time.time()
 M = ah.assemble()
 t1 = time.time()
-new_ass_32 = t1-t0
+new_ass_32 = round(t1-t0, 3)
 
 # 3.3
 dom     = analytical_domain
@@ -485,20 +485,20 @@ a       = BilinearForm((u, v), integral(dom, dot(grad(u), grad(v))))
 t0 = time.time()
 ah = discretize(a, domh, (Vh, Vh), backend=backend, sum_factorization=False)
 t1 = time.time()
-old_disc_33 = t1-t0
+old_disc_33 = round(t1-t0, 3)
 t0 = time.time()
 M = ah.assemble()
 t1 = time.time()
-old_ass_33 = t1-t0
+old_ass_33 = round(t1-t0, 3)
 
 t0 = time.time()
 ah = discretize(a, domh, (Vh, Vh), backend=backend)
 t1 = time.time()
-new_disc_33 = t1-t0
+new_disc_33 = round(t1-t0, 3)
 t0 = time.time()
 M = ah.assemble()
 t1 = time.time()
-new_ass_33 = t1-t0
+new_ass_33 = round(t1-t0, 3)
 
 # ------------------
 dom     = analytical_domain
@@ -515,20 +515,20 @@ a       = BilinearForm((u, v), integral(dom, dot(grad(u), grad(v)) * agamma))
 t0 = time.time()
 ah = discretize(a, domh, (Vh, Vh), backend=backend, sum_factorization=False)
 t1 = time.time()
-old_disc_34 = t1-t0
+old_disc_34 = round(t1-t0, 3)
 t0 = time.time()
 M = ah.assemble()
 t1 = time.time()
-old_ass_34 = t1-t0
+old_ass_34 = round(t1-t0, 3)
 
 t0 = time.time()
 ah = discretize(a, domh, (Vh, Vh), backend=backend)
 t1 = time.time()
-new_disc_34 = t1-t0
+new_disc_34 = round(t1-t0, 3)
 t0 = time.time()
 M = ah.assemble()
 t1 = time.time()
-new_ass_34 = t1-t0
+new_ass_34 = round(t1-t0, 3)
 
 # 3.5
 F = element_of(V, name='F')
@@ -541,20 +541,20 @@ a       = BilinearForm((u, v), integral(dom, dot(grad(u), grad(v)) * F))
 t0 = time.time()
 ah = discretize(a, domh, (Vh, Vh), backend=backend, sum_factorization=False)
 t1 = time.time()
-old_disc_35 = t1-t0
+old_disc_35 = round(t1-t0, 3)
 t0 = time.time()
 M = ah.assemble(F=f_field)
 t1 = time.time()
-old_ass_35 = t1-t0
+old_ass_35 = round(t1-t0, 3)
 
 t0 = time.time()
 ah = discretize(a, domh, (Vh, Vh), backend=backend)
 t1 = time.time()
-new_disc_35 = t1-t0
+new_disc_35 = round(t1-t0, 3)
 t0 = time.time()
 M = ah.assemble(F=f_field)
 t1 = time.time()
-new_ass_35 = t1-t0
+new_ass_35 = round(t1-t0, 3)
 
 # 3.6
 mult                = [1, 3, 2]
@@ -566,20 +566,20 @@ a       = BilinearForm((u, v), integral(dom, dot(grad(u), grad(v)) * F))
 t0 = time.time()
 ah = discretize(a, domh, (Vh, Vh), backend=backend, sum_factorization=False)
 t1 = time.time()
-old_disc_36 = t1-t0
+old_disc_36 = round(t1-t0, 3)
 t0 = time.time()
 M = ah.assemble(F=f_field)
 t1 = time.time()
-old_ass_36 = t1-t0
+old_ass_36 = round(t1-t0, 3)
 
 t0 = time.time()
 ah = discretize(a, domh, (Vh, Vh), backend=backend)
 t1 = time.time()
-new_disc_36 = t1-t0
+new_disc_36 = round(t1-t0, 3)
 t0 = time.time()
 M = ah.assemble(F=f_field)
 t1 = time.time()
-new_ass_36 = t1-t0
+new_ass_36 = round(t1-t0, 3)
 
 t1_3_glob = time.time()
 if mpi_rank == 0:
