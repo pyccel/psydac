@@ -619,14 +619,12 @@ txt += template.format(old_ass_21=old_ass_21, new_ass_21=new_ass_21, old_disc_21
 txt += '\n\n'
 
 if mpi_rank == 0:
-    #f = open('../README.md', 'a')
     f = open('matrix_assembly_speed_log.md', 'a')
     f.writelines(txt)
     f.close()
 
-    #os.system('rm -rf geometry/*')
-    os.system('rm -rf geometry/')
-    os.system('rm -rf __psydac__/')
-    os.system('rm -rf __pycache__/')
-    os.system('rm -rf __epyccel__/')
-    os.system('rm -rf __gpyccel__/')
+    os.system('rm -rf ~/psydac/performance/geometry/')
+    os.system('rm -rf ~/psydac/performance/__psydac__/')
+    os.system('rm -rf ~/psydac/performance/__pycache__/')
+    os.system('rm -rf ~/psydac/performance/__epyccel__/')
+    os.system('rm -rf ~/psydac/performance/__gpyccel__/')

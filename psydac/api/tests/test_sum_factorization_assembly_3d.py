@@ -578,7 +578,15 @@ def test_assembly_free_FemFields():
 
     A_sym = a_sym_h.assemble()
     A_fem = a_fem_h.assemble(p=p_fem)
-    
-    diff = (A_sym-A_fem).tosparse()
 
-    assert abs(diff.data).max() < 4e-2
+    A_sym_sp = A_sym.tosparse()
+    A_fem_sp = A_fem.tosparse()
+    diff = A_sym_sp - A_fem_sp
+    norm_sym = np.linalg.norm(A_sym_sp.data)
+    norm_fem = np.linalg.norm(A_fem_sp.data)
+    error    = np.linalg.norm(diff.data)
+    rel_err  = error / norm_sym
+    
+    #print(norm_sym, norm_fem, error, rel_err)
+
+    assert rel_err < 1e-4
