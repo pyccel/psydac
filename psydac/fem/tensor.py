@@ -193,7 +193,7 @@ class TensorFemSpace(FemSpace):
         # Store information about nested grids
         self.set_refined_space(self.ncells, self)
 
-        # Select evaluation function based on dimensionality, and work arrays
+        # Select evaluation function based on dimensionality
         if self.ldim == 1:
             self.eval_field_once = eval_field_1d_once
         elif self.ldim == 2:
@@ -202,9 +202,6 @@ class TensorFemSpace(FemSpace):
             self.eval_field_once = eval_field_3d_once
         else:
             self.eval_field_once = eval_field_nd_once
-
-        # Always use generic NumPy implementation
-        self.eval_field_once = eval_field_nd_once
 
         # Create work arrays based on dimensionality
         nbasis = [p+1 for p in self.degree]
