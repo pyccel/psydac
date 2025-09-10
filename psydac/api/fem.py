@@ -12,15 +12,8 @@ from sympde.expr          import Functional as sym_Functional
 from sympde.expr          import Norm as sym_Norm
 from sympde.expr          import SemiNorm as sym_SemiNorm
 from sympde.topology      import Boundary, Interface
-from sympde.topology      import VectorFunctionSpace
-from sympde.topology      import ProductSpace
-from sympde.topology      import H1SpaceType, L2SpaceType, UndefinedSpaceType
 from sympde.calculus.core import PlusInterfaceOperator
 
-from psydac.api.basic        import BasicDiscrete
-from psydac.api.basic        import random_string
-from psydac.api.grid         import QuadratureGrid, BasisValues
-from psydac.api.utilities    import flatten
 from psydac.linalg.stencil   import StencilVector, StencilMatrix, StencilInterfaceMatrix
 from psydac.linalg.basic     import ComposedLinearOperator
 from psydac.linalg.block     import BlockVectorSpace, BlockVector, BlockLinearOperator
@@ -31,131 +24,24 @@ from psydac.fem.basic        import FemField
 from psydac.fem.projectors   import knot_insertion_projection_operator
 from psydac.core.bsplines    import find_span, basis_funs_all_ders
 from psydac.ddm.cart         import InterfaceCartDecomposition
+from psydac.api.basic        import BasicDiscrete
+from psydac.api.grid         import QuadratureGrid, BasisValues
+from psydac.api.utilities    import flatten, random_string
+from psydac.api.fem_common import (
+    collect_spaces,
+    construct_test_space_arguments,
+    construct_trial_space_arguments,
+    construct_quad_grids_arguments,
+    reset_arrays,
+    do_nothing,
+    extract_stencil_mats,
+)
 
 __all__ = (
-    'collect_spaces',
-    'compute_diag_len',
-    'construct_test_space_arguments',
-    'construct_trial_space_arguments',
-    'construct_quad_grids_arguments',
-    'reset_arrays',
-    'do_nothing',
-    'extract_stencil_mats',
     'DiscreteBilinearForm',
     'DiscreteFunctional',
     'DiscreteLinearForm',
-    'DiscreteSumForm',
 )
-
-#==============================================================================
-def collect_spaces(space, *args):
-    """
-    This function collect the arguments used in the assembly function
-
-    Parameters
-    ----------
-    space: <FunctionSpace>
-        the symbolic space
-
-    args : <list>
-        list of discrete space components like basis values, spans, ...
-
-    Returns
-    -------
-    args : <list>
-        list of discrete space components elements used in the asembly
-
-    """
-
-    if isinstance(space, ProductSpace):
-        spaces = space.spaces
-        indices = []
-        i = 0
-        for space in spaces:
-            if isinstance(space, VectorFunctionSpace):
-                if isinstance(space.kind, (H1SpaceType, L2SpaceType, UndefinedSpaceType)):
-                    indices.append(i)
-                else:
-                    indices += [i+j for j in range(space.ldim)]
-                i = i + space.ldim
-            else:
-                indices.append(i)
-                i = i + 1
-        args = [[e[i] for i in indices] for e in args]
-
-    elif isinstance(space, VectorFunctionSpace):
-        if isinstance(space.kind, (H1SpaceType, L2SpaceType, UndefinedSpaceType)):
-            args = [[e[0]] for e in args]
-
-    return args
-
-#==============================================================================
-def compute_diag_len(p, md, mc):
-    n = ((np.ceil((p+1)/mc)-1)*md).astype('int')
-    n = n-np.minimum(0, n-p)+p+1
-    return n.astype('int')
-
-#==============================================================================
-def construct_test_space_arguments(basis_values):
-    space          = basis_values.space
-    test_basis     = basis_values.basis
-    spans          = basis_values.spans
-    test_degrees   = space.degree
-    pads           = space.pads
-    multiplicity   = space.multiplicity
-
-    test_basis, test_degrees, spans = collect_spaces(space.symbolic_space, test_basis, test_degrees, spans)
-
-    test_basis    = flatten(test_basis)
-    test_degrees  = flatten(test_degrees)
-    spans         = flatten(spans)
-    pads          = flatten(pads)
-    multiplicity  = flatten(multiplicity)
-    pads          = [p*m for p,m in zip(pads, multiplicity)]
-    return test_basis, test_degrees, spans, pads
-
-def construct_trial_space_arguments(basis_values):
-    space          = basis_values.space
-    trial_basis    = basis_values.basis
-    trial_degrees  = space.degree
-    pads           = space.pads
-    multiplicity   = space.multiplicity
-    trial_basis, trial_degrees = collect_spaces(space.symbolic_space, trial_basis, trial_degrees)
-
-    trial_basis    = flatten(trial_basis)
-    trial_degrees  = flatten(trial_degrees)
-    pads           = flatten(pads)
-    multiplicity   = flatten(multiplicity)
-    pads           = [p*m for p,m in zip(pads, multiplicity)]
-    return trial_basis, trial_degrees, pads
-
-#==============================================================================
-def construct_quad_grids_arguments(grid, use_weights=True):
-    points         = grid.points
-    if use_weights:
-        weights        = grid.weights
-        quads          = flatten(list(zip(points, weights)))
-    else:
-        quads = flatten(list(zip(points)))
-
-    nquads        = flatten(grid.nquads)
-    n_elements    = grid.n_elements
-    return n_elements, quads, nquads
-
-def reset_arrays(*args):
-    for a in args:
-        a[:]= 0.j if a.dtype==complex else 0.
-
-def do_nothing(*args): return 0
-
-def extract_stencil_mats(mats):
-    new_mats = []
-    for M in mats:
-        if isinstance(M, (StencilInterfaceMatrix, StencilMatrix)):
-            new_mats.append(M)
-        elif isinstance(M, ComposedLinearOperator):
-            new_mats += [i for i in M.multiplicants if isinstance(i, (StencilInterfaceMatrix, StencilMatrix))]
-    return new_mats
 
 #==============================================================================
 class DiscreteBilinearForm(BasicDiscrete):
@@ -430,7 +316,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         with_openmp = (assembly_backend['name'] == 'pyccel' and assembly_backend['openmp']) if assembly_backend else False
 
         # Construct the arguments to be passed to the assemble() function, which is stored in self._func
-        self._args, self._threads_args = self.construct_arguments(with_openmp=with_openmp)
+        self._args, self._threads_args = self.construct_arguments(with_openmp)
 
     @property
     def domain(self):
@@ -508,7 +394,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                         trial  = True,
                         grid   = self.grid[0]
                     )
-                    bs, d, s, p = construct_test_space_arguments(basis_v)
+                    bs, d, s, p, mult = construct_test_space_arguments(basis_v)
                     basis   += bs
                     spans   += s
                     degrees += [np.int64(a) for a in d]
@@ -524,8 +410,6 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         else:
             args = self._args
-
-#        args = args + self._element_loop_starts + self._element_loop_ends
 
         if reset:
             reset_arrays(*self.global_matrices)
@@ -582,9 +466,9 @@ class DiscreteBilinearForm(BasicDiscrete):
           Extra arguments used in the assembly method in case with_openmp=True.
 
         """
-        test_basis, test_degrees, spans, pads = construct_test_space_arguments(self.test_basis)
-        trial_basis, trial_degrees, pads      = construct_trial_space_arguments(self.trial_basis)
-        n_elements, quads, quad_degrees       = construct_quad_grids_arguments(self.grid[0], use_weights=False)
+        test_basis, test_degrees, spans, pads, mult = construct_test_space_arguments(self.test_basis)
+        trial_basis, trial_degrees, pads, mult      = construct_trial_space_arguments(self.trial_basis)
+        n_elements, quads, quad_degrees             = construct_quad_grids_arguments(self.grid[0], use_weights=False)
         if len(self.grid)>1:
             quads  = [*quads, *self.grid[1].points]
 
@@ -1200,7 +1084,7 @@ class DiscreteLinearForm(BasicDiscrete):
                         trial  = True,
                         grid   = self.grid
                     )
-                    bs, d, s, p = construct_test_space_arguments(basis_v)
+                    bs, d, s, p, m = construct_test_space_arguments(basis_v)
                     basis   += bs
                     spans   += s
                     degrees += [np.int64(a) for a in d]
@@ -1267,7 +1151,7 @@ class DiscreteLinearForm(BasicDiscrete):
           Extra arguments used in the assembly method in case with_openmp=True.
 
         """
-        tests_basis, tests_degrees, spans, pads = construct_test_space_arguments(self.test_basis)
+        tests_basis, tests_degrees, spans, pads, mult = construct_test_space_arguments(self.test_basis)
         n_elements, quads, nquads               = construct_quad_grids_arguments(self.grid, use_weights=False)
 
         global_pads   = self.space.coeff_space.pads
@@ -1658,95 +1542,3 @@ class DiscreteFunctional(BasicDiscrete):
             else:
                 raise NotImplementedError('TODO')
         return v
-
-#==============================================================================
-class DiscreteSumForm(BasicDiscrete):
-
-    def __init__(self, a, kernel_expr, *args, **kwargs):
-        # TODO Uncomment when the SesquilinearForm exist in SymPDE
-        #if not isinstance(a, (sym_BilinearForm, sym_SesquilinearForm, sym_LinearForm, sym_Functional)):
-            # raise TypeError('> Expecting a symbolic BilinearForm, SesquilinearForm, LinearForm, Functional')
-        if not isinstance(a, (sym_BilinearForm, sym_LinearForm, sym_Functional)):
-            raise TypeError('> Expecting a symbolic BilinearForm, LinearForm, Functional')
-
-        self._expr = a
-        backend = kwargs.pop('backend', None)
-        self._backend = backend
-
-        folder = kwargs.get('folder', None)
-        self._folder = self._initialize_folder(folder)
-
-        # create a module name if not given
-        tag = random_string(8)
-
-        # ...
-        forms = []
-        free_args = []
-        self._kernel_expr = kernel_expr
-        operator = None
-        for e in kernel_expr:
-            if isinstance(a, sym_LinearForm):
-                kwargs['update_ghost_regions'] = False
-                ah = DiscreteLinearForm(a, e, *args, backend=backend, **kwargs)
-                kwargs['vector'] = ah._vector
-                operator = ah._vector
-
-            # TODO Uncomment when the SesquilinearForm exist in SymPDE
-            # elif isinstance(a, sym_SesquilinearForm):
-            #     kwargs['update_ghost_regions'] = False
-            #     ah = DiscreteSesquilinearForm(a, e, *args, assembly_backend=backend, **kwargs)
-            #     kwargs['matrix'] = ah._matrix
-            #     operator = ah._matrix
-
-            elif isinstance(a, sym_BilinearForm):
-                kwargs['update_ghost_regions'] = False
-                ah = DiscreteBilinearForm(a, e, *args, assembly_backend=backend, **kwargs)
-                kwargs['matrix'] = ah._matrix
-                operator = ah._matrix
-
-            elif isinstance(a, sym_Functional):
-                ah = DiscreteFunctional(a, e, *args, backend=backend, **kwargs)
-
-            forms.append(ah)
-            free_args.extend(ah.free_args)
-
-        if isinstance(a, sym_BilinearForm):
-            is_broken   = len(args[0].domain)>1
-            if self._backend is not None and is_broken:
-                for mat in kwargs['matrix']._blocks.values():
-                    mat.set_backend(backend)
-            elif self._backend is not None:
-                kwargs['matrix'].set_backend(backend)
-
-        self._forms         = forms
-        self._operator      = operator
-        self._free_args     = tuple(set(free_args))
-        self._is_functional = isinstance(a, sym_Functional)
-        # ...
-
-    @property
-    def forms(self):
-        return self._forms
-
-    @property
-    def free_args(self):
-        return self._free_args
-
-    @property
-    def is_functional(self):
-        return self._is_functional
-
-    def assemble(self, *, reset=True, **kwargs):
-        if not self.is_functional:
-            if reset :
-                reset_arrays(*[i for M in self.forms for i in M.global_matrices])
-
-            for form in self.forms:
-                form.assemble(reset=False, **kwargs)
-            self._operator.exchange_assembly_data()
-            return self._operator
-        else:
-            M = [form.assemble(**kwargs) for form in self.forms]
-            M = np.sum(M)
-            return M
-
