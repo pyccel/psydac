@@ -19,7 +19,7 @@ from sympde.expr     import find, EssentialBC
 from psydac.fem.basic          import FemField
 from psydac.api.discretization import discretize
 from psydac.feec.pull_push     import push_3d_hcurl, push_3d_hdiv
-from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL
+from psydac.api.settings       import PSYDAC_BACKENDS
 from psydac.linalg.utilities   import array_to_psydac
 from psydac.linalg.solvers     import inverse
 
@@ -112,22 +112,31 @@ def run_maxwell_3d_scipy(logical_domain, mapping, e_ex, b_ex, ncells, degree, pe
     # Discrete objects: Psydac
     #------------------------------------------------------------------------------
 
+    # Select backend for acceleration of the generated assembly code
+    backend = PSYDAC_BACKENDS['pyccel-gcc']
+
+    # Select multiplicity of internal knots along each direction
+    multiplicity = [mult, mult, mult]
+
+    # Create Geometry & DiscreteDerham objects
     domain_h = discretize(domain, ncells=ncells, periodic=periodic, comm=MPI.COMM_WORLD)
-    derham_h = discretize(derham, domain_h, degree=degree, multiplicity = [mult,mult,mult])
+    derham_h = discretize(derham, domain_h, degree=degree, multiplicity=multiplicity)
 
-    a1_h = discretize(a1, domain_h, (derham_h.V1, derham_h.V1), backend=PSYDAC_BACKEND_GPYCCEL)
-    a2_h = discretize(a2, domain_h, (derham_h.V2, derham_h.V2), backend=PSYDAC_BACKEND_GPYCCEL)
+    # Create DiscreteBilinearForm objects. Assembly code is generated here
+    a1_h = discretize(a1, domain_h, (derham_h.V1, derham_h.V1), backend=backend)
+    a2_h = discretize(a2, domain_h, (derham_h.V2, derham_h.V2), backend=backend)
 
-    # StencilMatrix objects
+    # Assemble matrices as StencilMatrix objects, then convert them to SciPy's CSC/CSR formats
     M1 = a1_h.assemble().tosparse().tocsc()
     M2 = a2_h.assemble().tosparse().tocsr()
 
-    # Diff operators
+    # Get differential operators as BlockLinearOperator objects
     GRAD, CURL, DIV = derham_h.derivatives_as_matrices
 
-    # Porjectors
-    P0, P1, P2, P3  = derham_h.projectors(nquads=[5,5,5])
+    # Get projectors as objects of type Projector_H1, Projector_Hcurl, Projector_Hdiv, Projector_L2
+    P0, P1, P2, P3  = derham_h.projectors(nquads=[5, 5, 5])
 
+    # Convert the CURL BlockLinearOperator to SciPy's CSR format
     CURL = CURL.transform(lambda block: block.tokronstencil().tostencil()).tosparse().tocsr()
 
     # initial conditions
@@ -145,7 +154,6 @@ def run_maxwell_3d_scipy(logical_domain, mapping, e_ex, b_ex, ncells, degree, pe
 
     # project initial conditions
     e0_coeff = P1(e0).coeffs
-
     b0_coeff = P2(b0).coeffs
 
     # time integrator
@@ -207,21 +215,29 @@ def run_maxwell_3d_stencil(logical_domain, mapping, e_ex, b_ex, ncells, degree, 
     # Discrete objects: Psydac
     #------------------------------------------------------------------------------
 
+    # Select backend for acceleration of the generated assembly code
+    backend = PSYDAC_BACKENDS['pyccel-gcc']
+
+    # Select multiplicity of internal knots along each direction
+    multiplicity = [mult, mult, mult]
+
+    # Create Geometry & DiscreteDerham objects
     domain_h = discretize(domain, ncells=ncells, periodic=periodic, comm=MPI.COMM_WORLD)
-    derham_h = discretize(derham, domain_h, degree=degree, multiplicity = [mult,mult,mult])
+    derham_h = discretize(derham, domain_h, degree=degree, multiplicity=multiplicity)
 
-    a1_h = discretize(a1, domain_h, (derham_h.V1, derham_h.V1), backend=PSYDAC_BACKEND_GPYCCEL)
-    a2_h = discretize(a2, domain_h, (derham_h.V2, derham_h.V2), backend=PSYDAC_BACKEND_GPYCCEL)
+    # Create DiscreteBilinearForm objects. Assembly code is generated here
+    a1_h = discretize(a1, domain_h, (derham_h.V1, derham_h.V1), backend=backend)
+    a2_h = discretize(a2, domain_h, (derham_h.V2, derham_h.V2), backend=backend)
 
-    # StencilMatrix objects
+    # Assemble matrices as StencilMatrix objects
     M1 = a1_h.assemble()
     M2 = a2_h.assemble()
 
-    # Diff operators
+    # Get differential operators as BlockLinearOperator objects
     GRAD, CURL, DIV = derham_h.derivatives_as_matrices
 
-    # Porjectors
-    P0, P1, P2, P3  = derham_h.projectors(nquads=[5,5,5])
+    # Get projectors as objects of type Projector_H1, Projector_Hcurl, Projector_Hdiv, Projector_L2
+    P0, P1, P2, P3  = derham_h.projectors(nquads=[5, 5, 5])
 
     # initial conditions
     e0_1 = lambda x, y, z: e_ex[0](0, x, y, z)
@@ -238,7 +254,6 @@ def run_maxwell_3d_stencil(logical_domain, mapping, e_ex, b_ex, ncells, degree, 
 
     # project initial conditions
     e0_coeff = P1(e0).coeffs
-
     b0_coeff = P2(b0).coeffs
 
     # time integrator
