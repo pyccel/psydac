@@ -1,21 +1,23 @@
-import  os
-import  time
-from    mpi4py  import  MPI
-import  numpy   as      np
+import os
+import shutil
+import time
+from   pathlib  import Path
+from   datetime import datetime
+
+from   mpi4py  import  MPI
+import numpy   as      np
 #import matplotlib.pyplot as plt
-from    datetime import datetime
+from   sympy   import  sin
 
-from    sympy   import  sin
+from   sympde.calculus             import dot, cross, grad, curl
+from   sympde.expr                 import BilinearForm, integral
+from   sympde.topology             import element_of, elements_of, Cube, Mapping, ScalarFunctionSpace, Domain, Derham
 
-from    sympde.calculus             import dot, cross, grad, curl
-from    sympde.expr                 import BilinearForm, integral
-from    sympde.topology             import element_of, elements_of, Cube, Mapping, ScalarFunctionSpace, Domain, Derham
-
-from    psydac.api.discretization   import discretize
-from    psydac.api.settings         import PSYDAC_BACKEND_GPYCCEL
-from    psydac.cad.geometry         import Geometry
-from    psydac.fem.basic            import FemField
-from    psydac.mapping.discrete     import SplineMapping
+from   psydac.api.discretization   import discretize
+from   psydac.api.settings         import PSYDAC_BACKEND_GPYCCEL
+from   psydac.cad.geometry         import Geometry
+from   psydac.fem.basic            import FemField
+from   psydac.mapping.discrete     import SplineMapping
 
 datetime_md = datetime.today().strftime('%Y-%m-%d %H:%M:%S')
 datetime_file = datetime.today().strftime('%Y-%m-%d_%H:%M:%S')
@@ -619,12 +621,23 @@ txt += template.format(old_ass_21=old_ass_21, new_ass_21=new_ass_21, old_disc_21
 txt += '\n\n'
 
 if mpi_rank == 0:
-    f = open('matrix_assembly_speed_log.md', 'a')
-    f.writelines(txt)
-    f.close()
+    # Write performance table to MarkDown file
+    with open('matrix_assembly_speed_log.md', 'a') as f:
+        f.write(txt)
 
-    os.system('rm -rf ~/psydac/performance/geometry/')
-    os.system('rm -rf ~/psydac/performance/__psydac__/')
-    os.system('rm -rf ~/psydac/performance/__pycache__/')
-    os.system('rm -rf ~/psydac/performance/__epyccel__/')
-    os.system('rm -rf ~/psydac/performance/__gpyccel__/')
+    # Remove temporary folders
+    base_dir = Path(__file__).parent
+    dirs_to_remove = [
+        "geometry",
+        "__psydac__",
+        "__pycache__",
+        "__epyccel__",
+        "__gpyccel__"
+    ]
+    for d in dirs_to_remove:
+        path = base_dir / d
+        if path.exists():
+            try:
+                shutil.rmtree(path)
+            except Exception as e:
+                print(f"Failed to remove {path}: {e}")
