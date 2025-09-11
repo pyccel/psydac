@@ -19,7 +19,6 @@ class FemSpace( metaclass=ABCMeta ):
     Generic Finite Element space V.
 
     A unique basis is associated to a FemSpace, i.e. FemSpace = Span( basis )
-
     """
 
     #-----------------------------------------
@@ -99,12 +98,11 @@ class FemSpace( metaclass=ABCMeta ):
         Return the axis spaces (self if univariate) as a tuple.
         """
 
-
     #---------------------------------------
     # Abstract interface: evaluation methods
     #---------------------------------------
     @abstractmethod
-    def eval_field( self, field, *eta, weights=None):
+    def eval_field(self, field, *eta, weights=None):
         """
         Evaluate field at location(s) eta.
 
@@ -113,21 +111,20 @@ class FemSpace( metaclass=ABCMeta ):
         field : FemField
             Field object (element of FemSpace) to be evaluated.
 
-        eta : list of float or numpy.ndarray
+        eta : float | numpy.ndarray[float]
             Evaluation point(s) in logical domain.
 
-        weights : StencilVector, optional
+        weights : Vector, optional
             Weights of the basis functions, such that weights.space == field.coeffs.space.
 
         Returns
         -------
-        value : float or numpy.ndarray
+        value : float | complex | ndarray[float] | ndarray[complex]
             Field value(s) at location(s) eta.
-
         """
 
     @abstractmethod
-    def eval_field_gradient( self, field, *eta , weights=None):
+    def eval_field_gradient(self, field, *eta, weights=None):
         """
         Evaluate field gradient at location(s) eta.
 
@@ -139,16 +136,14 @@ class FemSpace( metaclass=ABCMeta ):
         eta : list of float or numpy.ndarray
             Evaluation point(s) in logical domain.
 
-        weights : StencilVector, optional
+        weights : Vector, optional
             Weights of the basis functions, such that weights.space == field.coeffs.space.
 
         Returns
         -------
-        value : float or numpy.ndarray
+        value : ndarray[float] | ndarray[complex]
             Value(s) of field gradient at location(s) eta.
-
         """
-
 
     #----------------------
     # Concrete methods
@@ -252,7 +247,6 @@ class FemField:
     coeffs : psydac.linalg.basic.Vector (optional)
         Vector of coefficients in finite element basis
         (by default assume zero vector).
-
     """
     def __init__( self, space, coeffs=None ):
 
@@ -290,7 +284,6 @@ class FemField:
         Coefficients are stored into one element of the vector space in
         'self.space.coeff_space', which is topologically associated to
         the finite element space.
-
         """
         return self._coeffs
 
@@ -320,14 +313,14 @@ class FemField:
         return self._fields[key]
 
     # ...
-    def __call__( self, *eta , weights=None):
+    def __call__(self, *eta , weights=None):
         """Evaluate weighted field at location identified by logical coordinates eta."""
-        return self._space.eval_field( self, *eta , weights=weights)
+        return self._space.eval_field(self, *eta , weights=weights)
 
     # ...
-    def gradient( self, *eta , weights=None):
+    def gradient(self, *eta , weights=None):
         """Evaluate gradient of weighted field at location identified by logical coordinates eta."""
-        return self._space.eval_field_gradient( self, *eta , weights=weights)
+        return self._space.eval_field_gradient(self, *eta , weights=weights)
 
     # ...
     def divergence(self, *eta, weights=None):

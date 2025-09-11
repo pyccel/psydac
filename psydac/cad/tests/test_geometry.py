@@ -222,6 +222,11 @@ def test_export_nurbs_to_hdf5(ncells, degree):
 
     assert np.allclose(pcoords1[..., :domain.dim], pcoords2, 1e-15, 1e-15)
 
+    jacobian1 = new_pipe.gradient(u=eta1, v=eta2)[..., :domain.dim, :]
+    jacobian2 = np.array([[mapping.jacobian(e1, e2) for e2 in eta2] for e1 in eta1])
+
+    assert np.allclose(jacobian1, jacobian2, 1e-13, 1e-13)
+
 #==============================================================================
 @pytest.mark.parametrize( 'ncells', [[8,8], [12,12], [14,14]] )
 @pytest.mark.parametrize( 'degree', [[2,2], [3,2], [2,3], [3,3], [4,4]] )

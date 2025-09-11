@@ -12,6 +12,5 @@ feec.multipatch
     multipatch.multipatch_domain_utilities
     multipatch.non_matching_operators
     multipatch.operators
-    multipatch.plotting_utilities
     multipatch.utilities
     multipatch.utils_conga_2d

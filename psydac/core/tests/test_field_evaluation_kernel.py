@@ -411,17 +411,15 @@ def test_regular_evaluations(knots, ldim, degree, npts_per_cell):
         f_direct = np.array([space_h.eval_fields([e1], field) for e1 in regular_grid[0]])
 
         # Weighted
-        f_direct_w = np.array([np.array(space_h.eval_fields([e1], field, weights=weight))
-                                / np.array(space_h.eval_fields([e1], weight))
-                                for e1 in regular_grid[0]])
+        f_direct_w = np.array([space_h.eval_fields([e1], field, weights=weight)
+                               for e1 in regular_grid[0]])
 
     if ldim == 2:
         # No weights
         f_direct = np.array([[space_h.eval_fields([e1, e2], field) for e2 in regular_grid[1]] for e1 in regular_grid[0]])
 
         # Weighted
-        f_direct_w = np.array([[np.array(space_h.eval_fields([e1, e2], field, weights=weight))
-                                / np.array(space_h.eval_fields([e1, e2], weight))
+        f_direct_w = np.array([[space_h.eval_fields([e1, e2], field, weights=weight)
                                 for e2 in regular_grid[1]]
                                 for e1 in regular_grid[0]])
 
@@ -433,8 +431,7 @@ def test_regular_evaluations(knots, ldim, degree, npts_per_cell):
                                 for e1 in regular_grid[0]])
 
         # Weighted
-        f_direct_w = np.array([[[np.array(space_h.eval_fields([e1, e2, e3], field, weights=weight))
-                                    / np.array(space_h.eval_fields([e1, e2, e3], weight))
+        f_direct_w = np.array([[[space_h.eval_fields([e1, e2, e3], field, weights=weight)
                                 for e3 in regular_grid[2]]
                                 for e2 in regular_grid[1]]
                                 for e1 in regular_grid[0]])
@@ -571,17 +568,15 @@ def test_irregular_evaluations(knots, ldim, degree, npts):
         f_direct = np.array([space_h.eval_fields([e1], field) for e1 in irregular_grid[0]])
 
         # Weighted
-        f_direct_w = np.array([np.array(space_h.eval_fields([e1], field, weights=weight))
-                                / np.array(space_h.eval_fields([e1], weight))
-                                for e1 in irregular_grid[0]])
+        f_direct_w = np.array([space_h.eval_fields([e1], field, weights=weight)
+                               for e1 in irregular_grid[0]])
         
     if ldim == 2:
         # No weights
         f_direct = np.array([[space_h.eval_fields([e1, e2], field) for e2 in irregular_grid[1]] for e1 in irregular_grid[0]])
 
         # Weighted
-        f_direct_w = np.array([[np.array(space_h.eval_fields([e1, e2], field, weights=weight))
-                                / np.array(space_h.eval_fields([e1, e2], weight))
+        f_direct_w = np.array([[space_h.eval_fields([e1, e2], field, weights=weight)
                                 for e2 in irregular_grid[1]]
                                 for e1 in irregular_grid[0]])
 
@@ -593,8 +588,7 @@ def test_irregular_evaluations(knots, ldim, degree, npts):
                                 for e1 in irregular_grid[0]])
 
         # Weighted
-        f_direct_w = np.array([[[np.array(space_h.eval_fields([e1, e2, e3], field, weights=weight))
-                                    / np.array(space_h.eval_fields([e1, e2, e3], weight))
+        f_direct_w = np.array([[[space_h.eval_fields([e1, e2, e3], field, weights=weight)
                                 for e3 in irregular_grid[2]]
                                 for e2 in irregular_grid[1]]
                                 for e1 in irregular_grid[0]])
@@ -692,3 +686,7 @@ def test_pushforwards_hcurl(ldim):
         pushforward_3d_hcurl(field_to_push, inv_jacobians, out)
 
     assert np.allclose(expected, out, atol=ATOL, rtol=RTOL)
+
+if __name__ == '__main__':
+    test_regular_jacobians('bent_pipe.h5', 2)
+    test_regular_evaluations([np.sort(np.concatenate((np.zeros(3), np.random.random(9), np.ones(3)))) for i in range(2)], 2, [2] * 2,2)
