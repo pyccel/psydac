@@ -30,7 +30,7 @@ from psydac.api.fem_sum_form import DiscreteSumForm
 from psydac.api.fem          import DiscreteBilinearForm
 from psydac.api.fem          import DiscreteLinearForm
 from psydac.api.fem          import DiscreteFunctional
-from psydac.api.feec         import DiscreteDerham, DiscreteDeRhamMultipatch
+from psydac.api.feec         import DiscreteDeRham, DiscreteDeRhamMultipatch
 from psydac.api.glt          import DiscreteGltExpr
 from psydac.api.expr         import DiscreteExpr
 from psydac.api.equation     import DiscreteEquation
