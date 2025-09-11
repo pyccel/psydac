@@ -41,7 +41,6 @@ from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_
 from psydac.feec.multipatch.examples.ppc_test_cases import get_source_and_solution_hcurl, get_div_free_pulse, get_curl_free_pulse, get_Delta_phi_pulse, get_Gaussian_beam
 from psydac.feec.multipatch.utils_conga_2d import DiagGrid, P0_phys, P1_phys, P2_phys, get_Vh_diags_for
 from psydac.feec.multipatch.utilities import time_count 
-from psydac.linalg.utilities import array_to_psydac
 from psydac.fem.basic import FemField
 from psydac.feec.multipatch.multipatch_domain_utilities import build_cartesian_multipatch_domain
 
@@ -279,7 +278,7 @@ def solve_td_maxwell_pbm(*,
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Compute stable time step size based on max CFL and max dt
-    dt = compute_stable_dt(C_m=C.tosparse(), dC_m=dC.tosparse(), cfl_max=cfl_max, dt_max=dt_max)
+    dt = compute_stable_dt(C=C, dC=dC, cfl_max=cfl_max, dt_max=dt_max)
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     # Absorbing dC_m
@@ -439,7 +438,7 @@ def solve_td_maxwell_pbm(*,
 
 
     if f0_h is None:
-        f0_h = array_to_psydac(np.zeros(V1h.nbasis), V1h.coeff_space)
+        f0_h = V1h.coeff_space.zeros()
 
     t_stamp = time_count(t_stamp)
 
@@ -464,12 +463,12 @@ def solve_td_maxwell_pbm(*,
     print(' .. initial solution ..')
 
     # initial B sol
-    B_h = array_to_psydac(np.zeros(V2h.nbasis), V2h.coeff_space)
-    E_h = array_to_psydac(np.zeros(V1h.nbasis), V1h.coeff_space)
+    B_h = V2h.coeff_space.zeros()
+    E_h = V1h.coeff_space.zeros()
 
     # initial E sol
     if E0_type == 'zero':
-        E_h = array_to_psydac(np.zeros(V1h.nbasis), V1h.coeff_space)
+        E_h = V1h.coeff_space.zeros()
 
     elif E0_type == 'pulse':
 
@@ -541,12 +540,10 @@ def solve_td_maxwell_pbm(*,
         OM2.add_spaces(V2h=V2h)
         OM2.export_space_info()
 
-        #stencil_coeffs_E = array_to_psydac(cP1_m @ E_c, V1h.coeff_space)
         Eh = FemField(V1h, coeffs=cP1 @ E_h)
         OM1.add_snapshot(t=0, ts=0)
         OM1.export_fields(Eh=Eh)
 
-        # stencil_coeffs_B = array_to_psydac(B_c, V2h.coeff_space)
         Bh = FemField(V2h, coeffs=B_h)
         OM2.add_snapshot(t=0, ts=0)
         OM2.export_fields(Bh=Bh)
@@ -616,12 +613,12 @@ def solve_td_maxwell_pbm(*,
 
 
 
-def compute_stable_dt(*, C_m, dC_m, cfl_max, dt_max=None):
+def compute_stable_dt(*, C, dC, cfl_max, dt_max=None):
     """
     Compute a stable time step size based on the maximum CFL parameter in the
     domain. To this end we estimate the operator norm of
 
-    `dC_m @ C_m: V1h -> V1h`,
+    `dC @ C: V1h -> V1h`,
 
     find the largest stable time step compatible with Strang splitting, and
     rescale it by the provided `cfl_max`. Setting `cfl_max = 1` would run the
@@ -634,10 +631,10 @@ def compute_stable_dt(*, C_m, dC_m, cfl_max, dt_max=None):
 
     Parameters
     ----------
-    C_m : scipy.sparse.spmatrix
+    C : LinearOperator
         Matrix of the Curl operator.
 
-    dC_m : scipy.sparse.spmatrix
+    dC : LinearOperator
         Matrix of the dual Curl operator.
 
     cfl_max : float
@@ -657,34 +654,35 @@ def compute_stable_dt(*, C_m, dC_m, cfl_max, dt_max=None):
 
     print(" .. compute_stable_dt by estimating the operator norm of ")
     print(" ..     dC_m @ C_m: V1h -> V1h ")
-    print(" ..     with dim(V1h) = {}      ...".format(C_m.shape[1]))
+    print(" ..     with dim(V1h) = {}      ...".format(C.domain.dimension))
 
     if not (0 < cfl_max < 1):
         print(' ******  ****** ******  ****** ******  ****** ')
         print('         WARNING !!!  cfl = {}  '.format(cfl))
         print(' ******  ****** ******  ****** ******  ****** ')
 
-    def vect_norm_2(vv):
-        return np.sqrt(np.dot(vv, vv))
-
     t_stamp = time_count()
-    vv = np.random.random(C_m.shape[1])
-    norm_vv = vect_norm_2(vv)
+    V = C.domain
+    from psydac.linalg.utilities import array_to_psydac
+    vv = array_to_psydac(np.random.rand(V.dimension), V)
+
+    norm_vv = np.sqrt(vv.inner(vv))
+
     max_ncfl = 500
     ncfl = 0
     spectral_rho = 1
     conv = False
-    CC_m = dC_m @ C_m
+    CC = dC @ C
 
     while not (conv or ncfl > max_ncfl):
 
-        vv[:] = (1. / norm_vv) * vv
+        vv *= (1. / norm_vv)
         ncfl += 1
-        vv[:] = CC_m.dot(vv)
+        CC.dot(vv, out=vv)
 
-        norm_vv = vect_norm_2(vv)
+        norm_vv = np.sqrt(vv.inner(vv))
         old_spectral_rho = spectral_rho
-        spectral_rho = vect_norm_2(vv)  # approximation
+        spectral_rho = norm_vv  # approximation
         conv = abs((spectral_rho - old_spectral_rho) / spectral_rho) < 0.001
         print("    ... spectral radius iteration: spectral_rho( dC_m @ C_m ) ~= {}".format(spectral_rho))
     t_stamp = time_count(t_stamp)
@@ -699,11 +697,8 @@ def compute_stable_dt(*, C_m, dC_m, cfl_max, dt_max=None):
         dt = min(dt, dt_max)
 
     print("  Time step dt computed for Maxwell solver:")
-    print(
-        f"     Based on cfl_max = {cfl_max} and dt_max = {dt_max}, we set dt = {dt}")
-    print(
-        f"     -- note that c*Dt = {light_c*dt} and c_dt_max = {c_dt_max}, thus c * dt / c_dt_max = {light_c*dt/c_dt_max}")
-    print(
-        f"     -- and spectral_radius((c*dt)**2* dC_m @ C_m ) = {(light_c * dt * norm_op)**2} (should be < 4).")
+    print(f"     Based on cfl_max = {cfl_max} and dt_max = {dt_max}, we set dt = {dt}")
+    print(f"     -- note that c*Dt = {light_c*dt} and c_dt_max = {c_dt_max}, thus c * dt / c_dt_max = {light_c*dt/c_dt_max}")
+    print(f"     -- and spectral_radius((c*dt)**2* dC_m @ C_m ) = {(light_c * dt * norm_op)**2} (should be < 4).")
 
     return dt

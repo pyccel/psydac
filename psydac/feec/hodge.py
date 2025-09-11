@@ -1,19 +1,13 @@
 import os
 import numpy as np
 
-from scipy.sparse import save_npz, load_npz
-from scipy.sparse import block_diag
-from scipy.linalg import inv
-
-from sympde.topology import element_of, elements_of
+from sympde.topology import elements_of
 from sympde.topology.space import ScalarFunction
 from sympde.calculus import dot
 from sympde.expr.expr import BilinearForm
 from sympde.expr.expr import integral
 
 from psydac.api.settings import PSYDAC_BACKENDS
-
-from psydac.linalg.utilities import SparseMatrixLinearOperator
 
 # ===============================================================================
 class HodgeOperator:
@@ -78,7 +72,6 @@ class HodgeOperator:
 
             V = Vh.symbolic_space
             domain = V.domain
-            # domain_h = V0h.domain:  would be nice...
             u, v = elements_of(V, names='u, v')
 
             if isinstance(u, ScalarFunction):
@@ -93,46 +86,7 @@ class HodgeOperator:
 
             self._primal_hodge = FemLinearOperator(self._fem_domain, self._fem_codomain, linop=self._linop)
 
-    # which of the two assemblys for the sparse dual matrix is better? For now use the exact one.
-    def assemble_dual_sparse_matrix(self):
-        """
-        the dual Hodge sparse matrix is the patch-wise inverse of the multi-patch mass matrix
-        it is not stored by default but computed on demand, by local (patch-wise) exact inversion of the mass matrix
-        """
-        from psydac.fem.basic import FemLinearOperator
-        
-        if self._dual_linop is None:
-            if not self._linop:
-                self.assemble_matrix()
-
-            M = self._linop  # mass matrix of the (primal) basis
-
-            if self._fem_domain.is_multipatch:
-                nrows = M.n_block_rows
-                ncols = M.n_block_cols
-
-                inv_M_blocks = []
-                for i in range(nrows):
-                    Mii = M[i, i].toarray()
-                    inv_Mii = inv(Mii)
-                    inv_M_blocks.append(inv_Mii)
-
-                inv_M = block_diag(inv_M_blocks, format='csr')
-
-                self._dual_linop = SparseMatrixLinearOperator(M.codomain, M.domain, inv_M)
-                self._dual_hodge = FemLinearOperator(self._fem_codomain, self._fem_domain, linop=self._dual_linop)
-
-            else:
-                from scipy.sparse import csr_matrix
-                M_m = M.toarray()
-                inv_M = inv(M_m)
-                inv_M = csr_matrix(inv_M)
-
-                self._dual_linop = SparseMatrixLinearOperator(M.codomain, M.domain, inv_M)
-                self._dual_hodge = FemLinearOperator(self._fem_codomain, self._fem_domain, linop=self._dual_linop)
- 
-
-    def assemble_dual_matrix(self, solver ='gmres', **kwargs):
+    def assemble_dual_matrix(self, solver ='cg', **kwargs):
         """
         the dual Hodge matrix is the patch-wise inverse of the multi-patch mass matrix
         it is not stored by default but computed on demand, by approximate local (patch-wise) inversion of the mass matrix
@@ -155,7 +109,7 @@ class HodgeOperator:
                 inv_M_blocks = [list(b) for b in M.blocks]
                 for i in range(nrows):
                     Mii = M[i, i]
-                    inv_Mii = inverse(M[i,i], solver=solver, **kwargs)
+                    inv_Mii = inverse(Mii, solver=solver, **kwargs)
                     inv_M_blocks[i][i] = inv_Mii
 
                 self._dual_linop = BlockLinearOperator(M.codomain, M.domain, blocks=inv_M_blocks)
@@ -175,7 +129,7 @@ class HodgeOperator:
     @property
     def dual_linop(self):
         if self._dual_linop is None:
-            self.assemble_dual_sparse_matrix()
+            self.assemble_dual_matrix()
 
         return self._dual_linop
 
@@ -189,6 +143,6 @@ class HodgeOperator:
     @property
     def dual_hodge(self):
         if self._dual_linop is None:
-            self.assemble_dual_sparse_matrix()
+            self.assemble_dual_matrix()
 
         return self._dual_hodge

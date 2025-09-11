@@ -18,7 +18,7 @@ def test_poisson_pretzel_f():
         backend_language='pyccel-gcc',
         plot_dir=None)
 
-    assert abs(l2_error - 1.0585687717792318e-05) < 1e-10
+    assert abs(l2_error - 1.1016888403643595e-05) < 1e-10
 
 
 def test_poisson_pretzel_f_nc():
@@ -38,7 +38,7 @@ def test_poisson_pretzel_f_nc():
         backend_language='pyccel-gcc',
         plot_dir=None)
 
-    assert abs(l2_error - 6.051557012306659e-06) < 1e-10
+    assert abs(l2_error - 7.079666478120528e-06) < 1e-10
 
 
 # ==============================================================================

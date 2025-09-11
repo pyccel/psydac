@@ -4,6 +4,7 @@ from collections import OrderedDict
 import numpy as np
 from sympy import Tuple, lambdify
 from scipy.sparse.linalg import norm as sp_norm
+from scipy.sparse.linalg import inv
 
 from sympde.topology.domain import Domain
 from sympde.topology import Derham, Square, IdentityMapping
@@ -150,10 +151,9 @@ def test_conf_projectors_2d(
     cP0, cP1, cP2 = (m.tosparse() for m in (cP0, cP1, cP2))
     
     M0, M1, M2 = derham_h.hodge_operators()
-    M0, M1, M2 = (m.tosparse() for m in (M0, M1, M2))
+    M0, M1, M2 = (m.tosparse().tocsc() for m in (M0, M1, M2))
 
-    M0_inv, M1_inv, M2_inv = derham_h.hodge_operators(dual=True)
-    M0_inv, M1_inv, M2_inv = (m.tosparse() for m in (M0_inv, M1_inv, M2_inv))
+    M0_inv, M1_inv, M2_inv = (inv(m) for m in (M0, M1, M2))
 
     bD0, bD1 = derham_h.derivatives()
     bD0, bD1 = (m.tosparse() for m in (bD0, bD1))

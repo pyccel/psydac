@@ -145,9 +145,6 @@ def hcurl_solve_eigen_pbm(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), doma
     bD0, bD1 = derham_h.derivatives(kind='linop')
 
 
-    if not os.path.exists(plot_dir):
-        os.makedirs(plot_dir)
-
     print('computing the full operator matrix...')
 
     # Conga (projection-based) stiffness matrices
@@ -207,40 +204,45 @@ def hcurl_solve_eigen_pbm(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), doma
     t_stamp = time_count(t_stamp)
     print('plotting the eigenmodes...')
 
-    OM = OutputManager(plot_dir + '/spaces.yml', plot_dir + '/fields.h5')
-    OM.add_spaces(V1h=V1h)
-    OM.export_space_info()
+    if plot_dir:
 
-    nb_eigs = len(eigenvalues)
-    H1_m = H1.tosparse()
-    cP1_m = cP1.tosparse()
+        if not os.path.exists(plot_dir):
+            os.makedirs(plot_dir)
 
-    for i in range(min(nb_eigs_plot, nb_eigs)):
+        OM = OutputManager(plot_dir + '/spaces.yml', plot_dir + '/fields.h5')
+        OM.add_spaces(V1h=V1h)
+        OM.export_space_info()
 
-        print('looking at emode i = {}... '.format(i))
-        lambda_i = eigenvalues[i]
-        emode_i = np.real(eigenvectors[i])
-        norm_emode_i = np.dot(emode_i, H1_m.dot(emode_i))
-        eh_c = emode_i / norm_emode_i
+        nb_eigs = len(eigenvalues)
+        H1_m = H1.tosparse()
+        cP1_m = cP1.tosparse()
 
-        stencil_coeffs = array_to_psydac(cP1_m @ eh_c, V1h.coeff_space)
-        vh = FemField(V1h, coeffs=stencil_coeffs)
-        OM.add_snapshot(i, i)
-        OM.export_fields(vh=vh)
+        for i in range(min(nb_eigs_plot, nb_eigs)):
 
-    OM.close()
+            print('looking at emode i = {}... '.format(i))
+            lambda_i = eigenvalues[i]
+            emode_i = np.real(eigenvectors[i])
+            norm_emode_i = np.dot(emode_i, H1_m.dot(emode_i))
+            eh_c = emode_i / norm_emode_i
 
-    PM = PostProcessManager(
-        domain=domain,
-        space_file=plot_dir + '/spaces.yml',
-        fields_file=plot_dir + '/fields.h5')
-    PM.export_to_vtk(
-        plot_dir + "/eigenvalues",
-        grid=None,
-        npts_per_cell=[6] * 2,
-        snapshots='all',
-        fields='vh')
-    PM.close()
+            stencil_coeffs = array_to_psydac(cP1_m @ eh_c, V1h.coeff_space)
+            vh = FemField(V1h, coeffs=stencil_coeffs)
+            OM.add_snapshot(i, i)
+            OM.export_fields(vh=vh)
+
+        OM.close()
+
+        PM = PostProcessManager(
+            domain=domain,
+            space_file=plot_dir + '/spaces.yml',
+            fields_file=plot_dir + '/fields.h5')
+        PM.export_to_vtk(
+            plot_dir + "/eigenvalues",
+            grid=None,
+            npts_per_cell=[6] * 2,
+            snapshots='all',
+            fields='vh')
+        PM.close()
 
     t_stamp = time_count(t_stamp)
 
