@@ -191,40 +191,41 @@ def hcurl_solve_eigen_pbm_dg(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), d
     t_stamp = time_count(t_stamp)
     print('plotting the eigenmodes...')
 
-    if not os.path.exists(plot_dir):
-        os.makedirs(plot_dir)
+    if plot_dir:
+        if not os.path.exists(plot_dir):
+            os.makedirs(plot_dir)
 
-    OM = OutputManager(plot_dir + '/spaces.yml', plot_dir + '/fields.h5')
-    OM.add_spaces(Vh=Vh)
-    OM.export_space_info()
+        OM = OutputManager(plot_dir + '/spaces.yml', plot_dir + '/fields.h5')
+        OM.add_spaces(Vh=Vh)
+        OM.export_space_info()
 
-    nb_eigs = len(eigenvalues)
-    for i in range(min(nb_eigs_plot, nb_eigs)):
+        nb_eigs = len(eigenvalues)
+        for i in range(min(nb_eigs_plot, nb_eigs)):
 
-        print('looking at emode i = {}... '.format(i))
-        lambda_i = eigenvalues[i]
-        emode_i = np.real(eigenvectors[i])
-        norm_emode_i = np.dot(emode_i, Bh_m.dot(emode_i))
-        eh_c = emode_i / norm_emode_i
+            print('looking at emode i = {}... '.format(i))
+            lambda_i = eigenvalues[i]
+            emode_i = np.real(eigenvectors[i])
+            norm_emode_i = np.dot(emode_i, Bh_m.dot(emode_i))
+            eh_c = emode_i / norm_emode_i
 
-        stencil_coeffs = array_to_psydac(eh_c, Vh.coeff_space)
-        vh = FemField(Vh, coeffs=stencil_coeffs)
-        OM.add_snapshot(i, i)
-        OM.export_fields(vh=vh)
+            stencil_coeffs = array_to_psydac(eh_c, Vh.coeff_space)
+            vh = FemField(Vh, coeffs=stencil_coeffs)
+            OM.add_snapshot(i, i)
+            OM.export_fields(vh=vh)
 
-    OM.close()
+        OM.close()
 
-    PM = PostProcessManager(
-        domain=domain,
-        space_file=plot_dir + '/spaces.yml',
-        fields_file=plot_dir + '/fields.h5')
-    PM.export_to_vtk(
-        plot_dir + "/eigenvalues",
-        grid=None,
-        npts_per_cell=[6] * 2,
-        snapshots='all',
-        fields='vh')
-    PM.close()
+        PM = PostProcessManager(
+            domain=domain,
+            space_file=plot_dir + '/spaces.yml',
+            fields_file=plot_dir + '/fields.h5')
+        PM.export_to_vtk(
+            plot_dir + "/eigenvalues",
+            grid=None,
+            npts_per_cell=[6] * 2,
+            snapshots='all',
+            fields='vh')
+        PM.close()
 
     t_stamp = time_count(t_stamp)
 
