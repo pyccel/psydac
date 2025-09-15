@@ -1459,7 +1459,7 @@ class ConformingProjectionV0(FemLinearOperator):
         else:
             sparse_matrix = construct_h1_singlepatch_conforming_projection(V0h, reg_orders=0, p_moments=p_moments, hom_bc=hom_bc)
 
-        self._linop = SparseMatrixLinearOperator(self.linop_domain, self.linop_codomain, sparse_matrix)
+        self._linop = SparseMatrixLinearOperator(self.linop_domain, self.linop_codomain, sparse_matrix.tocsr())
 
 
 class ConformingProjectionV1(FemLinearOperator):
@@ -1499,4 +1499,4 @@ class ConformingProjectionV1(FemLinearOperator):
         else:
             sparse_matrix = construct_hcurl_singlepatch_conforming_projection(V1h, reg_orders=0, p_moments=p_moments, hom_bc=hom_bc)
         
-        self._linop = SparseMatrixLinearOperator(self.linop_domain, self.linop_codomain, sparse_matrix)
+        self._linop = SparseMatrixLinearOperator(self.linop_domain, self.linop_codomain, sparse_matrix.tocsr())
