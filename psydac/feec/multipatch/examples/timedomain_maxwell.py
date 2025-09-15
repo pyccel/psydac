@@ -281,7 +281,7 @@ def solve_td_maxwell_pbm(*,
     dt = compute_stable_dt(C=C, dC=dC, cfl_max=cfl_max, dt_max=dt_max)
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    # Absorbing dC_m
+    # Absorbing dC
     CH2 = C.T @ H2
     H1A = H1 + dt * A_eps
 
@@ -483,7 +483,7 @@ def solve_td_maxwell_pbm(*,
 
             print(' .. projecting E0 with L2 projection...')
             tilde_E0_h = get_dual_dofs(Vh=V1h, f=E0, domain_h=domain_h, backend_language=backend)
-            E_h = dH1_m.dot(tilde_E0_h)
+            E_h = dH1.dot(tilde_E0_h)
 
     elif E0_type == 'pulse_2':
 
@@ -527,7 +527,7 @@ def solve_td_maxwell_pbm(*,
         if source_type == 'Il_pulse' and source_omega is not None:
             rho_h = rho0_h * np.sin(source_omega * nt * dt) / omega
             GaussErr = rho_h - divE_h
-            GaussErrP = rho_h - div_m @ PE_h
+            GaussErrP = rho_h - D @ PE_h
             GaussErr_norm2_diag[nt] = GaussErr.inner(H0.dot(GaussErr))
             GaussErrP_norm2_diag[nt] = GaussErrP.inner(H0.dot(GaussErrP))
 
@@ -684,7 +684,7 @@ def compute_stable_dt(*, C, dC, cfl_max, dt_max=None):
         old_spectral_rho = spectral_rho
         spectral_rho = norm_vv  # approximation
         conv = abs((spectral_rho - old_spectral_rho) / spectral_rho) < 0.001
-        print("    ... spectral radius iteration: spectral_rho( dC_m @ C_m ) ~= {}".format(spectral_rho))
+        print("    ... spectral radius iteration: spectral_rho( dC @ C ) ~= {}".format(spectral_rho))
     t_stamp = time_count(t_stamp)
 
     norm_op = np.sqrt(spectral_rho)
@@ -699,6 +699,6 @@ def compute_stable_dt(*, C, dC, cfl_max, dt_max=None):
     print("  Time step dt computed for Maxwell solver:")
     print(f"     Based on cfl_max = {cfl_max} and dt_max = {dt_max}, we set dt = {dt}")
     print(f"     -- note that c*Dt = {light_c*dt} and c_dt_max = {c_dt_max}, thus c * dt / c_dt_max = {light_c*dt/c_dt_max}")
-    print(f"     -- and spectral_radius((c*dt)**2* dC_m @ C_m ) = {(light_c * dt * norm_op)**2} (should be < 4).")
+    print(f"     -- and spectral_radius((c*dt)**2* dC @ C ) = {(light_c * dt * norm_op)**2} (should be < 4).")
 
     return dt

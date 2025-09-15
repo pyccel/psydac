@@ -5,15 +5,13 @@
 import numpy as np
 
 from psydac.feec.multipatch.examples.timedomain_maxwell import solve_td_maxwell_pbm
-from psydac.feec.multipatch.utilities import FEM_sol_fn, get_run_dir, get_plot_dir, get_mat_dir, get_sol_dir, diag_fn
+from psydac.feec.multipatch.utilities import get_run_dir, get_plot_dir
 
 # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ----
 #
-# main test-cases and parameters used for the ppc paper:
 
-test_case = 'E0_pulse_no_source'   # used in paper
-# test_case = 'Issautier_like_source'  # used in paper
-
+test_case = 'E0_pulse_no_source'  
+# test_case = 'Issautier_like_source'
 # J_proj_case = 'P_geom'
 J_proj_case = 'P_L2'
 
