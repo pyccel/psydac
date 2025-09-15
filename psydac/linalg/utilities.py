@@ -216,7 +216,7 @@ class SparseMatrixLinearOperator(MatrixFreeLinearOperator):
 
         self._matrix = sparse_matrix
 
-        def dot_sparse(v, out=None): 
+        def dot_sparse(v, *, out): 
             return self._dot_recursive(v, out) 
 
         super().__init__(domain, codomain, dot_sparse)
@@ -228,7 +228,7 @@ class SparseMatrixLinearOperator(MatrixFreeLinearOperator):
         return self._matrix.toarray()
 
     def transpose(self, conjugate=False):
-        return SparseMatrixLinearOperator(self.codomain, self.domain, self._matrix.T)
+        return SparseMatrixLinearOperator(self.codomain, self.domain, self._matrix.T.tocsr())
 
     def _dot_recursive(self, v, out, ind_V=0, ind_W=0):
         V = v.space
