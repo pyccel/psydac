@@ -1318,6 +1318,7 @@ class MatrixFreeLinearOperator(LinearOperator):
         if out is not None:
             assert isinstance(out, Vector)
             assert out.space == self.codomain
+            out *= 0
         else:
             out = self.codomain.zeros()
 
