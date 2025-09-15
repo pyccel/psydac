@@ -214,9 +214,12 @@ class SparseMatrixLinearOperator(MatrixFreeLinearOperator):
         assert isinstance(codomain, VectorSpace)
         assert isinstance(sparse_matrix, csr_matrix)
 
-        self._domain = domain
-        self._codomain = codomain
         self._matrix = sparse_matrix
+
+        def dot_sparse(v, out=None): 
+            return self._dot_recursive(v, out) 
+
+        super().__init__(domain, codomain, dot_sparse)
 
     def tosparse(self):
         return self._matrix
@@ -226,30 +229,6 @@ class SparseMatrixLinearOperator(MatrixFreeLinearOperator):
 
     def transpose(self, conjugate=False):
         return SparseMatrixLinearOperator(self.codomain, self.domain, self._matrix.T)
-
-    def dot(self, v, out=None):
-
-        assert v.space is self.domain
-
-        if out is not None:
-
-            assert out.space is self.codomain
-
-            out *= 0.0
-        else:
-            out = self.codomain.zeros()
-
-        if not v.ghost_regions_in_sync:
-            v.update_ghost_regions()
-
-        if self.domain.parallel:
-            raise NotImplementedError('Parallel case not implemented yet.')
-        else:
-            self._dot_recursive(v, out)
-
-        out.ghost_regions_in_sync = False
-
-        return out
 
     def _dot_recursive(self, v, out, ind_V=0, ind_W=0):
         V = v.space
