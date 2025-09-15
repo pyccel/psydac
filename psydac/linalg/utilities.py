@@ -277,3 +277,4 @@ class SparseMatrixLinearOperator(MatrixFreeLinearOperator):
                     offset_j += Vj.dimension
 
                 offset_i += Wi.dimension
+
