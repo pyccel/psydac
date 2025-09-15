@@ -3,10 +3,12 @@
 import numpy as np
 from math import sqrt
 
-from psydac.linalg.basic   import Vector, MatrixFreeLinearOperator
+from psydac.linalg.basic   import VectorSpace, Vector, MatrixFreeLinearOperator
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector
 from psydac.linalg.block   import BlockVector, BlockVectorSpace
 from psydac.linalg.topetsc import petsc_local_to_psydac, get_npts_per_block
+
+from scipy.sparse import csr_matrix
 
 __all__ = (
     'array_to_psydac',
@@ -207,14 +209,14 @@ class SparseMatrixLinearOperator(MatrixFreeLinearOperator):
     """
         
     def __init__(self, domain, codomain, sparse_matrix):
+
+        assert isinstance(domain, VectorSpace)
+        assert isinstance(codomain, VectorSpace)
+        assert isinstance(sparse_matrix, csr_matrix)
+
+        self._domain = domain
+        self._codomain = codomain
         self._matrix = sparse_matrix
-
-        def dot_sparse(v):
-            res = self._matrix @ v.toarray()
-            Mv = array_to_psydac(res, self.codomain)
-            return Mv    
-
-        super().__init__(domain, codomain, dot_sparse)
 
     def tosparse(self):
         return self._matrix
@@ -224,3 +226,54 @@ class SparseMatrixLinearOperator(MatrixFreeLinearOperator):
 
     def transpose(self, conjugate=False):
         return SparseMatrixLinearOperator(self.codomain, self.domain, self._matrix.T)
+
+    def dot(self, v, out=None):
+
+        assert v.space is self.domain
+
+        if out is not None:
+
+            assert out.space is self.codomain
+
+            out *= 0.0
+        else:
+            out = self.codomain.zeros()
+
+        if not v.ghost_regions_in_sync:
+            v.update_ghost_regions()
+
+        if self.domain.parallel:
+            raise NotImplementedError('Parallel case not implemented yet.')
+        else:
+            self._dot_recursive(v, out)
+
+        out.ghost_regions_in_sync = False
+
+        return out
+
+    def _dot_recursive(self, v, out, ind_V=0, ind_W=0):
+        V = v.space
+        W = out.space
+
+        if isinstance(v, StencilVector):
+            index_global_W = tuple(slice(s, e+1) for s, e in zip(W.starts, W.ends))
+            index_global_V = tuple(slice(s, e+1) for s, e in zip(V.starts, V.ends))
+
+            dim_W = W.dimension
+            dim_V = V.dimension
+
+            out[index_global_W].flat += self._matrix[ind_W:ind_W+dim_W, ind_V:ind_V+dim_V] @ v[index_global_V].flat
+
+        elif isinstance(v, BlockVector):
+
+            offset_i = ind_W
+            for (i, Wi) in enumerate(W.spaces):
+                
+                offset_j = ind_V
+                for (j, Vj) in enumerate(V.spaces):
+
+                    self._dot_recursive(v[j], out[i], ind_V=offset_j, ind_W=offset_i)
+
+                    offset_j += Vj.dimension
+
+                offset_i += Wi.dimension
