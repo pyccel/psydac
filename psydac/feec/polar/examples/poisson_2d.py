@@ -32,7 +32,7 @@ from psydac.polar.c1_projections import C1Projector
 
 from psydac.api.settings import PSYDAC_BACKENDS
 
-from conga_projections import C0PolarProjection_V0
+from psydac.feec.polar.conga_projections import C0PolarProjection_V0
 
 # backend = PSYDAC_BACKENDS['numba']
 backend = PSYDAC_BACKENDS['python']
@@ -415,11 +415,12 @@ def run_poisson_2d(*, test_case, ncells, degree,
         # to create first a HDF5 file and then load as sympde.Domain.fromfile
         t0 = time()
         geometry = Geometry.from_discrete_mapping(map_discrete)  # , comm=mpi_comm)
-        geometry.export(f'geo_{mpi_rank}.h5')
+        if mpi_rank == 0:
+            geometry.export('geo.h5')
         mpi_comm.Barrier()
         t1 = time()
         timing['export'] += t1 - t0
-        domain = Domain.from_file(f'geo_{mpi_rank}.h5')
+        domain = Domain.from_file('geo.h5')
 
         #check_regular_ring_map(map_discrete)
 
@@ -481,7 +482,7 @@ def run_poisson_2d(*, test_case, ncells, degree,
 
     # ============================= DISCRETIZATION ================================#
     if use_spline_mapping:
-        domain_h = discretize(domain, filename=f'geo_{mpi_rank}.h5')  # , comm = mpi_comm)
+        domain_h = discretize(domain, filename='geo.h5')  # , comm = mpi_comm)
         V0_h = discretize(V0, domain_h)
         F = list(domain_h.mappings.values()).pop()
     else:
@@ -695,7 +696,8 @@ def run_poisson_2d(*, test_case, ncells, degree,
 
     # Write solution to HDF5 file
     t0 = time()
-    V0_h.export_fields(f'fields_{mpi_rank}.h5', phi=phi)
+    if mpi_rank == 0:
+        V0_h.export_fields('fields.h5', phi=phi)
     t1 = time()
     timing['export'] += t1 - t0
 
@@ -733,7 +735,7 @@ def run_poisson_2d(*, test_case, ncells, degree,
 
     # Create new serial FEM space and mapping (if needed)
     if use_spline_mapping:
-        geometry = Geometry(filename=f'geo_{mpi_rank}.h5', comm=MPI.COMM_SELF)
+        geometry = Geometry(filename='geo.h5', comm=MPI.COMM_SELF)
         map_discrete = [*geometry.mappings.values()].pop()
         V = map_discrete.space
         mapping = map_discrete
@@ -741,7 +743,7 @@ def run_poisson_2d(*, test_case, ncells, degree,
         V = TensorFemSpace(domain_decomposition, V1, V2)
 
     # Import solution vector into new serial field
-    phi, = V.import_fields(f'fields_{mpi_rank}.h5', 'phi')
+    phi, = V.import_fields('fields.h5', 'phi')
 
     # Callable exact solution (used for plots)
     # phi_e = model.phi_callable
