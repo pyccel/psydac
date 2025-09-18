@@ -1,29 +1,32 @@
-from psydac.api.basic                  import BasicDiscrete
+from psydac.api.basic                           import BasicDiscrete
 
-from psydac.feec.derivatives           import Derivative1D, Gradient2D, Gradient3D
-from psydac.feec.derivatives           import ScalarCurl2D, VectorCurl2D, Curl3D
-from psydac.feec.derivatives           import Divergence2D, Divergence3D
-from psydac.feec.derivatives           import BrokenGradient2D
-from psydac.feec.derivatives           import BrokenScalarCurl2D
+from psydac.feec.derivatives                    import Derivative1D, Gradient2D, Gradient3D
+from psydac.feec.derivatives                    import ScalarCurl2D, VectorCurl2D, Curl3D
+from psydac.feec.derivatives                    import Divergence2D, Divergence3D
+from psydac.feec.derivatives                    import BrokenGradient2D
+from psydac.feec.derivatives                    import BrokenScalarCurl2D
 
-from psydac.feec.global_projectors     import ProjectorH1, ProjectorHcurl, ProjectorH1vec
-from psydac.feec.global_projectors     import ProjectorHdiv, ProjectorL2
-from psydac.feec.global_projectors     import MultipatchProjectorH1
-from psydac.feec.global_projectors     import MultipatchProjectorHcurl
-from psydac.feec.global_projectors     import MultipatchProjectorL2
+from psydac.feec.global_geometric_projectors    import GlobalGeometricProjectorH1
+from psydac.feec.global_geometric_projectors    import GlobalGeometricProjectorHcurl
+from psydac.feec.global_geometric_projectors    import GlobalGeometricProjectorH1vec
+from psydac.feec.global_geometric_projectors    import GlobalGeometricProjectorHdiv
+from psydac.feec.global_geometric_projectors    import GlobalGeometricProjectorL2
+from psydac.feec.global_geometric_projectors    import MultipatchGeometricProjector
 
-from psydac.feec.conforming_projectors import ConformingProjectionV0
-from psydac.feec.conforming_projectors import ConformingProjectionV1
+from psydac.feec.conforming_projectors          import ConformingProjectionV0
+from psydac.feec.conforming_projectors          import ConformingProjectionV1
 
-from psydac.feec.hodge                 import HodgeOperator
+from psydac.feec.hodge                          import HodgeOperator
 
-from psydac.feec.pull_push             import pull_1d_h1, pull_1d_l2
-from psydac.feec.pull_push             import pull_2d_h1, pull_2d_hcurl, pull_2d_hdiv, pull_2d_l2, pull_2d_h1vec
-from psydac.feec.pull_push             import pull_3d_h1, pull_3d_hcurl, pull_3d_hdiv, pull_3d_l2, pull_3d_h1vec
+from psydac.feec.pull_push                      import pull_1d_h1, pull_1d_l2
+from psydac.feec.pull_push                      import pull_2d_h1, pull_2d_hcurl
+from psydac.feec.pull_push                      import pull_2d_hdiv, pull_2d_l2, pull_2d_h1vec
+from psydac.feec.pull_push                      import pull_3d_h1, pull_3d_hcurl
+from psydac.feec.pull_push                      import pull_3d_hdiv, pull_3d_l2, pull_3d_h1vec
 
-from psydac.fem.basic                  import FemSpace, FemLinearOperator
-from psydac.fem.vector                 import VectorFemSpace
-from psydac.linalg.basic               import IdentityOperator
+from psydac.fem.basic                           import FemSpace, FemLinearOperator
+from psydac.fem.vector                          import VectorFemSpace
+from psydac.linalg.basic                        import IdentityOperator
 
 __all__ = ('DiscreteDeRham', 'DiscreteDeRhamMultipatch',)
 
@@ -214,8 +217,8 @@ class DiscreteDeRham(BasicDiscrete):
         assert all(nq >= 1 for nq in nquads)
 
         if self.dim == 1:
-            P0 = ProjectorH1(self.V0)
-            P1 = ProjectorL2(self.V1, nquads)
+            P0 = GlobalGeometricProjectorH1(self.V0)
+            P1 = GlobalGeometricProjectorL2(self.V1, nquads)
             if self.mapping:
                 P0_m = lambda f: P0(pull_1d_h1(f, self.callable_mapping))
                 P1_m = lambda f: P1(pull_1d_l2(f, self.callable_mapping))
@@ -223,19 +226,19 @@ class DiscreteDeRham(BasicDiscrete):
             return P0, P1
 
         elif self.dim == 2:
-            P0 = ProjectorH1(self.V0)
-            P2 = ProjectorL2(self.V2, nquads)
+            P0 = GlobalGeometricProjectorH1(self.V0)
+            P2 = GlobalGeometricProjectorL2(self.V2, nquads)
 
             kind = self.V1.symbolic_space.kind.name
             if kind == 'hcurl':
-                P1 = ProjectorHcurl(self.V1, nquads)
+                P1 = GlobalGeometricProjectorHcurl(self.V1, nquads)
             elif kind == 'hdiv':
-                P1 = ProjectorHdiv(self.V1, nquads)
+                P1 = GlobalGeometricProjectorHdiv(self.V1, nquads)
             else:
                 raise TypeError('projector of space type {} is not available'.format(kind))
 
             if self.has_vec : 
-                Pvec = ProjectorH1vec(self.H1vec, nquads)
+                Pvec = GlobalGeometricProjectorH1vec(self.H1vec, nquads)
 
             if self.mapping:
                 P0_m = lambda f: P0(pull_2d_h1(f, self.callable_mapping))
@@ -256,12 +259,12 @@ class DiscreteDeRham(BasicDiscrete):
                 return P0, P1, P2
 
         elif self.dim == 3:
-            P0 = ProjectorH1   (self.V0)
-            P1 = ProjectorHcurl(self.V1, nquads)
-            P2 = ProjectorHdiv (self.V2, nquads)
-            P3 = ProjectorL2   (self.V3, nquads)
+            P0 = GlobalGeometricProjectorH1   (self.V0)
+            P1 = GlobalGeometricProjectorHcurl(self.V1, nquads)
+            P2 = GlobalGeometricProjectorHdiv (self.V2, nquads)
+            P3 = GlobalGeometricProjectorL2   (self.V3, nquads)
             if self.has_vec : 
-                Pvec = ProjectorH1vec(self.H1vec)
+                Pvec = GlobalGeometricProjectorH1vec(self.H1vec)
             if self.mapping:
                 P0_m = lambda f: P0(pull_3d_h1   (f, self.callable_mapping))
                 P1_m = lambda f: P1(pull_3d_hcurl(f, self.callable_mapping))
@@ -556,13 +559,13 @@ class DiscreteDeRhamMultipatch(DiscreteDeRham):
 
         Returns
         -------
-        P0: <MultipatchProjectorH1>
+        P0: <MultipatchGeometricProjector>
          Patch wise H1 projector
 
-        P1: <MultipatchProjectorHcurl>
+        P1: <MultipatchGeometricProjector>
          Patch wise Hcurl projector
 
-        P2: <MultipatchProjectorL2>
+        P2: <MultipatchGeometricProjector>
          Patch wise L2 projector
 
         Notes
@@ -578,18 +581,16 @@ class DiscreteDeRhamMultipatch(DiscreteDeRham):
             raise NotImplementedError("1D projectors are not available")
 
         elif self.dim == 2:
-            P0 = MultipatchProjectorH1(self.V0)
+            P0 = MultipatchGeometricProjector(self.V0, GlobalGeometricProjectorH1)
 
             if self.sequence[1] == 'hcurl':
-                P1 = MultipatchProjectorHcurl(self.V1, nquads=nquads)
+                P1 = MultipatchGeometricProjector(self.V1, GlobalGeometricProjectorHcurl, nquads=nquads)
             else:
-                P1 = None # TODO: Multipatch_ProjectorHdiv(self.V1, nquads=nquads)
-                raise NotImplementedError('2D sequence with H-div not available yet')
+                P1 = MultipatchGeometricProjector(self.V1, GlobalGeometricProjectorHdiv, nquads=nquads)
 
-            P2 = MultipatchProjectorL2(self.V2, nquads=nquads)
-            
+            P2 = MultipatchGeometricProjector(self.V2, GlobalGeometricProjectorL2, nquads=nquads)
+
             if self.mapping:
-
                 P0_m = lambda f : P0([pull_2d_h1(f, m) for m in self.callable_mapping])
 
                 if self.sequence[1] == 'hcurl':

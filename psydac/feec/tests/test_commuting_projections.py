@@ -3,7 +3,11 @@ from mpi4py import MPI
 import numpy as np
 import pytest
 
-from psydac.feec.global_projectors import ProjectorH1, ProjectorL2, ProjectorHcurl, ProjectorHdiv
+from psydac.feec.global_geometric_projectors import GlobalGeometricProjectorH1
+from psydac.feec.global_geometric_projectors import GlobalGeometricProjectorL2
+from psydac.feec.global_geometric_projectors import GlobalGeometricProjectorHcurl
+from psydac.feec.global_geometric_projectors import GlobalGeometricProjectorHdiv
+
 from psydac.fem.tensor       import TensorFemSpace, SplineSpace
 from psydac.fem.vector       import VectorFemSpace
 from psydac.core.bsplines    import make_knots
@@ -57,13 +61,13 @@ def test_3d_commuting_pro_1(Nel, Nq, p, bc, m):
     Hcurl  = VectorFemSpace(*spaces)
 
     # create an instance of the H1 projector class
-    P0 = ProjectorH1(H1)
+    P0 = GlobalGeometricProjectorH1(H1)
 
     # Build linear operators on stencil arrays
     grad = Gradient3D(H1, Hcurl)
 
     # create an instance of the projector class
-    P1 = ProjectorHcurl(Hcurl, Nq)
+    P1 = GlobalGeometricProjectorHcurl(Hcurl, Nq)
     #-------------------------------------
     # Projections and discrete derivatives
     #-------------------------------------
@@ -153,8 +157,8 @@ def test_3d_commuting_pro_2(Nel, Nq, p, bc, m):
     curl = Curl3D(Hcurl, Hdiv)
 
     # create an instance of the projector class
-    P1 = ProjectorHcurl(Hcurl, Nq)
-    P2 = ProjectorHdiv(Hdiv, Nq)
+    P1 = GlobalGeometricProjectorHcurl(Hcurl, Nq)
+    P2 = GlobalGeometricProjectorHdiv(Hdiv, Nq)
 
     #-------------------------------------
     # Projections and discrete derivatives
@@ -235,8 +239,8 @@ def test_3d_commuting_pro_3(Nel, Nq, p, bc, m):
     div  = Divergence3D(Hdiv, L2)
 
     # create an instance of the projector class
-    P2 = ProjectorHdiv(Hdiv, Nq)
-    P3 = ProjectorL2(L2, Nq)
+    P2 = GlobalGeometricProjectorHdiv(Hdiv, Nq)
+    P3 = GlobalGeometricProjectorL2(L2, Nq)
 
     #-------------------------------------
     # Projections and discrete derivatives
@@ -307,13 +311,13 @@ def test_2d_commuting_pro_1(Nel, Nq, p, bc, m):
     Hcurl  = VectorFemSpace(*spaces)
 
     # create an instance of the H1 projector class
-    P0 = ProjectorH1(H1)
+    P0 = GlobalGeometricProjectorH1(H1)
 
     # Build linear operators on stencil arrays
     grad = Gradient2D(H1, Hcurl)
 
     # create an instance of the projector class
-    P1 = ProjectorHcurl(Hcurl, Nq)
+    P1 = GlobalGeometricProjectorHcurl(Hcurl, Nq)
     #-------------------------------------
     # Projections and discrete derivatives
     #-------------------------------------
@@ -380,13 +384,13 @@ def test_2d_commuting_pro_2(Nel, Nq, p, bc, m):
     Hdiv  = VectorFemSpace(*spaces)
 
     # create an instance of the H1 projector class
-    P0 = ProjectorH1(H1)
+    P0 = GlobalGeometricProjectorH1(H1)
 
     # Linear operator: 2D vector curl
     curl = VectorCurl2D(H1, Hdiv)
 
     # create an instance of the projector class
-    P1 = ProjectorHdiv(Hdiv, Nq)
+    P1 = GlobalGeometricProjectorHdiv(Hdiv, Nq)
     #-------------------------------------
     # Projections and discrete derivatives
     #-------------------------------------
@@ -464,8 +468,8 @@ def test_2d_commuting_pro_3(Nel, Nq, p, bc, m):
     div  = Divergence2D(Hdiv, L2)
 
     # create an instance of the projector class
-    P2 = ProjectorHdiv(Hdiv, Nq)
-    P3 = ProjectorL2(L2, Nq)
+    P2 = GlobalGeometricProjectorHdiv(Hdiv, Nq)
+    P3 = GlobalGeometricProjectorL2(L2, Nq)
 
     #-------------------------------------
     # Projections and discrete derivatives
@@ -544,8 +548,8 @@ def test_2d_commuting_pro_4(Nel, Nq, p, bc, m):
     curl  = ScalarCurl2D(Hcurl, L2)
 
     # create an instance of the projector class
-    P1 = ProjectorHcurl(Hcurl, Nq)
-    P2 = ProjectorL2(L2, Nq)
+    P1 = GlobalGeometricProjectorHcurl(Hcurl, Nq)
+    P2 = GlobalGeometricProjectorL2(L2, Nq)
 
     #-------------------------------------
     # Projections and discrete derivatives
@@ -610,13 +614,13 @@ def test_1d_commuting_pro_1(Nel, Nq, p, bc, m):
     L2       = H1.reduce_degree(axes=[0], basis='M')
 
     # create an instance of the H1 projector class
-    P0 = ProjectorH1(H1)
+    P0 = GlobalGeometricProjectorH1(H1)
 
     # Build linear operators on stencil arrays
     grad = Derivative1D(H1, L2)
 
     # create an instance of the projector class
-    P1 = ProjectorL2(L2, Nq)
+    P1 = GlobalGeometricProjectorL2(L2, Nq)
     #-------------------------------------
     # Projections and discrete derivatives
     #-------------------------------------

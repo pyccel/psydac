@@ -17,14 +17,14 @@ from psydac.utilities.utils import roll_edges
 
 from abc import ABCMeta, abstractmethod
 
-__all__ = ('GlobalProjector', 'ProjectorH1', 'ProjectorHcurl', 'ProjectorHdiv', 'ProjectorL2',
-           'MultipatchProjectorH1', 'MultipatchProjectorHcurl', 'MultipatchProjectorL2',
+__all__ = ('GlobalGeometricProjector', 'GlobalGeometricProjectorH1', 'GlobalGeometricProjectorHcurl', 'GlobalGeometricProjectorHdiv', 'GlobalGeometricProjectorL2',
+           'MultipatchGeometricProjector',
            'evaluate_dofs_1d_0form', 'evaluate_dofs_1d_1form',
            'evaluate_dofs_2d_0form', 'evaluate_dofs_2d_1form_hcurl', 'evaluate_dofs_2d_1form_hdiv', 'evaluate_dofs_2d_2form',
            'evaluate_dofs_3d_0form', 'evaluate_dofs_3d_1form', 'evaluate_dofs_3d_2form', 'evaluate_dofs_3d_3form')
 
 #==============================================================================
-class GlobalProjector(metaclass=ABCMeta):
+class GlobalGeometricProjector(metaclass=ABCMeta):
     """
     Projects callable functions to some scalar or vector FEM space.
 
@@ -44,7 +44,7 @@ class GlobalProjector(metaclass=ABCMeta):
     space : VectorFemSpace | TensorFemSpace
         Some finite element space, codomain of the projection
         operator. The exact structure where to use histopolation and where interpolation
-        has to be given by a subclass of the GlobalProjector class.
+        has to be given by a subclass of the GlobalGeometricProjector class.
         As of now, it is implicitly assumed for a VectorFemSpace, that for each direction
         that all spaces with interpolation are the same, and all spaces with histopolation are the same
         (i.e. yield the same quadrature/interpolation points etc.); so use with care on an arbitrary VectorFemSpace.
@@ -392,7 +392,7 @@ class GlobalProjector(metaclass=ABCMeta):
 #==============================================================================
 # SINGLEPATCH PROJECTORS
 #==============================================================================
-class ProjectorH1(GlobalProjector):
+class GlobalGeometricProjectorH1(GlobalGeometricProjector):
     """
     Projector from H1 to an H1-conforming finite element space (i.e. a finite
     dimensional subspace of H1) constructed with tensor-product B-splines in 1,
@@ -442,7 +442,7 @@ class ProjectorH1(GlobalProjector):
         return super().__call__(fun)
 
 #==============================================================================
-class ProjectorHcurl(GlobalProjector):
+class GlobalGeometricProjectorHcurl(GlobalGeometricProjector):
     """
     Projector from H(curl) to an H(curl)-conforming finite element space, i.e.
     a finite dimensional subspace of H(curl), constructed with tensor-product
@@ -515,7 +515,7 @@ class ProjectorHcurl(GlobalProjector):
         return super().__call__(fun)
 
 #==============================================================================
-class ProjectorHdiv(GlobalProjector):
+class GlobalGeometricProjectorHdiv(GlobalGeometricProjector):
     """
     Projector from H(div) to an H(div)-conforming finite element space, i.e. a
     finite dimensional subspace of H(div), constructed with tensor-product
@@ -592,7 +592,7 @@ class ProjectorHdiv(GlobalProjector):
         return super().__call__(fun)
 
 #==============================================================================
-class ProjectorL2(GlobalProjector):
+class GlobalGeometricProjectorL2(GlobalGeometricProjector):
     """
     Projector from L2 to an L2-conforming finite element space (i.e. a finite
     dimensional subspace of L2) constructed with tensor-product M-splines in 1,
@@ -652,7 +652,7 @@ class ProjectorL2(GlobalProjector):
         return super().__call__(fun)
 
 #==============================================================================
-class ProjectorH1vec(GlobalProjector):
+class GlobalGeometricProjectorH1vec(GlobalGeometricProjector):
     """
     Projector from H1^3 = H1 x H1 x H1 to a conforming finite element space, i.e.
     a finite dimensional subspace of H1^3, constructed with tensor-product
@@ -719,72 +719,34 @@ class ProjectorH1vec(GlobalProjector):
 #==============================================================================
 # MULTIPATCH PROJECTORS (2D)
 #==============================================================================
-class MultipatchProjectorH1:
+class MultipatchGeometricProjector: 
     """
-    to apply the H1 projection (2D) on every patch
+    Global Geometric Projector base class for multipatch domains.
+
+    Parameters
+    ----------
+    Vh : MultipatchFemSpace
+        Multipatch finite element space, codomain of the projection operator
+    P : GlobalGeometricProjector
+        Projector to be applied on each patch
+    nquads : list(int) | tuple(int)
+        Quadrature points for the GlobalGeometricProjector.
     """
 
-    def __init__(self, V0h):
+    def __init__(self, Vh, P, nquads=None):
 
-        self._P0s = [ProjectorH1(V) for V in V0h.spaces]
-        self._V0h = V0h   # multipatch Fem Space
+        self._Vh = Vh
+        self._Ps  = [P(V, nquads=nquads) for V in Vh.spaces]
 
     def __call__(self, funs):
         """
         project a list of functions given in the logical domain
         """
-        u0s = [P(fun) for P, fun, in zip(self._P0s, funs)]
+        us = [P(fun) for P, fun, in zip(self._Ps, funs)]
 
-        u0_coeffs = BlockVector(self._V0h.coeff_space,
-                                blocks=[u0j.coeffs for u0j in u0s])
+        u_c = BlockVector(self._Vh.coeff_space, blocks=[uj.coeffs for uj in us])
 
-        return FemField(self._V0h, coeffs=u0_coeffs)
-
-#==============================================================================
-class MultipatchProjectorHcurl:
-
-    """
-    to apply the Hcurl projection (2D) on every patch
-    """
-
-    def __init__(self, V1h, nquads=None):
-
-        self._P1s = [ProjectorHcurl(V, nquads=nquads) for V in V1h.spaces]
-        self._V1h = V1h   # multipatch Fem Space
-
-    def __call__(self, funs):
-        """
-        project a list of functions given in the logical domain
-        """
-        E1s = [P(fun) for P, fun, in zip(self._P1s, funs)]
-
-        E1_coeffs = BlockVector(self._V1h.coeff_space,
-                                blocks=[E1j.coeffs for E1j in E1s])
-
-        return FemField(self._V1h, coeffs=E1_coeffs)
-
-#==============================================================================
-class MultipatchProjectorL2:
-
-    """
-    to apply the L2 projection (2D) on every patch
-    """
-
-    def __init__(self, V2h, nquads=None):
-
-        self._P2s = [ProjectorL2(V, nquads=nquads) for V in V2h.spaces]
-        self._V2h = V2h   # multipatch Fem Space
-
-    def __call__(self, funs):
-        """
-        project a list of functions given in the logical domain
-        """
-        B2s = [P(fun) for P, fun, in zip(self._P2s, funs)]
-
-        B2_coeffs = BlockVector(self._V2h.coeff_space,
-                                blocks=[B2j.coeffs for B2j in B2s])
-
-        return FemField(self._V2h, coeffs=B2_coeffs)
+        return FemField(self._Vh, coeffs=u_c)
 
 #==============================================================================
 # 1D DEGREES OF FREEDOM
