@@ -13,7 +13,7 @@ from psydac.core.bsplines           import quadrature_grid, basis_ders_on_quad_g
 from psydac.fem.basic               import FemLinearOperator
 from psydac.fem.splines             import SplineSpace
 from psydac.utilities.quadratures   import gauss_legendre
-from psydac.linalg.utilities        import SparseMatrixLinearOperator
+from psydac.linalg.sparse           import SparseMatrixLinearOperator
 
 __all__ = (
     'ConformingProjectionV0',

@@ -292,7 +292,7 @@ def solve_td_maxwell_pbm(*,
     M = H1A
     from scipy.linalg import inv
     from scipy.sparse import csr_matrix
-    from psydac.linalg.utilities import SparseMatrixLinearOperator
+    from psydac.linalg.sparse import SparseMatrixLinearOperator
     M_inv = inv(M.toarray())
     M_inv = csr_matrix(M_inv)
     H1A_inv = SparseMatrixLinearOperator(M.codomain, M.domain, M_inv)

@@ -9,7 +9,8 @@ from psydac.linalg.direct_solvers import SparseSolver
 from psydac.linalg.stencil        import StencilVectorSpace, StencilVector, StencilMatrix
 from psydac.linalg.block          import BlockVectorSpace, BlockVector
 from psydac.linalg.block          import BlockLinearOperator
-from psydac.linalg.utilities      import array_to_psydac, petsc_to_psydac, SparseMatrixLinearOperator
+from psydac.linalg.utilities      import array_to_psydac, petsc_to_psydac
+from psydac.linalg.sparse         import SparseMatrixLinearOperator
 from psydac.api.settings          import PSYDAC_BACKEND_GPYCCEL
 from psydac.ddm.cart              import DomainDecomposition, CartDecomposition
 

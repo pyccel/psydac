@@ -3,18 +3,15 @@
 import numpy as np
 from math import sqrt
 
-from psydac.linalg.basic   import VectorSpace, Vector, MatrixFreeLinearOperator
-from psydac.linalg.stencil import StencilVectorSpace, StencilVector
+from psydac.linalg.basic   import Vector
+from psydac.linalg.stencil import StencilVector, StencilVectorSpace
 from psydac.linalg.block   import BlockVector, BlockVectorSpace
 from psydac.linalg.topetsc import petsc_local_to_psydac, get_npts_per_block
-
-from scipy.sparse import csr_matrix
 
 __all__ = (
     'array_to_psydac',
     'petsc_to_psydac',
     '_sym_ortho',
-    'SparseMatrixLinearOperator',
 )
 
 #==============================================================================
@@ -201,58 +198,3 @@ def _sym_ortho(a, b):
         s = c * tau
         r = a / c
     return c, s, r
-
-#==============================================================================
-class SparseMatrixLinearOperator(MatrixFreeLinearOperator):
-    """ 
-    Wrap a sparse matrix into a MatrixFreeLinearOperator
-    """
-        
-    def __init__(self, domain, codomain, sparse_matrix):
-
-        assert isinstance(domain, VectorSpace)
-        assert isinstance(codomain, VectorSpace)
-        assert isinstance(sparse_matrix, csr_matrix)
-
-        self._matrix = sparse_matrix
-
-        def dot_sparse(v, *, out): 
-            return self._dot_recursive(v, out) 
-
-        super().__init__(domain, codomain, dot_sparse)
-
-    def tosparse(self):
-        return self._matrix
-
-    def toarray(self):
-        return self._matrix.toarray()
-
-    def transpose(self, conjugate=False):
-        return SparseMatrixLinearOperator(self.codomain, self.domain, self._matrix.T.tocsr())
-
-    def _dot_recursive(self, v, out, ind_V=0, ind_W=0):
-        V = v.space
-        W = out.space
-
-        if isinstance(v, StencilVector):
-            index_global_W = tuple(slice(s, e+1) for s, e in zip(W.starts, W.ends))
-            index_global_V = tuple(slice(s, e+1) for s, e in zip(V.starts, V.ends))
-
-            dim_W = W.dimension
-            dim_V = V.dimension
-
-            out[index_global_W].flat += self._matrix[ind_W:ind_W+dim_W, ind_V:ind_V+dim_V] @ v[index_global_V].flat
-
-        elif isinstance(v, BlockVector):
-
-            offset_i = ind_W
-            for (i, Wi) in enumerate(W.spaces):
-                
-                offset_j = ind_V
-                for (j, Vj) in enumerate(V.spaces):
-
-                    self._dot_recursive(v[j], out[i], ind_V=offset_j, ind_W=offset_i)
-
-                    offset_j += Vj.dimension
-
-                offset_i += Wi.dimension
