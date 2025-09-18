@@ -535,7 +535,7 @@ def discretize_domain(domain, *, filename=None, ncells=None, periodic=None, comm
         raise ValueError("Cannot provide both 'filename' and 'ncells'")
 
     elif filename:
-        return Geometry(filename=filename, comm=comm)
+        return Geometry(filename=filename, comm=comm, mpi_dims_mask=mpi_dims_mask)
 
     elif ncells:
         return Geometry.from_topological_domain(domain, ncells, periodic=periodic, comm=comm, mpi_dims_mask=mpi_dims_mask)
