@@ -170,6 +170,41 @@ def test_geometry_2d_4():
     geo.export('circle.h5')
 
 #==============================================================================
+@pytest.mark.parallel
+def test_geometry_with_mpi_dims_mask():
+    from mpi4py import MPI
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    mpi_dims_mask = [False, True]
+    ncells = [4, 4]
+    degree = [2, 2]
+    # create an identity mapping
+    mapping = discrete_mapping('identity', ncells=ncells, degree=degree)
+
+    # create a topological domain
+    F = Mapping('F', dim=2)
+    domain = F(Square(name='Omega'))
+
+    # associate the mapping to the topological domain
+    mappings = {domain.name: mapping}
+
+    # Define ncells as a dict
+    ncells = {domain.name: ncells}
+
+    # create a geometry from a topological domain and the dict of mappings
+    geo = Geometry(domain=domain, ncells=ncells, mappings=mappings)
+
+    # # export the geometry
+    if rank == 0:
+        geo.export('geo_mpi_dims.h5')
+    comm.Barrier()
+    geo_from_file = Geometry(filename='geo_mpi_dims.h5', comm=comm, mpi_dims_mask=mpi_dims_mask)
+    if rank == 0:
+        assert geo_from_file.ddm.starts == (0, 0)
+    elif rank == 1:
+        assert geo_from_file.ddm.starts == (0, 2)
+
+#==============================================================================
 @pytest.mark.parametrize( 'ncells', [[8,8], [12,12], [14,14]] )
 @pytest.mark.parametrize( 'degree', [[2,2], [3,2], [2,3], [3,3], [4,4]] )
 def test_export_nurbs_to_hdf5(ncells, degree):
