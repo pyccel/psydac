@@ -191,12 +191,12 @@ def test_geometry_with_mpi_dims_mask():
     # associate the mapping to the topological domain
     mappings = {domain.name: mapping}
 
-    # Define ncells as a dict
-    ncells = {domain.name: ncells}
+    # Define d_ncells as a dict
+    d_ncells = {domain.name: ncells}
 
     # Create a geometry from a topological domain and the dict of mappings
     # Here we allow for any distribution of the domain: mpi_dims_mask is not passed
-    geo = Geometry(domain=domain, ncells=ncells, mappings=mappings, comm=comm)
+    geo = Geometry(domain=domain, ncells=d_ncells, mappings=mappings, comm=comm)
     geo.export('geo_mpi_dims.h5')
 
     # Read geometry file in parallel, but using mpi_dims_mask
