@@ -173,17 +173,20 @@ def test_geometry_2d_4():
 @pytest.mark.parallel
 def test_geometry_with_mpi_dims_mask():
     from mpi4py import MPI
+
     comm = MPI.COMM_WORLD
-    rank = comm.Get_rank()
-    mpi_dims_mask = [False, True]
-    ncells = [4, 4]
-    degree = [2, 2]
+    rank = comm.rank
+    size = comm.size
+    mpi_dims_mask = [False, True, False]  # We will verify that this has an effect
+    ncells = [4, 2*size, 8]  # Each process should have two cells along x2
+    degree = [2, 2, 2]
+    
     # create an identity mapping
     mapping = discrete_mapping('identity', ncells=ncells, degree=degree)
 
     # create a topological domain
-    F = Mapping('F', dim=2)
-    domain = F(Square(name='Omega'))
+    F = Mapping('F', dim=3)
+    domain = F(Cube(name='Omega'))
 
     # associate the mapping to the topological domain
     mappings = {domain.name: mapping}
@@ -191,18 +194,22 @@ def test_geometry_with_mpi_dims_mask():
     # Define ncells as a dict
     ncells = {domain.name: ncells}
 
-    # create a geometry from a topological domain and the dict of mappings
-    geo = Geometry(domain=domain, ncells=ncells, mappings=mappings)
+    # Create a geometry from a topological domain and the dict of mappings
+    # Here we allow for any distribution of the domain: mpi_dims_mask is not passed
+    geo = Geometry(domain=domain, ncells=ncells, mappings=mappings, comm=comm)
+    geo.export('geo_mpi_dims.h5')
 
-    # # export the geometry
-    if rank == 0:
-        geo.export('geo_mpi_dims.h5')
-    comm.Barrier()
+    # Read geometry file in parallel, but using mpi_dims_mask
     geo_from_file = Geometry(filename='geo_mpi_dims.h5', comm=comm, mpi_dims_mask=mpi_dims_mask)
-    if rank == 0:
-        assert geo_from_file.ddm.starts == (0, 0)
-    elif rank == 1:
-        assert geo_from_file.ddm.starts == (0, 2)
+
+    # Verify that the domain is distributed as expected
+    assert geo_from_file.ddm.starts[0] == 0
+    assert geo_from_file.ddm.starts[1] == 2 * rank
+    assert geo_from_file.ddm.starts[2] == 0
+
+    assert geo_from_file.ddm.ends[0] == ncells[0] - 1
+    assert geo_from_file.ddm.ends[1] == 2 * rank  + 1
+    assert geo_from_file.ddm.ends[2] == ncells[2] - 1
 
 #==============================================================================
 @pytest.mark.parametrize( 'ncells', [[8,8], [12,12], [14,14]] )
@@ -319,12 +326,13 @@ def teardown_module():
         'geo.h5',
         'geo_0.h5',
         'geo_1.h5',
+        'geo_mpi_dims.h5',
         'quart_circle.h5',
         'quart_circle_0.h5',
         'quart_circle_1.h5',
         'circle.h5',
         'pipe.h5',
-        'L_shaped.h5'
+        'L_shaped.h5',
     ]
     for fname in filenames:
         if os.path.exists(fname):
