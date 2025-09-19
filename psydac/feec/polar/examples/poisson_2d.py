@@ -482,11 +482,15 @@ def run_poisson_2d(*, test_case, ncells, degree,
 
     # ============================= DISCRETIZATION ================================#
     if use_spline_mapping:
-        domain_h = discretize(domain, filename='geo.h5')  # , comm = mpi_comm)
+        domain_h = discretize(domain, filename='geo.h5', comm = mpi_comm, mpi_dims_mask=[False, True])
+        print("Discretized domain")
         V0_h = discretize(V0, domain_h)
+        print(f"starts: {V0_h.coeff_space.starts}")
+        print(f"ends: {V0_h.coeff_space.ends}")
+        print(f"npts: {V0_h.coeff_space.npts}")
         F = list(domain_h.mappings.values()).pop()
     else:
-        domain_h = discretize(domain, ncells=ncells, periodic=[False, True])  # , comm = mpi_comm)
+        domain_h = discretize(domain, ncells=ncells, periodic=[False, True], mpi_dims_mask=[False, True], comm = mpi_comm)  # , comm = mpi_comm)
         V0_h = discretize(V0, domain_h, degree=degree)
         F = mapping.get_callable_mapping()
 
@@ -634,7 +638,6 @@ def run_poisson_2d(*, test_case, ncells, degree,
     # def P0_phys(f_phys, P0, domain, mappings_list):
     # phi = lambdify(domain.coordinates, f_phys)
     # P0(f_log)
-
     phi_symref = sin(7 * pi / 2 * (1 - x ** 2 - y ** 2))
     phi_calref = lambdify(domain.coordinates, phi_symref)
     phi_callog = pull_2d_h1(phi_calref, F)
@@ -693,14 +696,12 @@ def run_poisson_2d(*, test_case, ncells, degree,
     timing['diagnostics'] = t1 - t0
 
     # assert np.allclose(errh1, errh1_matrix, rtol = 1e-7, atol = 1e-7)
-
     # Write solution to HDF5 file
     t0 = time()
     if mpi_rank == 0:
         V0_h.export_fields('fields.h5', phi=phi)
     t1 = time()
     timing['export'] += t1 - t0
-
     # =============================== PRINTING INFO ===============================#
 
     # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
