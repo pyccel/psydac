@@ -207,7 +207,7 @@ def solve_hcurl_source_pbm(
     def lift_u_bc(u_bc):
         if u_bc is not None:
             ubc = P1_phys(u_bc, P1, domain).coeffs
-            ubc = ubc - cP1.dot(ubc)
+            ubc -= cP1.dot(ubc)
 
         else:
             ubc = None
@@ -221,7 +221,7 @@ def solve_hcurl_source_pbm(
         # modified source for the homogeneous pbm
         t_stamp = time_count(t_stamp)
         print(' .. modifying the source with lifted bc solution...')
-        tilde_f = tilde_f - pre_A.dot(ubc)
+        tilde_f -= pre_A.dot(ubc)
 
     # direct solve with scipy spsolve
     t_stamp = time_count(t_stamp)
@@ -289,7 +289,7 @@ def solve_hcurl_source_pbm(
     
         err = u_ex_p - u
         print(err.inner(H1.dot(err)))
-        l2_error = np.sqrt( err.inner(H1.dot(err))) / np.sqrt(u_ex_p.inner(H1.dot(u_ex_p)))
+        l2_error = np.sqrt( H1.dot_inner(err, err) / H1.dot_inner(u_ex_p, u_ex_p))
         print(l2_error)
         diags['err'] = l2_error
 
