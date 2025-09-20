@@ -725,12 +725,13 @@ class MultipatchGeometricProjector:
 
     Parameters
     ----------
-    Vh : MultipatchFemSpace
-        Multipatch finite element space, codomain of the projection operator
-    P : GlobalGeometricProjector
-        Projector to be applied on each patch
-    nquads : list(int) | tuple(int)
-        Quadrature points for the GlobalGeometricProjector.
+    space : MultipatchFemSpace
+        Multipatch finite element space, codomain of the projection operator.
+    Projector : type[GlobalGeometricProjector]
+        Class of the projector to instantiate for each patch.
+    nquads : Iterable[int]
+        Number of quadrature points per cell along each direction.
+        This is a parameter passed to the constructor of Projector.
     """
 
     def __init__(self, Vh, P, nquads=None):
