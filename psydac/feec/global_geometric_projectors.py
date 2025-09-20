@@ -10,7 +10,7 @@ from psydac.utilities.quadratures import gauss_legendre
 from psydac.fem.basic             import FemField
 
 from psydac.fem.tensor import TensorFemSpace
-from psydac.fem.vector import VectorFemSpace
+from psydac.fem.vector import VectorFemSpace, MultipatchFemSpace
 
 from psydac.ddm.cart import DomainDecomposition, CartDecomposition
 from psydac.utilities.utils import roll_edges
