@@ -133,7 +133,7 @@ def solve_h1_source_pbm(
     f_scal, u_bc, u_ex = get_source_and_solution_h1(source_type=source_type, eta=eta, mu=mu, domain=domain, domain_name=domain_name,)
 
     df = get_dual_dofs(Vh=V0h, f=f_scal, domain_h=domain_h, backend_language=backend_language)
-    f = dH0.dot(df)
+    f  = dH0 @ df
     df = cP0.T @ df
 
     def lift_u_bc(u_bc):
