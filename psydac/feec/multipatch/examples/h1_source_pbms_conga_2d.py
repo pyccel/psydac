@@ -139,13 +139,13 @@ def solve_h1_source_pbm(
     def lift_u_bc(u_bc):
         if u_bc is not None:
             du_bc = get_dual_dofs(Vh=V0h, f=u_bc, domain_h = domain_h, backend_language=backend_language)
-            dH0.dot(du_bc, out=u_bc)
-            u_bc -= cP0.dot(u_bc)
+            ubc = dH0.dot(du_bc)
+            ubc -= cP0.dot(ubc)
 
         else:
-            u_bc = None
+            ubc = None
             
-        return u_bc
+        return ubc
 
     ubc = lift_u_bc(u_bc)
 
@@ -228,7 +228,7 @@ def solve_h1_source_pbm(
 
     if u_ex:
         err = u - u_ex
-        rel_err = np.sqrt(H0.dot_inner(err) / H0.dot_inner(u_ex))
+        rel_err = np.sqrt(H0.dot_inner(err, err) / H0.dot_inner(u_ex, u_ex))
 
         return rel_err
 
