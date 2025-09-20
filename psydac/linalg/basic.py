@@ -1318,7 +1318,6 @@ class MatrixFreeLinearOperator(LinearOperator):
         if out is not None:
             assert isinstance(out, Vector)
             assert out.space == self.codomain
-            out *= 0
         else:
             out = self.codomain.zeros()
 
@@ -1326,7 +1325,7 @@ class MatrixFreeLinearOperator(LinearOperator):
             self._dot(v, out=out, **kwargs)
         else:
             # provided dot product does not take an out argument: we simply copy the result into out
-            self._dot(v).copy(out=out, **kwargs)
+            self._dot(v, **kwargs).copy(out=out)
                     
         return out
         
