@@ -194,7 +194,7 @@ def discretize_derham(derham, domain_h, *, get_H1vec_space=False, **kwargs):
     return DiscreteDeRham(domain_h, *spaces)
 
 #==============================================================================
-def discretize_derham_multipatch(derham, domain_h, *args, **kwargs):
+def discretize_derham_multipatch(derham, domain_h, **kwargs):
     """
     Create a discrete multipatch de Rham sequence from a symbolic one.
     
@@ -226,7 +226,7 @@ def discretize_derham_multipatch(derham, domain_h, *args, **kwargs):
 
     ldim   = derham.shape
     bases  = ['B'] + ldim * ['M']
-    spaces = [discretize_space(V, domain_h, *args, basis=basis, **kwargs) \
+    spaces = [discretize_space(V, domain_h, basis=basis, **kwargs) \
             for V, basis in zip(derham.spaces, bases)]
 
     return DiscreteDeRhamMultipatch(
