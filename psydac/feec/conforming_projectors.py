@@ -529,7 +529,7 @@ def construct_h1_conforming_projection(Vh, reg_orders=0, p_moments=-1, hom_bc=Fa
 
     Parameters
     ----------
-    Vh : TensorFemSpace
+    Vh : MultipatchFemSpace
         Finite Element Space coming from the discrete de Rham sequence.
 
     reg_orders :  (int)
@@ -983,7 +983,7 @@ def construct_hcurl_conforming_projection(Vh, reg_orders=0, p_moments=-1, hom_bc
 
     Parameters
     ----------
-    Vh : TensorFemSpace
+    Vh : MultipatchFemSpace
         Finite Element Space coming from the discrete de Rham sequence.
 
     reg_orders :  (int)
@@ -1166,7 +1166,7 @@ def construct_h1_singlepatch_conforming_projection(Vh, reg_orders=0, p_moments=-
 
     Parameters
     ----------
-    Vh : TensorFemSpace
+    Vh : MultipatchFemSpace
         Finite Element Space coming from the discrete de Rham sequence.
 
     reg_orders :  (int)
@@ -1342,7 +1342,7 @@ def construct_hcurl_singlepatch_conforming_projection(Vh, reg_orders=0, p_moment
 
     Parameters
     ----------
-    Vh : TensorFemSpace
+    Vh : MultipatchFemSpace
         Finite Element Space coming from the discrete de Rham sequence.
 
     reg_orders :  (int)
