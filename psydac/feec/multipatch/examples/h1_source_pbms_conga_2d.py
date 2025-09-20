@@ -228,7 +228,7 @@ def solve_h1_source_pbm(
 
     if u_ex:
         err = u - u_ex
-        rel_err = np.sqrt( err.inner(H0.dot(err))) / np.sqrt(u_ex.inner(H0.dot(u_ex)))
+        rel_err = np.sqrt(H0.dot_inner(err) / H0.dot_inner(u_ex))
 
         return rel_err
 
