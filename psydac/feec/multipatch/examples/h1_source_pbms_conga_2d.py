@@ -152,7 +152,7 @@ def solve_h1_source_pbm(
     if ubc is not None:
         # modified source for the homogeneous pbm
         print('modifying the source with lifted bc solution...')
-        df = df - pre_A.dot(ubc)
+        df -= pre_A @ ubc
 
     # direct solve with scipy spsolve
     print('solving source problem with conjugate gradient...')
