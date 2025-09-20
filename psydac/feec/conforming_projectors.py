@@ -285,7 +285,6 @@ def get_extension_restriction(coarse_space_1d, fine_space_1d, p_moments=-1):
         
         R_1D = construct_restriction_operator_1D(
             coarse_space_1d_k_plus, fine_space_1d, E_1D, p_moments)
-        
         ER_1D = E_1D @ R_1D
 
         assert np.allclose(R_1D @ E_1D, np.eye(coarse_space_1d.nbasis), 1e-12, 1e-12)
