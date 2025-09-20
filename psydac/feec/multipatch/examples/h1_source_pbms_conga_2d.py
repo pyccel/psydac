@@ -139,8 +139,8 @@ def solve_h1_source_pbm(
     def lift_u_bc(u_bc):
         if u_bc is not None:
             du_bc = get_dual_dofs(Vh=V0h, f=u_bc, domain_h = domain_h, backend_language=backend_language)
-            u_bc = dH0.dot(du_bc)
-            u_bc = u_bc - cP0.dot(u_bc)
+            dH0.dot(du_bc, out=u_bc)
+            u_bc -= cP0.dot(u_bc)
 
         else:
             u_bc = None
