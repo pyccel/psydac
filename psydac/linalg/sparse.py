@@ -55,7 +55,7 @@ class SparseMatrixLinearOperator(LinearOperator):
 
     def dot(self, v, out=None):
         assert isinstance(v, Vector)
-        assert v.space == self.domain
+        assert v.space is self.domain
 
         if out is not None:
             assert isinstance(out, Vector)
