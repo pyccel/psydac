@@ -13,7 +13,18 @@ __all__ = (
 
 class SparseMatrixLinearOperator(LinearOperator):
     """ 
-    Wrap a sparse matrix into a LinearOperator.
+    LinearOperator representation of a sparse matrix.
+
+    Parameters
+    ----------
+    domain : VectorSpace
+        The domain of the operator.
+
+    codomain : VectorSpace
+        The codomain of the operator.
+
+    sparse_matrix : scipy.sparse.csr_matrix
+        The sparse matrix representing the operator.
     """
         
     def __init__(self, domain, codomain, sparse_matrix):
