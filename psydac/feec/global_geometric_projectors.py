@@ -734,10 +734,13 @@ class MultipatchGeometricProjector:
         This is a parameter passed to the constructor of Projector.
     """
 
-    def __init__(self, Vh, P, nquads=None):
+    def __init__(self, space, Projector, nquads=None):
+        assert isinstance(space, MultipatchFemSpace)
+        assert isinstance(Projector, type)
+        assert issubclass(Projector, GlobalGeometricProjector)
 
-        self._Vh = Vh
-        self._Ps  = [P(V, nquads=nquads) for V in Vh.spaces]
+        self._Vh = Vh = space
+        self._Ps = [Projector(V, nquads=nquads) for V in Vh.spaces]
 
     def __call__(self, funs):
         """
