@@ -59,7 +59,7 @@ class SparseMatrixLinearOperator(LinearOperator):
 
         if out is not None:
             assert isinstance(out, Vector)
-            assert out.space == self.codomain
+            assert out.space is self.codomain
             out *= 0
         else:
             out = self.codomain.zeros()
