@@ -669,7 +669,19 @@ class Divergence3D(FemLinearOperator):
 # 2D Multipatch derivative operators
 #====================================================================================================
 class BrokenGradient2D(FemLinearOperator):
+    """
+    Gradient operator in a 2D multipatch domain,
+    acting independently on each patch.
+    In general, the resulting field is therefore discontinuous, or "broken".
 
+    Parameters
+    ----------
+    V0h : MultipatchFemSpace
+        Domain of the gradient operator.
+        
+    V1h : MultipatchFemSpace
+        Codomain of the gradient operator.
+    """
     def __init__(self, V0h, V1h):
 
         FemLinearOperator.__init__(self, fem_domain=V0h, fem_codomain=V1h)
@@ -685,7 +697,19 @@ class BrokenGradient2D(FemLinearOperator):
 
 # ==============================================================================
 class BrokenTransposedGradient2D(FemLinearOperator):
-
+    """
+    Transposed gradient operator in a 2D multipatch domain, 
+    acting independently on each patch.
+    In general, the resulting field is therefore discontinuous, or "broken".
+    
+    Parameters
+    ----------
+    V0h : MultipatchFemSpace
+        Codomain of the transposed gradient operator.
+        
+    V1h : MultipatchFemSpace
+        Domain of the transposed gradient operator.
+    """
     def __init__(self, V0h, V1h):
 
         FemLinearOperator.__init__(self, fem_domain=V1h, fem_codomain=V0h)
@@ -701,7 +725,19 @@ class BrokenTransposedGradient2D(FemLinearOperator):
 
 # ==============================================================================
 class BrokenScalarCurl2D(FemLinearOperator):
+    """
+    Scalar curl operator in a 2D multipatch domain,
+    acting independently on each patch.
+    In general, the resulting field is therefore discontinuous, or "broken".
 
+    Parameters
+    ----------
+    V1h : MultipatchFemSpace
+        Domain of the scalar curl operator.
+        
+    V2h : MultipatchFemSpace
+        Codomain of the scalar curl operator.
+    """
     def __init__(self, V1h, V2h):
 
         FemLinearOperator.__init__(self, fem_domain=V1h, fem_codomain=V2h)
@@ -718,7 +754,19 @@ class BrokenScalarCurl2D(FemLinearOperator):
 
 # ==============================================================================
 class BrokenTransposedScalarCurl2D(FemLinearOperator):
+    """
+    Transposed scalar curl operator in a 2D multipatch domain,
+    acting independently on each patch.
+    In general, the resulting field is therefore discontinuous, or "broken".
 
+    Parameters
+    ----------
+    V1h : MultipatchFemSpace
+        Codomain of the transposed scalar curl operator.
+        
+    V2h : MultipatchFemSpace
+        Domain of the transposed scalar curl operator.
+    """
     def __init__(self, V1h, V2h):
 
         FemLinearOperator.__init__(self, fem_domain=V2h, fem_codomain=V1h)
