@@ -325,7 +325,7 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
     M2 = a2_h.assemble()
 
     # Differential operators (StencilMatrix or BlockLinearOperator objects)
-    D0, D1 = derham_h.derivatives_as_matrices
+    D0, D1 = derham_h.derivatives(kind='linop')
 
     # Discretize and assemble penalization matrix
     if not periodic:

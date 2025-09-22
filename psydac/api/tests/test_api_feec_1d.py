@@ -145,7 +145,7 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
     M1 = a1_h.assemble()
 
     # Differential operators
-    D0, = derham_h.derivatives_as_matrices
+    D0, = derham_h.derivatives(kind='linop')
 
     # Transpose of derivative matrix
     D0_T = D0.T
