@@ -1,6 +1,7 @@
 # coding: utf-8
 
-from scipy.sparse import csr_matrix
+from scipy.sparse import sparray, csr_array, bsr_array
+from scipy.sparse import spmatrix, csr_matrix, bsr_matrix
 
 from psydac.linalg.basic   import LinearOperator
 from psydac.linalg.basic   import VectorSpace, Vector, LinearOperator
@@ -23,15 +24,21 @@ class SparseMatrixLinearOperator(LinearOperator):
     codomain : VectorSpace
         The codomain of the operator.
 
-    sparse_matrix : scipy.sparse.csr_matrix
-        The sparse matrix representing the operator.
+    sparse_matrix : scipy.sparse.sparray | scipy.sparse.spmatrix
+        The sparse SciPy matrix representing the operator. Recommended formats are
+        CSR and BSR. Any other format will be converted to CSR (csr_array).
     """
         
     def __init__(self, domain, codomain, sparse_matrix):
 
         assert isinstance(domain, VectorSpace)
         assert isinstance(codomain, VectorSpace)
-        assert isinstance(sparse_matrix, csr_matrix)
+        assert isinstance(sparse_matrix, (sparray, spmatrix))
+
+        if not isinstance(sparse_matrix,
+                          (csr_array, csr_matrix,
+                           bsr_array, bsr_matrix)):
+            sparse_matrix = sparse_matrix.tocsr()
 
         if domain.parallel:
             raise NotImplementedError('Parallel SparseMatrixLinearOperator not supported yet.')
