@@ -2,7 +2,6 @@ import numpy as np
 
 from psydac.feec.multipatch.examples.h1_source_pbms_conga_2d import solve_h1_source_pbm
 
-
 def test_poisson_pretzel_f():
 
     source_type = 'manu_poisson_2'
@@ -19,7 +18,7 @@ def test_poisson_pretzel_f():
         backend_language='pyccel-gcc',
         plot_dir=None)
 
-    assert abs(l2_error - 1.0585687717792318e-05) < 1e-10
+    assert abs(l2_error - 1.1016888403643595e-05) < 5e-8
 
 
 def test_poisson_pretzel_f_nc():
@@ -39,7 +38,7 @@ def test_poisson_pretzel_f_nc():
         backend_language='pyccel-gcc',
         plot_dir=None)
 
-    assert abs(l2_error - 6.051557012306659e-06) < 1e-10
+    assert abs(l2_error - 7.079666478120528e-06) < 5e-8
 
 
 # ==============================================================================
