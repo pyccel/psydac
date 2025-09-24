@@ -224,7 +224,7 @@ jobs:
       - name: Run MPI tests with Pytest
         working-directory: ./pytest
         run: |
-          python mpi_tester.py --mpirun="mpiexec -n 4 ${MPI_OPTS}" --pyargs psydac/cad/tests -m "parallel and not petsc"
+          python mpi_tester.py --mpirun="mpiexec -n 4 ${MPI_OPTS}" --pyargs ./cad/tests -m "parallel and not petsc"
 
 #      - name: Run single-process PETSc tests with Pytest
 #        working-directory: ./pytest
