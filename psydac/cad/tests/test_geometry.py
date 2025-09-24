@@ -17,6 +17,8 @@ from psydac.fem.tensor               import TensorFemSpace
 from psydac.utilities.utils          import refine_array_1d
 from psydac.ddm.cart                 import DomainDecomposition
 
+from mpi4py import MPI
+
 base_dir = os.path.dirname(os.path.realpath(__file__))
 #==============================================================================
 def test_geometry_2d_1():
@@ -172,7 +174,6 @@ def test_geometry_2d_4():
 #==============================================================================
 @pytest.mark.parallel
 def test_geometry_with_mpi_dims_mask():
-    from mpi4py import MPI
 
     comm = MPI.COMM_WORLD
     rank = comm.rank
@@ -203,13 +204,61 @@ def test_geometry_with_mpi_dims_mask():
     geo_from_file = Geometry(filename='geo_mpi_dims.h5', comm=comm, mpi_dims_mask=mpi_dims_mask)
 
     # Verify that the domain is distributed as expected
-    assert geo_from_file.ddm.starts[0] == 0
-    assert geo_from_file.ddm.starts[1] == 2 * rank
-    assert geo_from_file.ddm.starts[2] == 0
+    check_decomposition(geo_from_file, ncells, rank, mpi_dims_mask)
 
-    assert geo_from_file.ddm.ends[0] == ncells[0] - 1
-    assert geo_from_file.ddm.ends[1] == 2 * rank  + 1
-    assert geo_from_file.ddm.ends[2] == ncells[2] - 1
+# ==============================================================================
+@pytest.mark.parallel
+def test_from_discrete_mapping():
+
+    comm = MPI.COMM_WORLD
+    rank = comm.rank
+    size = comm.size
+    mpi_dims_mask = [False, False, True]  # We swill verify that this has an effect
+    ncells = [4, 8, 2 * size]  # Each process should have two cells along x3
+    degree = [3, 3, 3]
+
+    # Create a mapping
+    mapping = discrete_mapping('identity', ncells=ncells, degree=degree)
+
+    # Create geometry from the mapping using mpi_dims_mask
+    geo_from_mapping = Geometry.from_discrete_mapping(mapping, comm=comm, mpi_dims_mask=mpi_dims_mask)
+
+    # Verify that the domain is distributed as expected
+    check_decomposition(geo_from_mapping, ncells, rank, mpi_dims_mask)
+
+# ==============================================================================
+@pytest.mark.parallel
+def test_from_topological_domain():
+
+    comm = MPI.COMM_WORLD
+    rank = comm.rank
+    size = comm.size
+    mpi_dims_mask = [False, True, False]  # We will verify that this has an effect
+    ncells = [4, 2 * size, 8]  # Each process should have two cells along x2
+
+    # Create a topological domain
+    F = Mapping('F', dim=3)
+    domain = F(Cube(name='Omega'))
+
+    # Create geometry from topological domain using mpi_dims_mask
+    geo_from_domain = Geometry.from_topological_domain(domain, ncells, comm=comm, mpi_dims_mask=mpi_dims_mask)
+
+    # Verify that the domain is distributed as expected
+    check_decomposition(geo_from_domain, ncells, rank, mpi_dims_mask)
+
+# ==============================================================================
+# Check that each process has 2 cells along the axis where mpi_dims_mask is True
+# Only 1 dimension should be decomposed
+def check_decomposition(geometry, ncells, rank, mpi_dims_mask):
+
+    for i in range(len(ncells)):
+        if mpi_dims_mask[i]:
+            assert geometry.ddm.starts[i] == 2 * rank
+            assert geometry.ddm.ends[i] == 2 * rank + 1
+        else:
+            assert geometry.ddm.starts[i] == 0
+            assert geometry.ddm.ends[i] == ncells[i] - 1
+
 
 #==============================================================================
 @pytest.mark.parametrize( 'ncells', [[8,8], [12,12], [14,14]] )
