@@ -207,6 +207,11 @@ def test_geometry_with_mpi_dims_mask():
     # Verify that the domain is distributed as expected
     check_decomposition(geo_from_file, ncells, rank, mpi_dims_mask)
 
+    comm.Barrier()
+    if rank == 0:
+        os.remove('geo_mpi_dims.h5')
+
+
 # ==============================================================================
 @pytest.mark.parallel
 def test_from_discrete_mapping():
@@ -376,7 +381,6 @@ def teardown_module():
         'geo.h5',
         'geo_0.h5',
         'geo_1.h5',
-        'geo_mpi_dims.h5',
         'quart_circle.h5',
         'quart_circle_0.h5',
         'quart_circle_1.h5',
