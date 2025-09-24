@@ -173,6 +173,7 @@ def test_geometry_2d_4():
 
 #==============================================================================
 @pytest.mark.parallel
+@pytest.mark.geo
 def test_geometry_with_mpi_dims_mask():
 
     comm = MPI.COMM_WORLD
