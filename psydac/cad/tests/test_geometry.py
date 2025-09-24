@@ -173,7 +173,6 @@ def test_geometry_2d_4():
 
 #==============================================================================
 @pytest.mark.parallel
-@pytest.mark.geo
 def test_geometry_with_mpi_dims_mask():
 
     comm = MPI.COMM_WORLD
@@ -207,6 +206,7 @@ def test_geometry_with_mpi_dims_mask():
     # Verify that the domain is distributed as expected
     check_decomposition(geo_from_file, ncells, rank, mpi_dims_mask)
 
+    # Safely remove the file
     comm.Barrier()
     if rank == 0:
         os.remove('geo_mpi_dims.h5')
