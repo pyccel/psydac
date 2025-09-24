@@ -395,7 +395,7 @@ def run_poisson_2d(*, test_case, ncells, degree,
         V2 = SplineSpace(p2, grid=grid_2, periodic=True)
 
         # Create 2D tensor product finite element space
-        domain_decomposition = DomainDecomposition(ncells, [False, True])  # , comm = mpi_comm)
+        domain_decomposition = DomainDecomposition(ncells, [False, True] , comm = mpi_comm)
         V = TensorFemSpace(domain_decomposition, V1, V2)
 
         s1, s2 = V.coeff_space.starts
@@ -414,10 +414,8 @@ def run_poisson_2d(*, test_case, ncells, degree,
         # In order to create a sympde.Domain object from this mapping we have
         # to create first a HDF5 file and then load as sympde.Domain.fromfile
         t0 = time()
-        geometry = Geometry.from_discrete_mapping(map_discrete)  # , comm=mpi_comm)
-        if mpi_rank == 0:
-            geometry.export('geo.h5')
-        mpi_comm.Barrier()
+        geometry = Geometry.from_discrete_mapping(map_discrete, comm=mpi_comm)
+        geometry.export('geo.h5')
         t1 = time()
         timing['export'] += t1 - t0
         domain = Domain.from_file('geo.h5')
@@ -482,15 +480,11 @@ def run_poisson_2d(*, test_case, ncells, degree,
 
     # ============================= DISCRETIZATION ================================#
     if use_spline_mapping:
-        domain_h = discretize(domain, filename='geo.h5', comm = mpi_comm, mpi_dims_mask=[False, True])
-        print("Discretized domain")
+        domain_h = discretize(domain, filename='geo.h5', comm = mpi_comm)
         V0_h = discretize(V0, domain_h)
-        print(f"starts: {V0_h.coeff_space.starts}")
-        print(f"ends: {V0_h.coeff_space.ends}")
-        print(f"npts: {V0_h.coeff_space.npts}")
         F = list(domain_h.mappings.values()).pop()
     else:
-        domain_h = discretize(domain, ncells=ncells, periodic=[False, True], mpi_dims_mask=[False, True], comm = mpi_comm)  # , comm = mpi_comm)
+        domain_h = discretize(domain, ncells=ncells, periodic=[False, True], comm = mpi_comm)
         V0_h = discretize(V0, domain_h, degree=degree)
         F = mapping.get_callable_mapping()
 
@@ -501,8 +495,7 @@ def run_poisson_2d(*, test_case, ncells, degree,
     # trick should be removed in the final version. The norms should be computed
     # on the physical domain.
     if trick:
-        log_domain_h = discretize(logical_domain, ncells=ncells, periodic=[False, True])  # ,
-        # comm = mpi_comm)
+        log_domain_h = discretize(logical_domain, ncells=ncells, periodic=[False, True], comm = mpi_comm)
         log_V0_h = discretize(V0, log_domain_h, degree=degree)
         # log_domain_h.mappings['Omega'] = domain_h.mappings['mapping_0(Omega)'] # If spline mapping
 
@@ -698,8 +691,7 @@ def run_poisson_2d(*, test_case, ncells, degree,
     # assert np.allclose(errh1, errh1_matrix, rtol = 1e-7, atol = 1e-7)
     # Write solution to HDF5 file
     t0 = time()
-    if mpi_rank == 0:
-        V0_h.export_fields('fields.h5', phi=phi)
+    V0_h.export_fields('fields.h5', phi=phi)
     t1 = time()
     timing['export'] += t1 - t0
     # =============================== PRINTING INFO ===============================#
