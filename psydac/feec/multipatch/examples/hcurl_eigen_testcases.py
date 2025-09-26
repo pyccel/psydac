@@ -220,9 +220,6 @@ plot_dir = get_plot_dir(case_dir, run_dir)
 diag_filename = plot_dir + '/' + diag_fn()
 common_diag_filename = './' + case_dir + '_diags.txt'
 
-# to save and load matrices
-# m_load_dir = get_mat_dir(domain_name, nc, deg)
-m_load_dir = None
 
 print('\n --- --- --- --- --- --- --- --- --- --- --- --- --- --- \n')
 print(' Calling hcurl_solve_eigen_pbm() with params = {}'.format(params))
@@ -254,7 +251,6 @@ if method == 'feec':
         domain_name=domain_name, domain=domain,
         backend_language=backend_language,
         plot_dir=plot_dir,
-        m_load_dir=m_load_dir,
     )
 
 elif method == 'dg':

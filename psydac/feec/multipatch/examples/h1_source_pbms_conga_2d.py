@@ -12,38 +12,21 @@
 
       V0h  --grad->  V1h  -—curl-> V2h
 """
-
-from mpi4py import MPI
-
 import os
 import numpy as np
-from collections import OrderedDict
 
-from sympy import lambdify
-from scipy.sparse.linalg import spsolve
-
-from sympde.calculus import dot
-from sympde.expr.expr import LinearForm
-from sympde.expr.expr import integral, Norm
 from sympde.topology import Derham
-from sympde.topology import element_of
 
-from psydac.api.settings import PSYDAC_BACKENDS
-from psydac.feec.multipatch.api import discretize
-from psydac.feec.pull_push import pull_2d_h1
-from psydac.feec.multipatch.utils_conga_2d import P0_phys
+from psydac.api.discretization import discretize
+from psydac.linalg.basic       import IdentityOperator
+from psydac.linalg.solvers     import inverse
 
-from psydac.feec.multipatch.fem_linear_operators import IdLinearOperator
-from psydac.feec.multipatch.operators import HodgeOperator
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
-from psydac.feec.multipatch.examples.ppc_test_cases import get_source_and_solution_h1
-from psydac.feec.multipatch.utilities import time_count
-from psydac.feec.multipatch.non_matching_operators import construct_h1_conforming_projection, construct_hcurl_conforming_projection
-from psydac.api.postprocessing import OutputManager, PostProcessManager
+from psydac.feec.multipatch.examples.ppc_test_cases     import get_source_and_solution_h1
 
-from psydac.linalg.utilities import array_to_psydac
-from psydac.fem.basic import FemField
+from psydac.fem.projectors import get_dual_dofs
 
+from psydac.fem.basic          import FemField
 from psydac.api.postprocessing import OutputManager, PostProcessManager
 
 
@@ -98,9 +81,6 @@ def solve_h1_source_pbm(
 
     print('building the multipatch domain...')
     domain = build_multipatch_domain(domain_name=domain_name)
-    mappings = OrderedDict([(P.logical_domain, P.mapping)
-                           for P in domain.interior])
-    mappings_list = list(mappings.values())
 
     if isinstance(nc, int):
         ncells = [nc, nc]
@@ -114,102 +94,89 @@ def solve_h1_source_pbm(
     derham = Derham(domain, ["H1", "Hcurl", "L2"])
     derham_h = discretize(derham, domain_h, degree=degree)
 
-    # multi-patch (broken) spaces
-    V0h = derham_h.V0
-    V1h = derham_h.V1
-    V2h = derham_h.V2
+    V0h, V1h, V2h = derham_h.spaces
     print('dim(V0h) = {}'.format(V0h.nbasis))
     print('dim(V1h) = {}'.format(V1h.nbasis))
     print('dim(V2h) = {}'.format(V2h.nbasis))
 
     print('broken differential operators...')
     # broken (patch-wise) differential operators
-    bD0, bD1 = derham_h.broken_derivatives_as_operators
-    bD0_m = bD0.to_sparse_matrix()
-
-    print('building the discrete operators:')
-    print('commuting projection operators...')
-    nquads = [4 * (d + 1) for d in degree]
-    P0, P1, P2 = derham_h.projectors(nquads=nquads)
-
-    I0 = IdLinearOperator(V0h)
-    I0_m = I0.to_sparse_matrix()
+    bD0, bD1 = derham_h.derivatives(kind='linop')
 
     print('Hodge operators...')
-    # multi-patch (broken) linear operators / matrices
-    H0 = HodgeOperator(V0h, domain_h, backend_language=backend_language)
-    H1 = HodgeOperator(V1h, domain_h, backend_language=backend_language)
-
-    H0_m = H0.to_sparse_matrix()                # = mass matrix of V0
-    dH0_m = H0.get_dual_Hodge_sparse_matrix()  # = inverse mass matrix of V0
-    H1_m = H1.to_sparse_matrix()                # = mass matrix of V1
+    # multi-patch (broken) linear operators 
+    H0 = derham_h.hodge_operator(space='V0', kind='linop', backend_language=backend_language)
+    H1 = derham_h.hodge_operator(space='V1', kind='linop', backend_language=backend_language)
+    dH0 = derham_h.hodge_operator(space='V0', kind='linop', dual=True, backend_language=backend_language)
 
     print('conforming projection operators...')
     # conforming Projections (should take into account the boundary conditions
     # of the continuous deRham sequence)
-    cP0_m = construct_h1_conforming_projection(V0h, hom_bc=True)
+    cP0, cP1, cP2 = derham_h.conforming_projectors(kind='linop', hom_bc = True)
+
+    print('building the discrete operators:')
+
+    I0 = IdentityOperator(V0h.coeff_space)
+    
+    # div grad
+    DG = - bD0.T @ H1 @ bD0
+
+    # jump penalization:
+    JP0 = (I0 - cP0).T @ H0 @ (I0 - cP0)
+
+    # useful for the boundary condition (if present)
+    pre_A = cP0.T @ (eta * H0 - mu * DG) 
+    
+    A = pre_A @ cP0 + gamma_h * JP0
+
+  
+    f_scal, u_bc, u_ex = get_source_and_solution_h1(source_type=source_type, eta=eta, mu=mu, domain=domain, domain_name=domain_name,)
+
+    df = get_dual_dofs(Vh=V0h, f=f_scal, domain_h=domain_h, backend_language=backend_language)
+    f  = dH0 @ df
+    df = cP0.T @ df
 
     def lift_u_bc(u_bc):
         if u_bc is not None:
-            print('lifting the boundary condition in V0h...  [warning: Not Tested Yet!]')
-            d_ubc_c = derham_h.get_dual_dofs(space='V0', f=u_bc, backend_language=backend_language, return_format='numpy_array')
-            ubc_c = dH0_m.dot(d_ubc_c)
+            du_bc = get_dual_dofs(Vh=V0h, f=u_bc, domain_h = domain_h, backend_language=backend_language)
+            ubc = dH0.dot(du_bc)
+            ubc -= cP0.dot(ubc)
 
-            ubc_c = ubc_c - cP0_m.dot(ubc_c)
         else:
-            ubc_c = None
-        return ubc_c
+            ubc = None
+            
+        return ubc
 
-    # Conga (projection-based) stiffness matrices:
-    # div grad:
-    pre_DG_m = - bD0_m.transpose() @ H1_m @ bD0_m
+    ubc = lift_u_bc(u_bc)
 
-    # jump penalization:
-    jump_penal_m = I0_m - cP0_m
-    JP0_m = jump_penal_m.transpose() @ H0_m @ jump_penal_m
-
-    # useful for the boundary condition (if present)
-    pre_A_m = cP0_m.transpose() @ (eta * H0_m - mu * pre_DG_m)
-    A_m = pre_A_m @ cP0_m + gamma_h * JP0_m
-
-    print('getting the source and ref solution...')
-    f_scal, u_bc, u_ex = get_source_and_solution_h1(
-        source_type=source_type, eta=eta, mu=mu, domain=domain, domain_name=domain_name,
-    )
-
-    # compute approximate source f_h
-    b_c =  derham_h.get_dual_dofs(space='V0', f=f_scal, backend_language=backend_language, return_format='numpy_array')
-    # source in primal sequence for plotting
-    f_c = dH0_m.dot(b_c)
-    b_c = cP0_m.transpose() @ b_c
-
-    ubc_c = lift_u_bc(u_bc)
-
-    if ubc_c is not None:
+    if ubc is not None:
         # modified source for the homogeneous pbm
         print('modifying the source with lifted bc solution...')
-        b_c = b_c - pre_A_m.dot(ubc_c)
+        df -= pre_A @ ubc
 
     # direct solve with scipy spsolve
-    print('solving source problem with scipy.spsolve...')
-    uh_c = spsolve(A_m, b_c)
+    print('solving source problem with conjugate gradient...')
+    solver = inverse(A, solver='cg', tol=1e-8)
+    u = solver.solve(df)
 
     # project the homogeneous solution on the conforming problem space
     print('projecting the homogeneous solution on the conforming problem space...')
-    uh_c = cP0_m.dot(uh_c)
+    u = cP0.dot(u)
 
-    if ubc_c is not None:
+    if ubc is not None:
         # adding the lifted boundary condition
         print('adding the lifted boundary condition...')
-        uh_c += ubc_c
+        u += ubc
 
-    print('getting and plotting the FEM solution from numpy coefs array...')
 
     if u_ex:
-        u_ex_c = derham_h.get_dual_dofs(space='V0', f=u_ex, backend_language=backend_language, return_format='numpy_array')
-        u_ex_c = dH0_m.dot(u_ex_c)
+        u_ex = get_dual_dofs(Vh=V0h, f=u_ex, domain_h=domain_h, backend_language=backend_language)
+        u_ex = dH0.dot(u_ex)
+
 
     if plot_dir is not None:
+        print('plotting the FEM solution...')
+
         if not os.path.exists(plot_dir):
             os.makedirs(plot_dir)
 
@@ -217,17 +184,14 @@ def solve_h1_source_pbm(
         OM.add_spaces(V0h=V0h)
         OM.set_static()
 
-        stencil_coeffs = array_to_psydac(uh_c, V0h.coeff_space)
-        vh = FemField(V0h, coeffs=stencil_coeffs)
-        OM.export_fields(vh=vh)
+        uh = FemField(V0h, coeffs=u)
+        OM.export_fields(uh=uh)
 
-        stencil_coeffs = array_to_psydac(f_c, V0h.coeff_space)
-        fh = FemField(V0h, coeffs=stencil_coeffs)
+        fh = FemField(V0h, coeffs=f)
         OM.export_fields(fh=fh)
         
         if u_ex:
-            stencil_coeffs = array_to_psydac(u_ex_c, V0h.coeff_space)
-            uh_ex = FemField(V0h, coeffs=stencil_coeffs)
+            uh_ex = FemField(V0h, coeffs=u_ex)
             OM.export_fields(uh_ex=uh_ex)
 
         OM.export_space_info()
@@ -243,7 +207,7 @@ def solve_h1_source_pbm(
             grid=None,
             npts_per_cell=[6] * 2,
             snapshots='all',
-            fields='vh')
+            fields='uh')
 
         PM.export_to_vtk(
             plot_dir + "/f_h",
@@ -263,9 +227,9 @@ def solve_h1_source_pbm(
         PM.close()
 
     if u_ex:
-        err = uh_c - u_ex_c
-        rel_err = np.sqrt(np.dot(err, H0_m.dot(err)))/np.sqrt(np.dot(u_ex_c,H0_m.dot(u_ex_c)))
-        
+        err = u - u_ex
+        rel_err = np.sqrt(H0.dot_inner(err, err) / H0.dot_inner(u_ex, u_ex))
+
         return rel_err
 
 
@@ -273,19 +237,21 @@ if __name__ == '__main__':
 
     omega = np.sqrt(170)  # source
     eta = -omega**2 
+    mu=0
+    gamma_h = 10
 
     source_type = 'manu_poisson_elliptic'
 
     domain_name = 'pretzel_f'
 
-    nc = 10
+    nc = 4
     deg = 2
 
     run_dir = '{}_{}_nc={}_deg={}/'.format(domain_name, source_type, nc, deg)
     solve_h1_source_pbm(
         nc=nc, deg=deg,
         eta=eta,
-        mu=1,  # 1,
+        mu=mu,  # 1,
         domain_name=domain_name,
         source_type=source_type,
         backend_language='pyccel-gcc',

@@ -1,24 +1,9 @@
 # coding: utf-8
-
-from sympy.functions.special.error_functions import erf
-from mpi4py import MPI
-
 import os
 import numpy as np
 
 from sympy import pi, cos, sin, Tuple, exp, atan, atan2
-
-from sympde.topology import Derham
-
-from psydac.fem.basic import FemField
-from psydac.feec.multipatch.api import discretize
-from psydac.feec.multipatch.operators import HodgeOperator
-from psydac.fem.plotting_utilities import get_plotting_grid, my_small_plot, my_small_streamplot
-from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
-
-comm = MPI.COMM_WORLD
-
-
+from sympy.functions.special.error_functions import erf
 # todo [MCP, 12/02/2022]:  add an 'equation' argument to be able to return
 # 'exact solution'
 

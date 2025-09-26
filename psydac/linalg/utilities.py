@@ -4,14 +4,14 @@ import numpy as np
 from math import sqrt
 
 from psydac.linalg.basic   import Vector
-from psydac.linalg.stencil import StencilVectorSpace, StencilVector
+from psydac.linalg.stencil import StencilVector, StencilVectorSpace
 from psydac.linalg.block   import BlockVector, BlockVectorSpace
 from psydac.linalg.topetsc import petsc_local_to_psydac, get_npts_per_block
 
 __all__ = (
     'array_to_psydac',
     'petsc_to_psydac',
-    '_sym_ortho'
+    '_sym_ortho',
 )
 
 #==============================================================================

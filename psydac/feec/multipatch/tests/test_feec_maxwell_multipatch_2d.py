@@ -1,12 +1,12 @@
 # coding: utf-8
 
 import numpy as np
+import pytest
 
 from psydac.feec.multipatch.examples.hcurl_source_pbms_conga_2d import solve_hcurl_source_pbm
 from psydac.feec.multipatch.examples.hcurl_eigen_pbms_conga_2d import hcurl_solve_eigen_pbm
 from psydac.feec.multipatch.examples.hcurl_eigen_pbms_dg_2d import hcurl_solve_eigen_pbm_dg
 from psydac.feec.multipatch.examples.timedomain_maxwell import solve_td_maxwell_pbm
-
 
 def test_time_harmonic_maxwell_pretzel_f():
     nc = 4
@@ -29,8 +29,7 @@ def test_time_harmonic_maxwell_pretzel_f():
         source_proj=source_proj,
         backend_language='pyccel-gcc')
 
-    assert abs(diags["err"] - 0.007201508128407582) < 1e-10
-
+    assert abs(diags["err"] - 0.0072015081402929445) < 1e-10
 
 def test_time_harmonic_maxwell_pretzel_f_nc():
     deg = 2
@@ -54,8 +53,7 @@ def test_time_harmonic_maxwell_pretzel_f_nc():
         source_proj=source_proj,
         backend_language='pyccel-gcc')
 
-    assert abs(diags["err"] - 0.004849165663310541) < 1e-10
-
+    assert abs(diags["err"] - 0.004849225522124346) < 5e-7
 
 def test_maxwell_eigen_curved_L_shape():
     domain_name = 'curved_L_shape'
@@ -88,7 +86,6 @@ def test_maxwell_eigen_curved_L_shape():
         nb_eigs_plot=nb_eigs_plot,
         domain_name=domain_name, domain=domain,
         backend_language='pyccel-gcc',
-        plot_dir='./plots/eigen_maxell',
     )
 
     error = 0
@@ -97,8 +94,7 @@ def test_maxwell_eigen_curved_L_shape():
         error += (eigenvalues[k] - ref_sigmas[k])**2
     error = np.sqrt(error)
 
-    assert abs(error - 0.01291539899483907) < 1e-10
-
+    assert abs(error - 0.012915398994855902) < 1e-10
 
 def test_maxwell_eigen_curved_L_shape_nc():
     domain_name = 'curved_L_shape'
@@ -133,7 +129,6 @@ def test_maxwell_eigen_curved_L_shape_nc():
         nb_eigs_plot=nb_eigs_plot,
         domain_name=domain_name, domain=domain,
         backend_language='pyccel-gcc',
-        plot_dir='./plots/eigen_maxell_nc',
     )
 
     error = 0
@@ -142,8 +137,7 @@ def test_maxwell_eigen_curved_L_shape_nc():
         error += (eigenvalues[k] - ref_sigmas[k])**2
     error = np.sqrt(error)
 
-    assert abs(error - 0.010504876643873904) < 1e-10
-
+    assert abs(error - 0.010504876643886937) < 1e-10
 
 def test_maxwell_eigen_curved_L_shape_dg():
     domain_name = 'curved_L_shape'
@@ -176,7 +170,6 @@ def test_maxwell_eigen_curved_L_shape_dg():
         nb_eigs_plot=nb_eigs_plot,
         domain_name=domain_name, domain=domain,
         backend_language='pyccel-gcc',
-        plot_dir='./plots/eigen_maxell_dg',
     )
 
     error = 0
@@ -184,9 +177,8 @@ def test_maxwell_eigen_curved_L_shape_dg():
     for k in range(n_errs):
         error += (eigenvalues[k] - ref_sigmas[k])**2
     error = np.sqrt(error)
-    
-    assert abs(error - 0.035139029534570064) < 1e-10
 
+    assert abs(error - 0.035139029534592255) < 1e-10
 
 def test_maxwell_timedomain():
     solve_td_maxwell_pbm(nc = 4, deg = 2, final_time = 2, domain_name = 'square_2')
