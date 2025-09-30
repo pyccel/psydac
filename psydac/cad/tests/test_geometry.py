@@ -45,7 +45,7 @@ def test_geometry_2d_1():
     geo.export('geo.h5')
 
     # read it again
-    geo_0 = Geometry(filename='geo.h5')
+    geo_0 = Geometry.from_file('geo.h5')
 
     # export it again
     geo_0.export('geo_0.h5')
@@ -94,7 +94,7 @@ def test_geometry_2d_2():
     geo.export('quart_circle.h5')
 
     # read it again
-    geo_0 = Geometry(filename='quart_circle.h5')
+    geo_0 = Geometry.from_file('quart_circle.h5')
 
     # export it again
     geo_0.export('quart_circle_0.h5')
@@ -173,7 +173,7 @@ def test_geometry_2d_4():
 
 #==============================================================================
 @pytest.mark.parallel
-def test_geometry_with_mpi_dims_mask():
+def test_from_file_with_mpi_dims_mask():
 
     comm = MPI.COMM_WORLD
     rank = comm.rank
@@ -204,7 +204,7 @@ def test_geometry_with_mpi_dims_mask():
     geo.export('geo_mpi_dims.h5')
 
     # Read geometry file in parallel, but using mpi_dims_mask
-    geo_from_file = Geometry(filename='geo_mpi_dims.h5', comm=comm, mpi_dims_mask=mpi_dims_mask)
+    geo_from_file = Geometry.from_file(filename='geo_mpi_dims.h5', comm=comm, mpi_dims_mask=mpi_dims_mask)
 
     # Verify that the domain is distributed as expected
     assert geo_from_file.ddm.starts == expected_starts
@@ -223,7 +223,7 @@ def test_from_discrete_mapping():
     comm = MPI.COMM_WORLD
     rank = comm.rank
     size = comm.size
-    mpi_dims_mask = [False, False, True]  # We swill verify that this has an effect
+    mpi_dims_mask = [False, False, True]  # We will verify that this has an effect
     ncells = [4, 8, 2 * size]  # Each process should have two cells along x3
     degree = [3, 3, 3]
 
@@ -284,7 +284,7 @@ def test_export_nurbs_to_hdf5(ncells, degree):
     export_nurbs_to_hdf5(filename, new_pipe)
 
    # read the geometry
-    geo = Geometry(filename=filename)
+    geo = Geometry.from_file(filename)
     domain = geo.domain
 
     min_coords = domain.logical_domain.min_coords
@@ -333,7 +333,7 @@ def test_import_geopdes_to_nurbs(ncells, degree):
     export_nurbs_to_hdf5(filename, L_shaped)
 
    # read the geometry
-    geo = Geometry(filename=filename)
+    geo = Geometry.from_file(filename)
     domain = geo.domain
 
     min_coords = domain.logical_domain.min_coords
