@@ -252,6 +252,7 @@ def test_from_topological_domain():
 
     expected_starts = (0, 2 * rank, 0)
     expected_ends   = (3, 2 * rank + 1, 7)
+
     # Create a topological domain
     F = Mapping('F', dim=3)
     domain = F(Cube(name='Omega'))
@@ -260,8 +261,8 @@ def test_from_topological_domain():
     geo_from_domain = Geometry.from_topological_domain(domain, ncells, comm=comm, mpi_dims_mask=mpi_dims_mask)
 
     # Verify that the domain is distributed as expected
-    assert geometry.ddm.starts == expected_starts
-    assert geometry.ddm.ends   == expected_ends
+    assert geo_from_domain.ddm.starts == expected_starts
+    assert geo_from_domain.ddm.ends   == expected_ends
 
 #==============================================================================
 @pytest.mark.parametrize( 'ncells', [[8,8], [12,12], [14,14]] )
