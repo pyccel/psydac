@@ -181,6 +181,9 @@ def test_geometry_with_mpi_dims_mask():
     mpi_dims_mask = [False, True, False]  # We will verify that this has an effect
     ncells = [4, 2*size, 8]  # Each process should have two cells along x2
     degree = [2, 2, 2]
+
+    expected_starts = (0, 2 * rank, 0)
+    expected_ends   = (3, 2 * rank + 1, 7)
     
     # create an identity mapping
     mapping = discrete_mapping('identity', ncells=ncells, degree=degree)
@@ -204,7 +207,8 @@ def test_geometry_with_mpi_dims_mask():
     geo_from_file = Geometry(filename='geo_mpi_dims.h5', comm=comm, mpi_dims_mask=mpi_dims_mask)
 
     # Verify that the domain is distributed as expected
-    check_decomposition(geo_from_file, ncells, rank, mpi_dims_mask)
+    assert geo_from_file.ddm.starts == expected_starts
+    assert geo_from_file.ddm.ends   == expected_ends
 
     # Safely remove the file
     comm.Barrier()
@@ -223,6 +227,9 @@ def test_from_discrete_mapping():
     ncells = [4, 8, 2 * size]  # Each process should have two cells along x3
     degree = [3, 3, 3]
 
+    expected_starts = (0, 0, 2 * rank)
+    expected_ends   = (3, 7, 2 * rank + 1)
+
     # Create a mapping
     mapping = discrete_mapping('identity', ncells=ncells, degree=degree)
 
@@ -230,7 +237,8 @@ def test_from_discrete_mapping():
     geo_from_mapping = Geometry.from_discrete_mapping(mapping, comm=comm, mpi_dims_mask=mpi_dims_mask)
 
     # Verify that the domain is distributed as expected
-    check_decomposition(geo_from_mapping, ncells, rank, mpi_dims_mask)
+    assert geo_from_mapping.ddm.starts == expected_starts
+    assert geo_from_mapping.ddm.ends   == expected_ends
 
 # ==============================================================================
 @pytest.mark.parallel
@@ -242,6 +250,8 @@ def test_from_topological_domain():
     mpi_dims_mask = [False, True, False]  # We will verify that this has an effect
     ncells = [4, 2 * size, 8]  # Each process should have two cells along x2
 
+    expected_starts = (0, 2 * rank, 0)
+    expected_ends   = (3, 2 * rank + 1, 7)
     # Create a topological domain
     F = Mapping('F', dim=3)
     domain = F(Cube(name='Omega'))
@@ -250,21 +260,8 @@ def test_from_topological_domain():
     geo_from_domain = Geometry.from_topological_domain(domain, ncells, comm=comm, mpi_dims_mask=mpi_dims_mask)
 
     # Verify that the domain is distributed as expected
-    check_decomposition(geo_from_domain, ncells, rank, mpi_dims_mask)
-
-# ==============================================================================
-# Check that each process has 2 cells along the axis where mpi_dims_mask is True
-# Only 1 dimension should be decomposed
-def check_decomposition(geometry, ncells, rank, mpi_dims_mask):
-
-    for i in range(len(ncells)):
-        if mpi_dims_mask[i]:
-            assert geometry.ddm.starts[i] == 2 * rank
-            assert geometry.ddm.ends[i] == 2 * rank + 1
-        else:
-            assert geometry.ddm.starts[i] == 0
-            assert geometry.ddm.ends[i] == ncells[i] - 1
-
+    assert geometry.ddm.starts == expected_starts
+    assert geometry.ddm.ends   == expected_ends
 
 #==============================================================================
 @pytest.mark.parametrize( 'ncells', [[8,8], [12,12], [14,14]] )
