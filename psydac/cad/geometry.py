@@ -37,9 +37,12 @@ NoneType = type(None)
 class Geometry:
     """
     Distributed discrete geometry that works for single and multiple patches.
-    The Geometry object can be created in two ways:
-    - case 1 : through a geometry file whos name can be given to the constructor
-    - case 2 : provide the ncells, the periodicity and the mapping objects of each patch.
+
+    The Geometry object can be created in four ways:
+    - case 0 : providing a `Domain` to `__init__` with ncells, periodicity and mapping for each patch.
+    - case 1 : passing the path to a geometry file to `from_file`.
+    - case 2 : passing a `SplineMapping` to `from_discrete_mapping` (single patch).
+    - case 3 : passing a `Domain`, ncells, and periodicity to `from_topological_domain` (single or multi-patch).
 
     Parameters
     ----------
@@ -121,16 +124,16 @@ class Geometry:
             #name = domain.name
             name = interior_names[0]
             ddm = DomainDecomposition(
-                ncells[name],
-                periodic[name],
-                comm = comm,
+                ncells  = ncells[name],
+                periods = periodic[name],
+                comm    = comm,
                 mpi_dims_mask = mpi_dims_mask,
             )
         else:
             ddm = MultiPatchDomainDecomposition(
-                ncells   = [  ncells[itr] for itr in interior_names],
-                periodic = [periodic[itr] for itr in interior_names],
-                comm     = comm,
+                ncells  = [  ncells[itr] for itr in interior_names],
+                periods = [periodic[itr] for itr in interior_names],
+                comm    = comm,
             )
 
         # Add attributes to the new object
