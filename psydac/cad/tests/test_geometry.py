@@ -19,6 +19,8 @@ from psydac.ddm.cart                 import DomainDecomposition
 
 from mpi4py import MPI
 
+from mpi4py import MPI
+
 base_dir = os.path.dirname(os.path.realpath(__file__))
 #==============================================================================
 def test_geometry_2d_1():
