@@ -30,7 +30,7 @@ from sympde.topology       import Domain, Interface, Line, Square, Cube, NCubeIn
 from sympde.topology.basic import Union
 
 #==============================================================================
-class Geometry( object ):
+class Geometry:
     """
     Distributed discrete geometry that works for single and multiple patches.
     The Geometry object can be created in two ways:
@@ -75,7 +75,7 @@ class Geometry( object ):
 
         # ... read the geometry if the filename is given
         if filename is not None:
-            self.read(filename, comm=comm)
+            self.read(filename, comm=comm, mpi_dims_mask=mpi_dims_mask)
 
         elif domain is not None:
             assert isinstance(domain, Domain) 
@@ -122,7 +122,7 @@ class Geometry( object ):
     # Option [2]: from a discrete mapping
     #--------------------------------------------------------------------------
     @classmethod
-    def from_discrete_mapping(cls, mapping, comm=None, name=None):
+    def from_discrete_mapping(cls, mapping, *, comm=None, mpi_dims_mask=None, name=None):
         """Create a geometry from one discrete mapping.
 
         Parameters
@@ -132,7 +132,11 @@ class Geometry( object ):
 
         comm : MPI.Comm
             MPI intra-communicator.
-            
+    
+        mpi_dims_mask: list of bool
+            True if the dimension is to be used in the domain decomposition (=default for each dimension). 
+            If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
+    
         name : string
             Optional name for the Mapping that will be created. 
             Needed to avoid conflicts in case several mappings are created
@@ -150,7 +154,7 @@ class Geometry( object ):
         ncells   = {domain.name: mapping.space.domain_decomposition.ncells}
         periodic = {domain.name: mapping.space.domain_decomposition.periods}
 
-        return Geometry(domain=domain, ncells=ncells, periodic=periodic, mappings=mappings, comm=comm)
+        return Geometry(domain=domain, ncells=ncells, periodic=periodic, mappings=mappings, comm=comm, mpi_dims_mask=mpi_dims_mask)
 
 
     #--------------------------------------------------------------------------
@@ -223,7 +227,7 @@ class Geometry( object ):
     def __len__(self):
         return len(self.domain)
 
-    def read( self, filename, comm=None ):
+    def read(self, filename, comm=None, mpi_dims_mask=None):
         # ... check extension of the file
         basename, ext = os.path.splitext(filename)
         if not(ext == '.h5'):
@@ -287,7 +291,7 @@ class Geometry( object ):
 
         self._cart = None
         if n_patches == 1:
-            self._ddm = DomainDecomposition(ncells[domain.name], periodic[domain.name], comm=comm)
+            self._ddm = DomainDecomposition(ncells[domain.name], periodic[domain.name], comm=comm, mpi_dims_mask=mpi_dims_mask)
             ddms      = [self._ddm]
         else:
             ncells_    = [ncells[itr.name] for itr in interiors]
