@@ -1,9 +1,10 @@
 # coding: utf-8
 #
-import pytest
-import numpy as np
 import os
 
+import pytest
+import numpy as np
+from mpi4py import MPI
 from sympde.topology import Domain, Line, Square, Cube, Mapping
 
 from psydac.cad.geometry             import Geometry, export_nurbs_to_hdf5, refine_nurbs
@@ -17,9 +18,6 @@ from psydac.fem.tensor               import TensorFemSpace
 from psydac.utilities.utils          import refine_array_1d
 from psydac.ddm.cart                 import DomainDecomposition
 
-from mpi4py import MPI
-
-from mpi4py import MPI
 
 base_dir = os.path.dirname(os.path.realpath(__file__))
 #==============================================================================
@@ -216,7 +214,6 @@ def test_from_file_with_mpi_dims_mask():
     comm.Barrier()
     if rank == 0:
         os.remove('geo_mpi_dims.h5')
-
 
 # ==============================================================================
 @pytest.mark.parallel
