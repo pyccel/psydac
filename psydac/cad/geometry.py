@@ -156,7 +156,6 @@ class Geometry:
         self._comm     = comm
         self._ddm      = ddm
         self._cart     = None
-        self._is_parallel = comm is not None
 
     #--------------------------------------------------------------------------
     # Option [1]: from a file
@@ -307,10 +306,6 @@ class Geometry:
     @property
     def ddm(self):
         return self._ddm
-
-    @property
-    def is_parallel(self):
-        return self._is_parallel
 
     @property
     def mappings(self):
@@ -475,7 +470,6 @@ class Geometry:
         self._comm        = comm
         self._ddm         = ddm
         self._cart        = None
-        self._is_parallel = comm is not None
         # ...
 
     def export( self, filename ):
