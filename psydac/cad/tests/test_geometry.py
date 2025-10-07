@@ -41,7 +41,7 @@ def test_geometry_2d_1():
     ncells = {domain.name:ncells}
 
     # create a geometry from a topological domain and the dict of mappings
-    geo = Geometry(domain=domain, ncells=ncells, mappings=mappings)
+    geo = Geometry(domain=domain, pdim=2, ncells=ncells, mappings=mappings)
 
     # export the geometry
     geo.export('geo.h5')
@@ -90,7 +90,7 @@ def test_geometry_2d_2():
     periodic = {domain.name:[space.periodic for space in mapping.space.spaces]}
 
     # create a geometry from a topological domain and the dict of mappings
-    geo = Geometry(domain=domain, ncells=ncells, periodic=periodic, mappings=mappings)
+    geo = Geometry(domain=domain, pdim=2, ncells=ncells, periodic=periodic, mappings=mappings)
 
     # export the geometry
     geo.export('quart_circle.h5')
@@ -202,7 +202,7 @@ def test_from_file_with_mpi_dims_mask():
 
     # Create a geometry from a topological domain and the dict of mappings
     # Here we allow for any distribution of the domain: mpi_dims_mask is not passed
-    geo = Geometry(domain=domain, ncells=d_ncells, mappings=mappings, comm=comm)
+    geo = Geometry(domain=domain, pdim=3, ncells=d_ncells, mappings=mappings, comm=comm)
     geo.export('geo_mpi_dims.h5')
 
     # Read geometry file in parallel, but using mpi_dims_mask

@@ -15,6 +15,7 @@ from mpi4py import MPI
 
 from sympde.topology       import Domain, Interface, Line, Square, Cube, NCubeInterior, Mapping, NCube
 from sympde.topology.basic import Union
+from sympde.topology.callable_mapping import BasicCallableMapping
 
 from psydac.fem.splines        import SplineSpace
 from psydac.fem.tensor         import TensorFemSpace
@@ -47,21 +48,24 @@ class Geometry:
     Parameters
     ----------
     domain : Sympde.topology.Domain
-        The symbolic domain to be discretized.
+        The symbolic topological domain to be discretized.
 
-    ncells : list | tuple | dict
-        The number of cells of the discretized topological domain in each direction.
+    pdim : int
+        Number of physical dimensions of the Geometry object (pdim >= ldim).
 
-    periodic : list | tuple | dict
+    ncells : dict[str, Iterable[int]]
+        The number of cells of the discretized domain in each direction.
+
+    periodic : dict[str, Iterable[bool]], optional
         The periodicity of the topological domain in each direction.
 
-    mappings : dict
-        The Mapping of each patch.
+    mappings : dict[str, BasicCallableMapping], optional
+        The discrete mappings of each patch.
 
-    comm: MPI.Intracomm
+    comm: MPI.Intracomm, optional
         MPI intra-communicator.
 
-    mpi_dims_mask: list of bool
+    mpi_dims_mask: Iterable[bool], optional
         True if the dimension is to be used in the domain decomposition (=default for each dimension). 
         If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
   
@@ -74,6 +78,7 @@ class Geometry:
     def __init__(self,
                  domain : Domain,
                  *,
+                 pdim     : int,
                  ncells   : dict[str, Iterable[int]],
                  mappings : dict[str, SplineMapping | None] = None,
                  periodic : dict[str, Iterable[bool]] = None,
@@ -81,6 +86,7 @@ class Geometry:
                  mpi_dims_mask : Iterable[bool] = None):
 
         # Type checks
+        assert isinstance(pdim, int)
         assert isinstance(domain, Domain) 
         assert isinstance(ncells, dict)
         assert isinstance(mappings, dict)
@@ -92,6 +98,9 @@ class Geometry:
         ldim : int = domain.dim
         interior_names : list = domain.interior_names
         set_interior_names = set(interior_names)
+
+        # Check sanity of pdim
+        assert pdim >= ldim
 
         # Check sanity of ncells
         assert set(ncells.keys()) == set_interior_names
@@ -112,7 +121,8 @@ class Geometry:
             mappings = {itr.name : None for itr in domain.interior}
         else:
             assert set(mappings.keys()) == set_interior_names
-            assert all(isinstance(m, (SplineMapping, NoneType)) for m in mappings.values())
+            assert all(isinstance(m, (BasicCallableMapping, NoneType)) for m in mappings.values())
+            assert all(m.pdim == pdim for m in mappings.values() if m is not None)
 
         # Check sanity of mpi_dims_mask
         if mpi_dims_mask is not None:
@@ -139,10 +149,10 @@ class Geometry:
         # Add attributes to the new object
         self._domain   = domain
         self._ldim     = domain.dim
-        self._pdim     = domain.dim # TODO must be given => only dim is defined for a Domain
+        self._pdim     = pdim
         self._ncells   = ncells
-        self._periodic = periodic
         self._mappings = mappings
+        self._periodic = periodic
         self._comm     = comm
         self._ddm      = ddm
         self._cart     = None
@@ -169,7 +179,7 @@ class Geometry:
         comm: MPI.Intracomm, optional
             The MPI intra-communicator.
 
-        mpi_dims_mask: list[bool], optional
+        mpi_dims_mask: Iterable[bool], optional
             True if the dimension is to be used in the domain decomposition
             (=default for each dimension). If mpi_dims_mask[i]=False, the i-th
             dimension will not be decomposed.
@@ -193,8 +203,8 @@ class Geometry:
 
         Parameters
         ----------
-        mapping : SplineMapping
-            The Mapping from the unit square to the physical domain.
+        mapping : BasicCallableMapping
+            The mapping from the unit square to the physical domain.
 
         comm : MPI.Comm
             MPI intra-communicator.
@@ -204,8 +214,8 @@ class Geometry:
             If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
     
         name : str
-            Optional name for the Mapping that will be created. 
-            Needed to avoid conflicts in case several mappings are created
+            Optional name for the symbolic Mapping that will be created.
+            Needed to avoid conflicts in case several mappings are created.
 
         Returns
         -------
@@ -214,18 +224,25 @@ class Geometry:
         """
 
         mapping_name = name if name else 'mapping'
-        dim      = mapping.ldim        
-        M        = Mapping(mapping_name, dim = dim)
+        dim      = mapping.ldim
+        M        = Mapping(mapping_name, dim = dim)  # this is a symbolic mapping
         domain   = M(NCube(name = 'Omega',
                            dim  = dim,
                            min_coords = [0.] * dim,
                            max_coords = [1.] * dim)) 
         M.set_callable_mapping(mapping)
+        pdim     = mapping.pdim
         mappings = {domain.name: mapping}
         ncells   = {domain.name: mapping.space.domain_decomposition.ncells}
         periodic = {domain.name: mapping.space.domain_decomposition.periods}
 
-        return Geometry(domain=domain, ncells=ncells, periodic=periodic, mappings=mappings, comm=comm, mpi_dims_mask=mpi_dims_mask)
+        return Geometry(domain   = domain,
+                        pdim     = pdim,
+                        ncells   = ncells,
+                        periodic = periodic,
+                        mappings = mappings,
+                        comm     = comm,
+                        mpi_dims_mask = mpi_dims_mask)
 
     #--------------------------------------------------------------------------
     # Option [3]: discrete topological line/square/cube
@@ -238,24 +255,29 @@ class Geometry:
 
         for itr in interior:
             if not isinstance(itr, NCubeInterior):
-                msg = "Topological domain must be an NCube;"\
+                msg = "The topological domain of each patch must be an NCube;"\
                       " got {} instead.".format(type(itr))
                 raise TypeError(msg)
 
-        mappings = {itr.name:None for itr in interior}
+        mappings = {itr.name : None for itr in interior}
+        pdim = next(iter(interior)).dim
 
         if isinstance(ncells, (list, tuple)):
-            ncells = {itr.name:ncells for itr in interior}
+            ncells = {itr.name : ncells for itr in interior}
 
         if periodic is None:
-            periodic = [False]*domain.dim
+            periodic = [False] * domain.dim
 
         if isinstance(periodic, (list, tuple)):
-            periodic = {itr.name:periodic for itr in interior}
+            periodic = {itr.name : periodic for itr in interior}
 
-        geo = Geometry(domain=domain, mappings=mappings, ncells=ncells, periodic=periodic, comm=comm, mpi_dims_mask=mpi_dims_mask)
-
-        return geo
+        return Geometry(domain   = domain,
+                        pdim     = pdim,
+                        ncells   = ncells,
+                        periodic = periodic,
+                        mappings = mappings,
+                        comm     = comm,
+                        mpi_dims_mask = mpi_dims_mask)
 
     #--------------------------------------------------------------------------
     @property
@@ -443,15 +465,15 @@ class Geometry:
             patch.mapping.set_callable_mapping(F)
 
         # ...
+        self._domain      = domain
         self._ldim        = ldim
         self._pdim        = pdim
+        self._ncells      = ncells
         self._mappings    = mappings
-        self._domain      = domain
+        self._periodic    = periodic
         self._comm        = comm
         self._ddm         = ddm
         self._cart        = None
-        self._ncells      = ncells
-        self._periodic    = periodic
         self._is_parallel = comm is not None
         # ...
 
