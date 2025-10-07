@@ -321,8 +321,8 @@ class Geometry:
 
     def read(self, filename, comm=None, mpi_dims_mask=None):
         # ... check extension of the file
-        basename, ext = os.path.splitext(filename)
-        if not(ext == '.h5'):
+        _, ext = os.path.splitext(filename)
+        if ext != '.h5':
             raise ValueError('> Only h5 files are supported')
         # ...
 
@@ -351,7 +351,7 @@ class Geometry:
         # ...
         if n_patches == 0:
             h5.close()
-            raise ValueError( "Input file contains no patches." )
+            raise ValueError("Input file contains no patches.")
         # ...
 
         # ... read patches
@@ -370,9 +370,9 @@ class Geometry:
 
                 degree     = [int (p) for p in patch.attrs['degree'  ]]
                 periodic_i = [bool(b) for b in patch.attrs['periodic']]
-                knots      = [patch['knots_{}'.format(d)][:] for d in range( ldim )]
-                space_i    = [SplineSpace( degree=p, knots=k, periodic=P )
-                            for p,k,P in zip( degree, knots, periodic_i )]
+                knots      = [patch['knots_{}'.format(d)][:] for d in range(ldim)]
+                space_i    = [SplineSpace(degree=p, knots=k, periodic=P)
+                              for p, k, P in zip(degree, knots, periodic_i)]
 
                 spaces[i_patch] = space_i
 
@@ -413,26 +413,26 @@ class Geometry:
                 tensor_space = g_spaces[interiors[i_patch]]
 
                 if dtype == 'SplineMapping':
-                    mapping = SplineMapping.from_control_points( tensor_space,
-                                                                 patch['points'][..., :pdim] )
+                    mapping = SplineMapping.from_control_points(tensor_space,
+                                                                patch['points'][..., :pdim])
 
                 elif dtype == 'NurbsMapping':
-                    mapping = NurbsMapping.from_control_points_weights( tensor_space,
-                                                                        patch['points'][..., :pdim],
-                                                                        patch['weights'] )
+                    mapping = NurbsMapping.from_control_points_weights(tensor_space,
+                                                                       patch['points'][..., :pdim],
+                                                                       patch['weights'])
 
-                mapping.set_name( item['name'] )
+                mapping.set_name(item['name'])
                 mappings[patch_name] = mapping
 
-        if n_patches>1:
-            coeffs   = [[e._coeffs for e in mapping._fields] for mapping in mappings.values()]
-            spaces   = [[coeffs_ij.space for coeffs_ij in coeffs_i] for coeffs_i in coeffs]
-            spaces   = [BlockVectorSpace(*space) for space in spaces]
-            w_spaces = [sp.spaces[0] for sp in spaces]
-            space    = BlockVectorSpace(*spaces, connectivity=connectivity)
-            w_space  = BlockVectorSpace(*w_spaces, connectivity=connectivity)
-            v  = BlockVector(space)
-            w  = BlockVector(w_space)
+        # ... Update ghost regions within each patch and across interfaces
+        if n_patches > 1:
+            coeffs         = [[e.coeffs for e in mapping.fields] for mapping in mappings.values()]
+            patch_spaces   = [BlockVectorSpace(*[c_ij.space for c_ij in c_i]) for c_i in coeffs]
+            patch_spaces_w = [c_i[0].space for c_i in coeffs]
+            space          = BlockVectorSpace(*patch_spaces  , connectivity=connectivity)
+            space_w        = BlockVectorSpace(*patch_spaces_w, connectivity=connectivity)
+            v = BlockVector(space)
+            w = BlockVector(space_w)
             mapping_list = list(mappings.values())
             for i in range(n_patches):
                 for j in range(len(coeffs[i])):
@@ -454,6 +454,7 @@ class Geometry:
 
             if isinstance(mapping, NurbsMapping):
                 mapping.weights_field.coeffs.update_ghost_regions()
+        # ...
 
         # ... close the h5 file
         h5.close()
