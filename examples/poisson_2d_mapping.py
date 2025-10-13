@@ -803,6 +803,9 @@ def main(*, test_case, ncells, degree, nquads,
         # Import solution vector into new serial field
         phi, = Vnew.import_fields( 'fields.h5', 'phi' )
 
+    else:
+        Vnew = V
+
     # Compute numerical solution (and error) on refined logical grid
     [sk1, sk2], [ek1, ek2] = Vnew.local_domain
 
