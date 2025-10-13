@@ -725,10 +725,13 @@ def run_poisson_2d(*, test_case, ncells, degree,
     # =============================== VISUALIZATION ===============================#
 
     N = 10
-
+    print(mapping.get_callable_mapping())
+    V.plot_2d_decomposition(mapping.get_callable_mapping(), refine=N)
+    # if mpi_rank != 0:
+    #     return
     # Create new serial FEM space and mapping (if needed)
     if use_spline_mapping:
-        geometry = Geometry(filename='geo.h5', comm=MPI.COMM_SELF)
+        geometry = Geometry(filename='geo.h5', comm=mpi_comm)
         map_discrete = [*geometry.mappings.values()].pop()
         V = map_discrete.space
         mapping = map_discrete
@@ -744,6 +747,7 @@ def run_poisson_2d(*, test_case, ncells, degree,
 
     # Compute numerical solution (and error) on refined logical grid
     [sk1, sk2], [ek1, ek2] = V.local_domain
+    print([sk1, sk2], [ek1, ek2])
 
     eta1 = refine_array_1d(V1.breaks[sk1:ek1 + 2], N)
     eta2 = refine_array_1d(V2.breaks[sk2:ek2 + 2], N)
