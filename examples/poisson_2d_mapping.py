@@ -401,7 +401,7 @@ def assemble_matrices(V, mapping, kernel, *, nquads):
     [p1, p2] = V.coeff_space.pads
 
     # Quadrature data
-    quad_grids = V.get_quadrature_grids(*nquads)
+    quad_grids = V.get_assembly_grids(*nquads)
     [      nk1,       nk2] = [g.num_elements for g in quad_grids]
     [      nq1,       nq2] = [g.num_quad_pts for g in quad_grids]
     [  spans_1,   spans_2] = [g.spans        for g in quad_grids]
@@ -483,7 +483,7 @@ def assemble_rhs(V, mapping, f, *, nquads):
     [p1, p2] = V.coeff_space.pads
 
     # Quadrature data
-    quad_grids = V.get_quadrature_grids(*nquads)
+    quad_grids = V.get_assembly_grids(*nquads)
     [      nk1,       nk2] = [g.num_elements for g in quad_grids]
     [      nq1,       nq2] = [g.num_quad_pts for g in quad_grids]
     [  spans_1,   spans_2] = [g.spans        for g in quad_grids]
