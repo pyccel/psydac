@@ -57,7 +57,7 @@ class Laplacian:
 
 #==============================================================================
 class Poisson2D:
-    """
+    r"""
     Exact solution to the 2D Poisson equation with Dirichlet boundary
     conditions, to be employed for the method of manufactured solutions.
 
@@ -77,7 +77,7 @@ class Poisson2D:
     # ...
     @staticmethod
     def new_square(mx=1, my=1):
-        """
+        r"""
         Solve Poisson's equation on the unit square.
 
         : code
@@ -103,7 +103,7 @@ class Poisson2D:
     # ...
     @staticmethod
     def new_annulus(rmin=0.5, rmax=1.0):
-        """
+        r"""
         Solve Poisson's equation on an annulus centered at (x,y)=(0,0),
         with logical coordinates (r,theta):
 
@@ -143,7 +143,7 @@ class Poisson2D:
     # ...
     @staticmethod
     def new_circle():
-        """
+        r"""
         Solve Poisson's equation on a unit circle centered at (x,y)=(0,0),
         with logical coordinates (r,theta):
 
