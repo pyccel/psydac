@@ -94,9 +94,6 @@ for nc in nc_s:
         diag_filename = plot_dir + '/' + \
             diag_fn(source_type=source_type, source_proj=source_proj)
 
-        # to save and load matrices
-        m_load_dir = get_mat_dir(domain_name, nc, deg)
-        # to save the FEM sol
 
 
         print('\n --- --- --- --- --- --- --- --- --- --- --- --- --- --- \n')
@@ -124,7 +121,6 @@ for nc in nc_s:
             project_sol=project_sol,
             gamma_h=gamma_h,
             plot_dir=plot_dir,
-            m_load_dir=m_load_dir,
         )
 
         #

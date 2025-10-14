@@ -30,7 +30,7 @@ from psydac.api.fem_sum_form import DiscreteSumForm
 from psydac.api.fem          import DiscreteBilinearForm
 from psydac.api.fem          import DiscreteLinearForm
 from psydac.api.fem          import DiscreteFunctional
-from psydac.api.feec         import DiscreteDerham
+from psydac.api.feec         import DiscreteDeRham, DiscreteDeRhamMultipatch
 from psydac.api.glt          import DiscreteGltExpr
 from psydac.api.expr         import DiscreteExpr
 from psydac.api.equation     import DiscreteEquation
@@ -47,6 +47,7 @@ from psydac.linalg.block     import BlockVectorSpace
 __all__ = (
     'discretize',
     'discretize_derham',
+    'discretize_derham_multipatch',
     'reduce_space_degrees',
     'discretize_space',
     'discretize_domain'
@@ -147,10 +148,10 @@ def get_max_degree(*spaces):
 #==============================================================================           
 def discretize_derham(derham, domain_h, *, get_H1vec_space=False, **kwargs):
     """
-    Create a discrete De Rham sequence from a symbolic one.
+    Create a discrete de Rham sequence from a symbolic one.
     
     This function creates the discrete spaces from the symbolic ones, and then
-    creates a DiscreteDerham object from them.
+    creates a DiscreteDeRham object from them.
 
     Parameters
     ----------
@@ -168,18 +169,16 @@ def discretize_derham(derham, domain_h, *, get_H1vec_space=False, **kwargs):
 
     Returns
     -------
-    DiscreteDerham
-      The discrete De Rham sequence containing the discrete spaces, 
+    DiscreteDeRham
+      The discrete de Rham sequence containing the discrete spaces, 
       differential operators and projectors.
 
     See Also
     --------
     discretize_space
-
     """
 
     ldim    = derham.shape
-    mapping = domain_h.domain.mapping # NOTE: assuming single-patch domain!
     bases   = ['B'] + ldim * ['M']
     spaces  = [discretize_space(V, domain_h, basis=basis, **kwargs)
                for V, basis in zip(derham.spaces, bases)]
@@ -192,7 +191,48 @@ def discretize_derham(derham, domain_h, *, get_H1vec_space=False, **kwargs):
         #We still need to specify the symbolic space because of "_recursive_element_of" not implemented in sympde
         spaces.append(Xh)
 
-    return DiscreteDerham(mapping, *spaces)
+    return DiscreteDeRham(domain_h, *spaces)
+
+#==============================================================================
+def discretize_derham_multipatch(derham, domain_h, **kwargs):
+    """
+    Create a discrete multipatch de Rham sequence from a symbolic one.
+    
+    This function creates the broken discrete spaces from the symbolic ones, and then
+    creates a DiscreteDeRhamMultipatch object from them.
+
+    Parameters
+    ----------
+    derham : sympde.topology.space.Derham
+        The symbolic Derham sequence.
+
+    domain_h : Geometry
+        Discrete domain where the spaces will be discretized.
+
+    **kwargs : dict
+        Optional parameters for the space discretization.
+
+    Returns
+    -------
+    DiscreteDeRhamMultipatch
+      The discrete multipatch de Rham sequence containing the discrete spaces, 
+      differential operators and projectors.
+
+    See Also
+    --------
+    discretize_derham
+    discretize_space
+    """
+
+    ldim   = derham.shape
+    bases  = ['B'] + ldim * ['M']
+    spaces = [discretize_space(V, domain_h, basis=basis, **kwargs) \
+            for V, basis in zip(derham.spaces, bases)]
+
+    return DiscreteDeRhamMultipatch(
+        domain_h = domain_h,
+        spaces   = spaces
+    )
 
 #==============================================================================
 def reduce_space_degrees(V, Vh, *, basis='B', sequence='DR'):
@@ -535,7 +575,7 @@ def discretize_domain(domain, *, filename=None, ncells=None, periodic=None, comm
         raise ValueError("Cannot provide both 'filename' and 'ncells'")
 
     elif filename:
-        return Geometry(filename=filename, comm=comm)
+        return Geometry(filename=filename, comm=comm, mpi_dims_mask=mpi_dims_mask)
 
     elif ncells:
         return Geometry.from_topological_domain(domain, ncells, periodic=periodic, comm=comm, mpi_dims_mask=mpi_dims_mask)
@@ -631,8 +671,11 @@ def discretize(a, *args, **kwargs):
     elif isinstance(a, BasicFunctionSpace):
         return discretize_space(a, *args, **kwargs)
         
-    elif isinstance(a, Derham):
+    elif isinstance(a, Derham) and not a.V0.is_broken:
         return discretize_derham(a, *args, **kwargs)
+
+    elif isinstance(a, Derham) and a.V0.is_broken:
+        return discretize_derham_multipatch(a, *args, **kwargs)
 
     elif isinstance(a, Domain):
         return discretize_domain(a, *args, **kwargs)

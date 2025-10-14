@@ -720,11 +720,10 @@ class ScaledLinearOperator(LinearOperator):
         self._scalar = c
 
     def toarray(self):
-        return self._scalar*self._operator.toarray() 
+        return self._scalar * self._operator.toarray() 
 
     def tosparse(self):
-        from scipy.sparse import csr_matrix
-        return self._scalar*csr_matrix(self._operator.toarray())
+        return self._scalar * self._operator.tosparse().tocsr()
 
     def transpose(self, conjugate=False):
         return ScaledLinearOperator(domain=self.codomain, codomain=self.domain, c=self._scalar if not conjugate else np.conjugate(self._scalar), A=self._operator.transpose(conjugate=conjugate))
@@ -1326,7 +1325,7 @@ class MatrixFreeLinearOperator(LinearOperator):
             self._dot(v, out=out, **kwargs)
         else:
             # provided dot product does not take an out argument: we simply copy the result into out
-            self._dot(v).copy(out=out, **kwargs)
+            self._dot(v, **kwargs).copy(out=out)
                     
         return out
         

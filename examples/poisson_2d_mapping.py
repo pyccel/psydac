@@ -57,7 +57,7 @@ class Laplacian:
 
 #==============================================================================
 class Poisson2D:
-    """
+    r"""
     Exact solution to the 2D Poisson equation with Dirichlet boundary
     conditions, to be employed for the method of manufactured solutions.
 
@@ -77,7 +77,7 @@ class Poisson2D:
     # ...
     @staticmethod
     def new_square(mx=1, my=1):
-        """
+        r"""
         Solve Poisson's equation on the unit square.
 
         : code
@@ -103,7 +103,7 @@ class Poisson2D:
     # ...
     @staticmethod
     def new_annulus(rmin=0.5, rmax=1.0):
-        """
+        r"""
         Solve Poisson's equation on an annulus centered at (x,y)=(0,0),
         with logical coordinates (r,theta):
 
@@ -143,7 +143,7 @@ class Poisson2D:
     # ...
     @staticmethod
     def new_circle():
-        """
+        r"""
         Solve Poisson's equation on a unit circle centered at (x,y)=(0,0),
         with logical coordinates (r,theta):
 
@@ -781,33 +781,33 @@ def main(*, test_case, ncells, degree, nquads,
     ##########
 
     # Plot domain decomposition (master only)
-    print(model.mapping)
     V.plot_2d_decomposition(model.mapping, refine=N)
 
     # Perform other visualization using master or all processes
-    #if not distribute_viz:
+    if not distribute_viz:
 
         # Non-master processes stop here
-    #if mpi_rank != 0:
-        #return
+        if mpi_rank != 0:
+            return
 
-    # Create new serial FEM space and mapping (if needed)
-    if use_spline_mapping:
-        geometry = Geometry(filename='geo.h5', comm=mpi_comm)
-        map_discrete = [*geometry.mappings.values()].pop()
-        Vnew = map_discrete.space
-        mapping = map_discrete
+        # Create new serial FEM space and mapping (if needed)
+        if use_spline_mapping:
+            geometry = Geometry(filename='geo.h5', comm=MPI.COMM_SELF)
+            map_discrete = [*geometry.mappings.values()].pop()
+            Vnew = map_discrete.space
+            mapping = map_discrete
+        else:
+            dd = DomainDecomposition(ncells, model.periodic, comm=MPI.COMM_SELF)
+            Vnew = TensorFemSpace(dd, V1, V2)
+
+        # Import solution vector into new serial field
+        phi, = Vnew.import_fields( 'fields.h5', 'phi' )
+
     else:
-        dd = DomainDecomposition(ncells, model.periodic, comm=MPI.COMM_SELF)
-        Vnew = TensorFemSpace(dd, V1, V2)
-
-    # Import solution vector into new serial field
-    phi, = Vnew.import_fields( 'fields.h5', 'phi' )
+        Vnew = V
 
     # Compute numerical solution (and error) on refined logical grid
     [sk1, sk2], [ek1, ek2] = Vnew.local_domain
-    print(mpi_rank)
-    print([sk1, sk2], [ek1, ek2])
 
     eta1 = refine_array_1d(V1.breaks[sk1:ek1+2], N)
     eta2 = refine_array_1d(V2.breaks[sk2:ek2+2], N)
