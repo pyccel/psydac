@@ -841,7 +841,7 @@ def run_poisson_2d(*, test_case, ncells, degree,
         #  1. exact solution on exact domain
         #  2. numerical solution on mapped domain (analytical or spline)
         #  3. numerical error    on mapped domain (analytical or spline)
-        fig, axes = plt.subplots(1, 3, figsize=(12.8, 4.8))
+        fig, axes = plt.subplots(1, 3, figsize=(15, 4.8))
 
         def add_colorbar(im, ax):
             divider = make_axes_locatable(ax)
@@ -891,6 +891,7 @@ def run_poisson_2d(*, test_case, ncells, degree,
         # Show figure
         #fig.savefig(f'plots/phi_and_err_{rp_str}.png')
         fig.suptitle(f'Rank {mpi_rank}')
+        fig.tight_layout()
         fig.show()
 
     return locals()
