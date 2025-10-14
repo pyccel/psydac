@@ -621,11 +621,11 @@ def run_poisson_2d(*, test_case, ncells, degree,
     phi.coeffs.update_ghost_regions()
 
     # ref solution: projected exact solution
-    from psydac.feec.global_projectors import Projector_H1
+    from psydac.feec.global_geometric_projectors import GlobalGeometricProjectorH1
     from psydac.feec.pull_push import pull_2d_h1
     from sympy import lambdify
 
-    Pi0 = Projector_H1(V0_h)
+    Pi0 = GlobalGeometricProjectorH1(V0_h)
     # phi_ref = Pi0(model.phi_callable)
 
     # def P0_phys(f_phys, P0, domain, mappings_list):
