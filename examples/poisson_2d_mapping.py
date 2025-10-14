@@ -832,6 +832,12 @@ def main(*, test_case, ncells, degree, nquads,
         cbar = ax.get_figure().colorbar(im, cax=cax)
         return cbar
 
+    if use_spline_mapping:
+        # Recompute physical coordinates of logical grid using spline mapping
+        pcoords = np.array([[map_discrete(e1, e2) for e2 in eta2] for e1 in eta1])
+        xx = pcoords[:, :, 0]
+        yy = pcoords[:, :, 1]
+
     # Plot exact solution
     ax = axes[0]
     im = ax.contourf(xx, yy, ex, 40, cmap='jet')
@@ -843,11 +849,6 @@ def main(*, test_case, ncells, degree, nquads,
     ax.plot(xx[::N, :].T, yy[::N, :].T, 'k')
     ax.set_aspect('equal')
 
-    if use_spline_mapping:
-        # Recompute physical coordinates of logical grid using spline mapping
-        pcoords = np.array([[map_discrete(e1, e2) for e2 in eta2] for e1 in eta1])
-        xx = pcoords[:, :, 0]
-        yy = pcoords[:, :, 1]
 
     # Plot numerical solution
     ax = axes[1]

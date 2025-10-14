@@ -725,7 +725,7 @@ def run_poisson_2d(*, test_case, ncells, degree,
     # =============================== VISUALIZATION ===============================#
 
     N = 10
-    V.plot_2d_decomposition(mapping.get_callable_mapping(), refine=N)
+    V.plot_2d_decomposition(model.mapping.get_callable_mapping(), refine=N)
 
     # plot only with the root process
     distribute_viz = False
@@ -739,11 +739,10 @@ def run_poisson_2d(*, test_case, ncells, degree,
             Vnew = map_discrete.space
             mapping = map_discrete
         else:
-            dd = DomainDecomposition(ncells, model.periodic, comm=MPI.COMM_SELF)
+            dd = DomainDecomposition(ncells, [False, True], comm=MPI.COMM_SELF)
             Vnew = TensorFemSpace(dd, V1, V2)
 
         # Import solution vector into new serial field
-        phi, = Vnew.import_fields( 'fields.h5', 'phi' )
 
     else:
         Vnew = V
@@ -752,11 +751,11 @@ def run_poisson_2d(*, test_case, ncells, degree,
     phi, = Vnew.import_fields('fields.h5', 'phi')
 
     # Callable exact solution (used for plots)
-    # phi_e = model.phi_callable
-    phi_e = phi_callog
+    phi_e = model.phi_callable
+    #phi_e = phi_callog
 
     # Compute numerical solution (and error) on refined logical grid
-    [sk1, sk2], [ek1, ek2] = V.local_domain
+    [sk1, sk2], [ek1, ek2] = Vnew.local_domain
     print([sk1, sk2], [ek1, ek2])
 
     eta1 = refine_array_1d(V1.breaks[sk1:ek1 + 2], N)
@@ -768,33 +767,24 @@ def run_poisson_2d(*, test_case, ncells, degree,
     print('ex[0,0] = ', ex[0, 0])
 
     # Compute physical coordinates of logical grid
-    pcoords = np.array([[F(e1, e2) for e2 in eta2] for e1 in eta1])
+    pcoords = np.array([[map_discrete(e1, e2) for e2 in eta2] for e1 in eta1])
     xx = pcoords[:, :, 0]
     yy = pcoords[:, :, 1]
 
     plot_only_sol = False
+
+    def add_colorbar(im, ax):
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes("right", size=0.2, pad=0.2)
+        cbar = ax.get_figure().colorbar(im, cax=cax)
+        return cbar
+
 
     if plot_only_sol:
 
         # plot only numerical solution on mapped domain (analytical or spline)
         fig, axes = plt.subplots(1, 1, figsize=(4.8, 4.8))
 
-        def add_colorbar(im, ax):
-            divider = make_axes_locatable(ax)
-            cax = divider.append_axes("right", size=0.2, pad=0.2)
-            cbar = ax.get_figure().colorbar(im, cax=cax)
-            return cbar
-
-        # # Plot exact solution
-        # ax = axes[0]
-        # im = ax.contourf( xx, yy, ex, 40, cmap='jet' )
-        # add_colorbar( im, ax )
-        # ax.set_xlabel( r'$x$', rotation='horizontal' )
-        # ax.set_ylabel( r'$y$', rotation='horizontal' )
-        # ax.set_title ( r'$\phi_{ex}(x,y)$' )
-        # ax.plot( xx[:,::N]  , yy[:,::N]  , 'k' )
-        # ax.plot( xx[::N,:].T, yy[::N,:].T, 'k' )
-        # ax.set_aspect('equal')
 
         if use_spline_mapping:
             # Recompute physical coordinates of logical grid using spline mapping
@@ -843,11 +833,11 @@ def run_poisson_2d(*, test_case, ncells, degree,
         #  3. numerical error    on mapped domain (analytical or spline)
         fig, axes = plt.subplots(1, 3, figsize=(12.8, 4.8))
 
-        def add_colorbar(im, ax):
-            divider = make_axes_locatable(ax)
-            cax = divider.append_axes("right", size=0.2, pad=0.2)
-            cbar = ax.get_figure().colorbar(im, cax=cax)
-            return cbar
+        if use_spline_mapping:
+            # Recompute physical coordinates of logical grid using spline mapping
+            pcoords = np.array([[map_discrete(e1, e2) for e2 in eta2] for e1 in eta1])
+            xx = pcoords[:, :, 0]
+            yy = pcoords[:, :, 1]
 
         # Plot exact solution
         ax = axes[0]
@@ -860,11 +850,6 @@ def run_poisson_2d(*, test_case, ncells, degree,
         ax.plot(xx[::N, :].T, yy[::N, :].T, 'k')
         ax.set_aspect('equal')
 
-        if use_spline_mapping:
-            # Recompute physical coordinates of logical grid using spline mapping
-            pcoords = np.array([[map_discrete(e1, e2) for e2 in eta2] for e1 in eta1])
-            xx = pcoords[:, :, 0]
-            yy = pcoords[:, :, 1]
 
         # Plot numerical solution
         ax = axes[1]
@@ -884,8 +869,8 @@ def run_poisson_2d(*, test_case, ncells, degree,
         ax.set_xlabel(r'$x$', rotation='horizontal')
         ax.set_ylabel(r'$y$', rotation='horizontal')
         ax.set_title(r'$\phi(x,y) - \phi_{ex}(x,y)$')
-        # ax.plot( xx[:,::N]  , yy[:,::N]  , 'k' )
-        # ax.plot( xx[::N,:].T, yy[::N,:].T, 'k' )
+        ax.plot( xx[:,::N]  , yy[:,::N]  , 'k' )
+        ax.plot( xx[::N,:].T, yy[::N,:].T, 'k' )
         ax.set_aspect('equal')
 
         # Show figure
