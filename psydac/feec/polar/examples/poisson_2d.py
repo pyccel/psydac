@@ -725,21 +725,31 @@ def run_poisson_2d(*, test_case, ncells, degree,
     # =============================== VISUALIZATION ===============================#
 
     N = 10
-    print(mapping.get_callable_mapping())
     V.plot_2d_decomposition(mapping.get_callable_mapping(), refine=N)
-    # if mpi_rank != 0:
-    #     return
-    # Create new serial FEM space and mapping (if needed)
-    if use_spline_mapping:
-        geometry = Geometry(filename='geo.h5', comm=mpi_comm)
-        map_discrete = [*geometry.mappings.values()].pop()
-        V = map_discrete.space
-        mapping = map_discrete
+
+    # plot only with the root process
+    distribute_viz = False
+    if not distribute_viz:
+        # Non-master processes stop here
+        if mpi_rank != 0:
+            return
+        if use_spline_mapping:
+            geometry = Geometry(filename='geo.h5', comm=MPI.COMM_SELF)
+            map_discrete = [*geometry.mappings.values()].pop()
+            Vnew = map_discrete.space
+            mapping = map_discrete
+        else:
+            dd = DomainDecomposition(ncells, model.periodic, comm=MPI.COMM_SELF)
+            Vnew = TensorFemSpace(dd, V1, V2)
+
+        # Import solution vector into new serial field
+        phi, = Vnew.import_fields( 'fields.h5', 'phi' )
+
     else:
-        V = TensorFemSpace(domain_decomposition, V1, V2)
+        Vnew = V
 
     # Import solution vector into new serial field
-    phi, = V.import_fields('fields.h5', 'phi')
+    phi, = Vnew.import_fields('fields.h5', 'phi')
 
     # Callable exact solution (used for plots)
     # phi_e = model.phi_callable
@@ -762,7 +772,7 @@ def run_poisson_2d(*, test_case, ncells, degree,
     xx = pcoords[:, :, 0]
     yy = pcoords[:, :, 1]
 
-    plot_only_sol = True
+    plot_only_sol = False
 
     if plot_only_sol:
 
@@ -879,7 +889,8 @@ def run_poisson_2d(*, test_case, ncells, degree,
         ax.set_aspect('equal')
 
         # Show figure
-        fig.savefig(f'plots/phi_and_err_{rp_str}.png')
+        #fig.savefig(f'plots/phi_and_err_{rp_str}.png')
+        fig.suptitle(f'Rank {mpi_rank}')
         fig.show()
 
     return locals()
