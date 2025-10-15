@@ -1198,8 +1198,8 @@ class TensorFemSpace(FemSpace):
         mapping : BasicCallableMapping
             Mapping from (eta1, eta2) to (x1, x2).
 
-        refine : int, optional
-            Cell refinement along the logical dimensions eta1 and eta2. Default: 10.
+        refine : int, default=10
+            Cell refinement along the logical dimensions eta1 and eta2.
 
         fig : plt.Figure, optional
             Figure where the plot should be made. Must be None on non-root processes.
@@ -1207,8 +1207,8 @@ class TensorFemSpace(FemSpace):
         ax : plt.Axes, optional
             Axes where the plot should be made. Must be None on non-root processes.
 
-        mpi_root: int, optional
-            The rank of the MPI root process which should create the plot. Default: 0.
+        mpi_root: int, default=0
+            The rank of the MPI root process which should create the plot.
         """
         import matplotlib.pyplot as plt
         from matplotlib.patches  import Polygon, Patch
@@ -1287,19 +1287,9 @@ class TensorFemSpace(FemSpace):
         mpi_comm.Gather((ek1 + 1) * N, e1_all, root=mpi_root)
         mpi_comm.Gather((ek2 + 1) * N, e2_all, root=mpi_root)
 
-        # s1_all = mpi_comm.gather(sk1 * N, root=mpi_root)
-        # s2_all = mpi_comm.gather(sk2 * N, root=mpi_root)
-        # e1_all = mpi_comm.gather((ek1 + 1) * N, root=mpi_root)
-        # e2_all = mpi_comm.gather((ek2 + 1) * N, root=mpi_root)
-
         # Gather pcoords on root
         # TODO: use Gatherv, and NumPy arrays as buffers
         gathered_pcoords = mpi_comm.gather(pcoords, root=mpi_root)
-
-#        # Gather pcoords on root
-#        sendbuf = pcoords if mpi_rank != 0 else None
-#        recvbuf = np.empty(pcoords.size) if mpi_rank == mpi_root else None
-#        mpi_comm.Gather(sendbuf, recvbuf, root=mpi_root)
 
         #-------------------------------
         # Non-master processes stop here
@@ -1307,22 +1297,7 @@ class TensorFemSpace(FemSpace):
             return
         #-------------------------------
 
-        # Debug prints
-        for rank, gp in enumerate(gathered_pcoords):
-            print(f'rank = {rank}: gp.shape = {gp.shape}')
-            print(f'gp = {gp}')
-            print()
-
-        # Debug prints
-        print(f's1_all = {s1_all}')
-        print(f'e1_all = {e1_all}')
-        print(f's2_all = {s2_all}')
-        print(f'e2_all = {e2_all}')
-
-        #... Reconstruct global grid (refined) on root process
-#        eta1    = refine_array_1d(V1.breaks, N)
-#        eta2    = refine_array_1d(V2.breaks, N)
-#        pcoords_global = np.zeros((eta1.size, eta2.size, 2))
+        # Reconstruct global grid (refined) on root process
         global_shape   = ((V1.breaks.size - 1) * N + 1,
                           (V2.breaks.size - 1) * N + 1,
                           2)
@@ -1337,18 +1312,8 @@ class TensorFemSpace(FemSpace):
 
         xx = pcoords_global[:, :, 0]
         yy = pcoords_global[:, :, 1]
-        #...
 
-        #********************************************
-
-#        # Global grid, refined
-#        eta1    = refine_array_1d(V1.breaks, N)
-#        eta2    = refine_array_1d(V2.breaks, N)
-#        pcoords = np.array([[mapping(e1, e2) for e2 in eta2] for e1 in eta1])
-#        xx      = pcoords[:, :, 0]
-#        yy      = pcoords[:, :, 1]
-
-        # Plot decomposed domain
+        # If fig or ax are given, get one from the other. Otherwise create new ones
         if fig and ax:
             assert ax in fig.axes, "Argument `ax` must be in `fig.axes`"
         elif fig:
@@ -1358,6 +1323,7 @@ class TensorFemSpace(FemSpace):
         else:
             fig, ax = plt.subplots(1, 1)
 
+        # Plot decomposed domain
         colors  = itertools.cycle(plt.rcParams['axes.prop_cycle'].by_key()['color'])
         handles = []
         for i, (poly, color) in enumerate(zip(polys, colors)):
