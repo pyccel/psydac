@@ -1202,6 +1202,7 @@ class TensorFemSpace(FemSpace):
 
         mpi_comm = self.coeff_space.cart.comm
         mpi_rank = mpi_comm.rank
+        mpi_size = mpi_comm.size
 
         # Local grid, refined
         [sk1, sk2], [ek1, ek2] = self.local_domain
@@ -1220,18 +1221,85 @@ class TensorFemSpace(FemSpace):
         # Gather polygons on master process
         polys = mpi_comm.gather(poly)
 
+        #********************************************
+        # Gather (s1, s2, e1, e2) on root
+        # TODO: use Gather, and NumPy arrays as buffers
+        if mpi_rank == 0:
+            s1_all = np.empty(mpi_size, dtype=int)
+            s2_all = np.empty(mpi_size, dtype=int)
+            e1_all = np.empty(mpi_size, dtype=int)
+            e2_all = np.empty(mpi_size, dtype=int)
+        else:
+            s1_all = None
+            s2_all = None
+            e1_all = None
+            e2_all = None
+
+        mpi_comm.Gather(sk1 * N, s1_all, root=0)
+        mpi_comm.Gather(sk2 * N, s2_all, root=0)
+        mpi_comm.Gather((ek1 + 1) * N, e1_all, root=0)
+        mpi_comm.Gather((ek2 + 1) * N, e2_all, root=0)
+
+        # s1_all = mpi_comm.gather(sk1 * N, root=0)
+        # s2_all = mpi_comm.gather(sk2 * N, root=0)
+        # e1_all = mpi_comm.gather((ek1 + 1) * N, root=0)
+        # e2_all = mpi_comm.gather((ek2 + 1) * N, root=0)
+
+        # Gather pcoords on root
+        # TODO: use Gatherv, and NumPy arrays as buffers
+        gathered_pcoords = mpi_comm.gather(pcoords, root=0)
+
+#        # Gather pcoords on root
+#        sendbuf = pcoords if mpi_rank != 0 else None
+#        recvbuf = np.empty(pcoords.size) if mpi_rank == 0 else None
+#        mpi_comm.Gather(sendbuf, recvbuf, root=0)
+
         #-------------------------------
         # Non-master processes stop here
         if mpi_rank != 0:
             return
         #-------------------------------
 
-        # Global grid, refined
-        eta1    = refine_array_1d(V1.breaks, N)
-        eta2    = refine_array_1d(V2.breaks, N)
-        pcoords = np.array([[mapping(e1, e2) for e2 in eta2] for e1 in eta1])
-        xx      = pcoords[:, :, 0]
-        yy      = pcoords[:, :, 1]
+        # Debug prints
+        for rank, gp in enumerate(gathered_pcoords):
+            print(f'rank = {rank}: gp.shape = {gp.shape}')
+            print(f'gp = {gp}')
+            print()
+
+        # Debug prints
+        print(f's1_all = {s1_all}')
+        print(f'e1_all = {e1_all}')
+        print(f's2_all = {s2_all}')
+        print(f'e2_all = {e2_all}')
+
+        #... Reconstruct global grid (refined) on root process
+#        eta1    = refine_array_1d(V1.breaks, N)
+#        eta2    = refine_array_1d(V2.breaks, N)
+#        pcoords_global = np.zeros((eta1.size, eta2.size, 2))
+        global_shape   = ((V1.breaks.size - 1) * N + 1,
+                          (V2.breaks.size - 1) * N + 1,
+                          2)
+        pcoords_global = np.empty(global_shape)
+
+        for rank in range(mpi_comm.size):
+            s1 = s1_all[rank]
+            e1 = e1_all[rank]
+            s2 = s2_all[rank]
+            e2 = e2_all[rank]
+            pcoords_global[s1:e1+1, s2:e2+1, :] = gathered_pcoords[rank]
+
+        xx = pcoords_global[:, :, 0]
+        yy = pcoords_global[:, :, 1]
+        #...
+
+        #********************************************
+
+#        # Global grid, refined
+#        eta1    = refine_array_1d(V1.breaks, N)
+#        eta2    = refine_array_1d(V2.breaks, N)
+#        pcoords = np.array([[mapping(e1, e2) for e2 in eta2] for e1 in eta1])
+#        xx      = pcoords[:, :, 0]
+#        yy      = pcoords[:, :, 1]
 
         # Plot decomposed domain
         fig, ax = plt.subplots(1, 1)
