@@ -1184,25 +1184,72 @@ class TensorFemSpace(FemSpace):
         self._refined_space[tuple(ncells)] = new_space
 
     # ...
-    def plot_2d_decomposition(self, mapping=None, refine=10):
+    def plot_2d_decomposition(self, mapping=None, *, refine=10, fig=None, ax=None, mpi_root=0):
+        """
+        Plot decomposition of 2D TensorFemSpace w/ mapping to 2D physical space
 
+        Plot the domain decomposition across MPI processes of a 2D
+        TensorFemSpace with a mapping between 2D logical and 2D physical spaces.
+        This function must be called collectively, and only the root process will make
+        the plot. On non-root processes the arguments `fig` and `ax` must be None.
+
+        Parameters
+        ----------
+        mapping : BasicCallableMapping
+            Mapping from (eta1, eta2) to (x1, x2).
+
+        refine : int, optional
+            Cell refinement along the logical dimensions eta1 and eta2. Default: 10.
+
+        fig : plt.Figure, optional
+            Figure where the plot should be made. Must be None on non-root processes.
+
+        ax : plt.Axes, optional
+            Axes where the plot should be made. Must be None on non-root processes.
+
+        mpi_root: int, optional
+            The rank of the MPI root process which should create the plot. Default: 0.
+        """
         import matplotlib.pyplot as plt
         from matplotlib.patches  import Polygon, Patch
+        from sympde.topology.mapping import BasicCallableMapping
         from psydac.utilities.utils import refine_array_1d
 
+        # Sanity check
+        assert self.ldim == 2, "Function only works in 2D"
+
+        # Check mapping
         if mapping is None:
             mapping = lambda eta: eta
         else:
-            assert mapping.ldim == self.ldim == 2
-            assert mapping.pdim == self.ldim == 2
+            assert isinstance(mapping, BasicCallableMapping)
+            assert mapping.ldim == 2, "Domain of argument `mapping` must be 2D"
+            assert mapping.pdim == 2, "Codomain of argument `mapping` must be 2D"
 
-        assert refine >= 1
-        N = int(refine)
-        V1, V2 = self.spaces
+        # Check refine argument
+        assert isinstance(refine, int), f"Argument `refine` must be int, got {type(refine)} instead"
+        assert refine >= 1, f"Argument `refine` must be >= 1, got {refine} instead"
 
+        # Extract information about MPI communicator
         mpi_comm = self.coeff_space.cart.comm
         mpi_rank = mpi_comm.rank
         mpi_size = mpi_comm.size
+
+        # Check mpi_root argument
+        assert isinstance(mpi_root, int), f"Argument `mpi_root` must be int, got {type(mpi_root)} instead"
+        assert mpi_root >= 0, f"Argument `mpi_root` must be >= 0, got {mpi_root} instead"
+        assert mpi_root < mpi_size, f"Argument `mpi_root` must be smaller than communicator size ({mpi_size}), got {mpi_root} instead"
+
+        # Check fig and ax arguments
+        if mpi_rank == mpi_root:
+            assert isinstance(fig, plt.Figure) or fig is None, f"Argument `fig` must be matplotlib Figure, got {type(fig)} instead"
+            assert isinstance(ax, plt.Axes) or ax is None, f"Argument `ax` must be matplotlib Axes, got {type(ax)} instead"
+        else:
+            assert fig is None, f"Argument `fig` must be None on non-root process with rank {mpi_rank}"
+            assert ax is None, f"Argument `ax` must be None on non-root process with rank {mpi_rank}"
+
+        N = refine
+        V1, V2 = self.spaces
 
         # Local grid, refined
         [sk1, sk2], [ek1, ek2] = self.local_domain
@@ -1224,7 +1271,7 @@ class TensorFemSpace(FemSpace):
         #********************************************
         # Gather (s1, s2, e1, e2) on root
         # TODO: use Gather, and NumPy arrays as buffers
-        if mpi_rank == 0:
+        if mpi_rank == mpi_root:
             s1_all = np.empty(mpi_size, dtype=int)
             s2_all = np.empty(mpi_size, dtype=int)
             e1_all = np.empty(mpi_size, dtype=int)
@@ -1235,28 +1282,28 @@ class TensorFemSpace(FemSpace):
             e1_all = None
             e2_all = None
 
-        mpi_comm.Gather(sk1 * N, s1_all, root=0)
-        mpi_comm.Gather(sk2 * N, s2_all, root=0)
-        mpi_comm.Gather((ek1 + 1) * N, e1_all, root=0)
-        mpi_comm.Gather((ek2 + 1) * N, e2_all, root=0)
+        mpi_comm.Gather(sk1 * N, s1_all, root=mpi_root)
+        mpi_comm.Gather(sk2 * N, s2_all, root=mpi_root)
+        mpi_comm.Gather((ek1 + 1) * N, e1_all, root=mpi_root)
+        mpi_comm.Gather((ek2 + 1) * N, e2_all, root=mpi_root)
 
-        # s1_all = mpi_comm.gather(sk1 * N, root=0)
-        # s2_all = mpi_comm.gather(sk2 * N, root=0)
-        # e1_all = mpi_comm.gather((ek1 + 1) * N, root=0)
-        # e2_all = mpi_comm.gather((ek2 + 1) * N, root=0)
+        # s1_all = mpi_comm.gather(sk1 * N, root=mpi_root)
+        # s2_all = mpi_comm.gather(sk2 * N, root=mpi_root)
+        # e1_all = mpi_comm.gather((ek1 + 1) * N, root=mpi_root)
+        # e2_all = mpi_comm.gather((ek2 + 1) * N, root=mpi_root)
 
         # Gather pcoords on root
         # TODO: use Gatherv, and NumPy arrays as buffers
-        gathered_pcoords = mpi_comm.gather(pcoords, root=0)
+        gathered_pcoords = mpi_comm.gather(pcoords, root=mpi_root)
 
 #        # Gather pcoords on root
 #        sendbuf = pcoords if mpi_rank != 0 else None
-#        recvbuf = np.empty(pcoords.size) if mpi_rank == 0 else None
-#        mpi_comm.Gather(sendbuf, recvbuf, root=0)
+#        recvbuf = np.empty(pcoords.size) if mpi_rank == mpi_root else None
+#        mpi_comm.Gather(sendbuf, recvbuf, root=mpi_root)
 
         #-------------------------------
         # Non-master processes stop here
-        if mpi_rank != 0:
+        if mpi_rank != mpi_root:
             return
         #-------------------------------
 
@@ -1302,7 +1349,15 @@ class TensorFemSpace(FemSpace):
 #        yy      = pcoords[:, :, 1]
 
         # Plot decomposed domain
-        fig, ax = plt.subplots(1, 1)
+        if fig and ax:
+            assert ax in fig.axes, "Argument `ax` must be in `fig.axes`"
+        elif fig:
+            ax = fig.gca()
+        elif ax:
+            fig = ax.figure
+        else:
+            fig, ax = plt.subplots(1, 1)
+
         colors  = itertools.cycle(plt.rcParams['axes.prop_cycle'].by_key()['color'])
         handles = []
         for i, (poly, color) in enumerate(zip(polys, colors)):
