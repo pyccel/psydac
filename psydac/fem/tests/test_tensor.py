@@ -11,8 +11,14 @@ def test_plot_2d_decomposition():
     mpi_comm = MPI.COMM_WORLD
 
     # 2D spline mapping and tensor FEM space (distributed)
-    F, V = discrete_mapping('target', ncells=(5, 10), degree=(2, 2),
+    F, V = discrete_mapping('target', ncells=(6, 9), degree=(2, 2),
                             comm=mpi_comm, return_space=True)
 
     # Plot 2D decomposition
-    V.plot_2d_decomposition(F, refine=10)
+    V.plot_2d_decomposition(F, refine=5)
+
+#==============================================================================
+if __name__ == '__main__':
+    test_plot_2d_decomposition()
+    import matplotlib.pyplot as plt
+    plt.show()
