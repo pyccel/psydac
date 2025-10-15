@@ -73,7 +73,7 @@ class Laplacian:
 
 # ============================= EXACT SOLUTION ================================#
 class Poisson2D:
-    """
+    r"""
     Exact solution to the 2D Poisson equation with Dirichlet boundary
     conditions, to be employed for the method of manufactured solutions.
 
@@ -102,7 +102,7 @@ class Poisson2D:
     # ...
     @staticmethod
     def disk_domain(R=2.0, polar_mapping=False, shift_D=0.0, use_logical_sol=False):
-        """
+        r"""
         Solve Poisson's equation on a disk of radius R centered at (x,y) = (0, 0),
         with logical coordinates (s, theta):
 
@@ -153,7 +153,7 @@ class Poisson2D:
     # ...
     @staticmethod
     def target_domain():
-        """
+        r"""
         Solve Poisson's equation on a polar domain, with logical coordinates (s, theta):
 
         - The radial coordinate s belongs to the interval [0, 1];
@@ -207,7 +207,7 @@ class Poisson2D:
     # ...
     @staticmethod
     def czarny_domain():
-        """
+        r"""
         Solve Poisson's equation on a czarny domain, with logical coordinates (s, theta):
 
         - The radial coordinate s belongs to the interval [0, 1];
@@ -831,7 +831,7 @@ def run_poisson_2d(*, test_case, ncells, degree,
         #  1. exact solution on exact domain
         #  2. numerical solution on mapped domain (analytical or spline)
         #  3. numerical error    on mapped domain (analytical or spline)
-        fig, axes = plt.subplots(1, 3, figsize=(12.8, 4.8))
+        fig, axes = plt.subplots(1, 3, figsize=(15, 4.8))
 
         if use_spline_mapping:
             # Recompute physical coordinates of logical grid using spline mapping
@@ -876,6 +876,7 @@ def run_poisson_2d(*, test_case, ncells, degree,
         # Show figure
         #fig.savefig(f'plots/phi_and_err_{rp_str}.png')
         fig.suptitle(f'Rank {mpi_rank}')
+        fig.tight_layout()
         fig.show()
 
     return locals()
