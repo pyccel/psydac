@@ -28,8 +28,8 @@ def test_plot_2d_decomposition(kind):
     else:
         Omega = Square('Omega', bounds1=(0, 1), bounds2=(0, 2 * np.pi))
         params = dict(c1=0, c2=0, k=0.3, D=0.2)
-        map = TargetMapping('M', dim=2, **params)
-        domain = map(Omega)
+        M = TargetMapping('M', dim=2, **params)
+        domain = M(Omega)
         V = ScalarFunctionSpace('V', domain)
 
         # 2D Geometry object
@@ -40,7 +40,7 @@ def test_plot_2d_decomposition(kind):
         Vh = discretize(V, domain_h, degree=degree)
 
         # 2D callable mapping (analytical)
-        F = map.get_callable_mapping()
+        F = M.get_callable_mapping()
 
     # Plot 2D decomposition
     Vh.plot_2d_decomposition(F, refine=5)
