@@ -1268,9 +1268,7 @@ class TensorFemSpace(FemSpace):
         # Gather polygons on master process
         polys = mpi_comm.gather(poly)
 
-        #********************************************
         # Gather (s1, s2, e1, e2) on root
-        # TODO: use Gather, and NumPy arrays as buffers
         if mpi_rank == mpi_root:
             s1_all = np.empty(mpi_size, dtype=int)
             s2_all = np.empty(mpi_size, dtype=int)
