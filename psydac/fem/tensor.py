@@ -1268,13 +1268,24 @@ class TensorFemSpace(FemSpace):
         # Gather polygons on master process
         polys = mpi_comm.gather(poly)
 
-        # Gather all refined subdomains (s1, s2, e1, e2) on root
-        sk1_all, sk2_all = self.global_element_starts
-        ek1_all, ek2_all = self.global_element_ends
-        s1_all = [int(sk1) * N for sk1 in sk1_all]
-        s2_all = [int(sk2) * N for sk2 in sk2_all]
-        e1_all = [int(ek1 + 1) * N for ek1 in ek1_all]
-        e2_all = [int(ek2 + 1) * N for ek2 in ek2_all]
+        #********************************************
+        # Gather (s1, s2, e1, e2) on root
+        # TODO: use Gather, and NumPy arrays as buffers
+        if mpi_rank == mpi_root:
+            s1_all = np.empty(mpi_size, dtype=int)
+            s2_all = np.empty(mpi_size, dtype=int)
+            e1_all = np.empty(mpi_size, dtype=int)
+            e2_all = np.empty(mpi_size, dtype=int)
+        else:
+            s1_all = None
+            s2_all = None
+            e1_all = None
+            e2_all = None
+
+        mpi_comm.Gather(sk1 * N, s1_all, root=mpi_root)
+        mpi_comm.Gather(sk2 * N, s2_all, root=mpi_root)
+        mpi_comm.Gather((ek1 + 1) * N, e1_all, root=mpi_root)
+        mpi_comm.Gather((ek2 + 1) * N, e2_all, root=mpi_root)
 
         # Gather pcoords on root
         # TODO: use Gatherv, and NumPy arrays as buffers
