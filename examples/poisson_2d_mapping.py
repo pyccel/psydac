@@ -781,7 +781,7 @@ def main(*, test_case, ncells, degree, nquads,
     ##########
 
     # Plot domain decomposition (master only)
-    V.plot_2d_decomposition(model.mapping, refine=N)
+    V.plot_2d_decomposition(mapping, refine=N)
 
     # Perform other visualization using master or all processes
     if not distribute_viz:
