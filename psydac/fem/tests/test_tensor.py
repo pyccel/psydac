@@ -1,6 +1,9 @@
+import os
+
 import pytest
 import numpy as np
 import matplotlib.pyplot as plt
+from PIL import Image
 from mpi4py import MPI
 
 from sympde.topology.domain import Square
@@ -10,6 +13,99 @@ from sympde.topology.analytical_mapping import TargetMapping
 from psydac.mapping.discrete_gallery import discrete_mapping
 from psydac.api.discretization import discretize
 
+
+#==============================================================================
+# Machinery for comparing a PNG image with a reference on the root MPI process
+#==============================================================================
+
+def similar_images(file1, file2, tolerance=0.01):
+    """
+    Compare two PNG images and check if they are similar within tolerance.
+
+    Parameters
+    ----------
+    file1 : str
+        Path to first PNG file.
+    file2 : str
+        Path to second PNG file.
+    tolerance: float
+        Maximum allowed average difference between pixel values (0-1).
+
+    Returns
+    -------
+    bool :
+        True if images are similar enough, False otherwise.
+    """
+    # Load images and convert to numpy arrays
+    img1 = np.array(Image.open(file1)).astype(float)
+    img2 = np.array(Image.open(file2)).astype(float)
+
+    # Check dimensions match
+    if img1.shape != img2.shape:
+        return False
+
+    # Normalize pixel values to 0-1
+    img1 = img1 / 255.0
+    img2 = img2 / 255.0
+
+    # Calculate mean absolute difference
+    diff = np.mean(np.abs(img1 - img2))
+
+    return diff <= tolerance
+
+
+def compare_figure_to_reference(fig, filename, *, dpi, tol, folder, comm, root):
+    """
+    Compare a matplotlib figure to a reference PNG file on the root MPI process.
+
+    Parameters
+    ----------
+    fig : matplotlib.figure.Figure
+        The figure to compare with the reference image.
+    filename : str
+        Name of the PNG file to save and compare.
+    dpi : int
+        Dots per inch resolution for saving the figure.
+    tol : float
+        Tolerance for image comparison (between 0 and 1).
+    folder : str
+        Path to the folder containing reference images.
+    comm : mpi4py.MPI.Comm
+        MPI communicator object.
+    root : int
+        Rank of the MPI process that should perform the comparison.
+
+    Returns
+    -------
+    bool
+        True if the images are similar enough within the tolerance,
+        False otherwise. The result is broadcast to all MPI processes.
+
+    Notes
+    -----
+    The function saves the figure to a temporary file, compares it with
+    the reference image, and then removes the temporary file. Only the
+    root process performs the actual comparison, but the result is
+    broadcast to all processes.
+    """
+    if comm.rank == root:
+        file1 = filename
+        file2 = os.path.join(folder, filename)
+        fig.savefig(file1, dpi=dpi)
+        close_enough = similar_images(file1, file2, tol)
+        # Clean up the temporary file
+        os.remove(file1)
+    else:
+        close_enough = None
+
+    # Broadcast the boolean result from the root process to all others
+    close_enough = comm.bcast(close_enough, root=root)
+
+    # All MPI processes return the same result
+    return close_enough
+
+#==============================================================================
+# Unit tests
 #==============================================================================
 @pytest.mark.parallel
 @pytest.mark.parametrize('root', ['first', 'last'])
@@ -56,13 +152,23 @@ def test_plot_2d_decomposition(kind, root):
     else:
         raise ValueError(f'kind argument has wrong value {kind}')
 
+    # Name of temporary image file to be compared with reference one
+    filename = f'decomp_{mpi_size}_procs.png'
+
+    # Relative tolerance for image comparison
+    RTOL = 0.01
+
     # Plot 2D decomposition
     # [1] Run without passing (fig, ax)
-    Vh.plot_2d_decomposition(F, refine=5, mpi_root=mpi_root)
+    fig = Vh.plot_2d_decomposition(F, refine=5, mpi_root=mpi_root)
+    assert compare_figure_to_reference(fig, filename, folder='refs', dpi=100,
+                                       tol=RTOL, comm=mpi_comm, root=mpi_root)
 
     # [2] Run with given (fig, ax), compatible
     fig2, ax2 = plt.subplots(1, 1) if mpi_rank == mpi_root else (None, None)
     Vh.plot_2d_decomposition(F, refine=5, fig=fig2, ax=ax2, mpi_root=mpi_root)
+    assert compare_figure_to_reference(fig2, filename, folder='refs', dpi=100,
+                                       tol=RTOL, comm=mpi_comm, root=mpi_root)
 
     # [3] Run with given (fig, ax), incompatible
     if mpi_rank == mpi_root:
