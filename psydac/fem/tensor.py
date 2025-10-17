@@ -1209,6 +1209,11 @@ class TensorFemSpace(FemSpace):
 
         mpi_root: int, default=0
             The rank of the MPI root process which should create the plot.
+
+        Returns
+        -------
+        plt.Figure
+            Figure where the plot was made. Coincides with `fig` if provided.
         """
         import matplotlib.pyplot as plt
         from matplotlib.patches  import Polygon, Patch
@@ -1340,7 +1345,8 @@ class TensorFemSpace(FemSpace):
         ax.set_aspect('equal')
         ax.legend(handles=handles, bbox_to_anchor=(1.05, 1), loc=2)
         fig.tight_layout()
-        fig.show()
+
+        return fig
 
     # ...
     def __str__(self):
