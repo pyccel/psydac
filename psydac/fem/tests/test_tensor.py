@@ -65,12 +65,14 @@ def test_plot_2d_decomposition(kind, root):
     Vh.plot_2d_decomposition(F, refine=5, fig=fig2, ax=ax2, mpi_root=mpi_root)
 
     # [3] Run with given (fig, ax), incompatible
-    fig3, ax3 = plt.subplots(1, 1) if mpi_rank == mpi_root else (None, None)
-    with pytest.raises(AssertionError) as excinfo:
-        Vh.plot_2d_decomposition(F, refine=5, fig=fig2, ax=ax3, mpi_root=mpi_root)
-    assert "Argument `ax` must be in `fig.axes`" in str(excinfo.value)
     if mpi_rank == mpi_root:
+        fig3, ax3 = plt.subplots(1, 1)
+        with pytest.raises(AssertionError) as excinfo:
+            Vh.plot_2d_decomposition(F, refine=5, fig=fig2, ax=ax3, mpi_root=mpi_root)
+        assert "Argument `ax` must be in `fig.axes`" in str(excinfo.value)
         plt.close(fig3)
+    else:
+        Vh.plot_2d_decomposition(F, refine=5, fig=None, ax=None, mpi_root=mpi_root)
 
 #==============================================================================
 if __name__ == '__main__':
