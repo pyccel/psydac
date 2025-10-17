@@ -1266,7 +1266,7 @@ class TensorFemSpace(FemSpace):
         poly = Polygon(xy, edgecolor='None')
 
         # Gather polygons on master process
-        polys = mpi_comm.gather(poly)
+        polys = mpi_comm.gather(poly, root=mpi_root)
 
         # Gather (s1, s2, e1, e2) on root
         if mpi_rank == mpi_root:
