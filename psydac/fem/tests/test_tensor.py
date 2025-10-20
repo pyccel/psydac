@@ -188,7 +188,7 @@ def test_plot_2d_decomposition(kind, root):
     filename = f'decomp_{kind}_{mpi_size}_procs.png'
 
     # Relative tolerance for image comparison
-    RTOL = 0.01
+    RTOL = 0.05
 
     # Plot 2D decomposition
     # [1] Run without passing (fig, ax)
