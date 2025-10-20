@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 import pytest
 import numpy as np
@@ -69,7 +70,7 @@ def compare_figure_to_reference(fig, filename, *, dpi, tol, folder, comm, root):
     tol : float
         Tolerance for image comparison (between 0 and 1).
     folder : str
-        Path to the folder containing reference images.
+        Name of the folder containing reference images.
     comm : mpi4py.MPI.Comm
         MPI communicator object.
     root : int
@@ -89,8 +90,9 @@ def compare_figure_to_reference(fig, filename, *, dpi, tol, folder, comm, root):
     broadcast to all processes.
     """
     if comm.rank == root:
-        file1 = filename
-        file2 = os.path.join(folder, filename)
+        test_dir = Path(__file__).parent.absolute()
+        file1 = test_dir / filename
+        file2 = test_dir / folder / filename
         fig.savefig(file1, dpi=dpi)
         close_enough = similar_images(file1, file2, tol)
         # Clean up the temporary file
