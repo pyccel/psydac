@@ -1,7 +1,8 @@
 # coding: utf-8
 # Copyright 2018 Yaman Güçlü
 
-from mpi4py import MPI
+from psydac.ddm.mpi import mpi as MPI
+    
 import numpy as np
 import pytest
 import time

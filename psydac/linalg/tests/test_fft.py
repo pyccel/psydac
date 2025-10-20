@@ -1,8 +1,8 @@
 import pytest
 import scipy.fft as scifft
 import numpy as np
-from mpi4py import MPI
 
+from psydac.ddm.mpi import mpi as MPI
 from psydac.linalg.fft import *
 from psydac.ddm.cart               import DomainDecomposition, CartDecomposition
 from psydac.linalg.stencil import StencilVector

@@ -1,6 +1,6 @@
 # coding: utf-8
 
-from mpi4py import MPI
+from psydac.ddm.mpi import mpi as MPI
 
 from .cart import InterfaceCartDecomposition, find_mpi_type
 

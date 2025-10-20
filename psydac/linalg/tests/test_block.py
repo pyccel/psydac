@@ -5,6 +5,7 @@ import numpy as np
 from scipy.sparse import csr_matrix
 from random import random, seed
 
+from psydac.ddm.mpi import mpi as MPI
 from psydac.linalg.direct_solvers import SparseSolver
 from psydac.linalg.stencil        import StencilVectorSpace, StencilVector, StencilMatrix
 from psydac.linalg.block          import BlockVectorSpace, BlockVector
@@ -999,8 +1000,6 @@ def test_block_linear_operator_parallel_dot( dtype, n1, n2, p1, p2, P1, P2 ):
     # set seed for reproducibility
     seed(n1*n2*p1*p2)
 
-    from mpi4py       import MPI
-
     comm = MPI.COMM_WORLD
     D = DomainDecomposition([n1,n2], periods=[P1,P2], comm=comm)
 
@@ -1130,7 +1129,6 @@ def test_block_linear_operator_parallel_dot( dtype, n1, n2, p1, p2, P1, P2 ):
 def test_block_vector_2d_parallel_array_to_psydac(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
     npts = [n1, n2]   
 
-    from mpi4py import MPI
     comm = MPI.COMM_WORLD
 
     # Create domain decomposition
@@ -1221,7 +1219,6 @@ def test_block_vector_2d_parallel_topetsc( dtype, n1, n2, p1, p2, P1, P2 ):
     # set seed for reproducibility
     seed(n1*n2*p1*p2)
 
-    from mpi4py import MPI
     comm = MPI.COMM_WORLD
 
     D = DomainDecomposition([n1,n2], periods=[P1,P2], comm=comm)
@@ -1269,7 +1266,6 @@ def test_block_vector_2d_parallel_topetsc( dtype, n1, n2, p1, p2, P1, P2 ):
 def test_block_linear_operator_1d_parallel_topetsc( dtype, n1, p1, P1):
     # set seed for reproducibility
     seed(n1*p1)
-    from mpi4py import MPI
 
     D = DomainDecomposition([n1], periods=[P1], comm=MPI.COMM_WORLD)
 
@@ -1343,7 +1339,6 @@ def test_block_linear_operator_1d_parallel_topetsc( dtype, n1, p1, P1):
 def test_block_linear_operator_2d_parallel_topetsc( dtype, n1, n2, p1, p2, P1, P2):
     # set seed for reproducibility
     seed(n1*n2*p1*p2)
-    from mpi4py import MPI
     comm = MPI.COMM_WORLD
 
     D = DomainDecomposition([n1,n2], periods=[P1,P2], comm=comm)
@@ -1427,9 +1422,7 @@ def test_block_matrix_operator_parallel_dot_backend( dtype, n1, n2, p1, p2, P1, 
     else:
         factor = 1
     # set seed for reproducibility
-
-    from mpi4py       import MPI
-
+    
     comm = MPI.COMM_WORLD
     D = DomainDecomposition([n1,n2], periods=[P1,P2], comm=comm)
 

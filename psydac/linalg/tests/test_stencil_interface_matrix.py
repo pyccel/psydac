@@ -226,7 +226,7 @@ def test_stencil_interface_matrix_3d_serial_init(dtype, n1, n2, n3, p1, p2, p3, 
 @pytest.mark.parallel
 def test_stencil_interface_matrix_2d_parallel_dot(n1, n2, p1, p2, expected):
 
-    from mpi4py              import MPI
+    from psydac.ddm.mpi import mpi as MPI
     from psydac.ddm.cart     import MultiPatchDomainDecomposition, CartDecomposition, create_interfaces_cart
     from psydac.linalg.block import BlockVectorSpace, BlockVector, BlockLinearOperator
 

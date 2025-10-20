@@ -1,6 +1,7 @@
 import pytest
 import numpy as np
 
+from psydac.ddm.mpi import mpi as MPI
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector
 from psydac.ddm.cart import DomainDecomposition, CartDecomposition, find_mpi_type
 
@@ -279,8 +280,6 @@ def test_stencil_vector_space_2D_serial_set_interface(dtype, n1, n2, p1, p2, s1,
 
 def test_stencil_vector_space_1d_parallel_init(dtype, n1, p1, s1, P1):
 
-    from mpi4py import MPI
-
     comm = MPI.COMM_WORLD
     # Create domain decomposition
     D = DomainDecomposition([n1], periods=[P1], comm=comm)
@@ -325,8 +324,6 @@ def test_stencil_vector_space_1d_parallel_init(dtype, n1, p1, s1, P1):
 @pytest.mark.parallel
 
 def test_stencil_vector_space_2d_parallel_init(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
-
-    from mpi4py import MPI
 
     comm = MPI.COMM_WORLD
     # Create domain decomposition
@@ -373,8 +370,6 @@ def test_stencil_vector_space_2d_parallel_init(dtype, n1, n2, p1, p2, s1, s2, P1
 
 def test_stencil_vector_space_3d_parallel_init(dtype, n1, n2, n3, p1, p2, p3, s1, s2, s3, P1=True, P2=False, P3=True):
 
-    from mpi4py import MPI
-
     comm = MPI.COMM_WORLD
     # Create domain decomposition
     D = DomainDecomposition([n1, n2, n3], periods=[P1, P2, P3], comm=comm)
@@ -412,8 +407,6 @@ def test_stencil_vector_space_3d_parallel_init(dtype, n1, n2, n3, p1, p2, p3, s1
 @pytest.mark.parallel
 
 def test_stencil_vector_space_2D_parallel_parent(dtype, n1, n2, P1=True, P2=False):
-
-    from mpi4py import MPI
 
     comm = MPI.COMM_WORLD
     # Create domain decomposition

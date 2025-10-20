@@ -9,8 +9,8 @@ import numpy as np
 
 from types        import MappingProxyType
 from scipy.sparse import coo_matrix, diags as sp_diags
-from mpi4py       import MPI
 
+from psydac.ddm.mpi import mpi as MPI
 from psydac.linalg.basic  import VectorSpace, Vector, LinearOperator
 from psydac.ddm.cart      import find_mpi_type, CartDecomposition, InterfaceCartDecomposition
 from psydac.ddm.utilities import get_data_exchanger

@@ -328,7 +328,7 @@ jobs:
       #       f = h5py.File('parallel_test.hdf5', 'w', driver='mpio', comm=MPI.COMM_WORLD)
       #       print(f)"
 
-      - name: Install project
+      - name: Install project without mpi
         run: |
           python -m pip install ".[test]" --no-cache-dir
           python -m pip freeze
@@ -362,15 +362,20 @@ jobs:
         run: |
           python -m pytest -n auto --pyargs psydac -m "not parallel and not petsc"
 
-      - name: Run MPI tests with Pytest
-        working-directory: ./pytest
-        run: |
-          python mpi_tester.py --mpirun="mpiexec -n 4 ${MPI_OPTS}" --pyargs psydac -m "parallel and not petsc"
-
       - name: Run single-process PETSc tests with Pytest
         working-directory: ./pytest
         run: |
           python -m pytest -n auto --pyargs psydac -m "not parallel and petsc"
+
+      - name: Install project with mpi
+        run: |
+          python -m pip install ".[mpi]" 
+          python -m pip freeze
+
+      - name: Run MPI tests with Pytest
+        working-directory: ./pytest
+        run: |
+          python mpi_tester.py --mpirun="mpiexec -n 4 ${MPI_OPTS}" --pyargs psydac -m "parallel and not petsc"
 
       - name: Run MPI PETSc tests with Pytest
         working-directory: ./pytest
@@ -381,6 +386,7 @@ jobs:
         if: always()
         run: |
           rm -rf pytest
+  
   test_struphy:
     runs-on: ${{ matrix.os }}
     strategy:
@@ -469,7 +475,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
 
-      - name: Install project
+      - name: Install project without mpi
         run: |
           python -m pip install ".[test]" --no-cache-dir
           python -m pip freeze
@@ -479,16 +485,17 @@ jobs:
           echo "PSYDAC_DIR=$GITHUB_WORKSPACE" >> $GITHUB_ENV
           echo "STRUPHY_DIR=$GITHUB_WORKSPACE/struphy" >> $GITHUB_ENV
 
-      - name: Clone struphy from GitLab #TODO: Set branch to devel
+      - name: Clone struphy from GitLab
         run: |
           git clone https://gitlab.mpcdf.mpg.de/struphy/struphy.git $STRUPHY_DIR
       
-      - name: Install struphy
+      - name: Install struphy without mpi #TODO: Set branch to devel
         working-directory: ${{ env.STRUPHY_DIR }}
         run: |
           echo "Psydac location for this branch"
           pip show psydac
           pip uninstall psydac -y
+          git checkout 467-no-mpi
           python -m pip install ".[phys]" --no-cache-dir
           echo "Psydac location after installing struphy"
           pip show psydac
@@ -519,6 +526,16 @@ jobs:
         working-directory: ${{ env.STRUPHY_DIR }}
         run: |
             struphy test models --fast
+
+      - name: Install mpi4py
+        working-directory: ${{ env.STRUPHY_DIR }}
+        run: |
+            pip install -U mpi4py
+
+      - name: Run struphy unit tests with mpi
+        working-directory: ${{ env.STRUPHY_DIR }}
+        run: |
+            struphy test unit --mpi 2
 
       - name: Remove test directory
         if: always()

@@ -3,6 +3,7 @@
 import pytest
 import numpy as np
 
+from psydac.ddm.mpi import mpi as MPI
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
 from psydac.linalg.utilities import array_to_psydac, petsc_to_psydac
 from psydac.ddm.cart import DomainDecomposition, CartDecomposition
@@ -528,7 +529,6 @@ def test_stencil_vector_2d_serial_update_ghost_region_interior(dtype, n1, n2, p1
 @pytest.mark.parallel
 def test_stencil_vector_1d_parallel_init(dtype, n1, p1, s1, P1=True):
 
-    from mpi4py import MPI
     comm = MPI.COMM_WORLD
 
     # Create domain decomposition
@@ -564,7 +564,6 @@ def test_stencil_vector_1d_parallel_init(dtype, n1, p1, s1, P1=True):
 @pytest.mark.parallel
 def test_stencil_vector_2d_parallel_init(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=False):
 
-    from mpi4py import MPI
     comm = MPI.COMM_WORLD
 
     # Create domain decomposition
@@ -602,7 +601,7 @@ def test_stencil_vector_2d_parallel_init(dtype, n1, n2, p1, p2, s1, s2, P1=True,
 @pytest.mark.parallel
 @pytest.mark.petsc
 def test_stencil_vector_2d_parallel_topetsc(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
-    from mpi4py import MPI
+
     comm = MPI.COMM_WORLD
 
     # Create domain decomposition
@@ -645,7 +644,7 @@ def test_stencil_vector_2d_parallel_topetsc(dtype, n1, n2, p1, p2, s1, s2, P1, P
 @pytest.mark.parallel
 @pytest.mark.petsc
 def test_stencil_vector_1d_parallel_topetsc(dtype, n1, p1, s1, P1):
-    from mpi4py import MPI
+
     comm = MPI.COMM_WORLD
 
     # Create domain decomposition
@@ -696,7 +695,7 @@ def test_stencil_vector_1d_parallel_topetsc(dtype, n1, p1, s1, P1):
 @pytest.mark.parallel
 @pytest.mark.petsc
 def test_stencil_vector_3d_parallel_topetsc(dtype, n1, n2, n3, p1, p2, p3, s1, s2, s3, P1, P2, P3):
-    from mpi4py import MPI
+
     comm = MPI.COMM_WORLD
 
     # Create domain decomposition
@@ -746,7 +745,6 @@ def test_stencil_vector_3d_parallel_topetsc(dtype, n1, n2, n3, p1, p2, p3, s1, s
 @pytest.mark.parallel
 def test_stencil_vector_3d_parallel_init(dtype, n1, n2, n3, p1, p2, p3, s1, s2, s3, P1=True, P2=False, P3=True):
 
-    from mpi4py import MPI
     comm = MPI.COMM_WORLD
 
     # Create domain decomposition
@@ -783,8 +781,6 @@ def test_stencil_vector_3d_parallel_init(dtype, n1, n2, n3, p1, p2, p3, s1, s2, 
 @pytest.mark.parallel
 def test_stencil_vector_2d_parallel_toarray(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=False):
     # Create domain decomposition
-    from mpi4py import MPI
-
     comm = MPI.COMM_WORLD
     D = DomainDecomposition([n1, n2], periods=[P1, P2], comm=comm)
 
@@ -853,7 +849,6 @@ def test_stencil_vector_2d_parallel_toarray(dtype, n1, n2, p1, p2, s1, s2, P1=Tr
 def test_stencil_vector_2d_parallel_array_to_psydac(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
     npts = [n1, n2]   
 
-    from mpi4py import MPI
     comm = MPI.COMM_WORLD
 
     # Create domain decomposition
@@ -909,7 +904,6 @@ def test_stencil_vector_2d_parallel_array_to_psydac(dtype, n1, n2, p1, p2, s1, s
 @pytest.mark.parametrize('s2', [1])
 @pytest.mark.parallel
 def test_stencil_vector_2d_parallel_dot(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=False):
-    from mpi4py import MPI
 
     comm = MPI.COMM_WORLD
     # Create domain decomposition
@@ -977,7 +971,6 @@ def test_stencil_vector_2d_parallel_dot(dtype, n1, n2, p1, p2, s1, s2, P1=True, 
 @pytest.mark.parametrize('s3', [1])
 @pytest.mark.parallel
 def test_stencil_vector_3d_parallel_dot(dtype, n1, n2, n3, p1, p2, p3, s1, s2, s3, P1=True, P2=False, P3=True):
-    from mpi4py import MPI
 
     comm = MPI.COMM_WORLD
     # Create domain decomposition

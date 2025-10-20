@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name            = "psydac"
-version         = "2.4.5.dev0"
+version         = "2.5.0.dev0"
 description     = "Python package for isogeometric analysis (IGA)"
 readme          = "README.md"
 requires-python = ">= 3.10"
@@ -31,7 +31,6 @@ dependencies = [
 
     # Our packages from PyPi
     'pyccel >= 2.0.1',
-    'mpi4py >= 4',
     'h5py',
 
     # When pyccel is run in parallel with MPI, it uses tblib to pickle
@@ -44,6 +43,9 @@ test = [
     "pytest-cov >= 5.0.0",
     'pytest >= 4.5',
     'pytest-xdist >= 1.16',
+]
+mpi = [
+    'mpi4py >= 4',
 ]
 
 [project.urls]

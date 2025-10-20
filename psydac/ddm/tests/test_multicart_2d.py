@@ -36,7 +36,8 @@ def get_plus_starts_ends(minus_starts, minus_ends, minus_npts, plus_npts, minus_
 #===============================================================================
 def run_carts_2d():
     import numpy as np
-    from mpi4py          import MPI
+    
+    from psydac.ddm.mpi import mpi as MPI
     from psydac.ddm.cart import MultiPatchDomainDecomposition, CartDecomposition, create_interfaces_cart
     from psydac.ddm.blocking_data_exchanger  import BlockingCartDataExchanger
     from psydac.ddm.interface_data_exchanger import InterfaceCartDataExchanger
