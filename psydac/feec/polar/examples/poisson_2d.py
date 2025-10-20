@@ -141,7 +141,6 @@ class Poisson2D:
         else:
             # physical field (cf use of physical ref solution in Maxwell case)
             phi = sin(3.5 * pi * (R ** 2 - x ** 2 - y ** 2) / R ** 2)
-            # rho = - lapl(phi)
             # phi = R**2 - x**2 - y**2
             rho = - lapl(phi)
 

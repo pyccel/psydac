@@ -35,6 +35,11 @@ class C0PolarProjection_V0(LinearOperator):
         self.transposed = transposed
         self.hbc = hbc
 
+        # Radial and angle sub-communicators (1D)
+        self._cart = W0.coeff_space.cart
+        self._radial_comm = self._cart.subcomm[0]
+        self._angle_comm = self._cart.subcomm[1]
+
     @property
     def domain(self):
         return self.W0.coeff_space
@@ -65,10 +70,20 @@ class C0PolarProjection_V0(LinearOperator):
             assert out.space is self.W0.coeff_space
             y = out
 
-        # Symmetric Matrix -> Same result when transposed
         if rank_at_polar_edge:
-            y[0, s2:e2 + 1] = np.average(x[0, s2:e2 + 1])  # must be parallelized
-            y[1:, s2:e2 + 1] = x[1:, s2:e2 + 1]
+            local_avg = np.average(x[0, s2:e2 + 1])
+            print("local avg:", local_avg, self._angle_comm.rank)
+
+            if self._cart.is_parallel:
+                from mpi4py import MPI
+                local_avg = self._angle_comm.allreduce(local_avg, op=MPI.SUM)
+                print("sum after allreduce:", local_avg, self._angle_comm.rank)
+
+            y[0, s2:e2 + 1] = local_avg / self._angle_comm.size
+            y[1:e1 + 1, s2:e2 + 1] = x[1:e1 + 1, s2:e2 + 1]
+        else:
+            y[s1:e1 + 1, s2:e2 + 1] = x[s1:e1 + 1, s2:e2 + 1]
+
 
         if self.hbc:
             if rank_at_outer_edge:
