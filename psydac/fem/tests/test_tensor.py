@@ -163,13 +163,13 @@ def test_plot_2d_decomposition(kind, root):
     # Plot 2D decomposition
     # [1] Run without passing (fig, ax)
     fig = Vh.plot_2d_decomposition(F, refine=5, mpi_root=mpi_root)
-    assert compare_figure_to_reference(fig, filename, folder='refs', dpi=100,
+    assert compare_figure_to_reference(fig, filename, folder='data', dpi=100,
                                        tol=RTOL, comm=mpi_comm, root=mpi_root)
 
     # [2] Run with given (fig, ax), compatible
     fig2, ax2 = plt.subplots(1, 1) if mpi_rank == mpi_root else (None, None)
     Vh.plot_2d_decomposition(F, refine=5, fig=fig2, ax=ax2, mpi_root=mpi_root)
-    assert compare_figure_to_reference(fig2, filename, folder='refs', dpi=100,
+    assert compare_figure_to_reference(fig2, filename, folder='data', dpi=100,
                                        tol=RTOL, comm=mpi_comm, root=mpi_root)
 
     # [3] Run with given (fig, ax), incompatible
