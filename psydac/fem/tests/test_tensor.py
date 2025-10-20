@@ -1,8 +1,10 @@
 import os
+import contextlib
 from pathlib import Path
 
 import pytest
 import numpy as np
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 from PIL import Image
 from mpi4py import MPI
@@ -55,6 +57,33 @@ def similar_images(file1, file2, tolerance=0.01):
     return diff <= tolerance
 
 
+@contextlib.contextmanager
+def consistent_png_rendering():
+    """
+    Context manager for consistent Matplotlib rendering across platforms.
+    """
+    # Store original settings
+    orig_backend = mpl.get_backend()
+    orig_settings = {
+        'text.usetex': mpl.rcParams['text.usetex'],
+        'font.family': mpl.rcParams['font.family'],
+    }
+
+    try:
+        # Use Agg backend (pure python, no GUI)
+        mpl.use('Agg')
+        # Configure settings for consistent rendering
+        mpl.rcParams.update({
+            'text.usetex': False,
+            'font.family': 'DejaVu Sans',
+        })
+        yield  # Control returns to the with block
+    finally:
+        # Restore original settings
+        mpl.use(orig_backend)
+        mpl.rcParams.update(orig_settings)
+
+
 def compare_figure_to_reference(fig, filename, *, dpi, tol, folder, comm, root):
     """
     Compare a matplotlib figure to a reference PNG file on the root MPI process.
@@ -93,7 +122,8 @@ def compare_figure_to_reference(fig, filename, *, dpi, tol, folder, comm, root):
         test_dir = Path(__file__).parent.absolute()
         file1 = test_dir / filename
         file2 = test_dir / folder / filename
-        fig.savefig(file1, dpi=dpi)
+        with consistent_png_rendering():
+            fig.savefig(file1, dpi=dpi, bbox_inches='tight')
         close_enough = similar_images(file1, file2, tol)
         # Clean up the temporary file
         os.remove(file1)
