@@ -155,7 +155,7 @@ def test_plot_2d_decomposition(kind, root):
         raise ValueError(f'kind argument has wrong value {kind}')
 
     # Name of temporary image file to be compared with reference one
-    filename = f'decomp_{mpi_size}_procs.png'
+    filename = f'decomp_{kind}_{mpi_size}_procs.png'
 
     # Relative tolerance for image comparison
     RTOL = 0.01
