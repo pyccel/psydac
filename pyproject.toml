@@ -77,7 +77,7 @@ exclude = ["*__psydac__*"]
 namespaces = false
 
 [tool.setuptools.package-data]
-"*" = ["*.txt"]
+"*" = ["*.txt", "**/tests/data/*.png"]
 
 [tool.coverage.run]
 branch = true
