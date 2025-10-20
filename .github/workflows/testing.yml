@@ -225,6 +225,7 @@ jobs:
       - name: Run MPI tests with Pytest
         working-directory: ./pytest
         run: |
+          pytest --pyargs psydac.fem.tests.test_tensor -m "parallel and not petsc" -v
           python mpi_tester.py --mpirun="mpiexec -n 4 ${MPI_OPTS}" --pyargs psydac.fem.tests.test_tensor -m "parallel and not petsc" -v
 #          python mpi_tester.py --mpirun="mpiexec -n 4 ${MPI_OPTS}" --pyargs psydac -m "parallel and not petsc"
 
