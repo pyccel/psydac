@@ -57,7 +57,7 @@ class Laplacian:
 
 #==============================================================================
 class Poisson2D:
-    """
+    r"""
     Exact solution to the 2D Poisson equation with Dirichlet boundary
     conditions, to be employed for the method of manufactured solutions.
 
@@ -77,7 +77,7 @@ class Poisson2D:
     # ...
     @staticmethod
     def new_square(mx=1, my=1):
-        """
+        r"""
         Solve Poisson's equation on the unit square.
 
         : code
@@ -103,7 +103,7 @@ class Poisson2D:
     # ...
     @staticmethod
     def new_annulus(rmin=0.5, rmax=1.0):
-        """
+        r"""
         Solve Poisson's equation on an annulus centered at (x,y)=(0,0),
         with logical coordinates (r,theta):
 
@@ -143,7 +143,7 @@ class Poisson2D:
     # ...
     @staticmethod
     def new_circle():
-        """
+        r"""
         Solve Poisson's equation on a unit circle centered at (x,y)=(0,0),
         with logical coordinates (r,theta):
 
@@ -401,7 +401,7 @@ def assemble_matrices(V, mapping, kernel, *, nquads):
     [p1, p2] = V.coeff_space.pads
 
     # Quadrature data
-    quad_grids = V.get_quadrature_grids(*nquads)
+    quad_grids = V.get_assembly_grids(*nquads)
     [      nk1,       nk2] = [g.num_elements for g in quad_grids]
     [      nq1,       nq2] = [g.num_quad_pts for g in quad_grids]
     [  spans_1,   spans_2] = [g.spans        for g in quad_grids]
@@ -483,7 +483,7 @@ def assemble_rhs(V, mapping, f, *, nquads):
     [p1, p2] = V.coeff_space.pads
 
     # Quadrature data
-    quad_grids = V.get_quadrature_grids(*nquads)
+    quad_grids = V.get_assembly_grids(*nquads)
     [      nk1,       nk2] = [g.num_elements for g in quad_grids]
     [      nq1,       nq2] = [g.num_quad_pts for g in quad_grids]
     [  spans_1,   spans_2] = [g.spans        for g in quad_grids]
@@ -781,7 +781,8 @@ def main(*, test_case, ncells, degree, nquads,
     ##########
 
     # Plot domain decomposition (master only)
-    V.plot_2d_decomposition(model.mapping, refine=N)
+    fig = V.plot_2d_decomposition(mapping, refine=N)
+    fig.show()
 
     # Perform other visualization using master or all processes
     if not distribute_viz:
@@ -802,6 +803,9 @@ def main(*, test_case, ncells, degree, nquads,
 
         # Import solution vector into new serial field
         phi, = Vnew.import_fields( 'fields.h5', 'phi' )
+
+    else:
+        Vnew = V
 
     # Compute numerical solution (and error) on refined logical grid
     [sk1, sk2], [ek1, ek2] = Vnew.local_domain

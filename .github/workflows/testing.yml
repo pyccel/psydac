@@ -195,7 +195,7 @@ jobs:
       - name: Run coverage tests on macOS
         if: matrix.os == 'macos-14'
         working-directory: ./pytest
-        run: >- 
+        run: >-
           python -m pytest -n auto
           --cov psydac
           --cov-config $GITHUB_WORKSPACE/pyproject.toml
