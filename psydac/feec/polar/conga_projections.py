@@ -37,8 +37,9 @@ class C0PolarProjection_V0(LinearOperator):
 
         # Radial and angle sub-communicators (1D)
         self._cart = W0.coeff_space.cart
-        self._radial_comm = self._cart.subcomm[0]
-        self._angle_comm = self._cart.subcomm[1]
+        if self._cart.is_parallel:
+            self._radial_comm = self._cart.subcomm[0]
+            self._angle_comm = self._cart.subcomm[1]
 
     @property
     def domain(self):
@@ -71,15 +72,14 @@ class C0PolarProjection_V0(LinearOperator):
             y = out
 
         if rank_at_polar_edge:
-            local_avg = np.average(x[0, s2:e2 + 1])
-            print("local avg:", local_avg, self._angle_comm.rank)
+            # compute sum of points with s = 0 for the process
+            local_sum = np.sum(x[0, s2:e2 + 1])
 
             if self._cart.is_parallel:
                 from mpi4py import MPI
-                local_avg = self._angle_comm.allreduce(local_avg, op=MPI.SUM)
-                print("sum after allreduce:", local_avg, self._angle_comm.rank)
-
-            y[0, s2:e2 + 1] = local_avg / self._angle_comm.size
+                local_sum = self._angle_comm.allreduce(local_sum, op=MPI.SUM)
+            #compute average of all points with s = 0
+            y[0, s2:e2 + 1] = local_sum / n2
             y[1:e1 + 1, s2:e2 + 1] = x[1:e1 + 1, s2:e2 + 1]
         else:
             y[s1:e1 + 1, s2:e2 + 1] = x[s1:e1 + 1, s2:e2 + 1]
