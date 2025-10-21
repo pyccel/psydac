@@ -123,7 +123,7 @@ def compare_figure_to_reference(fig, filename, *, dpi, tol, folder, comm, root):
         file1 = test_dir / filename
         file2 = test_dir / folder / filename
         with consistent_png_rendering():
-            fig.savefig(file1, dpi=dpi, bbox_inches='tight')
+            fig.savefig(file1, dpi=dpi)
         close_enough = similar_images(file1, file2, tol)
         # Clean up the temporary file
         os.remove(file1)
