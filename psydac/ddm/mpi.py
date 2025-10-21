@@ -38,16 +38,22 @@ class MockComm:
 
 
 class MPIwrapper:
-    def __init__(self, use_mpi: bool = False):
+    def __init__(
+        self,
+        use_mpi: bool = False,
+        verbose: bool = False,
+    ):
         self.use_mpi = use_mpi
         if use_mpi:
             from mpi4py import MPI
 
             self._MPI = MPI
-            print("MPI is enabled")
+            if verbose:
+                print("MPI is enabled")
         else:
             self._MPI = MockMPI()
-            print("MPI is NOT enabled")
+            if verbose:
+                print("MPI is NOT enabled")
 
     @property
     def MPI(self):
@@ -89,7 +95,10 @@ except Exception:
     mpi_enabled = False
 
 # TODO: add environment variable for mpi use
-mpi_wrapper = MPIwrapper(use_mpi=mpi_enabled)
+mpi_wrapper = MPIwrapper(
+    use_mpi=mpi_enabled,
+    verbose=False,
+)
 
 # TYPE_CHECKING is True when type checking (e.g., mypy), but False at runtime.
 if TYPE_CHECKING:
