@@ -724,7 +724,7 @@ def run_poisson_2d(*, test_case, ncells, degree,
     # =============================== VISUALIZATION ===============================#
 
     N = 10
-    V.plot_2d_decomposition(model.mapping.get_callable_mapping(), refine=N)
+    V.plot_2d_decomposition(mapping.get_callable_mapping(), refine=N)
 
     # plot only with the root process
     distribute_viz = False
