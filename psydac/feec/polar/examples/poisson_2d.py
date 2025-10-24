@@ -569,18 +569,18 @@ def run_poisson_2d(*, test_case, ncells, degree,
     # Solve linear system
     t0 = time()
     if smooth_method in ('polar-std', 'polar-spec'):
-        # Sp_inv = inverse(Sp, 'cg', tol = cgtol, maxiter = cgiter, verbose = True)
-        # xp = Sp_inv.dot(bp)
-        # xsol = proj.convert_to_tensor_basis(xp)
-        # info = Sp_inv.get_info()
-        from psydac.linalg.utilities import array_to_psydac
-        import scipy
-        L = proj.L[:, :, p2: -p2].reshape(3, 2 * ne2)
-        E = np.block([[L, np.zeros((3, (ne1 + p1 - 2) * ne2))],
-                      [np.zeros(((ne1 + p1 - 2) * ne2, 2 * ne2)), np.eye((ne1 + p1 - 2) * ne2)]])
-        xparray = scipy.linalg.solve(Sp.toarray(), bp.toarray())
-        xarray = E.T @ xparray
-        xsol = array_to_psydac(xarray, V0_h.coeff_space)
+        Sp_inv = inverse(Sp, 'cg', tol = cgtol, maxiter = cgiter, verbose = True)
+        xp = Sp_inv.dot(bp)
+        xsol = proj.convert_to_tensor_basis(xp)
+        info = Sp_inv.get_info()
+        # from psydac.linalg.utilities import array_to_psydac
+        # import scipy
+        # L = proj.L[:, :, p2: -p2].reshape(3, 2 * ne2)
+        # E = np.block([[L, np.zeros((3, (ne1 + p1 - 2) * ne2))],
+        #               [np.zeros(((ne1 + p1 - 2) * ne2, 2 * ne2)), np.eye((ne1 + p1 - 2) * ne2)]])
+        # xparray = scipy.linalg.solve(Sp.toarray(), bp.toarray())
+        # xarray = E.T @ xparray
+        # xsol = array_to_psydac(xarray, V0_h.coeff_space)
     elif smooth_method == 'C1conga':
         Sc_inv = inverse(Sc, 'cg', tol=cgtol, maxiter=cgiter, verbose=verbose)
         xsol = Sc_inv.dot(bc)
@@ -590,7 +590,8 @@ def run_poisson_2d(*, test_case, ncells, degree,
         xsol = Sc_inv.dot(bc)
         info = Sc_inv.get_info()
     elif smooth_method == 'None':
-        S_inv = inverse(S, 'pcg', pc='jacobi', tol=cgtol, maxiter=cgiter, verbose=verbose)
+        pc = S.diagonal(inverse=True)
+        S_inv = inverse(S, 'pcg', pc=pc, tol=cgtol, maxiter=cgiter, verbose=verbose)
         xsol = S_inv.dot(b)
         info = S_inv.get_info()
     t1 = time()
