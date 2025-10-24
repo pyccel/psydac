@@ -1,4 +1,5 @@
 # coding: utf-8
+import sympy
 from mpi4py import MPI
 from time import time, sleep
 # import matplotlib.pyplot as plt
@@ -90,14 +91,14 @@ class Poisson2D:
         self._phi = phi
         self._rho = rho
 
-        from sympy import lambdify
+
         s, t = mapping.logical_coordinates
-        self._phi_callable = lambdify([s, t], phi)
-        self._rho_callable = lambdify([s, t], rho)
+        self._phi_callable = sympy.lambdify([s, t], phi)
+        self._rho_callable = sympy.lambdify([s, t], rho)
 
         # x, y  = mapping.coordinates
-        # self._phi_callable = lambdify([x, y], phi)
-        # # self._rho_callable = lambdify([x, y], rho)
+        # self._phi_callable = sympy.lambdify([x, y], phi)
+        # # self._rho_callable = sympy.lambdify([x, y], rho)
 
     # ...
     @staticmethod
@@ -730,9 +731,12 @@ def run_poisson_2d(*, test_case, ncells, degree,
     # Import solution vector into new serial field
     phi, = Vnew.import_fields('fields.h5', 'phi')
 
-    # Callable exact solution (used for plots)
-    phi_e = model.phi_callable
-    #phi_e = phi_callog
+    # Callable exact solution in logical coordinates
+    X, Y = model.coordinates
+    x, y = model.mapping.expressions
+    expr_phi_e = model.phi.subs({X: x, Y: y})
+    x1, x2 = model.mapping.logical_coordinates
+    phi_e = sympy.lambdify([x1, x2], expr_phi_e)
 
     # Compute numerical solution (and error) on refined logical grid
     [sk1, sk2], [ek1, ek2] = Vnew.local_domain
