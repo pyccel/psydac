@@ -689,7 +689,7 @@ def run_poisson_2d(*, test_case, ncells, degree,
             print('> Grid                :: [{ne1},{ne2}]'.format(ne1=ne1, ne2=ne2))
             print('> Degree              :: [{p1},{p2}]'.format(p1=p1, p2=p2))
             print('> Penalization alpha  :: {alpha} '.format(alpha=alpha))
-            # print( '> CG info            :: ',info )
+            print( '> CG info            :: ',info )
             print('> L2 norm solution    :: {:.2e}'.format(ref_u0L2))
             print('> H1 norm solution    :: {:.2e}'.format(ref_u0H1))
             print('> L2 error (relative) :: {:.2e}'.format(rel_err_l2))
