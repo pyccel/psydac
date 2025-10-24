@@ -101,7 +101,7 @@ class Poisson2D:
 
     # ...
     @staticmethod
-    def disk_domain(R=2.0, polar_mapping=False, shift_D=0.0, use_logical_sol=False):
+    def disk_domain(R, shift_D):
         r"""
         Solve Poisson's equation on a disk of radius R centered at (x,y) = (0, 0),
         with logical coordinates (s, theta):
@@ -113,41 +113,22 @@ class Poisson2D:
         $\phi(x,y) = sin(3.5 \pi (R^2 - x^2 - y^2)/R^2)$.
         """
         domain = ((0, R), (0, 2 * np.pi))
+        mapping = TargetMapping('TM', c1=shift_D * R * R, c2=0, k=0, D=shift_D)
 
-        if polar_mapping:
-            mapping = PolarMapping('PM', c1=0, c2=0, rmin=0, rmax=1)
-        else:
-            # domain   = ((0, 1), (0, 2 * np.pi))
-            mapping = TargetMapping('TM', c1=shift_D * R * R, c2=0, k=0, D=shift_D)
+        # physical field (cf use of physical ref solution in Maxwell case)
+        params = dict(c1=0, c2=0, k=0, D=shift_D)
+        k = params['k']
+        D = params['D']
+        kx = 2 * pi / (R * (1 - k + D))
+        ky = 2 * pi / (R * (1 + k))
+        x, y = sympy.symbols('x, y')
+        phi = (1 - ((x * x + y * y) / (R * R)) ** 4) * sin(kx * x) * cos(ky * y)
+        # phi = (1 - ((X * X + Y * Y) / (R * R)) ** 4)
+        rho = - phi.diff(x, x) - phi.diff(y, y)
+        obj = Poisson2D(domain, mapping, phi, rho)
+        obj.coordinates = (x, y)
 
-        lapl = Laplacian(mapping)
-        # print('vars(mapping): ', vars(mapping))
-        x, y = mapping.expressions
-        # exit()
-        s, t = mapping.logical_coordinates
-
-        def get_radius_angle(self, x, y):
-            # from np import sqrt, arctan2 #,  sin, cos
-            r = np.sqrt(x * x + y * y)
-            alpha = np.arctan2(y, x)
-            return r, alpha
-
-        if use_logical_sol:
-            # Manufactured solutions in logical coordinates
-            # phi = R**2 - s**2
-            phi = sin(3.5 * pi * (R ** 2 - s ** 2) / R ** 2)
-            rho = - lapl(phi)
-
-        else:
-            # physical field (cf use of physical ref solution in Maxwell case)
-            phi = sin(3.5 * pi * (R ** 2 - x ** 2 - y ** 2) / R ** 2)
-            # phi = R**2 - x**2 - y**2
-            rho = - lapl(phi)
-
-        # def Ex_ex(self, t, x, y):
-        #     from np import cos, sin
-
-        return Poisson2D(domain, mapping, phi, rho)
+        return obj
 
     # ...
     @staticmethod
@@ -342,7 +323,7 @@ class CongaLaplacian(LinearOperator):
 ###############################################################################
 
 def run_poisson_2d(*, test_case, ncells, degree,
-                   shift_D, use_spline_mapping, smooth_method,
+                   shift_D, R, use_spline_mapping, smooth_method,
                    cgtol, cgiter, alphaCONGA, study='poisson', verbose=False):
     timing = {}
     timing['assembly'] = 0.0
@@ -355,7 +336,7 @@ def run_poisson_2d(*, test_case, ncells, degree,
 
     # Method of manufactured solution
     if test_case == 'disk':
-        model = Poisson2D.disk_domain(R=1., polar_mapping=False, shift_D=shift_D)
+        model = Poisson2D.disk_domain(R=R, shift_D=shift_D)
     elif test_case == 'target':
         model = Poisson2D.target_domain()
     elif test_case == 'czarny':
@@ -905,6 +886,13 @@ def parse_input_arguments():
                         default=0,
                         dest='shift_D',
                         help='Shafranov shift for parametrization of Disk'
+                        )
+
+    parser.add_argument('-R',
+                        type=float,
+                        default=1.0,
+                        dest='R',
+                        help='Radius of the disk'
                         )
 
     parser.add_argument('-d',
