@@ -427,9 +427,10 @@ def run_poisson_2d(*, test_case, ncells, degree,
 
     from sympy.abc import x, y  # try
 
-    f = 2 * 7 * pi * cos(7 * pi / 2 * (1 - x ** 2 - y ** 2)) + (7 * pi) ** 2 * (x ** 2 + y ** 2) * sin(
-        7 * pi / 2 * (1 - x ** 2 - y ** 2))
+    # f = 2 * 7 * pi * cos(7 * pi / 2 * (1 - x ** 2 - y ** 2)) + (7 * pi) ** 2 * (x ** 2 + y ** 2) * sin(
+    #     7 * pi / 2 * (1 - x ** 2 - y ** 2))
     # f = x+y
+    f = model.rho
     rhs = LinearForm(v0, integral(domain, f * v0))
 
     err_diff = model.phi - u0
