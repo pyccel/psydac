@@ -38,9 +38,6 @@ from psydac.feec.polar.conga_projections import C0PolarProjection_V0
 # backend = PSYDAC_BACKENDS['numba']
 backend = PSYDAC_BACKENDS['python']
 
-# Set to true in order to compute discrete norms on logical domain
-trick = False
-
 
 # ==============================================================================
 class Laplacian:
@@ -435,26 +432,12 @@ def run_poisson_2d(*, test_case, ncells, degree,
 
     err_diff = model.phi - u0
 
-    # trick should be removed in the final version. The norms should be computed
-    # on the physical domain.
     # NOTE (mcp, dec 2024): norms and errors now computed only for discrete solutions (using M and S matrices)
-    if trick:
-        errL2 = Functional(err_diff ** 2 * mapping.jacobian.det(),
-                           logical_domain, evaluate=True)
-        errH1 = Functional(dot(mapping.jacobian.T ** (-1) * grad(err_diff),
-                               mapping.jacobian.T ** (-1) * grad(err_diff)) *
-                           mapping.jacobian.det(), logical_domain, evaluate=True)
-        u0L2norm = Functional(u0 ** 2 * mapping.jacobian.det(),
-                              logical_domain, evaluate=True)
-        u0H1norm = Functional(dot(mapping.jacobian.T ** (-1) * grad(u0),
-                                  mapping.jacobian.T ** (-1) * grad(u0)) *
-                              mapping.jacobian.det(), logical_domain, evaluate=True)
-    else:
-        errL2 = Norm(err_diff, domain, kind='L2')
-        errH1 = Norm(err_diff, domain, kind='H1')
+    errL2 = Norm(err_diff, domain, kind='L2')
+    errH1 = Norm(err_diff, domain, kind='H1')
 
-        u0L2norm = Norm(u0, domain, kind='L2')
-        u0H1norm = Norm(u0, domain, kind='H1')
+    u0L2norm = Norm(u0, domain, kind='L2')
+    u0H1norm = Norm(u0, domain, kind='H1')
 
     # L2norm = Norm(err_diff*sqrt(mapping.jacobian.det()), logical_domain, kind = 'L2')
     # H1norm = Norm(mapping.jacobian.T**(-1) * grad(err_diff)
@@ -474,26 +457,12 @@ def run_poisson_2d(*, test_case, ncells, degree,
     aS_h = discretize(aS, domain_h, (V0_h, V0_h), backend=backend)
     rhs_h = discretize(rhs, domain_h, V0_h, backend=backend)
 
-    # trick should be removed in the final version. The norms should be computed
-    # on the physical domain.
-    if trick:
-        log_domain_h = discretize(logical_domain, ncells=ncells, periodic=[False, True], comm = mpi_comm)
-        log_V0_h = discretize(V0, log_domain_h, degree=degree)
-        # log_domain_h.mappings['Omega'] = domain_h.mappings['mapping_0(Omega)'] # If spline mapping
 
-        errL2_h = discretize(errL2, log_domain_h, log_V0_h, backend=backend)
-        errH1_h = discretize(errH1, log_domain_h, log_V0_h, backend=backend)
+    errL2_h = discretize(errL2, domain_h, V0_h, backend=backend)
+    errH1_h = discretize(errH1, domain_h, V0_h, backend=backend)
 
-        u0L2norm_h = discretize(u0L2norm, log_domain_h, log_V0_h, backend=backend)
-        u0H1norm_h = discretize(u0H1norm, log_domain_h, log_V0_h, backend=backend)
-
-    else:
-
-        errL2_h = discretize(errL2, domain_h, V0_h, backend=backend)
-        errH1_h = discretize(errH1, domain_h, V0_h, backend=backend)
-
-        u0L2norm_h = discretize(u0L2norm, domain_h, V0_h, backend=backend)
-        u0H1norm_h = discretize(u0H1norm, domain_h, V0_h, backend=backend)
+    u0L2norm_h = discretize(u0L2norm, domain_h, V0_h, backend=backend)
+    u0H1norm_h = discretize(u0H1norm, domain_h, V0_h, backend=backend)
 
     M = aM_h.assemble()
     S = aS_h.assemble()
@@ -644,14 +613,6 @@ def run_poisson_2d(*, test_case, ncells, degree,
     # err2 = L2norm_h.assemble(u0 = phi_ref - phi)
     # err2 = L2norm_h.assemble(u0 = phi)
 
-    # when trick is used the norm is a functional, that is, an integral. We have
-    # to take the square root explicitely to have the norm.
-    # if trick:
-    #     print('WARNING -- do not use the trick !!!!')
-    #     raise NotImplementedError
-    #     err2 = np.sqrt(err2)
-    #     u0L2 = np.sqrt(u0L2)
-
     # assert np.allclose(err2, err2_matrix, rtol = 1e-7, atol = 1e-7)
 
     # and H1 error
@@ -659,9 +620,6 @@ def run_poisson_2d(*, test_case, ncells, degree,
     # errh1_semi = H1norm_h.assemble(u0 = phi_ref - phi)
     # errh1_semi = errH1_h.assemble(u0 = phi)  # BUG ??
     # u0H1_semi = u0H1norm_h.assemble(u0 = phi)
-    # if trick:
-    #     errh1_semi = np.sqrt(errh1_semi)
-    #     u0H1_semi = np.sqrt(u0H1_semi)
     # errh1 = np.sqrt(errh1_semi**2 + err2**2)
     # u0H1 = np.sqrt(u0H1_semi**2 + u0L2**2)
     # errh1 = np.sqrt(errh1_semi**2 + err2**2)
