@@ -1,26 +1,14 @@
 import  time
 import  numpy as np
-import  pytest
 
-from    scipy.sparse        import dia_matrix
+from    sympde.calculus                     import inner
+from    sympde.expr                         import integral, BilinearForm
+from    sympde.topology                     import elements_of, Derham, Mapping, Cube
 
-from    sympde.calculus     import inner, cross
-from    sympde.expr         import integral, BilinearForm, EssentialBC
-from    sympde.topology     import element_of, elements_of, Derham, Mapping, Line, Square, Cube, BasicFunctionSpace, Union, NormalVector
-
-from    psydac.api.discretization   import discretize
-from    psydac.api.essential_bc     import apply_essential_bc
-from    psydac.api.settings         import PSYDAC_BACKEND_GPYCCEL
-from    psydac.ddm.cart             import DomainDecomposition, CartDecomposition
-from    psydac.linalg.basic         import LinearOperator, Vector, VectorSpace, IdentityOperator
-from    psydac.linalg.block         import BlockVectorSpace, BlockLinearOperator
-from    psydac.linalg.kron          import KroneckerLinearSolver
-from    psydac.linalg.solvers       import inverse
-from    psydac.linalg.stencil       import StencilVectorSpace, StencilMatrix, StencilVector
-from    psydac.linalg.tests.test_kron_direct_solver import matrix_to_bandsolver
-from    psydac.linalg.direct_solvers                import BandedSolver
-
-from psydac.linalg.tests.test_solvers import get_DirichletBoundaryProjector, get_LST_preconditioner
+from    psydac.api.discretization           import discretize
+from    psydac.api.settings                 import PSYDAC_BACKEND_GPYCCEL
+from    psydac.linalg.basic                 import IdentityOperator
+from    psydac.linalg.solvers               import inverse
 
 def compute_vector_potential_3d(b, derham_h):
     """
@@ -33,6 +21,8 @@ def compute_vector_potential_3d(b, derham_h):
         Coefficient vector of a divergence-free function belonging to the third space (H_0(div))
         of the discrete de Rham sequence derham_h.
 
+    derham_h : psydac.api.feec.DiscreteDeRham
+    
     Returns
     -------
     a : psydac.linalg.block.BlockVector
@@ -43,21 +33,33 @@ def compute_vector_potential_3d(b, derham_h):
     -----
     Denoting the hom. DBC satisfying function spaces of a 3D de Rham sequence by V0h, V1h, V2h and V3h,
     the problem
+
         Given B in V2h s.th. div(B)=0, find A in V1h s.th.
                 curl(A) = B,
             weak-div(A) = 0,
+
     can be equivalently stated as the Hodge-Laplace problem
+
         Given B in V2h s.th. div(B)=0, find A in V1h s.th.
             weak-curl(curl(A)) - grad(weak-div(A)) = weak-curl(B).
+
     The corresponding variational formulation reads
+
         Given B in V2h s.th. div(B)=0, find A in V1h s.th.
             (curl(v), curl(A)) + (weak-div(v), weak-div(A)) = (curl(v), B)      for all v in V1h.
+
     The weak-divergence is defined implicitely by the set of equations
+
             (grad(u), v) = - (u, weak-div(v))       for all u in V0h, v in V1h.
+
     Hence, in terms of matrices (G for grad, wD for weak-divergence)
+
             u^T G^T M1 v = - u^T M0 wD v        <=>         wD = - (M0)^-1 G^T M1.
+
     Thus, not taking into account boundary conditions, the full system of equations reads
+
             v^T C^T M2 C A + v^T M1 G (M0)^-1 M0 (M0)^-1 G^T M1   A = v^T C^T M2 B   for all v in V1h
+
         <=>   ( C^T M2 C   +     M1 G            (M0)^-1 G^T M1 ) A =     C^T M2 B.
     
     Note: (M0)^-1 here is the inverse "mass matrix of functions satisfying hom. DBCs", 
@@ -116,19 +118,19 @@ def compute_vector_potential_3d(b, derham_h):
     assert l2norm_divB < 1e-10, 'The coefficient vector passed to this function should belong to a divergence-free function.'
 
     # ----- We need to obtain an inverse M0 object in order to assemble the system matrix
-    DBP0, DBP1, DBP2 = get_DirichletBoundaryProjector(derham_h) # <- Dirichlet boundary projectors for the projection method
+    DBP0, DBP1, DBP2 = derham_h.dirichlet_projectors(kind='linop') # <- Dirichlet boundary projectors for the projection method
     I0               = IdentityOperator(V0cs)
 
     # Option1: Modified mass matrix of functions satisfying hom. DBCs
     M0_0     = DBP0 @ M0 @ DBP0 + (I0 - DBP0)
     t0       = time.time()
-    M0_0_pc, = get_LST_preconditioner(M0=M0, derham_h=derham_h, bcs=True, backend=backend)
+    M0_0_pc, = derham_h.LST_preconditioners(M0=M0, hom_bc=True)
     t1       = time.time()
     M0_0_inv = inverse(M0_0, 'pcg', pc=M0_0_pc, maxiter=1000, tol=1e-15)
 
     # Option2: Inverse of entire mass matrix
     t2       = time.time()
-    M0_pc,   = get_LST_preconditioner(M0=M0, derham_h=derham_h, bcs=False, backend=backend)
+    M0_pc,   = derham_h.LST_preconditioners(M0=M0, hom_bc=False)
     t3       = time.time()
     M0_inv   = inverse(M0,   'pcg', pc=M0_pc,   maxiter=1000, tol=1e-15)
 
@@ -139,6 +141,9 @@ def compute_vector_potential_3d(b, derham_h):
 
     # Option1: The correct option. Using M0_0_inv and a projection operator immediately before M0_0_inv
     S1  = C.T @ M2 @ C  +  M1 @ G @ M0_0_inv @ DBP0 @ G.T @ M1
+    # Note that not including the projector here, i.e., using the following stiffness matrix
+    #S1 = C.T @ M2 @ C  +  M1 @ G @ M0_0_inv @        G.T @ M1
+    # results in a wrong solution (and is super slow)
 
     # Option2: The entirely wrong option. Using M0_inv and no additional projector
     S2  = C.T @ M2 @ C  +  M1 @ G @ M0_inv          @ G.T @ M1
@@ -185,6 +190,7 @@ def compute_vector_potential_3d(b, derham_h):
     diff = b - C @ a1
     l2norm_diff = np.sqrt(M2.dot_inner(diff, diff))
     print(f' ----- Option1: C.T @ M2 @ C  +  M1 @ G @ M0_0_inv @ DBP0 @ G.T @ M1 -----')
+    print()
     print(f' || B - curl(A) || = {l2norm_diff:.3g}')
     print(f' Time              : {timings_list[0]:.3g}')
     print(f' Niter             : {info1["niter"]}')
@@ -198,6 +204,7 @@ def compute_vector_potential_3d(b, derham_h):
     diff = b - C @ a2
     l2norm_diff = np.sqrt(M2.dot_inner(diff, diff))
     print(f' ----- Option2: C.T @ M2 @ C  +  M1 @ G @ M0_inv          @ G.T @ M1 -----')
+    print()
     print(f' || B - curl(A) || = {l2norm_diff:.3g}')
     print(f' Time              : {timings_list[1]:.3g}')
     print(f' Niter             : {info2["niter"]}')
@@ -205,7 +212,7 @@ def compute_vector_potential_3d(b, derham_h):
     print(f' Res. Norm         : {info2["res_norm"]:.3g}')
     print()
 
-    # Option2 is takes forever to converge, but delivers an accurate solution
+    # Option3 is takes forever to converge, but delivers an accurate solution
     a3 = vector_potential_list[2]
     info3 = info_list[2]
     diff = b - C @ a3
@@ -264,7 +271,7 @@ if __name__ == '__main__':
     a_ex    = P1(A).coeffs
     # a should already satisfy hom. DBCs (n \times a = 0 on the boundary)
     # But we can make sure that this holds exactly by projecting it
-    DBP0, DBP1, DBP2 = get_DirichletBoundaryProjector(derham_h)
+    DBP0, DBP1, DBP2 = derham_h.dirichlet_projectors(kind='linop')
     a_ex    = DBP1 @ a_ex
 
     # Now b belongs to H_0(div0) as required

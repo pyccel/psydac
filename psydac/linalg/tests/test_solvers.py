@@ -2,24 +2,27 @@ import  time
 import  numpy as np
 import  pytest
 
-from    scipy.sparse        import dia_matrix
+from    sympy import sin, pi, sqrt, Tuple
 
-from    sympde.calculus     import inner, cross
-from    sympde.expr         import integral, BilinearForm, EssentialBC
-from    sympde.topology     import element_of, elements_of, Derham, Mapping, Line, Square, Cube, BasicFunctionSpace, Union, NormalVector
+from    scipy.sparse                import dia_matrix
+
+from    sympde.calculus             import inner, cross
+from    sympde.expr                 import integral, LinearForm, BilinearForm, EssentialBC
+from    sympde.topology             import element_of, elements_of, Derham, Mapping, Line, Square, Cube, Union, NormalVector, ScalarFunctionSpace, VectorFunctionSpace
+from    sympde.topology.datatype    import SpaceType, H1Space, HcurlSpace
 
 from    psydac.api.discretization   import discretize
 from    psydac.api.essential_bc     import apply_essential_bc
 from    psydac.api.settings         import PSYDAC_BACKEND_GPYCCEL
 from    psydac.ddm.cart             import DomainDecomposition, CartDecomposition
-from    psydac.linalg.basic         import LinearOperator, Vector, VectorSpace, IdentityOperator
+from    psydac.fem.basic            import FemSpace
+from    psydac.linalg.basic         import LinearOperator, Vector, IdentityOperator
 from    psydac.linalg.block         import BlockVectorSpace, BlockLinearOperator
-from    psydac.linalg.kron          import KroneckerLinearSolver
+from    psydac.linalg.kron          import KroneckerLinearSolver, KroneckerStencilMatrix
 from    psydac.linalg.solvers       import inverse
 from    psydac.linalg.stencil       import StencilVectorSpace, StencilMatrix, StencilVector
 from    psydac.linalg.tests.test_kron_direct_solver import matrix_to_bandsolver
 from    psydac.linalg.direct_solvers                import BandedSolver
-
 
 def define_data_hermitian(n, p, dtype=float):
     domain_decomposition = DomainDecomposition([n - p], [False])
@@ -130,35 +133,55 @@ def _test_LO_equality_using_rng(A, B):
         
         assert err < 1e-15
 
-def get_LST_preconditioner(derham_h, M0=None, M1=None, M2=None, M3=None, backend=None, bcs=False):
+def construct_LST_preconditioner(M, domain_h, fem_space, hom_bc=False, kind=None):
     """
     LST (Loli, Sangalli, Tani) preconditioners are mass matrix preconditioners of the form
-
-    pc = D_inv_sqrt @ D_log_sqrt @ M_log_kron_solver @ D_log_sqrt @ D_inv_sqrt,
-
-    where
+    pc = D_inv_sqrt @ D_log_sqrt @ M_log_kron_solver @ D_log_sqrt @ D_inv_sqrt, where
 
     D_inv_sqrt          is the diagonal matrix of the square roots of the inverse diagonal entries of the mass matrix M,
     D_log_sqrt          is the diagonal matrix of the square roots of the diagonal entries of the mass matrix on the logical domain,
     M_log_kron_solver   is the Kronecker Solver of the mass matrix on the logical domain.
 
     These preconditioners work very well even on complex domains as numerical experiments have shown.
-
     Upon choosing bcs=True, preconditioner for the modified mass matrices M0_0, M1_0 and M2_0 are being returned.
     The preconditioner for M3 remains identical as there are no BCs to take care of.
     M{i}_0, i=0,1,2, is a mass matrix of the form
     M{i}_0 = DBP @ M{i} @ DBP + (I - DBP)
     where DBP and I are the corresponding DirichletBoundaryProjector and IdentityOperator.
     See examples/vector_potential_3d.
+
+    Parameters
+    ----------
+    M : psydac.linalg.stencil.StencilMatrix | psydac.linalg.block.BlockLinearOperator
+        Mass matrix corresponding to fem_space
+
+    domain_h : psydac.cad.geometry.Geometry
+        discretized physical domain used to discretize fem_space
+
+    fem_space : psydac.fem.basic.FemSpace
+        discretized Scalar- or VectorFunctionSpace. M is the corresponding mass matrix
+
+    hom_bc : bool
+        If True, return LST preconditioner for modified M_0 = DBP @ M @ DBP + (I - DBP) mass matrix.
+        The argument M in that case remains the same (M, not M_0). DBP and I are DirichletBoundaryProjector and IdentityOperator.
+        Default False
+
+    kind : str | None
+        Optional. Must be passed if fem_space has no kind. Must match the kind of fem_space if fem_space has a kind.
+        Relevant as we must know whether M is a H1, Hcurl, Hdiv or L2 mass matrix.
+
+    Returns
+    -------
+    psydac.linalg.stencil.StencilMatrix | psydac.linalg.block.BlockLinearOperator
+        LST preconditioner for M (hom_bc=False) or M_0 (hom_b=True).
     
     """
 
-    assert derham_h is not None
-
-    dim = derham_h.dim
+    dim = fem_space.ldim
+    #! dim=1 should also be allowed
     assert dim in (2, 3)
 
-    if bcs == True:
+    if hom_bc == True:
         def toarray_1d(A):
             """
             Obtain a numpy array representation of a (1D) LinearOperator (which has not implemented toarray()).
@@ -202,7 +225,7 @@ def get_LST_preconditioner(derham_h, M0=None, M1=None, M2=None, M3=None, backend
 
             return A_arr
 
-        def M0_0_1d_to_bandsolver(A):
+        def M_0_1d_to_bandsolver(A):
             """
             Converts the M0_0_1d StencilMatrix to a BandedSolver.
 
@@ -229,57 +252,21 @@ def get_LST_preconditioner(derham_h, M0=None, M1=None, M2=None, M3=None, backend
 
             return BandedSolver(ua, la, A_bnd)
 
-    domain_h    = derham_h.domain_h
-
     domain      = domain_h.domain
-    if dim == 2:
-        derham  = Derham(domain, derham_h.sequence)
-    else:
-        derham  = Derham(domain)
-
-    comm        = domain_h.comm
-    backend     = backend
 
     ncells,     = domain_h.ncells.values()
-    degree      = derham_h.V0.degree
+    degree      = fem_space.degree
     periodic,   = domain_h.periodic.values()
+
+    V_cs        = fem_space.coeff_space
     
     logical_domain      = domain.logical_domain
-    logical_domain_h    = discretize(logical_domain, ncells=ncells, periodic=periodic, comm=comm)
 
-    if dim == 2:
-        Ms = [M0, M1, M2]
-    else:
-        Ms = [M0, M1, M2, M3]
+    # ----- Compute D_inv_sqrt
 
-    # -----
+    D_inv_sqrt = M.diagonal(inverse=True, sqrt=True)
 
-    D_inv_sqrt_arr = []
-
-    for M in Ms:
-        if M is not None:
-            D_inv_sqrt_arr.append(M.diagonal(inverse=True, sqrt=True))
-        else:
-            D_inv_sqrt_arr.append(None)
-
-    # -----
-
-    D_log_sqrt_arr = []
-
-    for M, V, Vh in zip(Ms, derham.spaces, derham_h.spaces):
-        if M is not None:
-            u, v  = elements_of(V, names='u, v')
-            expr  = inner(u, v) if isinstance(M.domain, BlockVectorSpace) else u*v
-            a     = BilinearForm((u, v), integral(logical_domain, expr))
-            ah    = discretize(a, logical_domain_h, (Vh, Vh), backend=backend)
-            M_log = ah.assemble()
-            D_log_sqrt_arr.append(M_log.diagonal(inverse=False, sqrt=True))
-        else:
-            D_log_sqrt_arr.append(None)
-
-    # -----
-
-    M_log_kron_solver_arr = []
+    # ----- Compute M_log_kron_solver
 
     logical_domain_1d_x = Line('L', bounds=logical_domain.bounds1)
     logical_domain_1d_y = Line('L', bounds=logical_domain.bounds2)
@@ -290,230 +277,146 @@ def get_LST_preconditioner(derham_h, M0=None, M1=None, M2=None, M3=None, backend
     if dim == 3:
         logical_domain_1d_list += [logical_domain_1d_z]
 
-    M0_1d_solvers = []
-    M1_1d_solvers = []
+    # We gather the 1D mass matrices.
+    # Those will be used to obtain D_log_sqrt using the new
+    # diagonal function for KroneckerStencilMatrices.
+    M_1d_solvers = [[],[]]
+    Ms_1d        = [[],[]]
+    if dim == 3:
+        M_1d_solvers += [[]]
+        Ms_1d        += [[]]
 
-    for ncells_1d, degree_1d, periodic_1d, logical_domain_1d in zip(ncells, degree, periodic, logical_domain_1d_list):
+    # Mark 1D 'h1' spaces built using B-splines. 
+    # 1D spaces for which (i, j) \notin keys are 'l2' spaces built using M-splines.
+    fem_space_kind = fem_space.symbolic_space.kind.name
 
-        derham_1d = Derham(logical_domain_1d)
+    if kind is not None:
+        if isinstance(kind, str):
+            kind = kind.lower()
+            assert(kind in ['h1', 'hcurl', 'hdiv', 'l2'])
+        elif isinstance(kind, SpaceType):
+            kind = kind.name
+        else:
+            raise TypeError(f'Expecting kind {kind} to be a str or of SpaceType')
+        
+        # If fem_space has a kind, it must be compatible with kind
+        if fem_space_kind != 'undefined':
+            assert fem_space_kind == kind, f'fem_space and space_kind are not compatible.'
+    else:
+        kind = fem_space_kind
+
+    if kind == 'h1':
+        keys = ((0, 0), (1, 0), (2, 0))
+    elif kind == 'hcurl':
+        keys = ((0, 1), (0, 2), (1, 0), (1, 2), (2, 0), (2, 1))
+    elif kind == 'hdiv':
+        keys = ((0, 0), (1, 1), (2, 2))
+    elif kind == 'l2':
+        keys = ()
+    else:
+        raise ValueError(f'kind {kind} must be either h1, hcurl, hdiv or l2.')
+
+    for i, (ncells_1d, periodic_1d, logical_domain_1d) in enumerate(zip(ncells, periodic, logical_domain_1d_list)):
 
         logical_domain_1d_h = discretize(logical_domain_1d, ncells=[ncells_1d, ], periodic=[periodic_1d, ])
-        derham_1d_h = discretize(derham_1d, logical_domain_1d_h, degree=[degree_1d, ])
 
-        V0_1d,  V1_1d  = derham_1d.spaces
-        V0h_1d, V1h_1d = derham_1d_h.spaces
+        degrees_1d = [degree_dir[i] for degree_dir in degree] if isinstance(fem_space.coeff_space, BlockVectorSpace) else [degree[i], ]
 
-        u0, v0 = elements_of(V0_1d, names='u0, v0')
-        u1, v1 = elements_of(V1_1d, names='u1, v1')
+        for j, d in enumerate(degrees_1d):
 
-        a0_1d = BilinearForm((u0, v0), integral(logical_domain_1d, u0*v0))
-        a1_1d = BilinearForm((u1, v1), integral(logical_domain_1d, u1*v1))
+            kind_1d = 'h1' if (i, j) in keys else 'l2'
+            basis   = 'B'  if (i, j) in keys else 'M'
 
-        a0h_1d = discretize(a0_1d, logical_domain_1d_h, (V0h_1d, V0h_1d))
-        a1h_1d = discretize(a1_1d, logical_domain_1d_h, (V1h_1d, V1h_1d))
+            if basis == 'M':
+                d += 1
 
-        M0_1d = a0h_1d.assemble()
-        M1_1d = a1h_1d.assemble()
+            V_1d    = ScalarFunctionSpace('V', logical_domain_1d,        kind =kind_1d)
+            Vh_1d   = discretize(V_1d, logical_domain_1d_h, degree=[d,], basis=basis)
 
-        if bcs == True:
-            DBP0,   = get_DirichletBoundaryProjector(derham_1d_h)
-            
-            if DBP0 is not None:
-                I0      = IdentityOperator(V0h_1d.coeff_space)
-                M0_0_1d = DBP0 @ M0_1d @ DBP0 + (I0 - DBP0)
+            u, v    = elements_of(V_1d, names='u, v')
+            a_1d    = BilinearForm((u, v), integral(logical_domain_1d, u*v))
+            ah_1d   = discretize(a_1d, logical_domain_1d_h, (Vh_1d, Vh_1d))
+            M_1d    = ah_1d.assemble()
+            Ms_1d[j].append(M_1d)
 
-                M0_0_1d_solver = M0_0_1d_to_bandsolver(M0_0_1d)
-                M0_1d_solvers.append(M0_0_1d_solver)
+            if (hom_bc == True) and ((i, j) in keys):
+                DBP = DirichletBoundaryProjector(Vh_1d, space_kind='h1')
+                if DBP is not None:
+                    I      = IdentityOperator(Vh_1d.coeff_space)
+                    M_0_1d = DBP @ M_1d @ DBP + (I - DBP)
+
+                    M_0_1d_solver = M_0_1d_to_bandsolver(M_0_1d)
+                    M_1d_solvers[j].append(M_0_1d_solver)
+                else:
+                    M_1d_solver = matrix_to_bandsolver(M_1d)
+                    M_1d_solvers[j].append(M_1d_solver)
             else:
-                M0_1d_solver = matrix_to_bandsolver(M0_1d)
-                M0_1d_solvers.append(M0_1d_solver)
-        else:
-            M0_1d_solver = matrix_to_bandsolver(M0_1d)
-            M0_1d_solvers.append(M0_1d_solver)
+                M_1d_solver = matrix_to_bandsolver(M_1d)
+                M_1d_solvers[j].append(M_1d_solver)
 
-        M1_1d_solver = matrix_to_bandsolver(M1_1d)
-        M1_1d_solvers.append(M1_1d_solver)
+    if isinstance(V_cs, StencilVectorSpace):
+        M_log_kron_solver       = KroneckerLinearSolver(V_cs, V_cs, M_1d_solvers[0])
 
-    if dim == 2:
-        V0_cs = derham_h.V0.coeff_space
-        V1_cs = derham_h.V1.coeff_space
-        V2_cs = derham_h.V2.coeff_space
-
-        if M0 is not None:
-            M0_log_kron_solver = KroneckerLinearSolver(V0_cs, V0_cs, (M0_1d_solvers[0], M0_1d_solvers[1]))
-            M_log_kron_solver_arr.append(M0_log_kron_solver)
-        else:
-            M_log_kron_solver_arr.append(None)
-
-        if M1 is not None:
-            if derham_h.sequence[1] == 'hcurl':
-                M1_0_log_kron_solver = KroneckerLinearSolver(V1_cs[0], V1_cs[0], (M1_1d_solvers[0], M0_1d_solvers[1]))
-                M1_1_log_kron_solver = KroneckerLinearSolver(V1_cs[1], V1_cs[1], (M0_1d_solvers[0], M1_1d_solvers[1]))
-                M1_log_kron_solver = BlockLinearOperator(V1_cs, V1_cs, [[M1_0_log_kron_solver, None],
-                                                                        [None, M1_1_log_kron_solver]])
-            elif derham_h.sequence[1] == 'hdiv':
-                M1_0_log_kron_solver = KroneckerLinearSolver(V1_cs[0], V1_cs[0], (M0_1d_solvers[0], M1_1d_solvers[1]))
-                M1_1_log_kron_solver = KroneckerLinearSolver(V1_cs[1], V1_cs[1], (M1_1d_solvers[0], M0_1d_solvers[1]))
-                M1_log_kron_solver = BlockLinearOperator(V1_cs, V1_cs, [[M1_0_log_kron_solver, None],
-                                                                        [None, M1_1_log_kron_solver]])
-            else:
-                raise ValueError(f'The second space in the sequence {derham_h.sequence} must be either "hcurl" or "hdiv".')
-            M_log_kron_solver_arr.append(M1_log_kron_solver)
-        else:
-            M_log_kron_solver_arr.append(None)
-
-        if M2 is not None:
-            M2_log_kron_solver = KroneckerLinearSolver(V2_cs, V2_cs, (M1_1d_solvers[0], M1_1d_solvers[1]))
-            M_log_kron_solver_arr.append(M2_log_kron_solver)
-        else:
-            M_log_kron_solver_arr.append(None)
     else:
-        V0_cs = derham_h.V0.coeff_space
-        V1_cs = derham_h.V1.coeff_space
-        V2_cs = derham_h.V2.coeff_space
-        V3_cs = derham_h.V3.coeff_space
+        M_0_log_kron_solver     = KroneckerLinearSolver(V_cs[0], V_cs[0], M_1d_solvers[0])
+        M_1_log_kron_solver     = KroneckerLinearSolver(V_cs[1], V_cs[1], M_1d_solvers[1])
+        if dim == 3:
+            M_2_log_kron_solver = KroneckerLinearSolver(V_cs[2], V_cs[2], M_1d_solvers[2])
 
-        if M0 is not None:
-            M0_log_kron_solver = KroneckerLinearSolver(V0_cs, V0_cs, (M0_1d_solvers[0], M0_1d_solvers[1], M0_1d_solvers[2]))
-            M_log_kron_solver_arr.append(M0_log_kron_solver)
+        if dim == 2:
+            blocks = [[M_0_log_kron_solver, None],
+                      [None, M_1_log_kron_solver]]
         else:
-            M_log_kron_solver_arr.append(None)
-
-        if M1 is not None:
-            M1_0_log_kron_solver = KroneckerLinearSolver(V1_cs[0], V1_cs[0], (M1_1d_solvers[0], M0_1d_solvers[1], M0_1d_solvers[2]))
-            M1_1_log_kron_solver = KroneckerLinearSolver(V1_cs[1], V1_cs[1], (M0_1d_solvers[0], M1_1d_solvers[1], M0_1d_solvers[2]))
-            M1_2_log_kron_solver = KroneckerLinearSolver(V1_cs[2], V1_cs[2], (M0_1d_solvers[0], M0_1d_solvers[1], M1_1d_solvers[2]))
-            M1_log_kron_solver = BlockLinearOperator(V1_cs, V1_cs, [[M1_0_log_kron_solver, None, None],
-                                                                    [None, M1_1_log_kron_solver, None],
-                                                                    [None, None, M1_2_log_kron_solver]])
-            M_log_kron_solver_arr.append(M1_log_kron_solver)
-        else:
-            M_log_kron_solver_arr.append(None)
+            blocks = [[M_0_log_kron_solver, None, None],
+                      [None, M_1_log_kron_solver, None],
+                      [None, None, M_2_log_kron_solver]]
         
-        if M2 is not None:
-            M2_0_log_kron_solver = KroneckerLinearSolver(V2_cs[0], V2_cs[0], (M0_1d_solvers[0], M1_1d_solvers[1], M1_1d_solvers[2]))
-            M2_1_log_kron_solver = KroneckerLinearSolver(V2_cs[1], V2_cs[1], (M1_1d_solvers[0], M0_1d_solvers[1], M1_1d_solvers[2]))
-            M2_2_log_kron_solver = KroneckerLinearSolver(V2_cs[2], V2_cs[2], (M1_1d_solvers[0], M1_1d_solvers[1], M0_1d_solvers[2]))
-            M2_log_kron_solver = BlockLinearOperator(V2_cs, V2_cs, [[M2_0_log_kron_solver, None, None],
-                                                                    [None, M2_1_log_kron_solver, None],
-                                                                    [None, None, M2_2_log_kron_solver]])
-            M_log_kron_solver_arr.append(M2_log_kron_solver)
-        else:
-            M_log_kron_solver_arr.append(None)
+        M_log_kron_solver       = BlockLinearOperator  (V_cs, V_cs, blocks)
 
-        if M3 is not None:
-            M3_log_kron_solver = KroneckerLinearSolver(V3_cs, V3_cs, (M1_1d_solvers[0], M1_1d_solvers[1], M1_1d_solvers[2]))
-            M_log_kron_solver_arr.append(M3_log_kron_solver)
+    # ----- Compute D_log_sqrt
+
+    if isinstance(V_cs, StencilVectorSpace):
+        M_log            = KroneckerStencilMatrix(V_cs, V_cs, *Ms_1d[0])
+
+        D_log_sqrt       = M_log.diagonal  (inverse=False, sqrt=True)
+
+    else:
+        M_0_log          = KroneckerStencilMatrix(V_cs[0], V_cs[0], *Ms_1d[0])
+        M_1_log          = KroneckerStencilMatrix(V_cs[1], V_cs[1], *Ms_1d[1])
+        if dim == 3:
+            M_2_log      = KroneckerStencilMatrix(V_cs[2], V_cs[2], *Ms_1d[2])
+
+        if dim == 2:
+            blocks  = [[M_0_log, None],
+                      [None, M_1_log]]
         else:
-            M_log_kron_solver_arr.append(None)
+            blocks = [[M_0_log, None, None],
+                      [None, M_1_log, None],
+                      [None, None, M_2_log]]
+            
+        M_log = BlockLinearOperator(V_cs, V_cs, blocks=blocks)
+        D_log_sqrt = M_log.diagonal(inverse=False, sqrt=True)
 
     # --------------------------------
 
-    M_pc_arr = []
+    M_pc = D_inv_sqrt @ D_log_sqrt @ M_log_kron_solver @ D_log_sqrt @ D_inv_sqrt
 
-    for M, D_inv_sqrt, D_log_sqrt, M_log_kron_solver in zip(Ms, D_inv_sqrt_arr, D_log_sqrt_arr, M_log_kron_solver_arr):
-        if M is not None:
-            M_pc = D_inv_sqrt @ D_log_sqrt @ M_log_kron_solver @ D_log_sqrt @ D_inv_sqrt
-            M_pc_arr.append(M_pc)
-
-    return M_pc_arr
-
-def get_DirichletBoundaryProjector(derham_h):
-
-    dim = derham_h.dim
-
-    domain_h    = derham_h.domain_h
-    domain      = domain_h.domain
-
-    if dim == 2:
-        derham  = Derham(domain, derham_h.sequence)
-    else:
-        derham  = Derham(domain)
-
-    periodic,   = domain_h.periodic.values()
-
-    db_projectors = []
-
-    for V, Vh in zip(derham.spaces[:-1], derham_h.spaces[:-1]):
-        Vcs = Vh.coeff_space
-        bcs = get_bcs(V, periodic)
-        if bcs is not None:
-            DBP = DirichletBoundaryProjector(domain=Vcs, codomain=Vcs, bcs=bcs)
-        else:
-            DBP = None
-        db_projectors.append(DBP)
-
-    return db_projectors
-
-def get_bcs(space, periodic):
-    
-    # does not work if periodic is a bool instead of a list
-    if all([p == True for p in periodic]):
-        return None
-    
-    kind = space.kind.name
-    dim = space.domain.dim
-    
-    if kind == 'l2':
-        return None
-    
-    u = element_of(space, name="u")
-    ebcs = [EssentialBC(u, 0, side, position=0) for side in space.domain.boundary]
-
-    if kind == "h1":
-        bcs = [ebcs[0], ebcs[1]] if periodic[0] == False else []
-        if dim >= 2:
-            bcs += [ebcs[2], ebcs[3]] if periodic[1] == False else []
-        if dim == 3:
-            bcs += [ebcs[4], ebcs[5]] if periodic[2] == False else []
-
-    elif kind == 'hcurl':
-        assert dim in (2, 3)
-        bcs_x = [ebcs[2], ebcs[3]] if periodic[1] == False else []
-        if dim == 3:
-            bcs_x += [ebcs[4], ebcs[5]] if periodic[2] == False else []
-        bcs_y = [ebcs[0], ebcs[1]] if periodic[0] == False else []
-        if dim == 3:
-            bcs_y += [ebcs[4], ebcs[5]] if periodic[2] == False else []
-        if dim == 3:
-            bcs_z = [ebcs[0], ebcs[1]] if periodic[0] == False else []
-            bcs_z += [ebcs[2], ebcs[3]] if periodic[1] == False else []
-        bcs = [bcs_x, bcs_y]
-        if dim == 3:
-            bcs.append(bcs_z)
-
-    elif kind == 'hdiv':
-        assert dim in (2, 3)
-        bcs_x = [ebcs[0], ebcs[1]] if periodic[0] == False else []
-        bcs_y = [ebcs[2], ebcs[3]] if periodic[1] == False else []
-        if dim == 3:
-            bcs_z = [ebcs[4], ebcs[5]] if periodic[2] == False else []
-        bcs = [bcs_x, bcs_y]
-        if dim == 3:
-            bcs.append(bcs_z)
-
-    else:
-        raise ValueError(f'{kind} must be either "h1", "hcurl" or "hdiv"')
-    
-    return bcs
+    return M_pc
 
 class DirichletBoundaryProjector(LinearOperator):
 
-    def __init__(self, domain, codomain, bcs=None, space=None, periodic=None):
+    def __init__(self, fem_space, bcs=None, space_kind=None):
 
-        assert domain is codomain
-        assert isinstance(domain, VectorSpace)
+        assert isinstance(fem_space, FemSpace)
 
-        self._domain = domain
-        self._codomain = codomain
+        coeff_space    = fem_space.coeff_space
+        self._domain   = coeff_space
+        self._codomain = coeff_space
+
         if bcs is not None:
             self._bcs = bcs
         else:
-            assert (space is not None) and (periodic is not None)
-            assert all([isinstance(p, bool) for p in periodic])
-            assert isinstance(space, BasicFunctionSpace)
-            assert len(periodic) == space.shape
-            self._bcs = get_bcs(space, periodic)
+            self._bcs = self._get_bcs(fem_space, space_kind=space_kind)
 
     @property
     def domain(self):
@@ -539,6 +442,76 @@ class DirichletBoundaryProjector(LinearOperator):
     
     def transpose(self, conjugate=False):
         return self
+    
+    def _get_bcs(self, fem_space, space_kind=None):
+        """Returns the correct Dirichlet boundary conditions for the passed fem_space."""
+        space    = fem_space.symbolic_space
+        periodic = fem_space.periodic
+
+        space_kind_str = space.kind.name
+        if space_kind is not None:
+            # Check whether kind is a valid input
+            if isinstance(space_kind, str):
+                kind_str = space_kind.lower()
+                assert(kind_str in ['h1', 'hcurl', 'hdiv', 'l2', 'undefined'])
+            elif isinstance(space_kind, SpaceType):
+                kind_str = space_kind.name
+            else:
+                raise TypeError(f'Expecting space_kind {space_kind} to be a str or of SpaceType')
+            
+            # If fem_space has a kind, it must be compatible with kind
+            if space_kind_str != 'undefined':
+                assert space_kind_str == kind_str, f'fem_space and space_kind are not compatible.'
+            else:
+                # If space_kind_str = 'undefined': Update the variable using kind
+                space_kind_str = kind_str
+
+
+        kind = space_kind_str
+        dim  = space.domain.dim
+        
+        if kind == 'l2':
+            return None
+        
+        u = element_of(space, name="u")
+        ebcs = [EssentialBC(u, 0, side, position=0) for side in space.domain.boundary]
+
+        if kind == "h1":
+            bcs = [ebcs[0], ebcs[1]] if periodic[0] == False else []
+            if dim >= 2:
+                bcs += [ebcs[2], ebcs[3]] if periodic[1] == False else []
+            if dim == 3:
+                bcs += [ebcs[4], ebcs[5]] if periodic[2] == False else []
+
+        elif kind == 'hcurl':
+            assert dim in (2, 3)
+            bcs_x = [ebcs[2], ebcs[3]] if periodic[1] == False else []
+            if dim == 3:
+                bcs_x += [ebcs[4], ebcs[5]] if periodic[2] == False else []
+            bcs_y = [ebcs[0], ebcs[1]] if periodic[0] == False else []
+            if dim == 3:
+                bcs_y += [ebcs[4], ebcs[5]] if periodic[2] == False else []
+            if dim == 3:
+                bcs_z = [ebcs[0], ebcs[1]] if periodic[0] == False else []
+                bcs_z += [ebcs[2], ebcs[3]] if periodic[1] == False else []
+            bcs = [bcs_x, bcs_y]
+            if dim == 3:
+                bcs.append(bcs_z)
+
+        elif kind == 'hdiv':
+            assert dim in (2, 3)
+            bcs_x = [ebcs[0], ebcs[1]] if periodic[0] == False else []
+            bcs_y = [ebcs[2], ebcs[3]] if periodic[1] == False else []
+            if dim == 3:
+                bcs_z = [ebcs[4], ebcs[5]] if periodic[2] == False else []
+            bcs = [bcs_x, bcs_y]
+            if dim == 3:
+                bcs.append(bcs_z)
+
+        else:
+            raise ValueError(f'{kind} must be either "h1", "hcurl" or "hdiv"')
+        
+        return bcs
 
     def dot(self, v, out=None):
         if out is not None:
@@ -720,6 +693,7 @@ def test_LST_preconditioner():
     maxiter = 20000
     tol     = 1e-13
 
+    print()
     # Test both in 2D and 3D
     for dim in dimensions:
         print(f' ----- Start {dim}D test -----')
@@ -746,7 +720,7 @@ def test_LST_preconditioner():
         Vs                      = derham.spaces
         Vhs                     = derham_h.spaces
 
-        db_projectors = get_DirichletBoundaryProjector(derham_h)
+        db_projectors = derham_h.dirichlet_projectors(kind='linop')
 
         mass_matrices = []
         mass_0_matrices = []
@@ -770,23 +744,23 @@ def test_LST_preconditioner():
             M0, M1, M2, M3   = mass_matrices
 
         if dim == 2:
-            mass_matrix_preconditioners   = get_LST_preconditioner(derham_h, M0=M0, M1=M1, M2=M2,           backend=backend)
-            mass_0_matrix_preconditioners = get_LST_preconditioner(derham_h, M0=M0, M1=M1,        bcs=True, backend=backend)
+            mass_matrix_preconditioners   = derham_h.LST_preconditioners(M0=M0, M1=M1, M2=M2             )
+            mass_0_matrix_preconditioners = derham_h.LST_preconditioners(M0=M0, M1=M1,        hom_bc=True)
         else:
-            mass_matrix_preconditioners   = get_LST_preconditioner(derham_h, M0=M0, M1=M1, M2=M2, M3=M3,           backend=backend)
-            mass_0_matrix_preconditioners = get_LST_preconditioner(derham_h, M0=M0, M1=M1, M2=M2,        bcs=True, backend=backend)
+            mass_matrix_preconditioners   = derham_h.LST_preconditioners(M0=M0, M1=M1, M2=M2, M3=M3,            )
+            mass_0_matrix_preconditioners = derham_h.LST_preconditioners(M0=M0, M1=M1, M2=M2,        hom_bc=True)
 
         # Prepare testing whether obtaining only a subset of preconditioners works
-        mass_matrix_preconditioners_1,  = get_LST_preconditioner(derham_h, M1=M1)
-        mass_matrix_preconditioners_2 = get_LST_preconditioner(derham_h, M0=M0, M2=M2)
+        M1_pc,       = derham_h.LST_preconditioners(M1=M1       )
+        M0_pc, M2_pc = derham_h.LST_preconditioners(M0=M0, M2=M2)
         if dim == 3:
-            mass_matrix_preconditioners_3,  = get_LST_preconditioner(derham_h, M3=M3)
+            M3_pc,   = derham_h.LST_preconditioners(M3=M3       )
 
-        test_pcs = [mass_matrix_preconditioners_2[0], mass_matrix_preconditioners_1, mass_matrix_preconditioners_2[1]]
+        test_pcs = [M0_pc, M1_pc, M2_pc]
         if dim == 3:
-            test_pcs += [mass_matrix_preconditioners_3, ]
+            test_pcs += [M3_pc]
 
-        # Test 1: Test whether obtaining only a subset of all possible preconditioners works
+        # Test whether obtaining only a subset of all possible preconditioners works
         for pc, test_pc in zip(mass_matrix_preconditioners, test_pcs):
             _test_LO_equality_using_rng(pc, test_pc)
 
@@ -795,7 +769,7 @@ def test_LST_preconditioner():
         rng = np.random.default_rng(42)
 
         # For comparison and testing: Number of iterations required, not using and using a preconditioner
-        # More information via "-s" when running the test
+        # More information via " -s" when running the test
         #                           dim 2                           dim 3
         #                  M0   M1  M2  M0_0  M1_0     M0    M1    M2   M3  M0_0  M1_0  M2_0
         true_cg_niter  = [[90, 681, 62,   77,  600], [486, 7970, 5292, 147,  356, 5892, 4510]]
@@ -806,10 +780,21 @@ def test_LST_preconditioner():
 
         mass_matrices               += mass_0_matrices
         mass_matrix_preconditioners += mass_0_matrix_preconditioners
+        extended_fem_spaces         = Vhs + Vhs[:-1]
 
-        for i, (M, Mpc) in enumerate(zip(mass_matrices, mass_matrix_preconditioners)):
+        for i, (M, Mpc, Vh) in enumerate(zip(mass_matrices, mass_matrix_preconditioners, extended_fem_spaces)):
 
-            cg = False
+            cg = False # Set to True to compare iterations and time with not-preconditioned Conjugate Gradient solver
+
+            # hom_bc = False for M0 M1 M2 (M3), then hom_bc = True for M0_0 M1_0 (M2_0)
+            hom_bc = True if i > dim else False
+
+            # In order to obtain an LST for M{i}_0, we still have to pass M{i} to `construct_LST_preconditioner`.`
+            # M2 = M{i} if M = M{i}_0 and hence can be used to obtain the pc for M{i}_0
+            M2 = mass_matrices[i-dim-1] if i > dim else M
+            Mpc2 = construct_LST_preconditioner(M2, domain_h, Vh, hom_bc=hom_bc)
+            _test_LO_equality_using_rng(Mpc, Mpc2)
+            print(' The LST pc obtained using derham_h.LST_preconditioners is the same as the one obtained from construct_LST_preconditioner.')
 
             if cg:
                 M_inv_cg  = inverse(M, 'cg',          maxiter=maxiter, tol=tol)
@@ -866,7 +851,174 @@ def test_LST_preconditioner():
         print()
 
 #===============================================================================
-def test_DirichletBoundaryProjector():
+def test_function_space_dirichlet_projector():
+
+    ncells_3d   = [8, 8, 8]
+    degree_3d   = [2, 2, 2]
+    periodic_3d = [False, True, False]
+
+    comm     = None
+    backend  = PSYDAC_BACKEND_GPYCCEL
+
+    logical_domain_1d = Line  ('L', bounds= (0,   1))
+    logical_domain_2d = Square('S', bounds1=(0.5, 1), bounds2=(0, 2*np.pi))
+    logical_domain_3d = Cube  ('C', bounds1=(0.5, 1), bounds2=(0, 2*np.pi), bounds3=(0, 1))
+    logical_domains   = [logical_domain_1d, logical_domain_2d, logical_domain_3d]
+
+    mapping_1d = SinMapping1D('LM')
+    mapping_2d = Annulus     ('A' )
+    mapping_3d = SquareTorus ('ST')
+    mappings   = [mapping_1d, mapping_2d, mapping_3d]
+
+    dims = [1, 2, 3]
+    rng  = np.random.default_rng(42)
+
+    print()
+    for dim in dims:
+        print(f' ----- Test projectors in dimension {dim} -----')
+        print()
+
+        domain        = mappings[dim-1](logical_domains[dim-1])
+        from sympde.utilities.utils import plot_domain
+        #plot_domain(domain, draw=True, isolines=True)
+
+        # Obtain "true" boundary, i.e., remove periodic y-direction boundary
+        if dim == 1:
+            boundary  = domain.boundary
+        elif dim == 2:
+            boundary  = Union(domain.get_boundary(axis=0, ext=-1), domain.get_boundary(axis=0, ext=1))
+        else:
+            boundary  = Union(domain.get_boundary(axis=0, ext=-1), domain.get_boundary(axis=0, ext=1),
+                              domain.get_boundary(axis=2, ext=-1), domain.get_boundary(axis=2, ext=1))
+            
+        ncells    = [ncells_3d[0], ]   if dim == 1 else ncells_3d  [0:dim]
+        degree    = [degree_3d[0], ]   if dim == 1 else degree_3d  [0:dim]
+        periodic  = [periodic_3d[0], ] if dim == 1 else periodic_3d[0:dim]
+
+        domain_h = discretize(domain, ncells=ncells, periodic=periodic, comm=comm)
+
+        nn            = NormalVector('nn')
+
+        for i in range(dim):
+            print(f'      - Test DBP{i}')
+
+            # The function defined here satisfy the corresponding homogeneous Dirichlet BCs
+            if dim == 1:
+                x = domain.coordinates
+                V = ScalarFunctionSpace('V', domain, kind='H1')
+                f = sin(2*pi*x)
+            if dim == 2:
+                x, y = domain.coordinates
+                if i == 0:
+                    V  = ScalarFunctionSpace('V', domain, kind=H1Space)
+                    f  = (sqrt(x**2 + y**2)-0.5) * (sqrt(x**2 + y**2)-1)
+                else:
+                    V  = VectorFunctionSpace('V', domain, kind='hCuRl')
+                    f1 = x
+                    f2 = y
+                    f  = Tuple(f1, f2)
+            if dim == 3:
+                x, y, z = domain.coordinates
+                if i == 0:
+                    V  = ScalarFunctionSpace('V', domain, kind='h1')
+                    f  = (sqrt(x**2 + y**2)-0.5) * (sqrt(x**2 + y**2)-1) * z * (z-1)
+                elif i == 1:
+                    V  = VectorFunctionSpace('V', domain, kind=HcurlSpace)
+                    f1 = z * (z - 1) * x
+                    f2 = z * (z - 1) * y
+                    f3 = (sqrt(x**2 + y**2)-0.5) * (sqrt(x**2 + y**2)-1)
+                    f  = Tuple(f1, f2, f3)
+                else:
+                    V  = VectorFunctionSpace('V', domain, kind='Hdiv')
+                    f1 = (sqrt(x**2 + y**2)-0.5) * (sqrt(x**2 + y**2)-1)
+                    f2 = (sqrt(x**2 + y**2)-0.5) * (sqrt(x**2 + y**2)-1)
+                    f3 = z * (z-1) * sin(x*y)
+                    f  = Tuple(f1, f2, f3)
+
+            u, v = elements_of(V, names='u, v')
+            if i == 0:
+                boundary_expr = u*v
+            if (i == 1) and (dim == 2):
+                boundary_expr = cross(nn, u) * cross(nn, v)
+            if (i == 1) and (dim == 3):
+                boundary_expr = inner(cross(nn, u), cross(nn, v))
+            if i == 2:
+                boundary_expr = inner(nn, u) * inner(nn, v)
+
+            Vh   = discretize(V, domain_h, degree=degree)
+            expr = inner(u, v) if isinstance(Vh.coeff_space, BlockVectorSpace) else u*v
+
+            a   = BilinearForm((u, v), integral(domain,            expr))            
+            ab  = BilinearForm((u, v), integral(boundary, boundary_expr))
+
+            ah  = discretize(a,  domain_h, (Vh, Vh), backend=backend)
+            abh = discretize(ab, domain_h, (Vh, Vh), backend=backend, sum_factorization=False)
+
+            I   = IdentityOperator(Vh.coeff_space)
+            DBP = DirichletBoundaryProjector(Vh)
+
+            M   = ah.assemble()
+            M_0 = DBP @ M @ DBP + (I - DBP)
+            Mb  = abh.assemble()
+
+            # We project f into the conforming discrete space using a penalization method. It's coefficients are stored in fc
+            lexpr = inner(v, f) if isinstance(Vh.coeff_space, BlockVectorSpace) else v*f
+            l = LinearForm(v, integral(domain, lexpr))
+            lh = discretize(l, domain_h, Vh, backend=backend)
+            rhs = lh.assemble()
+            A = M + 1e30*Mb
+            A_inv = inverse(A, 'cg', maxiter=1000, tol=1e-10)
+            fc = A_inv @ rhs
+
+            # 1.
+            # In 1D, 2D, 3D, the coefficients of functions satisfying homogeneous Dirichlet 
+            # boundary conditions should not change under application of the corresponding projector
+            fc2  = DBP @ fc
+            diff = fc - fc2
+            err  = np.linalg.norm(diff.toarray())
+            print(f' | f - P @ f |          = {err}')
+            assert err < 1e-15
+
+            # 2.
+            # After applying a projector to a random vector, we want to verify that the 
+            # corresponding boundary integral vanishes
+            rdm_coeffs = Vh.coeff_space.zeros()
+            print(' Random boundary integrals:')
+            for _ in range(3):
+                if isinstance(rdm_coeffs.space, BlockVectorSpace):
+                    for block in rdm_coeffs.blocks:
+                        rng.random(size=block._data.shape, dtype="float64", out=block._data)
+                else:
+                    rng.random(size=rdm_coeffs._data.shape, dtype="float64", out=rdm_coeffs._data)
+                rdm_coeffs2 = DBP @ rdm_coeffs
+                boundary_int_rdm = Mb.dot_inner(rdm_coeffs, rdm_coeffs)
+                boundary_int_proj_rdm = Mb.dot_inner(rdm_coeffs2, rdm_coeffs2)
+                print(f'  rdm: {boundary_int_rdm}    proj. rdm: {boundary_int_proj_rdm}')
+                assert boundary_int_proj_rdm < 1e-15
+
+            # 3.
+            # We want to verify that applying a projector twice does not change the vector twice
+            fc3  = DBP @ fc2
+            diff = fc2 - fc3
+            err  = np.linalg.norm(diff.toarray())
+            print(f' | P @ f - P @ P @ f |  = {err}')
+            assert err == 0.
+
+            # 4.
+            # Finally, the modified mass matrix should still compute inner products correctly
+            l2_norm_squared  = M.dot_inner  (fc, fc)
+            l2_norm_squared2 = M_0.dot_inner(fc, fc)
+            diff             = l2_norm_squared - l2_norm_squared2
+            print(f' ||   f   ||^2          = {l2_norm_squared} should be equal to')
+            print(f' || P @ f ||^2          = {l2_norm_squared2}')
+            assert diff < 1e-15
+
+            print()
+
+        print()
+
+#===============================================================================
+def test_discrete_derham_dirichlet_projector():
 
     ncells   = [8, 8, 8]
     degree   = [2, 2, 2]
@@ -881,8 +1033,8 @@ def test_DirichletBoundaryProjector():
     logical_domains   = [logical_domain_1d, logical_domain_2d, logical_domain_3d]
 
     mapping_1d = SinMapping1D('LM')
-    mapping_2d = Annulus        ('A' )
-    mapping_3d = SquareTorus    ('ST')
+    mapping_2d = Annulus     ('A' )
+    mapping_3d = SquareTorus ('ST')
     mappings   = [mapping_1d, mapping_2d, mapping_3d]
 
     dims = [1, 2, 3]
@@ -937,7 +1089,7 @@ def test_DirichletBoundaryProjector():
         domain_h      = discretize(domain, ncells=ncells_dim, periodic=periodic_dim, comm=comm)
         derham_h      = discretize(derham, domain_h, degree=degree_dim)
 
-        db_projectors = get_DirichletBoundaryProjector(derham_h)
+        db_projectors = derham_h.dirichlet_projectors(kind='linop')
 
         nn            = NormalVector('nn')
 
