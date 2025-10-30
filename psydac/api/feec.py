@@ -1,3 +1,10 @@
+import numpy as np
+
+from scipy.sparse                               import dia_matrix
+
+from sympde.expr                                import integral, BilinearForm
+from sympde.topology                            import elements_of, Line, Derham
+
 from psydac.api.basic                           import BasicDiscrete
 
 from psydac.feec.derivatives                    import Derivative1D, Gradient2D, Gradient3D
@@ -26,7 +33,12 @@ from psydac.feec.pull_push                      import pull_3d_hdiv, pull_3d_l2,
 
 from psydac.fem.basic                           import FemSpace, FemLinearOperator
 from psydac.fem.vector                          import VectorFemSpace
-from psydac.linalg.basic                        import IdentityOperator
+
+from psydac.linalg.basic                        import LinearOperator, IdentityOperator
+from psydac.linalg.block                        import BlockLinearOperator
+from psydac.linalg.direct_solvers               import BandedSolver
+from psydac.linalg.kron                         import KroneckerLinearSolver, KroneckerStencilMatrix
+from psydac.linalg.stencil                      import StencilVectorSpace
 
 __all__ = ('DiscreteDeRham', 'DiscreteDeRhamMultipatch',)
 
@@ -288,6 +300,39 @@ class DiscreteDeRham(BasicDiscrete):
         elif kind == 'linop': 
             return tuple(b_diff.linop for b_diff in self._derivatives)
     
+    #--------------------------------------------------------------------------
+    def dirichlet_projectors(self, kind='femlinop'):
+        """
+        Returns operators that apply the correct Dirichlet boundary conditions.
+
+        Parameters
+        ----------
+        kind : str
+            The kind of the projector, can be 'femlinop' or 'linop'.
+            - 'femlinop' returns a psydac FemLinearOperator (default)
+            - 'linop' returns a psydac LinearOperator
+
+        Returns
+        -------
+        d_projectors : list
+            List of <psydac.fem.basic.FemLinearOperator> or <psydac.linalg.basic.LinearOperator>
+            The Dirichlet boundary projectors of each space and in desired form.
+
+        Notes
+        -----
+        See examples/vector_potential_3d.py for a use case of these operators in LinearOperator form.
+        
+        """
+        assert kind in ('femlinop', 'linop')
+
+        from psydac.linalg.tests.test_solvers import DirichletBoundaryProjector
+        d_projectors = [DirichletBoundaryProjector(Vh) for Vh in self.spaces[:-1]]
+
+        if kind == 'femlinop':
+            d_projectors = [FemLinearOperator(fem_domain=Vh, fem_codomain=Vh, linop=d_projector) for Vh, d_projector in zip(self.spaces[:-1], d_projectors)]
+
+        return d_projectors
+
     #--------------------------------------------------------------------------
     def conforming_projectors(self, kind='femlinop', mom_pres=False, p_moments=-1, hom_bc=False):
         """
