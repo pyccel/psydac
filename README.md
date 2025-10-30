@@ -5,6 +5,9 @@
 PSYDAC is a Python 3 library for isogeometric analysis.
 It is an academic, open-source project created by numerical mathematicians at the [Max Planck Institute for Plasma Physics](https://www.ipp.mpg.de/en) ([NMPP](https://www.ipp.mpg.de/ippcms/eng/for/bereiche/numerik) division, [FEM](https://www.ipp.mpg.de/5150531/fem) group).
 
+The name PSYDAC stands for "Python Spline librarY for Differential equations with Automatic Code generation" .
+It is pronounced like the famous Pokémon character, from which we draw inspiration for its psychic powers.
+
 PSYDAC can solve general systems of partial differential equations in weak form, which users define using the domain-specific language provided by [SymPDE](https://github.com/pyccel/sympde).
 It supports finite element exterior calculus ([FEEC](https://en.wikipedia.org/wiki/Finite_element_exterior_calculus)) with tensor-product spline spaces and handles multi-patch geometries in various ways.
 
