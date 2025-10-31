@@ -626,7 +626,6 @@ class DiscreteDeRham(BasicDiscrete):
                                                         [None, None, M1_2_log]])
         if dim == 2:
             M2_log = KroneckerStencilMatrix(V2_cs, V2_cs, *M1s_1d)
-            Ms_log = [M0_log, M1_log, M2_log]
         else:
             M2_0_log = KroneckerStencilMatrix(V2_cs[0], V2_cs[0], M0s_1d[0], M1s_1d[1], M1s_1d[2])
             M2_1_log = KroneckerStencilMatrix(V2_cs[1], V2_cs[1], M1s_1d[0], M0s_1d[1], M1s_1d[2])
@@ -636,7 +635,10 @@ class DiscreteDeRham(BasicDiscrete):
                                                         [None, None, M2_2_log]])
         if dim == 3:
             M3_log = KroneckerStencilMatrix(V3_cs, V3_cs, *M1s_1d)
-            Ms_log = [M0_log, M1_log, M2_log, M3_log]
+
+        Ms_log = [M0_log, M1_log, M2_log]
+        if dim == 3:
+            Ms_log += [M3_log]
 
         for M, M_log in zip(Ms, Ms_log):
             if M is not None:
