@@ -737,6 +737,252 @@ def test_discrete_derham_dirichlet_projector():
 
         print()
 
+#===============================================================================
+class DirichletMultipatchBoundaryProjector(LinearOperator):
+
+    def __init__(self, fem_space, bcs=None, space_kind=None):
+
+        assert isinstance(fem_space, FemSpace)
+        assert fem_space.is_multipatch
+
+        coeff_space    = fem_space.coeff_space
+        self._domain   = coeff_space
+        self._codomain = coeff_space
+
+        if bcs is not None:
+            self._bcs = bcs
+        else:
+            self._bcs = self._get_bcs(fem_space, space_kind=space_kind)
+
+    @property
+    def domain(self):
+        return self._domain
+    
+    @property
+    def codomain(self):
+        return self._domain
+    
+    @property
+    def dtype(self):
+        return None
+    
+    @property
+    def bcs(self):
+        return self._bcs
+    
+    def tosparse(self):
+        raise NotImplementedError
+    
+    def toarray(self):
+        raise NotImplementedError
+    
+    def transpose(self, conjugate=False):
+        return self
+    
+    def _get_bcs(self, fem_space, space_kind=None):
+        """Returns the correct Dirichlet boundary conditions for the passed fem_space."""
+        space    = fem_space.symbolic_space
+        periodic = fem_space.periodic
+
+        space_kind_str = space.kind.name
+        if space_kind is not None:
+            # Check whether kind is a valid input
+            if isinstance(space_kind, str):
+                kind_str = space_kind.lower()
+                assert(kind_str in ['h1', 'hcurl', 'hdiv', 'l2', 'undefined'])
+            elif isinstance(space_kind, SpaceType):
+                kind_str = space_kind.name
+            else:
+                raise TypeError(f'Expecting space_kind {space_kind} to be a str or of SpaceType')
+            
+            # If fem_space has a kind, it must be compatible with kind
+            if space_kind_str != 'undefined':
+                assert space_kind_str == kind_str, f'fem_space and space_kind are not compatible.'
+            else:
+                # If space_kind_str = 'undefined': Update the variable using kind
+                space_kind_str = kind_str
+
+        kind = space_kind_str
+        dim  = space.domain.dim
+        assert dim==2 
+        
+        if kind == 'l2':
+            return None
+        
+        u = element_of(space, name="u")
+
+        if kind == "h1":
+            bcs = [EssentialBC(u, 0, side, position=0) for side in space.domain.boundary]
+
+
+        elif kind == 'hcurl':
+            bcs_x = []
+            bcs_y = []
+
+            for bn in space.domain.boundary:
+                if bn.axis == 0:
+                    bcs_y.append(EssentialBC(u, 0, bn, position=0))
+                elif bn.axis == 1:
+                    bcs_x.append(EssentialBC(u, 0, bn, position=0))
+
+            bcs = [bcs_x, bcs_y]
+
+
+        elif kind == 'hdiv':
+            bcs_x = []
+            bcs_y = []
+
+            for bn in space.domain.boundary:
+                if bn.axis == 1:
+                    bcs_y.append(EssentialBC(u, 0, bn, position=0))
+                elif bn.axis == 0:
+                    bcs_x.append(EssentialBC(u, 0, bn, position=0))
+
+            bcs = [bcs_x, bcs_y]
+
+        else:
+            raise ValueError(f'{kind} must be either "h1", "hcurl" or "hdiv"')
+        
+        return bcs
+
+    def dot(self, v, out=None):
+        if out is not None:
+            assert isinstance(out, Vector)
+            assert out.space is self.codomain
+        else:
+            out = self.codomain.zeros()
+
+        v.copy(out=out)
+
+        # apply bc on each patch
+        for p in out.blocks:
+
+            if isinstance(p, StencilVector):
+                apply_essential_bc(p, *self._bcs)
+            else:
+                for block, block_bcs in zip(p, self._bcs):
+                    apply_essential_bc(block, *block_bcs)
+
+        return out
+
+#===============================================================================
+def test_discrete_derham_dirichlet_projector_multipatch():
+
+    ncells   = [8, 8]
+    degree   = [2, 2]
+
+    comm     = None
+    backend  = PSYDAC_BACKEND_GPYCCEL
+
+    from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
+    domain = build_multipatch_domain(domain_name='annulus_3')
+
+    rng = np.random.default_rng(42)
+
+    # The following are functions satisfying homogeneous Dirichlet BCs
+    r      = lambda x, y : np.sqrt(x**2 + y**2)
+    f1     = lambda x, y : (r(x, y) - 0.5) * (r(x, y) - 1)
+    f2_1   = lambda x, y : x
+    f2_2   = lambda x, y : y
+    f2     = (f2_1, f2_2)
+    funs   = [f1, f2]
+    print()
+
+    boundary = domain.boundary
+
+    derham = Derham(domain, sequence=['h1', 'hcurl', 'l2'])
+    
+    ncells_h = {}
+    for k, D in enumerate(domain.interior):
+        ncells_h[D.name] = ncells
+
+    domain_h = discretize(domain, ncells=ncells_h, comm=comm)
+    derham_h = discretize(derham, domain_h, degree=degree)
+
+    projectors = derham_h.projectors(nquads=[(d + 1) for d in degree])
+
+    db_projectors = derham_h.dirichlet_projectors(kind='linop')
+
+    conf_projectors = derham_h.conforming_projectors(kind='linop', hom_bc=True)
+
+    nn = NormalVector('nn')
+
+    for i in range(2):
+        print(f'      - Test DBP{i}')
+
+        u, v = elements_of(derham.spaces[i], names='u, v')
+
+        if i == 0:
+            boundary_expr = u*v
+            expr = u*v
+        if (i == 1):
+            boundary_expr = cross(nn, u) * cross(nn, v)
+            expr = inner(u,v)
+
+        a   = BilinearForm((u, v), integral(domain,            expr))            
+        ab  = BilinearForm((u, v), integral(boundary, boundary_expr))
+
+        ah  = discretize(a,  domain_h, (derham_h.spaces[i], derham_h.spaces[i]), backend=backend)
+        abh = discretize(ab, domain_h, (derham_h.spaces[i], derham_h.spaces[i]), backend=backend, sum_factorization=False)
+
+        I   = IdentityOperator(derham_h.spaces[i].coeff_space)
+        DBP = db_projectors[i]
+
+        M   = ah.assemble()
+        M_0 = DBP @ M @ DBP + (I - DBP)
+        Mb  = abh.assemble()
+
+        f   = funs[i]
+        fc  = projectors[i](f).coeffs
+
+        # 1.
+        # The coefficients of functions satisfying homogeneous Dirichlet 
+        # boundary conditions should not change under application of the corresponding projector
+        fc2  = DBP @ fc
+        diff = fc - fc2
+        err  = np.linalg.norm(diff.toarray())
+        print(f' | f - P @ f |          = {err}')
+        assert err < 1e-15
+
+        # 2.
+        # After applying a projector to a random vector, we want to verify that the 
+        # corresponding boundary integral vanishes
+        rdm_coeffs = derham_h.spaces[i].coeff_space.zeros()
+        print(' Random boundary integrals:')
+        for _ in range(3):
+            for patch in rdm_coeffs.blocks:
+
+                if isinstance(patch.space, BlockVectorSpace):
+                    for block in patch.blocks:
+                        rng.random(size=block._data.shape, dtype="float64", out=block._data)
+                else:
+                    rng.random(size=patch._data.shape, dtype="float64", out=patch._data)
+
+            rdm_coeffs2 = DBP @ rdm_coeffs
+            boundary_int_rdm = Mb.dot_inner(rdm_coeffs, rdm_coeffs)
+            boundary_int_proj_rdm = Mb.dot_inner(rdm_coeffs2, rdm_coeffs2)
+            print(f'  rdm: {boundary_int_rdm}    proj. rdm: {boundary_int_proj_rdm}')
+            assert boundary_int_proj_rdm < 1e-15
+
+        # 3.
+        # We want to verify that applying a projector twice does not change the vector twice
+        fc3  = DBP @ fc2
+        diff = fc2 - fc3
+        err  = np.linalg.norm(diff.toarray())
+        print(f' | P @ f - P @ P @ f |  = {err}')
+        assert err == 0.
+
+        # 4.
+        # Finally, the modified mass matrix should still compute inner products correctly
+        l2_norm_squared  = M.dot_inner  (fc, fc)
+        l2_norm_squared2 = M_0.dot_inner(fc, fc)
+        diff             = l2_norm_squared - l2_norm_squared2
+        print(f' ||   f   ||^2          = {l2_norm_squared} should be equal to')
+        print(f' || P @ f ||^2          = {l2_norm_squared2}')
+        assert diff < 1e-15
+
+        print()
+
 # ===============================================================================
 # SCRIPT FUNCTIONALITY
 #===============================================================================

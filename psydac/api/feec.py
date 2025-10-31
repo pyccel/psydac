@@ -651,3 +651,36 @@ class DiscreteDeRhamMultipatch(DiscreteDeRham):
 
         elif self.dim == 3:
             raise NotImplementedError("3D projectors are not available")
+
+    #--------------------------------------------------------------------------
+    def dirichlet_projectors(self, kind='femlinop'):
+        """
+        Returns operators that apply the correct Dirichlet boundary conditions.
+
+        Parameters
+        ----------
+        kind : str
+            The kind of the projector, can be 'femlinop' or 'linop'.
+            - 'femlinop' returns a psydac FemLinearOperator (default)
+            - 'linop' returns a psydac LinearOperator
+
+        Returns
+        -------
+        d_projectors : list
+            List of <psydac.fem.basic.FemLinearOperator> or <psydac.linalg.basic.LinearOperator>
+            The Dirichlet boundary projectors of each space and in desired form.
+
+        Notes
+        -----
+        See examples/vector_potential_3d.py for a use case of these operators in LinearOperator form.
+        
+        """
+        assert kind in ('femlinop', 'linop')
+
+        from psydac.linalg.tests.test_solvers import DirichletMultipatchBoundaryProjector
+        d_projectors = [DirichletMultipatchBoundaryProjector(Vh) for Vh in self.spaces[:-1]]
+
+        if kind == 'femlinop':
+            d_projectors = [FemLinearOperator(fem_domain=Vh, fem_codomain=Vh, linop=d_projector) for Vh, d_projector in zip(self.spaces[:-1], d_projectors)]
+
+        return d_projectors
