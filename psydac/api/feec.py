@@ -325,7 +325,7 @@ class DiscreteDeRham(BasicDiscrete):
         """
         assert kind in ('femlinop', 'linop')
 
-        from psydac.linalg.tests.test_solvers import DirichletBoundaryProjector
+        from psydac.fem.projectors import DirichletBoundaryProjector
         d_projectors = [DirichletBoundaryProjector(Vh) for Vh in self.spaces[:-1]]
 
         if kind == 'femlinop':
@@ -677,7 +677,7 @@ class DiscreteDeRhamMultipatch(DiscreteDeRham):
         """
         assert kind in ('femlinop', 'linop')
 
-        from psydac.linalg.tests.test_solvers import DirichletMultipatchBoundaryProjector
+        from psydac.fem.projectors import DirichletMultipatchBoundaryProjector
         d_projectors = [DirichletMultipatchBoundaryProjector(Vh) for Vh in self.spaces[:-1]]
 
         if kind == 'femlinop':
