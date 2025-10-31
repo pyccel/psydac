@@ -334,7 +334,7 @@ class DiscreteDeRham(BasicDiscrete):
         return d_projectors
 
     #--------------------------------------------------------------------------
-    def LST_preconditioners(self, M0=None, M1=None, M2=None, M3=None, hom_bc=False):
+    def LST_preconditioner(self, M0=None, M1=None, M2=None, M3=None, hom_bc=False):
         """
         LST (Loli, Sangalli, Tani) preconditioners are mass matrix preconditioners of the form
         pc = D_inv_sqrt @ D_log_sqrt @ M_log_kron_solver @ D_log_sqrt @ D_inv_sqrt, where

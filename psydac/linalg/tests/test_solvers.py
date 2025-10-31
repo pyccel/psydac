@@ -744,17 +744,17 @@ def test_LST_preconditioner():
             M0, M1, M2, M3   = mass_matrices
 
         if dim == 2:
-            mass_matrix_preconditioners   = derham_h.LST_preconditioners(M0=M0, M1=M1, M2=M2             )
-            mass_0_matrix_preconditioners = derham_h.LST_preconditioners(M0=M0, M1=M1,        hom_bc=True)
+            mass_matrix_preconditioners   = derham_h.LST_preconditioner(M0=M0, M1=M1, M2=M2             )
+            mass_0_matrix_preconditioners = derham_h.LST_preconditioner(M0=M0, M1=M1,        hom_bc=True)
         else:
-            mass_matrix_preconditioners   = derham_h.LST_preconditioners(M0=M0, M1=M1, M2=M2, M3=M3,            )
-            mass_0_matrix_preconditioners = derham_h.LST_preconditioners(M0=M0, M1=M1, M2=M2,        hom_bc=True)
+            mass_matrix_preconditioners   = derham_h.LST_preconditioner(M0=M0, M1=M1, M2=M2, M3=M3,            )
+            mass_0_matrix_preconditioners = derham_h.LST_preconditioner(M0=M0, M1=M1, M2=M2,        hom_bc=True)
 
         # Prepare testing whether obtaining only a subset of preconditioners works
-        M1_pc,       = derham_h.LST_preconditioners(M1=M1       )
-        M0_pc, M2_pc = derham_h.LST_preconditioners(M0=M0, M2=M2)
+        M1_pc,       = derham_h.LST_preconditioner(M1=M1       )
+        M0_pc, M2_pc = derham_h.LST_preconditioner(M0=M0, M2=M2)
         if dim == 3:
-            M3_pc,   = derham_h.LST_preconditioners(M3=M3       )
+            M3_pc,   = derham_h.LST_preconditioner(M3=M3       )
 
         test_pcs = [M0_pc, M1_pc, M2_pc]
         if dim == 3:
@@ -794,7 +794,7 @@ def test_LST_preconditioner():
             M2 = mass_matrices[i-dim-1] if i > dim else M
             Mpc2 = construct_LST_preconditioner(M2, domain_h, Vh, hom_bc=hom_bc)
             _test_LO_equality_using_rng(Mpc, Mpc2)
-            print(' The LST pc obtained using derham_h.LST_preconditioners is the same as the one obtained from construct_LST_preconditioner.')
+            print(' The LST pc obtained using derham_h.LST_preconditioner is the same as the one obtained from construct_LST_preconditioner.')
 
             if cg:
                 M_inv_cg  = inverse(M, 'cg',          maxiter=maxiter, tol=tol)
