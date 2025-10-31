@@ -12,6 +12,10 @@ PSYDAC automatically generates Python code for the assembly of user-defined func
 This Python code is then accelerated to C/Fortran speed using [Pyccel](https://github.com/pyccel/pyccel).
 The library also enables large parallel computations on distributed-memory supercomputers using [MPI](https://en.wikipedia.org/wiki/Message_Passing_Interface) and [OpenMP](https://en.wikipedia.org/wiki/OpenMP).
 
+> [!NOTE]
+> The name PSYDAC stands for "Python Spline librarY for Differential equations with Automatic Code generation".
+> It is pronounced like the famous Pokémon character, from which the developers draw inspiration for its psychic powers.
+
 ## Citing
 
 If PSYDAC has been significant in your research, and you would like to acknowledge the project in your academic publication, we would ask that you cite the following paper:
