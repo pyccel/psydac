@@ -1211,8 +1211,8 @@ def construct_h1_singlepatch_conforming_projection(Vh, reg_orders=0, p_moments=-
 
 
     def get_vertex_index(coords):
-        nbasis0 = Vh.spaces[coords[0]].nbasis - 1
-        nbasis1 = Vh.spaces[coords[1]].nbasis - 1
+        nbasis0 = Vh.spaces[0].nbasis - 1
+        nbasis1 = Vh.spaces[1].nbasis - 1
 
         # patch local index
         multi_index = [None] * ndim
@@ -1232,6 +1232,9 @@ def construct_h1_singlepatch_conforming_projection(Vh, reg_orders=0, p_moments=-
     # boundary conditions
 
     for  co in [(0,0), (1,0), (0,1), (1,1)]:
+
+        if all(Vh.periodic):
+            break
 
         # global index
         ig = get_vertex_index(co)
@@ -1304,6 +1307,10 @@ def construct_h1_singlepatch_conforming_projection(Vh, reg_orders=0, p_moments=-
 
     # boundary condition
     for bn in domain.boundary:
+
+        if Vh.periodic[bn.axis]:
+            continue
+
         space_k = Vh
         axis = bn.axis
 
@@ -1401,6 +1408,9 @@ def construct_hcurl_singlepatch_conforming_projection(Vh, reg_orders=0, p_moment
 
     # boundary condition
     for bn in domain.boundary:
+
+        if Vh.periodic[bn.axis]:
+            continue
 
         axis = bn.axis
         d = 1 - axis

@@ -649,6 +649,9 @@ def test_discrete_derham_dirichlet_projector():
 
         db_projectors = derham_h.dirichlet_projectors(kind='linop')
 
+        if dim == 2: 
+            conf_projectors = derham_h.conforming_projectors(kind='linop', hom_bc=True)
+
         nn            = NormalVector('nn')
 
         for i in range(dim):
@@ -675,6 +678,10 @@ def test_discrete_derham_dirichlet_projector():
 
             I   = IdentityOperator(derham_h.spaces[i].coeff_space)
             DBP = db_projectors[i]
+
+            if dim == 2: 
+                CP = conf_projectors[i]
+                _test_LO_equality_using_rng(DBP, CP)
 
             M   = ah.assemble()
             M_0 = DBP @ M @ DBP + (I - DBP)
