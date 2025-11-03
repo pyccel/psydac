@@ -28,6 +28,7 @@ def knots_to_insert(coarse_grid, fine_grid, tol=1e-14):
     assert abs(intersection-coarse_grid).max()<tol
     return T
 
+
 def knot_insertion_projection_operator(domain, codomain):
     """
     Compute the projection operator based on the knot insertion technique.
@@ -110,6 +111,7 @@ def knot_insertion_projection_operator(domain, codomain):
 
     return KroneckerDenseMatrix(domain.coeff_space, codomain.coeff_space, *ops)
 
+
 def get_dual_dofs(Vh, f, domain_h, backend_language="python", return_format='stencil_array'):
     """
     return the dual dofs tilde_sigma_i(f) = < Lambda_i, f >_{L2} i = 1, .. dim(Vh)) of a given function f, as a stencil array or numpy array
@@ -157,6 +159,7 @@ def get_dual_dofs(Vh, f, domain_h, backend_language="python", return_format='ste
         return tilde_f.toarray()
     else:
         return tilde_f
+
 
 #===============================================================================
 class DirichletBoundaryProjector(LinearOperator):
