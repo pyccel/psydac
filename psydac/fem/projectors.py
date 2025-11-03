@@ -330,7 +330,6 @@ class DirichletMultipatchBoundaryProjector(LinearOperator):
     def _get_bcs(self, fem_space, space_kind=None):
         """Returns the correct Dirichlet boundary conditions for the passed fem_space."""
         space    = fem_space.symbolic_space
-        periodic = fem_space.periodic
 
         space_kind_str = space.kind.name
         if space_kind is not None:
