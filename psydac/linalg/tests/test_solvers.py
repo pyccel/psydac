@@ -127,7 +127,7 @@ def _test_LO_equality_using_rng(A, B):
         assert err < 1e-15
 
 #===============================================================================
-@pytest.mark.parametrize( 'n', [5, 10, 13] )
+@pytest.mark.parametrize('n', [5, 10, 13] )
 @pytest.mark.parametrize('p', [2, 3])
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('solver', ['cg', 'pcg', 'bicg', 'bicgstab', 'pbicgstab', 'minres', 'lsmr', 'gmres'])
@@ -276,7 +276,9 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
         assert solver == 'pcg' or errc_norm < tol
 
 #===============================================================================
-def test_function_space_dirichlet_projector():
+@pytest.mark.parametrize('dim', [1, 2, 3])
+
+def test_function_space_dirichlet_projector(dim):
 
     ncells_3d   = [8, 8, 8]
     degree_3d   = [2, 2, 2]
@@ -295,155 +297,153 @@ def test_function_space_dirichlet_projector():
     mapping_3d = SquareTorus ('ST')
     mappings   = [mapping_1d, mapping_2d, mapping_3d]
 
-    dims = [1, 2, 3]
     rng  = np.random.default_rng(42)
 
     print()
-    for dim in dims:
-        print(f' ----- Test projectors in dimension {dim} -----')
-        print()
+    print(f' ----- Test projectors in dimension {dim} -----')
+    print()
 
-        domain        = mappings[dim-1](logical_domains[dim-1])
-        from sympde.utilities.utils import plot_domain
-        #plot_domain(domain, draw=True, isolines=True)
+    domain        = mappings[dim-1](logical_domains[dim-1])
+    from sympde.utilities.utils import plot_domain
+    #plot_domain(domain, draw=True, isolines=True)
 
-        # Obtain "true" boundary, i.e., remove periodic y-direction boundary
+    # Obtain "true" boundary, i.e., remove periodic y-direction boundary
+    if dim == 1:
+        boundary  = domain.boundary
+    elif dim == 2:
+        boundary  = Union(domain.get_boundary(axis=0, ext=-1), domain.get_boundary(axis=0, ext=1))
+    else:
+        boundary  = Union(domain.get_boundary(axis=0, ext=-1), domain.get_boundary(axis=0, ext=1),
+                            domain.get_boundary(axis=2, ext=-1), domain.get_boundary(axis=2, ext=1))
+        
+    ncells    = [ncells_3d[0], ]   if dim == 1 else ncells_3d  [0:dim]
+    degree    = [degree_3d[0], ]   if dim == 1 else degree_3d  [0:dim]
+    periodic  = [periodic_3d[0], ] if dim == 1 else periodic_3d[0:dim]
+
+    domain_h = discretize(domain, ncells=ncells, periodic=periodic, comm=comm)
+
+    nn            = NormalVector('nn')
+
+    for i in range(dim):
+        print(f'      - Test DBP{i}')
+
+        # The function defined here satisfy the corresponding homogeneous Dirichlet BCs
         if dim == 1:
-            boundary  = domain.boundary
-        elif dim == 2:
-            boundary  = Union(domain.get_boundary(axis=0, ext=-1), domain.get_boundary(axis=0, ext=1))
-        else:
-            boundary  = Union(domain.get_boundary(axis=0, ext=-1), domain.get_boundary(axis=0, ext=1),
-                              domain.get_boundary(axis=2, ext=-1), domain.get_boundary(axis=2, ext=1))
-            
-        ncells    = [ncells_3d[0], ]   if dim == 1 else ncells_3d  [0:dim]
-        degree    = [degree_3d[0], ]   if dim == 1 else degree_3d  [0:dim]
-        periodic  = [periodic_3d[0], ] if dim == 1 else periodic_3d[0:dim]
-
-        domain_h = discretize(domain, ncells=ncells, periodic=periodic, comm=comm)
-
-        nn            = NormalVector('nn')
-
-        for i in range(dim):
-            print(f'      - Test DBP{i}')
-
-            # The function defined here satisfy the corresponding homogeneous Dirichlet BCs
-            if dim == 1:
-                x = domain.coordinates
-                V = ScalarFunctionSpace('V', domain, kind='H1')
-                f = sin(2*pi*x)
-            if dim == 2:
-                x, y = domain.coordinates
-                if i == 0:
-                    V  = ScalarFunctionSpace('V', domain, kind=H1Space)
-                    f  = (sqrt(x**2 + y**2)-0.5) * (sqrt(x**2 + y**2)-1)
-                else:
-                    V  = VectorFunctionSpace('V', domain, kind='hCuRl')
-                    f1 = x
-                    f2 = y
-                    f  = Tuple(f1, f2)
-            if dim == 3:
-                x, y, z = domain.coordinates
-                if i == 0:
-                    V  = ScalarFunctionSpace('V', domain, kind='h1')
-                    f  = (sqrt(x**2 + y**2)-0.5) * (sqrt(x**2 + y**2)-1) * z * (z-1)
-                elif i == 1:
-                    V  = VectorFunctionSpace('V', domain, kind=HcurlSpace)
-                    f1 = z * (z - 1) * x
-                    f2 = z * (z - 1) * y
-                    f3 = (sqrt(x**2 + y**2)-0.5) * (sqrt(x**2 + y**2)-1)
-                    f  = Tuple(f1, f2, f3)
-                else:
-                    V  = VectorFunctionSpace('V', domain, kind='Hdiv')
-                    f1 = (sqrt(x**2 + y**2)-0.5) * (sqrt(x**2 + y**2)-1)
-                    f2 = (sqrt(x**2 + y**2)-0.5) * (sqrt(x**2 + y**2)-1)
-                    f3 = z * (z-1) * sin(x*y)
-                    f  = Tuple(f1, f2, f3)
-
-            u, v = elements_of(V, names='u, v')
+            x = domain.coordinates
+            V = ScalarFunctionSpace('V', domain, kind='H1')
+            f = sin(2*pi*x)
+        if dim == 2:
+            x, y = domain.coordinates
             if i == 0:
-                boundary_expr = u*v
-            if (i == 1) and (dim == 2):
-                boundary_expr = cross(nn, u) * cross(nn, v)
-            if (i == 1) and (dim == 3):
-                boundary_expr = inner(cross(nn, u), cross(nn, v))
-            if i == 2:
-                boundary_expr = inner(nn, u) * inner(nn, v)
+                V  = ScalarFunctionSpace('V', domain, kind=H1Space)
+                f  = (sqrt(x**2 + y**2)-0.5) * (sqrt(x**2 + y**2)-1)
+            else:
+                V  = VectorFunctionSpace('V', domain, kind='hCuRl')
+                f1 = x
+                f2 = y
+                f  = Tuple(f1, f2)
+        if dim == 3:
+            x, y, z = domain.coordinates
+            if i == 0:
+                V  = ScalarFunctionSpace('V', domain, kind='h1')
+                f  = (sqrt(x**2 + y**2)-0.5) * (sqrt(x**2 + y**2)-1) * z * (z-1)
+            elif i == 1:
+                V  = VectorFunctionSpace('V', domain, kind=HcurlSpace)
+                f1 = z * (z - 1) * x
+                f2 = z * (z - 1) * y
+                f3 = (sqrt(x**2 + y**2)-0.5) * (sqrt(x**2 + y**2)-1)
+                f  = Tuple(f1, f2, f3)
+            else:
+                V  = VectorFunctionSpace('V', domain, kind='Hdiv')
+                f1 = (sqrt(x**2 + y**2)-0.5) * (sqrt(x**2 + y**2)-1)
+                f2 = (sqrt(x**2 + y**2)-0.5) * (sqrt(x**2 + y**2)-1)
+                f3 = z * (z-1) * sin(x*y)
+                f  = Tuple(f1, f2, f3)
 
-            Vh   = discretize(V, domain_h, degree=degree)
-            expr = inner(u, v) if isinstance(Vh.coeff_space, BlockVectorSpace) else u*v
+        u, v = elements_of(V, names='u, v')
+        if i == 0:
+            boundary_expr = u*v
+        if (i == 1) and (dim == 2):
+            boundary_expr = cross(nn, u) * cross(nn, v)
+        if (i == 1) and (dim == 3):
+            boundary_expr = inner(cross(nn, u), cross(nn, v))
+        if i == 2:
+            boundary_expr = inner(nn, u) * inner(nn, v)
 
-            a   = BilinearForm((u, v), integral(domain,            expr))            
-            ab  = BilinearForm((u, v), integral(boundary, boundary_expr))
+        Vh   = discretize(V, domain_h, degree=degree)
+        expr = inner(u, v) if isinstance(Vh.coeff_space, BlockVectorSpace) else u*v
 
-            ah  = discretize(a,  domain_h, (Vh, Vh), backend=backend)
-            abh = discretize(ab, domain_h, (Vh, Vh), backend=backend, sum_factorization=False)
+        a   = BilinearForm((u, v), integral(domain,            expr))            
+        ab  = BilinearForm((u, v), integral(boundary, boundary_expr))
 
-            I   = IdentityOperator(Vh.coeff_space)
-            DBP = DirichletBoundaryProjector(Vh)
+        ah  = discretize(a,  domain_h, (Vh, Vh), backend=backend)
+        abh = discretize(ab, domain_h, (Vh, Vh), backend=backend, sum_factorization=False)
 
-            M   = ah.assemble()
-            M_0 = DBP @ M @ DBP + (I - DBP)
-            Mb  = abh.assemble()
+        I   = IdentityOperator(Vh.coeff_space)
+        DBP = DirichletBoundaryProjector(Vh)
 
-            # We project f into the conforming discrete space using a penalization method. It's coefficients are stored in fc
-            lexpr = inner(v, f) if isinstance(Vh.coeff_space, BlockVectorSpace) else v*f
-            l = LinearForm(v, integral(domain, lexpr))
-            lh = discretize(l, domain_h, Vh, backend=backend)
-            rhs = lh.assemble()
-            A = M + 1e30*Mb
-            A_inv = inverse(A, 'cg', maxiter=1000, tol=1e-10)
-            fc = A_inv @ rhs
+        M   = ah.assemble()
+        M_0 = DBP @ M @ DBP + (I - DBP)
+        Mb  = abh.assemble()
 
-            # 1.
-            # In 1D, 2D, 3D, the coefficients of functions satisfying homogeneous Dirichlet 
-            # boundary conditions should not change under application of the corresponding projector
-            fc2  = DBP @ fc
-            diff = fc - fc2
-            err  = np.linalg.norm(diff.toarray())
-            print(f' | f - P @ f |          = {err}')
-            assert err < 1e-15
+        # We project f into the conforming discrete space using a penalization method. It's coefficients are stored in fc
+        lexpr = inner(v, f) if isinstance(Vh.coeff_space, BlockVectorSpace) else v*f
+        l = LinearForm(v, integral(domain, lexpr))
+        lh = discretize(l, domain_h, Vh, backend=backend)
+        rhs = lh.assemble()
+        A = M + 1e30*Mb
+        A_inv = inverse(A, 'cg', maxiter=1000, tol=1e-10)
+        fc = A_inv @ rhs
 
-            # 2.
-            # After applying a projector to a random vector, we want to verify that the 
-            # corresponding boundary integral vanishes
-            rdm_coeffs = Vh.coeff_space.zeros()
-            print(' Random boundary integrals:')
-            for _ in range(3):
-                if isinstance(rdm_coeffs.space, BlockVectorSpace):
-                    for block in rdm_coeffs.blocks:
-                        rng.random(size=block._data.shape, dtype="float64", out=block._data)
-                else:
-                    rng.random(size=rdm_coeffs._data.shape, dtype="float64", out=rdm_coeffs._data)
-                rdm_coeffs2 = DBP @ rdm_coeffs
-                boundary_int_rdm = Mb.dot_inner(rdm_coeffs, rdm_coeffs)
-                boundary_int_proj_rdm = Mb.dot_inner(rdm_coeffs2, rdm_coeffs2)
-                print(f'  rdm: {boundary_int_rdm}    proj. rdm: {boundary_int_proj_rdm}')
-                assert boundary_int_proj_rdm < 1e-15
+        # 1.
+        # In 1D, 2D, 3D, the coefficients of functions satisfying homogeneous Dirichlet 
+        # boundary conditions should not change under application of the corresponding projector
+        fc2  = DBP @ fc
+        diff = fc - fc2
+        err  = np.sqrt(diff.inner(diff))
+        print(f' | f - P @ f |          = {err}')
+        assert err < 1e-15
 
-            # 3.
-            # We want to verify that applying a projector twice does not change the vector twice
-            fc3  = DBP @ fc2
-            diff = fc2 - fc3
-            err  = np.linalg.norm(diff.toarray())
-            print(f' | P @ f - P @ P @ f |  = {err}')
-            assert err == 0.
+        # 2.
+        # After applying a projector to a random vector, we want to verify that the 
+        # corresponding boundary integral vanishes
+        rdm_coeffs = Vh.coeff_space.zeros()
+        print(' Random boundary integrals:')
+        for _ in range(3):
+            if isinstance(rdm_coeffs.space, BlockVectorSpace):
+                for block in rdm_coeffs.blocks:
+                    rng.random(size=block._data.shape, dtype="float64", out=block._data)
+            else:
+                rng.random(size=rdm_coeffs._data.shape, dtype="float64", out=rdm_coeffs._data)
+            rdm_coeffs2 = DBP @ rdm_coeffs
+            boundary_int_rdm      = np.sqrt(Mb.dot_inner(rdm_coeffs, rdm_coeffs) / rdm_coeffs.space.dimension)
+            boundary_int_proj_rdm = np.sqrt(Mb.dot_inner(rdm_coeffs2, rdm_coeffs2) / rdm_coeffs.space.dimension)
+            print(f'  rdm: {boundary_int_rdm}    proj. rdm: {boundary_int_proj_rdm}')
+            assert boundary_int_proj_rdm < 1e-15
 
-            # 4.
-            # Finally, the modified mass matrix should still compute inner products correctly
-            l2_norm_squared  = M.dot_inner  (fc, fc)
-            l2_norm_squared2 = M_0.dot_inner(fc, fc)
-            diff             = l2_norm_squared - l2_norm_squared2
-            print(f' ||   f   ||^2          = {l2_norm_squared} should be equal to')
-            print(f' || P @ f ||^2          = {l2_norm_squared2}')
-            assert diff < 1e-15
+        # 3.
+        # We want to verify that applying a projector twice does not change the vector twice
+        fc3  = DBP @ fc2
+        diff = fc2 - fc3
+        err  = np.sqrt(diff.inner(diff))
+        print(f' | P @ f - P @ P @ f |  = {err}')
+        assert err == 0.
 
-            print()
+        # 4.
+        # Finally, the modified mass matrix should still compute inner products correctly
+        l2_norm  = np.sqrt(M.dot_inner  (fc, fc))
+        l2_norm2 = np.sqrt(M_0.dot_inner(fc, fc))
+        diff     = l2_norm - l2_norm2
+        print(f' ||   f   ||            = {l2_norm} should be equal to')
+        print(f' || P @ f ||            = {l2_norm2}')
+        assert diff < 1e-15
 
         print()
 
 #===============================================================================
-def test_discrete_derham_dirichlet_projector():
+@pytest.mark.parametrize('dim', [1, 2, 3])
+
+def test_discrete_derham_dirichlet_projector(dim):
 
     ncells   = [8, 8, 8]
     degree   = [2, 2, 2]
@@ -462,7 +462,6 @@ def test_discrete_derham_dirichlet_projector():
     mapping_3d = SquareTorus ('ST')
     mappings   = [mapping_1d, mapping_2d, mapping_3d]
 
-    dims = [1, 2, 3]
     rng  = np.random.default_rng(42)
 
     # The following are functions (1D, 2D & 3D) satisfying homogeneous Dirichlet BCs
@@ -488,119 +487,116 @@ def test_discrete_derham_dirichlet_projector():
     funs    = [[f11], [f21, f22], [f31, f32, f33]]
 
     print()
-    for dim in dims:
-        print(f' ----- Test projectors in dimension {dim} -----')
-        print()
+    print(f' ----- Test projectors in dimension {dim} -----')
+    print()
 
-        domain        = mappings[dim-1](logical_domains[dim-1])
-        from sympde.utilities.utils import plot_domain
-        #plot_domain(domain, draw=True, isolines=True)
+    domain        = mappings[dim-1](logical_domains[dim-1])
+    from sympde.utilities.utils import plot_domain
+    #plot_domain(domain, draw=True, isolines=True)
 
-        # Obtain "true" boundary, i.e., remove periodic y-direction boundary
-        if dim == 1:
-            boundary  = domain.boundary
-        elif dim == 2:
-            boundary  = Union(domain.get_boundary(axis=0, ext=-1), domain.get_boundary(axis=0, ext=1))
-        else:
-            boundary  = Union(domain.get_boundary(axis=0, ext=-1), domain.get_boundary(axis=0, ext=1),
-                              domain.get_boundary(axis=2, ext=-1), domain.get_boundary(axis=2, ext=1))
+    # Obtain "true" boundary, i.e., remove periodic y-direction boundary
+    if dim == 1:
+        boundary  = domain.boundary
+    elif dim == 2:
+        boundary  = Union(domain.get_boundary(axis=0, ext=-1), domain.get_boundary(axis=0, ext=1))
+    else:
+        boundary  = Union(domain.get_boundary(axis=0, ext=-1), domain.get_boundary(axis=0, ext=1),
+                            domain.get_boundary(axis=2, ext=-1), domain.get_boundary(axis=2, ext=1))
 
-        derham        = Derham(domain) if dim in (1, 3) else Derham(domain, sequence=['h1', 'hcurl', 'l2'])
+    derham        = Derham(domain) if dim in (1, 3) else Derham(domain, sequence=['h1', 'hcurl', 'l2'])
 
-        ncells_dim    = [ncells[0], ] if dim == 1 else ncells[0:dim]
-        degree_dim    = [degree[0], ] if dim == 1 else degree[0:dim]
-        periodic_dim  = [periodic[0], ] if dim == 1 else periodic[0:dim]
+    ncells_dim    = [ncells[0], ] if dim == 1 else ncells[0:dim]
+    degree_dim    = [degree[0], ] if dim == 1 else degree[0:dim]
+    periodic_dim  = [periodic[0], ] if dim == 1 else periodic[0:dim]
 
-        domain_h      = discretize(domain, ncells=ncells_dim, periodic=periodic_dim, comm=comm)
-        derham_h      = discretize(derham, domain_h, degree=degree_dim)
+    domain_h      = discretize(domain, ncells=ncells_dim, periodic=periodic_dim, comm=comm)
+    derham_h      = discretize(derham, domain_h, degree=degree_dim)
 
-        db_projectors = derham_h.dirichlet_projectors(kind='linop')
+    db_projectors = derham_h.dirichlet_projectors(kind='linop')
+
+    if dim == 2: 
+        conf_projectors = derham_h.conforming_projectors(kind='linop', hom_bc=True)
+
+    nn            = NormalVector('nn')
+
+    for i in range(dim):
+        print(f'      - Test DBP{i}')
+
+        u, v = elements_of(derham.spaces[i], names='u, v')
+
+        if i == 0:
+            boundary_expr = u*v
+        if (i == 1) and (dim == 2):
+            boundary_expr = cross(nn, u) * cross(nn, v)
+        if (i == 1) and (dim == 3):
+            boundary_expr = inner(cross(nn, u), cross(nn, v))
+        if i == 2:
+            boundary_expr = inner(nn, u) * inner(nn, v)
+
+        expr = inner(u, v) if isinstance(derham_h.spaces[i].coeff_space, BlockVectorSpace) else u*v
+
+        a   = BilinearForm((u, v), integral(domain,            expr))            
+        ab  = BilinearForm((u, v), integral(boundary, boundary_expr))
+
+        ah  = discretize(a,  domain_h, (derham_h.spaces[i], derham_h.spaces[i]), backend=backend)
+        abh = discretize(ab, domain_h, (derham_h.spaces[i], derham_h.spaces[i]), backend=backend, sum_factorization=False)
+
+        I   = IdentityOperator(derham_h.spaces[i].coeff_space)
+        DBP = db_projectors[i]
 
         if dim == 2: 
-            conf_projectors = derham_h.conforming_projectors(kind='linop', hom_bc=True)
+            CP = conf_projectors[i]
+            _test_LO_equality_using_rng(DBP, CP)
 
-        nn            = NormalVector('nn')
+        M   = ah.assemble()
+        M_0 = DBP @ M @ DBP + (I - DBP)
+        Mb  = abh.assemble()
 
-        for i in range(dim):
-            print(f'      - Test DBP{i}')
+        f   = funs[dim-1][i]
+        fc  = derham_h.projectors()[i](f).coeffs
 
-            u, v = elements_of(derham.spaces[i], names='u, v')
+        # 1.
+        # In 1D, 2D, 3D, the coefficients of functions satisfying homogeneous Dirichlet 
+        # boundary conditions should not change under application of the corresponding projector
+        fc2  = DBP @ fc
+        diff = fc - fc2
+        err  = np.sqrt(diff.inner(diff))
+        print(f' | f - P @ f |          = {err}')
+        assert err < 1e-15
 
-            if i == 0:
-                boundary_expr = u*v
-            if (i == 1) and (dim == 2):
-                boundary_expr = cross(nn, u) * cross(nn, v)
-            if (i == 1) and (dim == 3):
-                boundary_expr = inner(cross(nn, u), cross(nn, v))
-            if i == 2:
-                boundary_expr = inner(nn, u) * inner(nn, v)
+        # 2.
+        # After applying a projector to a random vector, we want to verify that the 
+        # corresponding boundary integral vanishes
+        rdm_coeffs = derham_h.spaces[i].coeff_space.zeros()
+        print(' Random boundary integrals:')
+        for _ in range(3):
+            if isinstance(rdm_coeffs.space, BlockVectorSpace):
+                for block in rdm_coeffs.blocks:
+                    rng.random(size=block._data.shape, dtype="float64", out=block._data)
+            else:
+                rng.random(size=rdm_coeffs._data.shape, dtype="float64", out=rdm_coeffs._data)
+            rdm_coeffs2 = DBP @ rdm_coeffs
+            boundary_int_rdm      = np.sqrt(Mb.dot_inner(rdm_coeffs, rdm_coeffs) / rdm_coeffs.space.dimension)
+            boundary_int_proj_rdm = np.sqrt(Mb.dot_inner(rdm_coeffs2, rdm_coeffs2) / rdm_coeffs.space.dimension)
+            print(f'  rdm: {boundary_int_rdm}    proj. rdm: {boundary_int_proj_rdm}')
+            assert boundary_int_proj_rdm < 1e-15
 
-            expr = inner(u, v) if isinstance(derham_h.spaces[i].coeff_space, BlockVectorSpace) else u*v
+        # 3.
+        # We want to verify that applying a projector twice does not change the vector twice
+        fc3  = DBP @ fc2
+        diff = fc2 - fc3
+        err  = np.sqrt(diff.inner(diff))
+        print(f' | P @ f - P @ P @ f |  = {err}')
+        assert err == 0.
 
-            a   = BilinearForm((u, v), integral(domain,            expr))            
-            ab  = BilinearForm((u, v), integral(boundary, boundary_expr))
-
-            ah  = discretize(a,  domain_h, (derham_h.spaces[i], derham_h.spaces[i]), backend=backend)
-            abh = discretize(ab, domain_h, (derham_h.spaces[i], derham_h.spaces[i]), backend=backend, sum_factorization=False)
-
-            I   = IdentityOperator(derham_h.spaces[i].coeff_space)
-            DBP = db_projectors[i]
-
-            if dim == 2: 
-                CP = conf_projectors[i]
-                _test_LO_equality_using_rng(DBP, CP)
-
-            M   = ah.assemble()
-            M_0 = DBP @ M @ DBP + (I - DBP)
-            Mb  = abh.assemble()
-
-            f   = funs[dim-1][i]
-            fc  = derham_h.projectors()[i](f).coeffs
-
-            # 1.
-            # In 1D, 2D, 3D, the coefficients of functions satisfying homogeneous Dirichlet 
-            # boundary conditions should not change under application of the corresponding projector
-            fc2  = DBP @ fc
-            diff = fc - fc2
-            err  = np.linalg.norm(diff.toarray())
-            print(f' | f - P @ f |          = {err}')
-            assert err < 1e-15
-
-            # 2.
-            # After applying a projector to a random vector, we want to verify that the 
-            # corresponding boundary integral vanishes
-            rdm_coeffs = derham_h.spaces[i].coeff_space.zeros()
-            print(' Random boundary integrals:')
-            for _ in range(3):
-                if isinstance(rdm_coeffs.space, BlockVectorSpace):
-                    for block in rdm_coeffs.blocks:
-                        rng.random(size=block._data.shape, dtype="float64", out=block._data)
-                else:
-                    rng.random(size=rdm_coeffs._data.shape, dtype="float64", out=rdm_coeffs._data)
-                rdm_coeffs2 = DBP @ rdm_coeffs
-                boundary_int_rdm = Mb.dot_inner(rdm_coeffs, rdm_coeffs)
-                boundary_int_proj_rdm = Mb.dot_inner(rdm_coeffs2, rdm_coeffs2)
-                print(f'  rdm: {boundary_int_rdm}    proj. rdm: {boundary_int_proj_rdm}')
-                assert boundary_int_proj_rdm < 1e-15
-
-            # 3.
-            # We want to verify that applying a projector twice does not change the vector twice
-            fc3  = DBP @ fc2
-            diff = fc2 - fc3
-            err  = np.linalg.norm(diff.toarray())
-            print(f' | P @ f - P @ P @ f |  = {err}')
-            assert err == 0.
-
-            # 4.
-            # Finally, the modified mass matrix should still compute inner products correctly
-            l2_norm_squared  = M.dot_inner  (fc, fc)
-            l2_norm_squared2 = M_0.dot_inner(fc, fc)
-            diff             = l2_norm_squared - l2_norm_squared2
-            print(f' ||   f   ||^2          = {l2_norm_squared} should be equal to')
-            print(f' || P @ f ||^2          = {l2_norm_squared2}')
-            assert diff < 1e-15
-
-            print()
+        # 4.
+        # Finally, the modified mass matrix should still compute inner products correctly
+        l2_norm  = np.sqrt(M.dot_inner  (fc, fc))
+        l2_norm2 = np.sqrt(M_0.dot_inner(fc, fc))
+        diff     = l2_norm - l2_norm2
+        print(f' ||   f   ||            = {l2_norm} should be equal to')
+        print(f' || P @ f ||            = {l2_norm2}')
+        assert diff < 1e-15
 
         print()
 
@@ -679,7 +675,7 @@ def test_discrete_derham_dirichlet_projector_multipatch():
         # boundary conditions should not change under application of the corresponding projector
         fc2  = DBP @ fc
         diff = fc - fc2
-        err  = np.linalg.norm(diff.toarray())
+        err  = np.sqrt(diff.inner(diff))
         print(f' | f - P @ f |          = {err}')
         assert err < 1e-15
 
@@ -698,8 +694,8 @@ def test_discrete_derham_dirichlet_projector_multipatch():
                     rng.random(size=patch._data.shape, dtype="float64", out=patch._data)
 
             rdm_coeffs2 = DBP @ rdm_coeffs
-            boundary_int_rdm = Mb.dot_inner(rdm_coeffs, rdm_coeffs)
-            boundary_int_proj_rdm = Mb.dot_inner(rdm_coeffs2, rdm_coeffs2)
+            boundary_int_rdm      = np.sqrt(Mb.dot_inner(rdm_coeffs, rdm_coeffs) / rdm_coeffs.space.dimension)
+            boundary_int_proj_rdm = np.sqrt(Mb.dot_inner(rdm_coeffs2, rdm_coeffs2) / rdm_coeffs.space.dimension)
             print(f'  rdm: {boundary_int_rdm}    proj. rdm: {boundary_int_proj_rdm}')
             assert boundary_int_proj_rdm < 1e-15
 
@@ -707,17 +703,17 @@ def test_discrete_derham_dirichlet_projector_multipatch():
         # We want to verify that applying a projector twice does not change the vector twice
         fc3  = DBP @ fc2
         diff = fc2 - fc3
-        err  = np.linalg.norm(diff.toarray())
+        err  = np.sqrt(diff.inner(diff))
         print(f' | P @ f - P @ P @ f |  = {err}')
         assert err == 0.
 
         # 4.
         # Finally, the modified mass matrix should still compute inner products correctly
-        l2_norm_squared  = M.dot_inner  (fc, fc)
-        l2_norm_squared2 = M_0.dot_inner(fc, fc)
-        diff             = l2_norm_squared - l2_norm_squared2
-        print(f' ||   f   ||^2          = {l2_norm_squared} should be equal to')
-        print(f' || P @ f ||^2          = {l2_norm_squared2}')
+        l2_norm  = np.sqrt(M.dot_inner  (fc, fc))
+        l2_norm2 = np.sqrt(M_0.dot_inner(fc, fc))
+        diff     = l2_norm - l2_norm2
+        print(f' ||   f   ||            = {l2_norm} should be equal to')
+        print(f' || P @ f ||            = {l2_norm2}')
         assert diff < 1e-15
 
         print()
