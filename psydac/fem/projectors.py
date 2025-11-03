@@ -164,7 +164,25 @@ def get_dual_dofs(Vh, f, domain_h, backend_language="python", return_format='ste
 
 #===============================================================================
 class DirichletBoundaryProjector(LinearOperator):
+    """
+    A LinearOperator that applies homogeneous (unless manually given different bcs) Dirichlet boundary conditions.
 
+    Parameters
+    ----------
+    fem_space : psydac.fem.basic.FemSpace
+        fem_space.coeff_space is domain and codomain of this LO. fem_space.kind.name determines the BCs that get applied.
+
+    bcs : Iterable
+        Iterable of sympde.topology.Boundary objects. Necessary only if fem_space.kind.name is undefined.
+
+    space_kind : str | SpaceType
+        Necessary only if fem_space.kind.name is undefined.
+
+    Notes
+    -----
+    See examples/vector_potential_3d.py for a use case of such an operator.
+    
+    """
     def __init__(self, fem_space, *, bcs=None, space_kind=None):
 
         assert isinstance(fem_space, FemSpace)
@@ -293,7 +311,25 @@ class DirichletBoundaryProjector(LinearOperator):
 
 #===============================================================================
 class DirichletMultipatchBoundaryProjector(LinearOperator):
+    """
+    A LinearOperator (for multipatch domains) that applies homogeneous (unless manually given different bcs) Dirichlet boundary conditions.
 
+    Parameters
+    ----------
+    fem_space : psydac.fem.basic.FemSpace
+        fem_space.coeff_space is domain and codomain of this LO. fem_space.kind.name determines the BCs that get applied.
+
+    bcs : Iterable
+        Iterable of sympde.topology.Boundary objects. Necessary only if fem_space.kind.name is undefined.
+
+    space_kind : str | SpaceType
+        Necessary only if fem_space.kind.name is undefined.
+
+    Notes
+    -----
+    See examples/vector_potential_3d.py for a use case of such an operator.
+    
+    """
     def __init__(self, fem_space, bcs=None, space_kind=None):
 
         assert isinstance(fem_space, FemSpace)
