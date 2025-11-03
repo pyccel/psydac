@@ -683,7 +683,7 @@ class DiscreteDeRhamMultipatch(DiscreteDeRham):
         assert kind in ('femlinop', 'linop')
 
         if not self._dirichlet_proj:
-            d_projectors_linop = tuple([DirichletMultipatchBoundaryProjector(Vh) for Vh in self.spaces[:-1]] + IdentityOperator(self.spaces[-1].coeff_space))
+            d_projectors_linop = tuple([DirichletMultipatchBoundaryProjector(Vh) for Vh in self.spaces[:-1]] + [IdentityOperator(self.spaces[-1].coeff_space)])
             d_projectors_femlinop = tuple([FemLinearOperator(fem_domain=Vh, fem_codomain=Vh, linop=d_projector) for Vh, d_projector in zip(self.spaces, d_projectors_linop)])
             self._dirichlet_proj = d_projectors_femlinop
 
