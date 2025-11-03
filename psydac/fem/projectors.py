@@ -1,6 +1,7 @@
 import numpy as np
+from collections.abc import Iterable
 
-from sympde.topology            import element_of
+from sympde.topology            import element_of, Boundary
 from sympde.calculus            import dot
 from sympde.expr                import LinearForm, integral, EssentialBC
 from sympde.topology.datatype   import SpaceType
@@ -164,18 +165,21 @@ def get_dual_dofs(Vh, f, domain_h, backend_language="python", return_format='ste
 #===============================================================================
 class DirichletBoundaryProjector(LinearOperator):
 
-    def __init__(self, fem_space, bcs=None, space_kind=None):
+    def __init__(self, fem_space, *, bcs=None, space_kind=None):
 
         assert isinstance(fem_space, FemSpace)
+        assert bcs is None or isinstance(bcs, Iterable)
+        assert space_kind is None or isinstance(space_kind, (str, SpaceType))
 
         coeff_space    = fem_space.coeff_space
         self._domain   = coeff_space
         self._codomain = coeff_space
 
         if bcs is not None:
-            self._bcs = bcs
+            assert all(isinstance(bc, Boundary) for bc in bcs)
+            self._bcs = tuple(bcs)
         else:
-            self._bcs = self._get_bcs(fem_space, space_kind=space_kind)
+            self._bcs = tuple(self._get_bcs(fem_space, space_kind=space_kind))
 
     @property
     def domain(self):
@@ -224,7 +228,6 @@ class DirichletBoundaryProjector(LinearOperator):
             else:
                 # If space_kind_str = 'undefined': Update the variable using kind
                 space_kind_str = kind_str
-
 
         kind = space_kind_str
         dim  = space.domain.dim
@@ -295,15 +298,18 @@ class DirichletMultipatchBoundaryProjector(LinearOperator):
 
         assert isinstance(fem_space, FemSpace)
         assert fem_space.is_multipatch
+        assert bcs is None or isinstance(bcs, Iterable)
+        assert space_kind is None or isinstance(space_kind, (str, SpaceType))
 
         coeff_space    = fem_space.coeff_space
         self._domain   = coeff_space
         self._codomain = coeff_space
 
         if bcs is not None:
-            self._bcs = bcs
+            assert all(isinstance(bc, Boundary) for bc in bcs)
+            self._bcs = tuple(bcs)
         else:
-            self._bcs = self._get_bcs(fem_space, space_kind=space_kind)
+            self._bcs = tuple(self._get_bcs(fem_space, space_kind=space_kind))
 
     @property
     def domain(self):
@@ -364,7 +370,6 @@ class DirichletMultipatchBoundaryProjector(LinearOperator):
         if kind == "h1":
             bcs = [EssentialBC(u, 0, side, position=0) for side in space.domain.boundary]
 
-
         elif kind == 'hcurl':
             bcs_x = []
             bcs_y = []
@@ -376,7 +381,6 @@ class DirichletMultipatchBoundaryProjector(LinearOperator):
                     bcs_x.append(EssentialBC(u, 0, bn, position=0))
 
             bcs = [bcs_x, bcs_y]
-
 
         elif kind == 'hdiv':
             bcs_x = []
