@@ -122,7 +122,7 @@ def _test_LO_equality_using_rng(A, B):
         B.dot(x, out=y2)
 
         diff = y1 - y2
-        err  = A.codomain.inner(diff, diff)
+        err  = np.sqrt(diff.inner(diff) / diff.space.dimension)
         
         assert err < 1e-15
 
