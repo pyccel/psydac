@@ -15,7 +15,7 @@ from psydac.linalg.kron         import KroneckerDenseMatrix
 from psydac.linalg.stencil      import StencilVectorSpace, StencilVector
 
 __all__ = ('knots_to_insert', 'knot_insertion_projection_operator', 'get_dual_dofs',
-           'BoundaryProjector', 'MultipatchBoundaryProjector')
+           'DirichletProjector', 'MultipatchDirichletProjector')
 
 def knots_to_insert(coarse_grid, fine_grid, tol=1e-14):
     """ Compute the point difference between the fine grid and coarse grid."""
@@ -163,7 +163,7 @@ def get_dual_dofs(Vh, f, domain_h, backend_language="python", return_format='ste
 
 
 #===============================================================================
-class BoundaryProjector(LinearOperator):
+class DirichletProjector(LinearOperator):
     """
     A LinearOperator that applies homogeneous (unless manually given different bcs) Dirichlet boundary conditions.
 
@@ -298,7 +298,7 @@ class BoundaryProjector(LinearOperator):
         dim  = space.domain.dim
         
         if kind == 'l2':
-            return None
+            return ()
         
         u = element_of(space, name="u")
         ebcs = [EssentialBC(u, 0, side, position=0) for side in space.domain.boundary]
@@ -341,7 +341,7 @@ class BoundaryProjector(LinearOperator):
         return tuple(bcs)
 
 #===============================================================================
-class MultipatchBoundaryProjector(BoundaryProjector):
+class MultipatchDirichletProjector(DirichletProjector):
     """
     A LinearOperator (for multipatch domains) that applies homogeneous (unless manually given different bcs) Dirichlet boundary conditions.
 
@@ -457,7 +457,7 @@ class MultipatchBoundaryProjector(BoundaryProjector):
         kind = space_kind_str
         
         if kind == 'l2':
-            return None
+            return ()
         
         u = element_of(space, name="u")
 

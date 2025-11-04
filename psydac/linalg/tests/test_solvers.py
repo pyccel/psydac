@@ -11,7 +11,7 @@ from    sympde.topology.datatype    import H1Space, HcurlSpace
 from    psydac.api.discretization   import discretize
 from    psydac.api.settings         import PSYDAC_BACKEND_GPYCCEL
 from    psydac.ddm.cart             import DomainDecomposition, CartDecomposition
-from    psydac.fem.projectors       import BoundaryProjector
+from    psydac.fem.projectors       import DirichletProjector
 from    psydac.linalg.basic         import LinearOperator, IdentityOperator
 from    psydac.linalg.block         import BlockVectorSpace
 from    psydac.linalg.solvers       import inverse
@@ -383,10 +383,10 @@ def test_function_space_boundary_projector(dim):
         abh = discretize(ab, domain_h, (Vh, Vh), backend=backend, sum_factorization=False)
 
         I   = IdentityOperator(Vh.coeff_space)
-        DBP = BoundaryProjector(Vh)
+        DP = DirichletProjector(Vh)
 
         M   = ah.assemble()
-        M_0 = DBP @ M @ DBP + (I - DBP)
+        M_0 = DP @ M @ DP + (I - DP)
         Mb  = abh.assemble()
 
         # We project f into the conforming discrete space using a penalization method. It's coefficients are stored in fc
@@ -401,7 +401,7 @@ def test_function_space_boundary_projector(dim):
         # 1.
         # In 1D, 2D, 3D, the coefficients of functions satisfying homogeneous Dirichlet 
         # boundary conditions should not change under application of the corresponding projector
-        fc2  = DBP @ fc
+        fc2  = DP @ fc
         diff = fc - fc2
         err  = diff.inner(diff)
         print(f' | f - P @ f |          = {err}')
@@ -418,7 +418,7 @@ def test_function_space_boundary_projector(dim):
                     rng.random(size=block._data.shape, dtype="float64", out=block._data)
             else:
                 rng.random(size=rdm_coeffs._data.shape, dtype="float64", out=rdm_coeffs._data)
-            rdm_coeffs2 = DBP @ rdm_coeffs
+            rdm_coeffs2 = DP @ rdm_coeffs
             boundary_int_rdm      = Mb.dot_inner(rdm_coeffs, rdm_coeffs) / rdm_coeffs.space.dimension**2
             boundary_int_proj_rdm = Mb.dot_inner(rdm_coeffs2, rdm_coeffs2) / rdm_coeffs.space.dimension**2
             print(f'  rdm: {boundary_int_rdm}    proj. rdm: {boundary_int_proj_rdm}')
@@ -426,7 +426,7 @@ def test_function_space_boundary_projector(dim):
 
         # 3.
         # We want to verify that applying a projector twice does not change the vector twice
-        fc3  = DBP @ fc2
+        fc3  = DP @ fc2
         diff = fc2 - fc3
         err  = diff.inner(diff)
         print(f' | P @ f - P @ P @ f |^2  = {err}')
@@ -516,7 +516,7 @@ def test_discrete_derham_boundary_projector(dim):
     domain_h      = discretize(domain, ncells=ncells_dim, periodic=periodic_dim, comm=comm)
     derham_h      = discretize(derham, domain_h, degree=degree_dim)
 
-    b_projectors = derham_h.boundary_projectors(kind='linop')
+    d_projectors = derham_h.dirichlet_projectors(kind='linop')
 
     if dim == 2: 
         conf_projectors = derham_h.conforming_projectors(kind='linop', hom_bc=True)
@@ -546,14 +546,14 @@ def test_discrete_derham_boundary_projector(dim):
         abh = discretize(ab, domain_h, (derham_h.spaces[i], derham_h.spaces[i]), backend=backend, sum_factorization=False)
 
         I   = IdentityOperator(derham_h.spaces[i].coeff_space)
-        DBP = b_projectors[i]
+        DP = d_projectors[i]
 
         if dim == 2: 
             CP = conf_projectors[i]
-            _test_LO_equality_using_rng(DBP, CP)
+            _test_LO_equality_using_rng(DP, CP)
 
         M   = ah.assemble()
-        M_0 = DBP @ M @ DBP + (I - DBP)
+        M_0 = DP @ M @ DP + (I - DP)
         Mb  = abh.assemble()
 
         f   = funs[dim-1][i]
@@ -562,7 +562,7 @@ def test_discrete_derham_boundary_projector(dim):
         # 1.
         # In 1D, 2D, 3D, the coefficients of functions satisfying homogeneous Dirichlet 
         # boundary conditions should not change under application of the corresponding projector
-        fc2  = DBP @ fc
+        fc2  = DP @ fc
         diff = fc - fc2
         err  = diff.inner(diff)
         print(f' | f - P @ f |^2          = {err}')
@@ -579,7 +579,7 @@ def test_discrete_derham_boundary_projector(dim):
                     rng.random(size=block._data.shape, dtype="float64", out=block._data)
             else:
                 rng.random(size=rdm_coeffs._data.shape, dtype="float64", out=rdm_coeffs._data)
-            rdm_coeffs2 = DBP @ rdm_coeffs
+            rdm_coeffs2 = DP @ rdm_coeffs
             boundary_int_rdm      = Mb.dot_inner(rdm_coeffs, rdm_coeffs) / rdm_coeffs.space.dimension**2
             boundary_int_proj_rdm = Mb.dot_inner(rdm_coeffs2, rdm_coeffs2) / rdm_coeffs.space.dimension**2
             print(f'  rdm: {boundary_int_rdm}    proj. rdm: {boundary_int_proj_rdm}')
@@ -587,7 +587,7 @@ def test_discrete_derham_boundary_projector(dim):
 
         # 3.
         # We want to verify that applying a projector twice does not change the vector twice
-        fc3  = DBP @ fc2
+        fc3  = DP @ fc2
         diff = fc2 - fc3
         err  = diff.inner(diff)
         print(f' | P @ f - P @ P @ f |^2  = {err}')
@@ -643,7 +643,7 @@ def test_discrete_derham_boundary_projector_multipatch():
 
     projectors = derham_h.projectors(nquads=[(d + 1) for d in degree])
 
-    b_projectors = derham_h.boundary_projectors(kind='linop')
+    d_projectors = derham_h.dirichlet_projectors(kind='linop')
 
     nn = NormalVector('nn')
 
@@ -666,10 +666,10 @@ def test_discrete_derham_boundary_projector_multipatch():
         abh = discretize(ab, domain_h, (derham_h.spaces[i], derham_h.spaces[i]), backend=backend, sum_factorization=False)
 
         I   = IdentityOperator(derham_h.spaces[i].coeff_space)
-        DBP = b_projectors[i]
+        DP = d_projectors[i]
 
         M   = ah.assemble()
-        M_0 = DBP @ M @ DBP + (I - DBP)
+        M_0 = DP @ M @ DP + (I - DP)
         Mb  = abh.assemble()
 
         f   = funs[i]
@@ -678,7 +678,7 @@ def test_discrete_derham_boundary_projector_multipatch():
         # 1.
         # The coefficients of functions satisfying homogeneous Dirichlet 
         # boundary conditions should not change under application of the corresponding projector
-        fc2  = DBP @ fc
+        fc2  = DP @ fc
         diff = fc - fc2
         err  = diff.inner(diff)
         print(f' | f - P @ f |^2          = {err}')
@@ -698,7 +698,7 @@ def test_discrete_derham_boundary_projector_multipatch():
                 else:
                     rng.random(size=patch._data.shape, dtype="float64", out=patch._data)
 
-            rdm_coeffs2 = DBP @ rdm_coeffs
+            rdm_coeffs2 = DP @ rdm_coeffs
             boundary_int_rdm      = Mb.dot_inner(rdm_coeffs, rdm_coeffs) / rdm_coeffs.space.dimension**2
             boundary_int_proj_rdm = Mb.dot_inner(rdm_coeffs2, rdm_coeffs2) / rdm_coeffs.space.dimension**2
             print(f'  rdm: {boundary_int_rdm}    proj. rdm: {boundary_int_proj_rdm}')
@@ -706,7 +706,7 @@ def test_discrete_derham_boundary_projector_multipatch():
 
         # 3.
         # We want to verify that applying a projector twice does not change the vector twice
-        fc3  = DBP @ fc2
+        fc3  = DP @ fc2
         diff = fc2 - fc3
         err  = diff.inner(diff)
         print(f' | P @ f - P @ P @ f |^2  = {err}')

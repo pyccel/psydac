@@ -1,10 +1,3 @@
-import numpy as np
-
-from scipy.sparse                               import dia_matrix
-
-from sympde.expr                                import integral, BilinearForm
-from sympde.topology                            import elements_of, Line, Derham
-
 from psydac.api.basic                           import BasicDiscrete
 
 from psydac.feec.derivatives                    import Derivative1D, Gradient2D, Gradient3D
@@ -33,13 +26,9 @@ from psydac.feec.pull_push                      import pull_3d_hdiv, pull_3d_l2,
 
 from psydac.fem.basic                           import FemSpace, FemLinearOperator
 from psydac.fem.vector                          import VectorFemSpace
-from psydac.fem.projectors                      import BoundaryProjector, MultipatchBoundaryProjector
+from psydac.fem.projectors                      import DirichletProjector, MultipatchDirichletProjector
 
-from psydac.linalg.basic                        import LinearOperator, IdentityOperator
-from psydac.linalg.block                        import BlockLinearOperator
-from psydac.linalg.direct_solvers               import BandedSolver
-from psydac.linalg.kron                         import KroneckerLinearSolver, KroneckerStencilMatrix
-from psydac.linalg.stencil                      import StencilVectorSpace
+from psydac.linalg.basic                        import IdentityOperator
 
 __all__ = ('DiscreteDeRham', 'DiscreteDeRhamMultipatch',)
 
@@ -129,7 +118,7 @@ class DiscreteDeRham(BasicDiscrete):
 
         self._hodge_operators = ()
         self._conf_proj = ()
-        self._boundary_proj = ()
+        self._dirichlet_proj = ()
     #--------------------------------------------------------------------------
     @property
     def dim(self):
@@ -303,7 +292,7 @@ class DiscreteDeRham(BasicDiscrete):
             return tuple(b_diff.linop for b_diff in self._derivatives)
     
     #--------------------------------------------------------------------------
-    def boundary_projectors(self, kind='femlinop'):
+    def dirichlet_projectors(self, kind='femlinop'):
         """
         Returns operators that apply the correct homogeneous Dirichlet BCs.
 
@@ -316,9 +305,9 @@ class DiscreteDeRham(BasicDiscrete):
 
         Returns
         -------
-        b_projectors : tuple
-            Tuple of <psydac.fem.basic.FemLinearOperator> or <psydac.fem.projectors.BoundaryProjector>
-            The boundary projectors of each space and in desired form.
+        d_projectors : tuple
+            Tuple of <psydac.fem.basic.FemLinearOperator> or <psydac.fem.projectors.DirichletProjector>
+            The Dirichlet projectors of each space and in desired form.
 
         Notes
         -----
@@ -327,15 +316,15 @@ class DiscreteDeRham(BasicDiscrete):
         """
         assert kind in ('femlinop', 'linop')
 
-        if not self._boundary_proj:
-            b_projectors_linop = tuple(BoundaryProjector(Vh) for Vh in self.spaces[:-1]) + (IdentityOperator(self.spaces[-1].coeff_space),)
-            b_projectors_femlinop = tuple(FemLinearOperator(fem_domain=Vh, fem_codomain=Vh, linop=b_projector) for Vh, b_projector in zip(self.spaces, b_projectors_linop))
-            self._boundary_proj = b_projectors_femlinop
+        if not self._dirichlet_proj:
+            d_projectors_linop = tuple(DirichletProjector(Vh) for Vh in self.spaces[:-1]) + (IdentityOperator(self.spaces[-1].coeff_space),)
+            d_projectors_femlinop = tuple(FemLinearOperator(fem_domain=Vh, fem_codomain=Vh, linop=d_projector) for Vh, d_projector in zip(self.spaces, d_projectors_linop))
+            self._dirichlet_proj = d_projectors_femlinop
 
         if kind == 'femlinop':
-            return self._boundary_proj
+            return self._dirichlet_proj
         elif kind == 'linop':
-            return tuple(femlinop.linop for femlinop in self._boundary_proj)
+            return tuple(femlinop.linop for femlinop in self._dirichlet_proj)
 
     #--------------------------------------------------------------------------
     def conforming_projectors(self, kind='femlinop', mom_pres=False, p_moments=-1, hom_bc=False):
@@ -587,7 +576,7 @@ class DiscreteDeRhamMultipatch(DiscreteDeRham):
 
         self._hodge_operators = ()
         self._conf_proj = ()
-        self._boundary_proj = ()
+        self._dirichlet_proj = ()
 
     #--------------------------------------------------------------------------
     @property
@@ -658,7 +647,7 @@ class DiscreteDeRhamMultipatch(DiscreteDeRham):
             raise NotImplementedError("3D projectors are not available")
 
     #--------------------------------------------------------------------------
-    def boundary_projectors(self, kind='femlinop'):
+    def dirichlet_projectors(self, kind='femlinop'):
         """
         Returns operators that apply the correct homogeneous Dirichlet BCs.
 
@@ -671,9 +660,9 @@ class DiscreteDeRhamMultipatch(DiscreteDeRham):
 
         Returns
         -------
-        b_projectors : tuple
-            Tuple of <psydac.fem.basic.FemLinearOperator> or <psydac.fem.projectors.MultipatchBoundaryProjector>
-            The boundary projectors of each space and in desired form.
+        d_projectors : tuple
+            Tuple of <psydac.fem.basic.FemLinearOperator> or <psydac.fem.projectors.MultipatchDirichletProjector>
+            The Dirichlet projectors of each space and in desired form.
 
         Notes
         -----
@@ -682,12 +671,12 @@ class DiscreteDeRhamMultipatch(DiscreteDeRham):
         """
         assert kind in ('femlinop', 'linop')
 
-        if not self._boundary_proj:
-            b_projectors_linop = tuple(MultipatchBoundaryProjector(Vh) for Vh in self.spaces[:-1]) + (IdentityOperator(self.spaces[-1].coeff_space),)
-            b_projectors_femlinop = tuple(FemLinearOperator(fem_domain=Vh, fem_codomain=Vh, linop=b_projector) for Vh, b_projector in zip(self.spaces, b_projectors_linop))
-            self._boundary_proj = b_projectors_femlinop
+        if not self._dirichlet_proj:
+            d_projectors_linop = tuple(MultipatchDirichletProjector(Vh) for Vh in self.spaces[:-1]) + (IdentityOperator(self.spaces[-1].coeff_space),)
+            d_projectors_femlinop = tuple(FemLinearOperator(fem_domain=Vh, fem_codomain=Vh, linop=d_projector) for Vh, d_projector in zip(self.spaces, d_projectors_linop))
+            self._dirichlet_proj = d_projectors_femlinop
 
         if kind == 'femlinop':
-            return self._boundary_proj
+            return self._dirichlet_proj
         elif kind == 'linop':
-            return tuple(femlinop.linop for femlinop in self._boundary_proj)
+            return tuple(femlinop.linop for femlinop in self._dirichlet_proj)
