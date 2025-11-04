@@ -472,7 +472,21 @@ def run_poisson_2d(*, test_case, ncells, degree,
     b.update_ghost_regions()
     M.update_ghost_regions()
 
-    # ========================= HANDLIG THE SINGULARITY ===========================#
+    # =================== PROJECT THE EXACT SOLUTION  =========================#
+
+    from psydac.feec.pull_push import pull_2d_h1
+    from sympy import lambdify
+    from psydac.feec.global_geometric_projectors import GlobalGeometricProjectorH1
+
+    Pi0 = GlobalGeometricProjectorH1(V0_h)
+    phi_symref = model.phi
+    phi_calref = lambdify(domain.coordinates, phi_symref)
+    phi_callog = pull_2d_h1(phi_calref, F)
+    phi_ref = Pi0(phi_callog)
+    phi_ref.coeffs.update_ghost_regions()
+
+
+    # ========================= HANDLING THE SINGULARITY ===========================#
 
     # If required by user, create C1 projector and then restrict
     # stiffness/mass matrices and right-hand-side vector to C1 space
@@ -538,7 +552,7 @@ def run_poisson_2d(*, test_case, ncells, degree,
     # Solve linear system
     t0 = time()
     if smooth_method in ('polar-std', 'polar-spec'):
-        Sp_inv = inverse(Sp, 'cg', tol = cgtol, maxiter = cgiter, verbose = True)
+        Sp_inv = inverse(Sp, 'cg', tol = cgtol, maxiter = cgiter, verbose=verbose)
         xp = Sp_inv.dot(bp)
         xsol = proj.convert_to_tensor_basis(xp)
         info = Sp_inv.get_info()
@@ -573,21 +587,12 @@ def run_poisson_2d(*, test_case, ncells, degree,
     phi.coeffs.update_ghost_regions()
 
     # ref solution: projected exact solution
-    from psydac.feec.global_geometric_projectors import GlobalGeometricProjectorH1
-    from psydac.feec.pull_push import pull_2d_h1
-    from sympy import lambdify
 
-    Pi0 = GlobalGeometricProjectorH1(V0_h)
     # phi_ref = Pi0(model.phi_callable)
 
     # def P0_phys(f_phys, P0, domain, mappings_list):
     # phi = lambdify(domain.coordinates, f_phys)
     # P0(f_log)
-    phi_symref = sin(7 * pi / 2 * (1 - x ** 2 - y ** 2))
-    phi_calref = lambdify(domain.coordinates, phi_symref)
-    phi_callog = pull_2d_h1(phi_calref, F)
-    phi_ref = Pi0(phi_callog)
-    phi_ref.coeffs.update_ghost_regions()
 
     # L2 and H1 norms
     ref_u0L2_2 = phi_ref.coeffs.inner(M.dot(phi_ref.coeffs))  # l2 norm of ref solution
