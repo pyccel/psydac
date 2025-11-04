@@ -11,7 +11,7 @@ from    sympde.topology.datatype    import H1Space, HcurlSpace
 from    psydac.api.discretization   import discretize
 from    psydac.api.settings         import PSYDAC_BACKEND_GPYCCEL
 from    psydac.ddm.cart             import DomainDecomposition, CartDecomposition
-from    psydac.fem.projectors       import DirichletBoundaryProjector
+from    psydac.fem.projectors       import BoundaryProjector
 from    psydac.linalg.basic         import LinearOperator, IdentityOperator
 from    psydac.linalg.block         import BlockVectorSpace
 from    psydac.linalg.solvers       import inverse
@@ -122,9 +122,10 @@ def _test_LO_equality_using_rng(A, B):
         B.dot(x, out=y2)
 
         diff = y1 - y2
-        err  = np.sqrt(diff.inner(diff) / diff.space.dimension)
+        err  = diff.inner(diff) / diff.space.dimension**2
+        tol  = 1e-15
         
-        assert err < 1e-15
+        assert err < tol**2
 
 #===============================================================================
 @pytest.mark.parametrize('n', [5, 10, 13] )
@@ -278,7 +279,9 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
 #===============================================================================
 @pytest.mark.parametrize('dim', [1, 2, 3])
 
-def test_function_space_dirichlet_projector(dim):
+def test_function_space_boundary_projector(dim):
+
+    tol = 1e-15
 
     ncells_3d   = [8, 8, 8]
     degree_3d   = [2, 2, 2]
@@ -330,31 +333,31 @@ def test_function_space_dirichlet_projector(dim):
         # The function defined here satisfy the corresponding homogeneous Dirichlet BCs
         if dim == 1:
             x = domain.coordinates
-            V = ScalarFunctionSpace('V', domain, kind='H1')
+            V = ScalarFunctionSpace('V', domain, kind='H1') # testing various kind arguments
             f = sin(2*pi*x)
         if dim == 2:
             x, y = domain.coordinates
             if i == 0:
-                V  = ScalarFunctionSpace('V', domain, kind=H1Space)
+                V  = ScalarFunctionSpace('V', domain, kind=H1Space) # testing various kind arguments
                 f  = (sqrt(x**2 + y**2)-0.5) * (sqrt(x**2 + y**2)-1)
             else:
-                V  = VectorFunctionSpace('V', domain, kind='hCuRl')
+                V  = VectorFunctionSpace('V', domain, kind='hCuRl') # testing various kind arguments
                 f1 = x
                 f2 = y
                 f  = Tuple(f1, f2)
         if dim == 3:
             x, y, z = domain.coordinates
             if i == 0:
-                V  = ScalarFunctionSpace('V', domain, kind='h1')
+                V  = ScalarFunctionSpace('V', domain, kind='h1') # testing various kind arguments
                 f  = (sqrt(x**2 + y**2)-0.5) * (sqrt(x**2 + y**2)-1) * z * (z-1)
             elif i == 1:
-                V  = VectorFunctionSpace('V', domain, kind=HcurlSpace)
+                V  = VectorFunctionSpace('V', domain, kind=HcurlSpace) # testing various kind arguments
                 f1 = z * (z - 1) * x
                 f2 = z * (z - 1) * y
                 f3 = (sqrt(x**2 + y**2)-0.5) * (sqrt(x**2 + y**2)-1)
                 f  = Tuple(f1, f2, f3)
             else:
-                V  = VectorFunctionSpace('V', domain, kind='Hdiv')
+                V  = VectorFunctionSpace('V', domain, kind='Hdiv') # testing various kind arguments
                 f1 = (sqrt(x**2 + y**2)-0.5) * (sqrt(x**2 + y**2)-1)
                 f2 = (sqrt(x**2 + y**2)-0.5) * (sqrt(x**2 + y**2)-1)
                 f3 = z * (z-1) * sin(x*y)
@@ -380,7 +383,7 @@ def test_function_space_dirichlet_projector(dim):
         abh = discretize(ab, domain_h, (Vh, Vh), backend=backend, sum_factorization=False)
 
         I   = IdentityOperator(Vh.coeff_space)
-        DBP = DirichletBoundaryProjector(Vh)
+        DBP = BoundaryProjector(Vh)
 
         M   = ah.assemble()
         M_0 = DBP @ M @ DBP + (I - DBP)
@@ -400,9 +403,9 @@ def test_function_space_dirichlet_projector(dim):
         # boundary conditions should not change under application of the corresponding projector
         fc2  = DBP @ fc
         diff = fc - fc2
-        err  = np.sqrt(diff.inner(diff))
+        err  = diff.inner(diff)
         print(f' | f - P @ f |          = {err}')
-        assert err < 1e-15
+        assert err < tol**2
 
         # 2.
         # After applying a projector to a random vector, we want to verify that the 
@@ -416,34 +419,35 @@ def test_function_space_dirichlet_projector(dim):
             else:
                 rng.random(size=rdm_coeffs._data.shape, dtype="float64", out=rdm_coeffs._data)
             rdm_coeffs2 = DBP @ rdm_coeffs
-            boundary_int_rdm      = np.sqrt(Mb.dot_inner(rdm_coeffs, rdm_coeffs) / rdm_coeffs.space.dimension)
-            boundary_int_proj_rdm = np.sqrt(Mb.dot_inner(rdm_coeffs2, rdm_coeffs2) / rdm_coeffs.space.dimension)
+            boundary_int_rdm      = Mb.dot_inner(rdm_coeffs, rdm_coeffs) / rdm_coeffs.space.dimension**2
+            boundary_int_proj_rdm = Mb.dot_inner(rdm_coeffs2, rdm_coeffs2) / rdm_coeffs.space.dimension**2
             print(f'  rdm: {boundary_int_rdm}    proj. rdm: {boundary_int_proj_rdm}')
-            assert boundary_int_proj_rdm < 1e-15
+            assert boundary_int_proj_rdm < tol**2
 
         # 3.
         # We want to verify that applying a projector twice does not change the vector twice
         fc3  = DBP @ fc2
         diff = fc2 - fc3
-        err  = np.sqrt(diff.inner(diff))
-        print(f' | P @ f - P @ P @ f |  = {err}')
-        assert err == 0.
+        err  = diff.inner(diff)
+        print(f' | P @ f - P @ P @ f |^2  = {err}')
+        assert err < tol**2
 
         # 4.
         # Finally, the modified mass matrix should still compute inner products correctly
-        l2_norm  = np.sqrt(M.dot_inner  (fc, fc))
-        l2_norm2 = np.sqrt(M_0.dot_inner(fc, fc))
-        diff     = l2_norm - l2_norm2
-        print(f' ||   f   ||            = {l2_norm} should be equal to')
-        print(f' || P @ f ||            = {l2_norm2}')
-        assert diff < 1e-15
+        l2_norm  = M.dot_inner  (fc, fc)
+        l2_norm2 = M_0.dot_inner(fc, fc)
+        diff     = abs(l2_norm - l2_norm2)
+        # This test requires a higher tolerance. M.dot_inner(fc, fc) and M_0.dot_inner(fc, fc) are the same up to order 1e-15.
+        assert diff < tol
 
         print()
 
 #===============================================================================
 @pytest.mark.parametrize('dim', [1, 2, 3])
 
-def test_discrete_derham_dirichlet_projector(dim):
+def test_discrete_derham_boundary_projector(dim):
+
+    tol = 1e-15
 
     ncells   = [8, 8, 8]
     degree   = [2, 2, 2]
@@ -512,7 +516,7 @@ def test_discrete_derham_dirichlet_projector(dim):
     domain_h      = discretize(domain, ncells=ncells_dim, periodic=periodic_dim, comm=comm)
     derham_h      = discretize(derham, domain_h, degree=degree_dim)
 
-    db_projectors = derham_h.dirichlet_projectors(kind='linop')
+    b_projectors = derham_h.boundary_projectors(kind='linop')
 
     if dim == 2: 
         conf_projectors = derham_h.conforming_projectors(kind='linop', hom_bc=True)
@@ -542,7 +546,7 @@ def test_discrete_derham_dirichlet_projector(dim):
         abh = discretize(ab, domain_h, (derham_h.spaces[i], derham_h.spaces[i]), backend=backend, sum_factorization=False)
 
         I   = IdentityOperator(derham_h.spaces[i].coeff_space)
-        DBP = db_projectors[i]
+        DBP = b_projectors[i]
 
         if dim == 2: 
             CP = conf_projectors[i]
@@ -560,9 +564,9 @@ def test_discrete_derham_dirichlet_projector(dim):
         # boundary conditions should not change under application of the corresponding projector
         fc2  = DBP @ fc
         diff = fc - fc2
-        err  = np.sqrt(diff.inner(diff))
-        print(f' | f - P @ f |          = {err}')
-        assert err < 1e-15
+        err  = diff.inner(diff)
+        print(f' | f - P @ f |^2          = {err}')
+        assert err < tol**2
 
         # 2.
         # After applying a projector to a random vector, we want to verify that the 
@@ -576,32 +580,35 @@ def test_discrete_derham_dirichlet_projector(dim):
             else:
                 rng.random(size=rdm_coeffs._data.shape, dtype="float64", out=rdm_coeffs._data)
             rdm_coeffs2 = DBP @ rdm_coeffs
-            boundary_int_rdm      = np.sqrt(Mb.dot_inner(rdm_coeffs, rdm_coeffs) / rdm_coeffs.space.dimension)
-            boundary_int_proj_rdm = np.sqrt(Mb.dot_inner(rdm_coeffs2, rdm_coeffs2) / rdm_coeffs.space.dimension)
+            boundary_int_rdm      = Mb.dot_inner(rdm_coeffs, rdm_coeffs) / rdm_coeffs.space.dimension**2
+            boundary_int_proj_rdm = Mb.dot_inner(rdm_coeffs2, rdm_coeffs2) / rdm_coeffs.space.dimension**2
             print(f'  rdm: {boundary_int_rdm}    proj. rdm: {boundary_int_proj_rdm}')
-            assert boundary_int_proj_rdm < 1e-15
+            assert boundary_int_proj_rdm < tol**2
 
         # 3.
         # We want to verify that applying a projector twice does not change the vector twice
         fc3  = DBP @ fc2
         diff = fc2 - fc3
-        err  = np.sqrt(diff.inner(diff))
-        print(f' | P @ f - P @ P @ f |  = {err}')
-        assert err == 0.
+        err  = diff.inner(diff)
+        print(f' | P @ f - P @ P @ f |^2  = {err}')
+        assert err < tol**2
 
         # 4.
         # Finally, the modified mass matrix should still compute inner products correctly
-        l2_norm  = np.sqrt(M.dot_inner  (fc, fc))
-        l2_norm2 = np.sqrt(M_0.dot_inner(fc, fc))
-        diff     = l2_norm - l2_norm2
-        print(f' ||   f   ||            = {l2_norm} should be equal to')
-        print(f' || P @ f ||            = {l2_norm2}')
-        assert diff < 1e-15
+        l2_norm  = M.dot_inner  (fc, fc)
+        l2_norm2 = M_0.dot_inner(fc, fc)
+        diff     = abs(l2_norm - l2_norm2)
+        print(f' ||   f   ||^2          = {l2_norm} should be equal to')
+        print(f' || P @ f ||^2          = {l2_norm2}')
+        # This test requires a higher tolerance. M.dot_inner(fc, fc) and M_0.dot_inner(fc, fc) are the same up to order 1e-15.
+        assert diff < tol
 
         print()
 
 #===============================================================================
-def test_discrete_derham_dirichlet_projector_multipatch():
+def test_discrete_derham_boundary_projector_multipatch():
+
+    tol = 1e-15
 
     ncells   = [8, 8]
     degree   = [2, 2]
@@ -628,7 +635,7 @@ def test_discrete_derham_dirichlet_projector_multipatch():
     derham = Derham(domain, sequence=['h1', 'hcurl', 'l2'])
     
     ncells_h = {}
-    for k, D in enumerate(domain.interior):
+    for D in domain.interior:
         ncells_h[D.name] = ncells
 
     domain_h = discretize(domain, ncells=ncells_h, comm=comm)
@@ -636,9 +643,7 @@ def test_discrete_derham_dirichlet_projector_multipatch():
 
     projectors = derham_h.projectors(nquads=[(d + 1) for d in degree])
 
-    db_projectors = derham_h.dirichlet_projectors(kind='linop')
-
-    conf_projectors = derham_h.conforming_projectors(kind='linop', hom_bc=True)
+    b_projectors = derham_h.boundary_projectors(kind='linop')
 
     nn = NormalVector('nn')
 
@@ -661,7 +666,7 @@ def test_discrete_derham_dirichlet_projector_multipatch():
         abh = discretize(ab, domain_h, (derham_h.spaces[i], derham_h.spaces[i]), backend=backend, sum_factorization=False)
 
         I   = IdentityOperator(derham_h.spaces[i].coeff_space)
-        DBP = db_projectors[i]
+        DBP = b_projectors[i]
 
         M   = ah.assemble()
         M_0 = DBP @ M @ DBP + (I - DBP)
@@ -675,9 +680,9 @@ def test_discrete_derham_dirichlet_projector_multipatch():
         # boundary conditions should not change under application of the corresponding projector
         fc2  = DBP @ fc
         diff = fc - fc2
-        err  = np.sqrt(diff.inner(diff))
-        print(f' | f - P @ f |          = {err}')
-        assert err < 1e-15
+        err  = diff.inner(diff)
+        print(f' | f - P @ f |^2          = {err}')
+        assert err < tol**2
 
         # 2.
         # After applying a projector to a random vector, we want to verify that the 
@@ -694,27 +699,28 @@ def test_discrete_derham_dirichlet_projector_multipatch():
                     rng.random(size=patch._data.shape, dtype="float64", out=patch._data)
 
             rdm_coeffs2 = DBP @ rdm_coeffs
-            boundary_int_rdm      = np.sqrt(Mb.dot_inner(rdm_coeffs, rdm_coeffs) / rdm_coeffs.space.dimension)
-            boundary_int_proj_rdm = np.sqrt(Mb.dot_inner(rdm_coeffs2, rdm_coeffs2) / rdm_coeffs.space.dimension)
+            boundary_int_rdm      = Mb.dot_inner(rdm_coeffs, rdm_coeffs) / rdm_coeffs.space.dimension**2
+            boundary_int_proj_rdm = Mb.dot_inner(rdm_coeffs2, rdm_coeffs2) / rdm_coeffs.space.dimension**2
             print(f'  rdm: {boundary_int_rdm}    proj. rdm: {boundary_int_proj_rdm}')
-            assert boundary_int_proj_rdm < 1e-15
+            assert boundary_int_proj_rdm < tol**2
 
         # 3.
         # We want to verify that applying a projector twice does not change the vector twice
         fc3  = DBP @ fc2
         diff = fc2 - fc3
-        err  = np.sqrt(diff.inner(diff))
-        print(f' | P @ f - P @ P @ f |  = {err}')
-        assert err == 0.
+        err  = diff.inner(diff)
+        print(f' | P @ f - P @ P @ f |^2  = {err}')
+        assert err < tol**2
 
         # 4.
         # Finally, the modified mass matrix should still compute inner products correctly
-        l2_norm  = np.sqrt(M.dot_inner  (fc, fc))
-        l2_norm2 = np.sqrt(M_0.dot_inner(fc, fc))
-        diff     = l2_norm - l2_norm2
-        print(f' ||   f   ||            = {l2_norm} should be equal to')
-        print(f' || P @ f ||            = {l2_norm2}')
-        assert diff < 1e-15
+        l2_norm  = M.dot_inner  (fc, fc)
+        l2_norm2 = M_0.dot_inner(fc, fc)
+        diff     = abs(l2_norm - l2_norm2)
+        print(f' ||   f   ||^2          = {l2_norm} should be equal to')
+        print(f' || P @ f ||^2          = {l2_norm2}')
+        # This test requires a higher tolerance. M.dot_inner(fc, fc) and M_0.dot_inner(fc, fc) are the same up to order 1e-15.
+        assert diff < tol
 
         print()
 

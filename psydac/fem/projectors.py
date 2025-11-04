@@ -163,7 +163,7 @@ def get_dual_dofs(Vh, f, domain_h, backend_language="python", return_format='ste
 
 
 #===============================================================================
-class DirichletBoundaryProjector(LinearOperator):
+class BoundaryProjector(LinearOperator):
     """
     A LinearOperator that applies homogeneous (unless manually given different bcs) Dirichlet boundary conditions.
 
@@ -172,11 +172,14 @@ class DirichletBoundaryProjector(LinearOperator):
     fem_space : psydac.fem.basic.FemSpace
         fem_space.coeff_space is domain and codomain of this LO. fem_space.kind.name determines the BCs that get applied.
 
-    bcs : Iterable
-        Iterable of sympde.topology.Boundary objects. Necessary only if fem_space.kind.name is undefined.
+    bcs : Iterable | None
+        Iterable of sympde.topology.Boundary objects. 
+        Allows the user to apply different kinds of BCs.
+        Must not be passed if a space_kind argument is passed.
 
-    space_kind : str | SpaceType
-        Necessary only if fem_space.kind.name is undefined.
+    space_kind : str | SpaceType | None
+        Necessary only if fem_space.kind.name is undefined and no bcs are passed.
+        Must not be passed if a space_kind argument is passed.
 
     Notes
     -----
@@ -188,6 +191,10 @@ class DirichletBoundaryProjector(LinearOperator):
         assert isinstance(fem_space, FemSpace)
         assert bcs is None or isinstance(bcs, Iterable)
         assert space_kind is None or isinstance(space_kind, (str, SpaceType))
+        if bcs is not None:
+            assert space_kind is None
+        if space_kind is not None:
+            assert bcs is None
 
         coeff_space    = fem_space.coeff_space
         self._domain   = coeff_space
@@ -195,10 +202,13 @@ class DirichletBoundaryProjector(LinearOperator):
 
         if bcs is not None:
             assert all(isinstance(bc, Boundary) for bc in bcs)
-            self._bcs = tuple(bcs)
+            self._bcs = bcs
         else:
-            self._bcs = tuple(self._get_bcs(fem_space, space_kind=space_kind))
+            self._bcs = self._get_bcs(fem_space, space_kind=space_kind)
 
+    #-------------------------------------
+    # Abstract interface
+    #-------------------------------------
     @property
     def domain(self):
         return self._domain
@@ -210,22 +220,59 @@ class DirichletBoundaryProjector(LinearOperator):
     @property
     def dtype(self):
         return None
-    
-    @property
-    def bcs(self):
-        return self._bcs
-    
+       
     def tosparse(self):
         raise NotImplementedError
     
     def toarray(self):
         raise NotImplementedError
     
+    def dot(self, v, out=None):
+        if out is not None:
+            assert isinstance(out, Vector)
+            assert out.space is self.codomain
+        else:
+            out = self.codomain.zeros()
+
+        v.copy(out=out)
+        if isinstance(self.domain, StencilVectorSpace):
+            apply_essential_bc(out, *self._bcs)
+        else:
+            for block, block_bcs in zip(out, self._bcs):
+                apply_essential_bc(block, *block_bcs)
+
+        return out
+
     def transpose(self, conjugate=False):
         return self
     
-    def _get_bcs(self, fem_space, space_kind=None):
-        """Returns the correct Dirichlet boundary conditions for the passed fem_space."""
+    #--------------------------------------
+    # Other properties/methods
+    #--------------------------------------
+    @property
+    def bcs(self):
+        return self._bcs
+
+    def _get_bcs(self, fem_space, *, space_kind=None):
+        """
+        Returns a tuple of Boundries that allows to apply homogeneous Dirichlet BCs to functions belonging to fem_space.
+
+        Parameters
+        ----------
+        fem_space : psydac.fem.basic.FemSpace
+            fem_space.kind.name determines the kind of BCs returned by this function.
+
+        space_kind : str | SpaceType | None
+            Optional. Must match fem_space.kind.name if that value is different from "undefined".
+            Must be passed if fem_space.kind.name has value "undefined".
+
+        Returns
+        -------
+        bcs : tuple
+            tuple of sympde.topology.Boundary. 
+            Coefficients corresponding to functions non-zero on these boundaries will be set to 0.
+        
+        """
         space    = fem_space.symbolic_space
         periodic = fem_space.periodic
 
@@ -291,26 +338,10 @@ class DirichletBoundaryProjector(LinearOperator):
         else:
             raise ValueError(f'{kind} must be either "h1", "hcurl" or "hdiv"')
         
-        return bcs
-
-    def dot(self, v, out=None):
-        if out is not None:
-            assert isinstance(out, Vector)
-            assert out.space is self.codomain
-        else:
-            out = self.codomain.zeros()
-
-        v.copy(out=out)
-        if isinstance(self.domain, StencilVectorSpace):
-            apply_essential_bc(out, *self._bcs)
-        else:
-            for block, block_bcs in zip(out, self._bcs):
-                apply_essential_bc(block, *block_bcs)
-
-        return out
+        return tuple(bcs)
 
 #===============================================================================
-class DirichletMultipatchBoundaryProjector(LinearOperator):
+class MultipatchBoundaryProjector(BoundaryProjector):
     """
     A LinearOperator (for multipatch domains) that applies homogeneous (unless manually given different bcs) Dirichlet boundary conditions.
 
@@ -319,23 +350,33 @@ class DirichletMultipatchBoundaryProjector(LinearOperator):
     fem_space : psydac.fem.basic.FemSpace
         fem_space.coeff_space is domain and codomain of this LO. fem_space.kind.name determines the BCs that get applied.
 
-    bcs : Iterable
-        Iterable of sympde.topology.Boundary objects. Necessary only if fem_space.kind.name is undefined.
+    bcs : Iterable | None
+        Iterable of sympde.topology.Boundary objects. 
+        Allows the user to apply different kinds of BCs.
+        Must not be passed if a space_kind argument is passed.
 
-    space_kind : str | SpaceType
-        Necessary only if fem_space.kind.name is undefined.
+    space_kind : str | SpaceType | None
+        Necessary only if fem_space.kind.name is undefined and no bcs are passed.
+        Must not be passed if a space_kind argument is passed.
 
     Notes
     -----
     See examples/vector_potential_3d.py for a use case of such an operator.
     
     """
-    def __init__(self, fem_space, bcs=None, space_kind=None):
+    def __init__(self, fem_space, *, bcs=None, space_kind=None):
 
         assert isinstance(fem_space, FemSpace)
         assert fem_space.is_multipatch
         assert bcs is None or isinstance(bcs, Iterable)
         assert space_kind is None or isinstance(space_kind, (str, SpaceType))
+        if bcs is not None:
+            assert space_kind is None
+        if space_kind is not None:
+            assert bcs is None
+
+        dim = fem_space.symbolic_space.domain.dim
+        assert dim == 2, 'The class MultipatchBoundaryProjector is implemented only in 2D.'
 
         coeff_space    = fem_space.coeff_space
         self._domain   = coeff_space
@@ -343,37 +384,56 @@ class DirichletMultipatchBoundaryProjector(LinearOperator):
 
         if bcs is not None:
             assert all(isinstance(bc, Boundary) for bc in bcs)
-            self._bcs = tuple(bcs)
+            self._bcs = bcs
         else:
-            self._bcs = tuple(self._get_bcs(fem_space, space_kind=space_kind))
+            self._bcs = self._get_bcs(fem_space, space_kind=space_kind)
 
-    @property
-    def domain(self):
-        return self._domain
-    
-    @property
-    def codomain(self):
-        return self._domain
-    
-    @property
-    def dtype(self):
-        return None
-    
-    @property
-    def bcs(self):
-        return self._bcs
-    
-    def tosparse(self):
-        raise NotImplementedError
-    
-    def toarray(self):
-        raise NotImplementedError
-    
-    def transpose(self, conjugate=False):
-        return self
-    
-    def _get_bcs(self, fem_space, space_kind=None):
-        """Returns the correct Dirichlet boundary conditions for the passed fem_space."""
+    #-------------------------------------
+    # Abstract interface
+    #-------------------------------------
+    def dot(self, v, out=None):
+        if out is not None:
+            assert isinstance(out, Vector)
+            assert out.space is self.codomain
+        else:
+            out = self.codomain.zeros()
+
+        v.copy(out=out)
+
+        # apply bc on each patch
+        for p in out.blocks:
+
+            if isinstance(p, StencilVector):
+                apply_essential_bc(p, *self._bcs)
+            else:
+                for block, block_bcs in zip(p, self._bcs):
+                    apply_essential_bc(block, *block_bcs)
+
+        return out
+
+    #--------------------------------------
+    # Other properties/methods
+    #--------------------------------------
+    def _get_bcs(self, fem_space, *, space_kind=None):
+        """
+        Returns a tuple of Boundries that allows to apply homogeneous Dirichlet BCs to functions belonging to fem_space.
+        
+        Parameters
+        ----------
+        fem_space : psydac.fem.basic.FemSpace
+            fem_space.kind.name determines the kind of BCs returned by this function.
+
+        space_kind : str | SpaceType | None
+            Optional. Must match fem_space.kind.name if that value is different from "undefined".
+            Must be passed if fem_space.kind.name has value "undefined".
+
+        Returns
+        -------
+        bcs : tuple
+            tuple of sympde.topology.Boundary. 
+            Coefficients corresponding to functions non-zero on these boundaries will be set to 0.
+        
+        """
         space    = fem_space.symbolic_space
 
         space_kind_str = space.kind.name
@@ -395,8 +455,6 @@ class DirichletMultipatchBoundaryProjector(LinearOperator):
                 space_kind_str = kind_str
 
         kind = space_kind_str
-        dim  = space.domain.dim
-        assert dim==2 
         
         if kind == 'l2':
             return None
@@ -433,24 +491,4 @@ class DirichletMultipatchBoundaryProjector(LinearOperator):
         else:
             raise ValueError(f'{kind} must be either "h1", "hcurl" or "hdiv"')
         
-        return bcs
-
-    def dot(self, v, out=None):
-        if out is not None:
-            assert isinstance(out, Vector)
-            assert out.space is self.codomain
-        else:
-            out = self.codomain.zeros()
-
-        v.copy(out=out)
-
-        # apply bc on each patch
-        for p in out.blocks:
-
-            if isinstance(p, StencilVector):
-                apply_essential_bc(p, *self._bcs)
-            else:
-                for block, block_bcs in zip(p, self._bcs):
-                    apply_essential_bc(block, *block_bcs)
-
-        return out
+        return tuple(bcs)
