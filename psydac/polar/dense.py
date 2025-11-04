@@ -177,12 +177,15 @@ class DenseVectorSpace(VectorSpace):
         assert x.space is self
         assert y.space is self
 
+        # 1. Local dot product
         res = np.dot(x._data, y._data)
 
         V = self
         if V.parallel:
-            if V.radial_comm.rank == V.radial_root:
+            # 2. MPI_ALLREDUCE operation on the M-2 dimensional tensor subcomm.
+            if V.tensor_comm and (V.radial_comm.rank == V.radial_root):
                 res = V.tensor_comm.allreduce(res)
+            # 3. MPI_BCAST operation on the 1D radial subcommunicator
             res = V.radial_comm.bcast(res, root=V.radial_root)
 
         return res
