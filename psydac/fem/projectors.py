@@ -15,7 +15,7 @@ from psydac.linalg.kron         import KroneckerDenseMatrix
 from psydac.linalg.stencil      import StencilVectorSpace, StencilVector
 
 __all__ = ('knots_to_insert', 'knot_insertion_projection_operator', 'get_dual_dofs',
-           'DirichletBoundaryProjector', 'DirichletMultipatchBoundaryProjector')
+           'BoundaryProjector', 'MultipatchBoundaryProjector')
 
 def knots_to_insert(coarse_grid, fine_grid, tol=1e-14):
     """ Compute the point difference between the fine grid and coarse grid."""
