@@ -363,21 +363,20 @@ def run_poisson_2d(*, test_case, ncells, degree,
 
     # ==================== SPLINE SPACE FOR SPLINE MAPPINGS =======================#
 
-    if use_spline_mapping:
-        # Create uniform grid
-        grid_1 = np.linspace(*model.domain[0], num=ne1 + 1)
-        grid_2 = np.linspace(*model.domain[1], num=ne2 + 1)
+    # Create uniform grid
+    grid_1 = np.linspace(*model.domain[0], num=ne1 + 1)
+    grid_2 = np.linspace(*model.domain[1], num=ne2 + 1)
 
-        # Create 1D finite element spaces
-        V1 = SplineSpace(p1, grid=grid_1, periodic=False)
-        V2 = SplineSpace(p2, grid=grid_2, periodic=True)
+    # Create 1D finite element spaces
+    V1 = SplineSpace(p1, grid=grid_1, periodic=False)
+    V2 = SplineSpace(p2, grid=grid_2, periodic=True)
 
-        # Create 2D tensor product finite element space
-        domain_decomposition = DomainDecomposition(ncells, [False, True] , comm = mpi_comm)
-        V = TensorFemSpace(domain_decomposition, V1, V2)
+    # Create 2D tensor product finite element space
+    domain_decomposition = DomainDecomposition(ncells, [False, True] , comm = mpi_comm)
+    V = TensorFemSpace(domain_decomposition, V1, V2)
 
-        s1, s2 = V.coeff_space.starts
-        e1, e2 = V.coeff_space.ends
+    s1, s2 = V.coeff_space.starts
+    e1, e2 = V.coeff_space.ends
 
     # ==================== MAPPING & PHYSICAL DOMAIN ==============================#
     logical_domain = Square('Omega', bounds1=model.domain[0],
@@ -722,7 +721,8 @@ def run_poisson_2d(*, test_case, ncells, degree,
     print('ex[0,0] = ', ex[0, 0])
 
     # Compute physical coordinates of logical grid
-    pcoords = np.array([[map_discrete(e1, e2) for e2 in eta2] for e1 in eta1])
+    map_temp = map_discrete if use_spline_mapping else F
+    pcoords = np.array([[map_temp(e1, e2) for e2 in eta2] for e1 in eta1])
     xx = pcoords[:, :, 0]
     yy = pcoords[:, :, 1]
 
