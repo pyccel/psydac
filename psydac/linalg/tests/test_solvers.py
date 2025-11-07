@@ -407,7 +407,7 @@ def test_function_space_boundary_projector(dim):
         print(f' | f - P @ f |          = {err}')
         assert err < tol**2
 
-        # 2.
+        # 2.1
         # After applying a projector to a random vector, we want to verify that the 
         # corresponding boundary integral vanishes
         rdm_coeffs = Vh.coeff_space.zeros()
@@ -423,6 +423,14 @@ def test_function_space_boundary_projector(dim):
             boundary_int_proj_rdm = Mb.dot_inner(rdm_coeffs2, rdm_coeffs2) / rdm_coeffs.space.dimension**2
             print(f'  rdm: {boundary_int_rdm}    proj. rdm: {boundary_int_proj_rdm}')
             assert boundary_int_proj_rdm < tol**2
+
+        # 2.2
+        # Test toarray(): (DP @ rdm_coeffs).toarray() should be equal to DP.toarray().dot(rdm_coeffs.toarray())
+        DP_arr = DP.toarray()
+        rdm_coeffs_arr = rdm_coeffs.toarray()
+        diff_arr = DP_arr.dot(rdm_coeffs_arr) - rdm_coeffs2.toarray()
+        err = np.linalg.norm(diff_arr)
+        assert err < tol**2
 
         # 3.
         # We want to verify that applying a projector twice does not change the vector twice
@@ -568,7 +576,7 @@ def test_discrete_derham_boundary_projector(dim):
         print(f' | f - P @ f |^2          = {err}')
         assert err < tol**2
 
-        # 2.
+        # 2.1
         # After applying a projector to a random vector, we want to verify that the 
         # corresponding boundary integral vanishes
         rdm_coeffs = derham_h.spaces[i].coeff_space.zeros()
@@ -584,6 +592,14 @@ def test_discrete_derham_boundary_projector(dim):
             boundary_int_proj_rdm = Mb.dot_inner(rdm_coeffs2, rdm_coeffs2) / rdm_coeffs.space.dimension**2
             print(f'  rdm: {boundary_int_rdm}    proj. rdm: {boundary_int_proj_rdm}')
             assert boundary_int_proj_rdm < tol**2
+
+        # 2.2
+        # Test toarray(): (DP @ rdm_coeffs).toarray() should be equal to DP.toarray().dot(rdm_coeffs.toarray())
+        DP_arr = DP.toarray()
+        rdm_coeffs_arr = rdm_coeffs.toarray()
+        diff_arr = DP_arr.dot(rdm_coeffs_arr) - rdm_coeffs2.toarray()
+        err = np.linalg.norm(diff_arr)
+        assert err < tol**2
 
         # 3.
         # We want to verify that applying a projector twice does not change the vector twice
@@ -684,7 +700,7 @@ def test_discrete_derham_boundary_projector_multipatch():
         print(f' | f - P @ f |^2          = {err}')
         assert err < tol**2
 
-        # 2.
+        # 2.1
         # After applying a projector to a random vector, we want to verify that the 
         # corresponding boundary integral vanishes
         rdm_coeffs = derham_h.spaces[i].coeff_space.zeros()
@@ -703,6 +719,14 @@ def test_discrete_derham_boundary_projector_multipatch():
             boundary_int_proj_rdm = Mb.dot_inner(rdm_coeffs2, rdm_coeffs2) / rdm_coeffs.space.dimension**2
             print(f'  rdm: {boundary_int_rdm}    proj. rdm: {boundary_int_proj_rdm}')
             assert boundary_int_proj_rdm < tol**2
+
+        # 2.2
+        # Test toarray(): (DP @ rdm_coeffs).toarray() should be equal to DP.toarray().dot(rdm_coeffs.toarray())
+        DP_arr = DP.toarray()
+        rdm_coeffs_arr = rdm_coeffs.toarray()
+        diff_arr = DP_arr.dot(rdm_coeffs_arr) - rdm_coeffs2.toarray()
+        err = np.linalg.norm(diff_arr)
+        assert err < tol**2
 
         # 3.
         # We want to verify that applying a projector twice does not change the vector twice

@@ -1,6 +1,8 @@
 import numpy as np
 from collections.abc import Iterable
 
+from scipy.sparse               import diags
+
 from sympde.topology            import element_of, Boundary
 from sympde.calculus            import dot
 from sympde.expr                import LinearForm, integral, EssentialBC
@@ -13,6 +15,7 @@ from psydac.fem.basic           import FemSpace
 from psydac.linalg.basic        import LinearOperator, Vector
 from psydac.linalg.kron         import KroneckerDenseMatrix
 from psydac.linalg.stencil      import StencilVectorSpace, StencilVector
+from psydac.linalg.utilities    import array_to_psydac
 
 __all__ = ('knots_to_insert', 'knot_insertion_projection_operator', 'get_dual_dofs',
            'DirichletProjector', 'MultipatchDirichletProjector')
@@ -222,10 +225,18 @@ class DirichletProjector(LinearOperator):
         return None
        
     def tosparse(self):
-        raise NotImplementedError
+        np_ones     = np.ones(shape=self.domain.dimension)
+        psy_ones    = array_to_psydac(np_ones, self.domain)
+        diagonal    = self @ psy_ones
+        sparse      = diags(diagonal.toarray())
+        return sparse
     
     def toarray(self):
-        raise NotImplementedError
+        np_ones     = np.ones(shape=self.domain.dimension)
+        psy_ones    = array_to_psydac(np_ones, self.domain)
+        diagonal    = self @ psy_ones
+        array       = np.diag(diagonal.toarray())
+        return array
     
     def dot(self, v, out=None):
         if out is not None:
