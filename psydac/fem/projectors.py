@@ -182,7 +182,7 @@ class DirichletProjector(LinearOperator):
 
     space_kind : str | SpaceType | None
         Necessary only if fem_space.kind.name is undefined and no bcs are passed.
-        Must not be passed if a space_kind argument is passed.
+        Must not be passed if a bcs argument is passed.
 
     Notes
     -----
@@ -194,10 +194,8 @@ class DirichletProjector(LinearOperator):
         assert isinstance(fem_space, FemSpace)
         assert bcs is None or isinstance(bcs, Iterable)
         assert space_kind is None or isinstance(space_kind, (str, SpaceType))
-        if bcs is not None:
-            assert space_kind is None
-        if space_kind is not None:
-            assert bcs is None
+        assert bcs is None or space_kind is None, \
+            "Parameters bcs and space_kind are mutually exclusive"
 
         coeff_space    = fem_space.coeff_space
         self._domain   = coeff_space
@@ -205,7 +203,7 @@ class DirichletProjector(LinearOperator):
 
         if bcs is not None:
             assert all(isinstance(bc, Boundary) for bc in bcs)
-            self._bcs = bcs
+            self._bcs = tuple(bcs)
         else:
             self._bcs = self._get_bcs(fem_space, space_kind=space_kind)
 
@@ -266,7 +264,7 @@ class DirichletProjector(LinearOperator):
 
     def _get_bcs(self, fem_space, *, space_kind=None):
         """
-        Returns a tuple of Boundries that allows to apply homogeneous Dirichlet BCs to functions belonging to fem_space.
+        Returns a tuple of Boundaries that allows to apply homogeneous Dirichlet BCs to functions belonging to fem_space.
 
         Parameters
         ----------
@@ -368,7 +366,7 @@ class MultipatchDirichletProjector(DirichletProjector):
 
     space_kind : str | SpaceType | None
         Necessary only if fem_space.kind.name is undefined and no bcs are passed.
-        Must not be passed if a space_kind argument is passed.
+        Must not be passed if a bcs argument is passed.
 
     Notes
     -----
@@ -376,28 +374,10 @@ class MultipatchDirichletProjector(DirichletProjector):
     
     """
     def __init__(self, fem_space, *, bcs=None, space_kind=None):
-
-        assert isinstance(fem_space, FemSpace)
-        assert fem_space.is_multipatch
-        assert bcs is None or isinstance(bcs, Iterable)
-        assert space_kind is None or isinstance(space_kind, (str, SpaceType))
-        if bcs is not None:
-            assert space_kind is None
-        if space_kind is not None:
-            assert bcs is None
-
-        dim = fem_space.symbolic_space.domain.dim
-        assert dim == 2, 'The class MultipatchBoundaryProjector is implemented only in 2D.'
-
-        coeff_space    = fem_space.coeff_space
-        self._domain   = coeff_space
-        self._codomain = coeff_space
-
-        if bcs is not None:
-            assert all(isinstance(bc, Boundary) for bc in bcs)
-            self._bcs = bcs
-        else:
-            self._bcs = self._get_bcs(fem_space, space_kind=space_kind)
+        super().__init__(fem_space, bcs=bcs, space_kind=space_kind)
+        if fem_space.ldim != 2:
+            msg = f'The class {__class__.__name__} is implemented only in 2D.'
+            raise NotImplementedError(msg)
 
     #-------------------------------------
     # Abstract interface
@@ -427,7 +407,7 @@ class MultipatchDirichletProjector(DirichletProjector):
     #--------------------------------------
     def _get_bcs(self, fem_space, *, space_kind=None):
         """
-        Returns a tuple of Boundries that allows to apply homogeneous Dirichlet BCs to functions belonging to fem_space.
+        Returns a tuple of Boundaries that allows to apply homogeneous Dirichlet BCs to functions belonging to fem_space.
         
         Parameters
         ----------
