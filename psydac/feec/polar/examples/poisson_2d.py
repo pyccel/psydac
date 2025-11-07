@@ -430,7 +430,6 @@ def run_poisson_2d(*, test_case, ncells, degree,
     # f = model.rho
     X, Y = model.coordinates
     x, y = model.mapping.expressions
-    expr_phi_e = model.phi.subs({X: x, Y: y})
     f = model.rho.subs({X: x, Y: y})
 
     rhs = LinearForm(v0, integral(domain, f * v0))
