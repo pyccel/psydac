@@ -1,0 +1,67 @@
+name: Compile psydac w. pyccel devel
+
+on:
+  pull_request:
+    branches: [devel-tiny]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compile-with-pyccel-devel:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest ]
+        # TODO: Make sure that struphy works with python > 3.11, keep the lower bound to 3.10
+        python-version: [ '3.10', '3.12', '3.13' ]
+        compile_language: ['c', 'fortran']
+        isMerge:
+          - ${{ github.event_name == 'push' && github.ref == 'refs/heads/devel' }}
+        # exclude:
+        #  - { isMerge: false, python-version: '3.10' }
+        #  - { isMerge: false, python-version: '3.11' }
+        # include:
+        #   - os: macos-14
+        #     python-version: '3.10'
+        #   - os: macos-14
+        #     python-version: '3.13'
+
+    name: Compile psydac w. pyccel devel on ${{ matrix.os }} / Python ${{ matrix.python-version }} / ${{ matrix.compile_language }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install prerequisites
+        uses: ./.github/actions/install/psydac-req
+
+      - name: Install project
+        run: |
+          python -m pip install ".[test]" --no-cache-dir
+          python -m pip freeze
+
+      - name: Set up environment variables
+        run: |
+          echo "PSYDAC_DIR=$GITHUB_WORKSPACE" >> $GITHUB_ENV
+          echo "PYCCEL_DIR=$GITHUB_WORKSPACE/pyccel" >> $GITHUB_ENV
+  
+      - name: Clone pyccel from Github (devel branch)
+        run: |
+          git clone --recurse-submodules https://github.com/pyccel/pyccel.git $PYCCEL_DIR
+
+      - name: Install pyccel
+        working-directory: ${{ env.PYCCEL_DIR }}
+        run: |
+          echo "Pyccel location for this branch"
+          pip show pyccel
+          pip uninstall pyccel -y
+          python -m pip install ".[test]" --no-cache-dir
+          echo "Pyccel location after reinstalling"
+          pip show pyccel
+      
+      - name: Compile psydac kernels
+        run: |
+          psydac-accelerate --language ${{ matrix.compile_language }}

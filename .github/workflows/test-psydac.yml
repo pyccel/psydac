@@ -1,0 +1,99 @@
+name: Test psydac
+
+on:
+  pull_request:
+    branches: [devel-tiny]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test_psydac:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest ]
+        # TODO: Make sure that struphy works with python > 3.11, keep the lower bound to 3.10
+        python-version: [ '3.10', '3.12', '3.13' ]
+        compile_language: ['c', 'fortran']
+        isMerge:
+          - ${{ github.event_name == 'push' && github.ref == 'refs/heads/devel' }}
+        # exclude:
+        #  - { isMerge: false, python-version: '3.10' }
+        #  - { isMerge: false, python-version: '3.11' }
+        # include:
+        #   - os: macos-14
+        #     python-version: '3.10'
+        #   - os: macos-14
+        #     python-version: '3.13'
+
+    name: Test Psydac on ${{ matrix.os }} / Python ${{ matrix.python-version }} / ${{ matrix.compile_language }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install prerequisites
+        uses: ./.github/actions/install/psydac-req
+
+      - name: Install project without mpi
+        run: |
+          python -m pip install ".[test]" --no-cache-dir
+          python -m pip freeze
+      
+      - name: Compile psydac kernels
+        run: |
+          psydac-accelerate --language ${{ matrix.compile_language }}
+
+      # - name: Test Pyccel optimization flags
+      #   run: |
+      #     pytest --pyargs psydac -m pyccel --capture=no
+
+      - name: Initialize test directory
+        run: |
+          mkdir pytest
+          cp mpi_tester.py pytest
+
+      - name: Run coverage tests on macOS
+        if: matrix.os == 'macos-14'
+        working-directory: ./pytest
+        run: >- 
+          python -m pytest -n auto
+          --cov psydac
+          --cov-config $GITHUB_WORKSPACE/pyproject.toml
+          --cov-report xml
+          --pyargs psydac -m "not parallel and not petsc"
+
+      - name: Run single-process tests with Pytest on Ubuntu
+        if: matrix.os == 'ubuntu-latest'
+        working-directory: ./pytest
+        run: |
+          python -m pytest -n auto --pyargs psydac -m "not parallel and not petsc"
+
+      - name: Run single-process PETSc tests with Pytest
+        working-directory: ./pytest
+        run: |
+          python -m pytest -n auto --pyargs psydac -m "not parallel and petsc"
+
+      - name: Install project with mpi
+        run: |
+          python -m pip install ".[mpi]" 
+          python -m pip freeze
+
+      - name: Run MPI tests with Pytest
+        working-directory: ./pytest
+        run: |
+          python mpi_tester.py --mpirun="mpiexec -n 4 ${MPI_OPTS}" --pyargs psydac -m "parallel and not petsc"
+
+      - name: Run MPI PETSc tests with Pytest
+        working-directory: ./pytest
+        run: |
+          python mpi_tester.py --mpirun="mpiexec -n 4 ${MPI_OPTS}" --pyargs psydac -m "parallel and petsc"
+
+      - name: Remove test directory
+        if: always()
+        run: |
+          rm -rf pytest
+  

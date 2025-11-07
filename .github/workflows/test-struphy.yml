@@ -1,0 +1,105 @@
+name: Test struphy
+
+on:
+  pull_request:
+    branches: [devel-tiny]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test_struphy:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest ]
+        # TODO: Make sure that struphy works with python > 3.11, keep the lower bound to 3.10
+        python-version: [ '3.10', '3.12', '3.13' ]
+        compile_language: ['c', 'fortran']
+        isMerge:
+          - ${{ github.event_name == 'push' && github.ref == 'refs/heads/devel' }}
+        # exclude:
+        #  - { isMerge: false, python-version: '3.10' }
+        #  - { isMerge: false, python-version: '3.11' }
+        # include:
+        #   - os: macos-14
+        #     python-version: '3.10'
+        #   - os: macos-14
+        #     python-version: '3.13'
+
+    name: Test Struphy on ${{ matrix.os }} / Python ${{ matrix.python-version }} / ${{ matrix.compile_language }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install prerequisites
+        uses: ./.github/actions/install/psydac-req
+
+      - name: Install project without mpi
+        run: |
+          python -m pip install ".[test]" --no-cache-dir
+          python -m pip freeze
+      
+      - name: Set up environment variables
+        run: |
+          echo "PSYDAC_DIR=$GITHUB_WORKSPACE" >> $GITHUB_ENV
+          echo "STRUPHY_DIR=$GITHUB_WORKSPACE/struphy" >> $GITHUB_ENV
+
+      - name: Clone struphy from Github
+        run: |
+          git clone https://github.com/struphy-hub/struphy.git $STRUPHY_DIR
+      
+      - name: Install struphy without mpi #TODO: Set branch to devel
+        working-directory: ${{ env.STRUPHY_DIR }}
+        run: |
+          echo "Psydac location for this branch"
+          pip show psydac
+          pip uninstall psydac -y
+          python -m pip install ".[phys]" --no-cache-dir
+          echo "Psydac location after installing struphy"
+          pip show psydac
+          
+      - name: Re-install Psydac from the current branch
+        run: |
+          echo "Uninstall psydac"
+          psydac-accelerate --cleanup --yes
+          pip show psydac
+          pip uninstall psydac -y
+          python -m pip install ${{ env.PSYDAC_DIR }} --force-reinstall --no-cache-dir
+          echo "Psydac location after installing psydac from the current branch (should be the same as in the previous step)"
+          pip show psydac
+          
+      - name: Compile struphy
+        working-directory: ${{ env.STRUPHY_DIR }}
+        run: |
+          pip show psydac
+          struphy -h
+          struphy compile -y --language ${{ matrix.compile_language }}
+
+      - name: Run struphy unit tests
+        working-directory: ${{ env.STRUPHY_DIR }}
+        run: |
+            struphy test unit
+      
+      - name: Run struphy model tests
+        working-directory: ${{ env.STRUPHY_DIR }}
+        run: |
+            struphy test models 
+
+      - name: Install mpi4py
+        working-directory: ${{ env.STRUPHY_DIR }}
+        run: |
+            pip install -U mpi4py
+
+      - name: Run struphy unit tests with mpi
+        working-directory: ${{ env.STRUPHY_DIR }}
+        run: |
+            struphy test unit --mpi 2
+
+      - name: Remove test directory
+        if: always()
+        run: |
+          rm -rf pytest
