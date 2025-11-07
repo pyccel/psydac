@@ -30,7 +30,7 @@ from psydac.fem.projectors                      import DirichletProjector, Multi
 
 from psydac.linalg.basic                        import IdentityOperator
 
-__all__ = ('DiscreteDeRham', 'DiscreteDeRhamMultipatch',)
+__all__ = ('DiscreteDeRham', 'MultipatchDiscreteDeRham',)
 
 #==============================================================================
 class DiscreteDeRham(BasicDiscrete):
@@ -286,6 +286,8 @@ class DiscreteDeRham(BasicDiscrete):
 
     #--------------------------------------------------------------------------
     def derivatives(self, kind='femlinop'):
+        assert kind in ('femlinop', 'linop')
+
         if kind == 'femlinop':
             return self._derivatives
         elif kind == 'linop': 
@@ -333,17 +335,20 @@ class DiscreteDeRham(BasicDiscrete):
 
         Parameters
         ----------
-
-        p_moments : <int>
-            The number of moments preserved by the projector.
-
-        hom_bc: <bool>
-          Apply homogenous boundary conditions if True
-
         kind : <str>
             The kind of the projector, can be 'femlinop' or 'linop'.
             - 'femlinop' returns a psydac FemLinearOperator (default)
             - 'linop' returns a psydac LinearOperator
+
+        mom_pres: <bool>
+            If True, preserve polynomial moments of maximal order in the projection.
+
+        p_moments: <int>
+            Number of polynomial moments to be preserved in the projection.
+            (Gets overwritten if the parameter mom_pres equals True)
+
+        hom_bc: <bool>
+            Apply homogenous boundary conditions if True
 
         Returns
         -------
@@ -351,6 +356,7 @@ class DiscreteDeRham(BasicDiscrete):
           The conforming projectors of each space and in desired form.
 
         """
+        assert kind in ('femlinop', 'linop')
 
         if hom_bc is None:
             raise ValueError('please provide a value for "hom_bc" argument')
@@ -480,6 +486,7 @@ class DiscreteDeRham(BasicDiscrete):
 
         H : <psydac.fem.basic.FemLinearOperator> or <psydac.linalg.basic.LinearOperator>
         """
+        assert kind in ('femlinop', 'linop')
 
         if not self._hodge_operators:
             self._init_hodge_operators(backend_language=backend_language)
@@ -518,6 +525,7 @@ class DiscreteDeRham(BasicDiscrete):
         -------
         The Hodge operators of all spaces and of the specified kind.
         """
+        assert kind in ('femlinop', 'linop')
 
         if not self._hodge_operators:
             self._init_hodge_operators(backend_language=backend_language)
@@ -526,7 +534,7 @@ class DiscreteDeRham(BasicDiscrete):
 
 
 #==============================================================================
-class DiscreteDeRhamMultipatch(DiscreteDeRham):
+class MultipatchDiscreteDeRham(DiscreteDeRham):
     """ Represents the discrete de Rham sequence for multipatch domains.
         It only works when the number of patches>1.
 
