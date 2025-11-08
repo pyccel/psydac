@@ -885,17 +885,20 @@ class BlockLinearOperator(LinearOperator):
     # ...
     def update_ghost_regions(self):
         for Lij in self._blocks.values():
-            Lij.update_ghost_regions()
+            if hasattr(Lij, 'update_ghost_regions'):
+                Lij.update_ghost_regions()
 
     # ...
     def exchange_assembly_data(self):
         for Lij in self._blocks.values():
-            Lij.exchange_assembly_data()
+            if hasattr(Lij, 'exchange_assembly_data'):
+                Lij.exchange_assembly_data()
 
     # ...
     def remove_spurious_entries(self ):
         for Lij in self._blocks.values():
-            Lij.remove_spurious_entries()
+            if hasattr(Lij, 'remove_spurious_entries'):
+                Lij.remove_spurious_entries()
 
     @property
     def ghost_regions_in_sync(self):
