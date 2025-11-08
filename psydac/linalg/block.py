@@ -895,7 +895,7 @@ class BlockLinearOperator(LinearOperator):
                 Lij.exchange_assembly_data()
 
     # ...
-    def remove_spurious_entries(self ):
+    def remove_spurious_entries(self):
         for Lij in self._blocks.values():
             if hasattr(Lij, 'remove_spurious_entries'):
                 Lij.remove_spurious_entries()
