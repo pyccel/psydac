@@ -481,11 +481,11 @@ class BlockVector(Vector):
         return np.block([blocks])[0]
 
     # ...
-    def topetsc(self):
+    def topetsc(self, out=None):
         """ Convert to petsc data structure.
         """
         from psydac.linalg.topetsc import vec_topetsc
-        vec = vec_topetsc( self )
+        vec = vec_topetsc( self, out=None )
         return vec
 
 #===============================================================================
