@@ -813,6 +813,8 @@ def test_block_vector_2d_serial_topetsc( dtype, n1, n2, p1, p2, P1, P2 ):
     W = BlockVectorSpace(V1, V2)
 
     x = BlockVector(W)
+    y = BlockVector(W)
+    z = BlockVector(W)
 
     # Fill in vector with random values, then update ghost regions
     for i1 in range(n1):
@@ -823,10 +825,16 @@ def test_block_vector_2d_serial_topetsc( dtype, n1, n2, p1, p2, P1, P2 ):
     x.update_ghost_regions()
 
     v = x.topetsc()
-    v = petsc_to_psydac(v, W)
+    u = v.copy()
+    x.topetsc(out=u)
 
-    # The vectors can only be compared in the serial case
-    assert np.allclose( x.toarray() , v.toarray() )
+    # Convert PETSc.Vec to BlockVector of W
+    y = petsc_to_psydac(v, W)
+    petsc_to_psydac(u, W, out=z)
+
+    assert np.array_equal(x.toarray(), y.toarray())
+    assert np.array_equal(x.toarray(), z.toarray())
+    assert np.array_equal(v.array, u.array) 
 
 #===============================================================================
 @pytest.mark.parametrize( 'dtype', [float, complex] )
@@ -1245,6 +1253,8 @@ def test_block_vector_2d_parallel_topetsc( dtype, n1, n2, p1, p2, P1, P2 ):
     #TODO: implement conversion to PETSc recursively to treat case of block of blocks 
 
     x = BlockVector(W)
+    y = BlockVector(W)
+    z = BlockVector(W)
 
     # Fill in vector with random values, then update ghost regions
     for i0 in range(len(W.starts)):
@@ -1254,9 +1264,18 @@ def test_block_vector_2d_parallel_topetsc( dtype, n1, n2, p1, p2, P1, P2 ):
 
     x.update_ghost_regions()
 
-    v = petsc_to_psydac(x.topetsc(), W)
+    v = x.topetsc()
+    u = v.copy()
+    x.topetsc(out=u)
 
-    assert np.allclose( x.toarray() , v.toarray(), rtol=1e-12, atol=1e-12 )
+    # Convert PETSc.Vec to BlockVector of W
+    y = petsc_to_psydac(v, W)
+    petsc_to_psydac(u, W, out=z)
+
+    assert np.allclose( x.toarray() , y.toarray(), rtol=1e-12, atol=1e-12 )
+    assert np.allclose( x.toarray() , z.toarray(), rtol=1e-12, atol=1e-12 )
+    assert np.allclose( v.array, u.array, rtol=1e-12, atol=1e-12 )
+
 
 #=============================================================================== 
 @pytest.mark.parametrize( 'dtype', [float, complex] )
