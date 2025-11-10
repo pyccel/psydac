@@ -1211,8 +1211,12 @@ def construct_h1_singlepatch_conforming_projection(Vh, reg_orders=0, p_moments=-
 
 
     def get_vertex_index(coords):
-        nbasis0 = Vh.spaces[coords[0]].nbasis - 1
-        nbasis1 = Vh.spaces[coords[1]].nbasis - 1
+        """
+            Calculate the global index of the vertex basis function
+            from the geometric coordinates of a vertex in the domain.
+        """
+        nbasis0 = Vh.spaces[0].nbasis - 1
+        nbasis1 = Vh.spaces[1].nbasis - 1
 
         # patch local index
         multi_index = [None] * ndim
@@ -1223,6 +1227,11 @@ def construct_h1_singlepatch_conforming_projection(Vh, reg_orders=0, p_moments=-
         return l2g.get_index(0, 0, multi_index)
 
     def vertex_moment_indices(axis, coords, p_moments):
+        """
+            Calculate the global indices of the basis functions
+            adjacent to the vertex basis function along axis
+            from the geometric coordinates of a vertex in the domain.
+        """
         if coords[axis] == 0:
             return range(1, p_moments + 2)
         else:
@@ -1232,6 +1241,9 @@ def construct_h1_singlepatch_conforming_projection(Vh, reg_orders=0, p_moments=-
     # boundary conditions
 
     for  co in [(0,0), (1,0), (0,1), (1,1)]:
+
+        if all(Vh.periodic):
+            break
 
         # global index
         ig = get_vertex_index(co)
@@ -1304,6 +1316,10 @@ def construct_h1_singlepatch_conforming_projection(Vh, reg_orders=0, p_moments=-
 
     # boundary condition
     for bn in domain.boundary:
+
+        if Vh.periodic[bn.axis]:
+            continue
+
         space_k = Vh
         axis = bn.axis
 
@@ -1402,6 +1418,9 @@ def construct_hcurl_singlepatch_conforming_projection(Vh, reg_orders=0, p_moment
     # boundary condition
     for bn in domain.boundary:
 
+        if Vh.periodic[bn.axis]:
+            continue
+
         axis = bn.axis
         d = 1 - axis
         ext = bn.ext
@@ -1431,9 +1450,13 @@ class ConformingProjectionV0(FemLinearOperator):
     ----------
     V0h: <FemSpace>
      The discrete space
+    
+    mom_pres: <bool>
+        If True, preserve polynomial moments of maximal order in the projection.
 
     p_moments: <int>
         Number of polynomial moments to be preserved in the projection.
+        (Gets overwritten if the parameter mom_pres equals True)
 
     hom_bc : <bool>
      Apply homogenous boundary conditions if True
@@ -1472,8 +1495,12 @@ class ConformingProjectionV1(FemLinearOperator):
     V1h: <FemSpace>
      The discrete space
 
+    mom_pres: <bool>
+        If True, preserve polynomial moments of maximal order in the projection.
+
     p_moments: <int>
         Number of polynomial moments to be preserved in the projection.
+        (Gets overwritten if the parameter mom_pres equals True)
 
     hom_bc : <bool>
      Apply homogenous boundary conditions if True
