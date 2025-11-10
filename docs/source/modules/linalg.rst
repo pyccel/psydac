@@ -14,6 +14,7 @@ linalg
     linalg.kernels
     linalg.kron
     linalg.solvers
+    linalg.sparse
     linalg.stencil
     linalg.topetsc
     linalg.utilities

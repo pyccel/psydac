@@ -58,6 +58,7 @@ jobs:
           echo "Psydac location for this branch"
           pip show psydac
           pip uninstall psydac -y
+          git checkout 108-psydac-change-renaming-of-globalpojector
           python -m pip install ".[phys]" --no-cache-dir
           echo "Psydac location after installing struphy"
           pip show psydac

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name            = "psydac"
-version         = "2.5.0.dev0"
+version         = "2.6.0.dev0"
 description     = "Python package for isogeometric analysis (IGA)"
 readme          = "README.md"
 requires-python = ">= 3.10"
@@ -43,6 +43,7 @@ test = [
     "pytest-cov >= 5.0.0",
     'pytest >= 4.5',
     'pytest-xdist >= 1.16',
+    'Pillow',  # Python Imaging Library (PIL) fork
 ]
 mpi = [
     'mpi4py >= 4',
