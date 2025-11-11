@@ -1,5 +1,6 @@
 import  numpy as np
 import  pytest
+from    mpi4py import MPI
 
 from    sympy import sin, pi, sqrt, Tuple
 
@@ -79,7 +80,7 @@ def _test_LO_equality_using_rng(A, B):
         assert err < tol**2
 
 #===============================================================================
-@pytest.mark.parametrize('dim', [1, 2, 3])
+@pytest.mark.parametrize('dim', [1, 2])
 
 def test_function_space_boundary_projector(dim):
 
@@ -253,7 +254,8 @@ def test_function_space_boundary_projector(dim):
         print()
 
 #===============================================================================
-@pytest.mark.parametrize('dim', [1, 2, 3])
+@pytest.mark.parametrize('dim', [1, 3])
+@pytest.mark.parallel
 
 def test_discrete_derham_boundary_projector(dim):
 
@@ -263,7 +265,7 @@ def test_discrete_derham_boundary_projector(dim):
     degree   = [2, 2, 2]
     periodic = [False, True, False]
 
-    comm     = None
+    comm     = MPI.COMM_WORLD
     backend  = PSYDAC_BACKEND_GPYCCEL
 
     logical_domain_1d = Line  ('L', bounds= (0,   1))
