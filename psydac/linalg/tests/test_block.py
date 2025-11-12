@@ -10,6 +10,7 @@ from psydac.linalg.stencil        import StencilVectorSpace, StencilVector, Sten
 from psydac.linalg.block          import BlockVectorSpace, BlockVector
 from psydac.linalg.block          import BlockLinearOperator
 from psydac.linalg.utilities      import array_to_psydac, petsc_to_psydac
+from psydac.linalg.sparse         import SparseMatrixLinearOperator
 from psydac.api.settings          import PSYDAC_BACKEND_GPYCCEL
 from psydac.ddm.cart              import DomainDecomposition, CartDecomposition
 
@@ -723,6 +724,87 @@ def test_block_linear_operator_serial_dot( dtype, n1, n2, p1, p2, P1, P2  ):
     # Check data in 1D array
     assert np.allclose( Y.blocks[0].toarray(), y1.toarray(), rtol=1e-14, atol=1e-14 )
     assert np.allclose( Y.blocks[1].toarray(), y2.toarray(), rtol=1e-14, atol=1e-14 )
+#===============================================================================
+@pytest.mark.parametrize( 'dtype', [float, complex] )
+@pytest.mark.parametrize( 'n1', [8, 16] )
+@pytest.mark.parametrize( 'n2', [8, 12] )
+@pytest.mark.parametrize( 'p1', [1, 3] )
+@pytest.mark.parametrize( 'p2', [1, 2] )
+@pytest.mark.parametrize( 'P1', [True, False] )
+@pytest.mark.parametrize( 'P2', [True] )
+
+def test_sparse_matrix_linear_operator_serial_dot( dtype, n1, n2, p1, p2, P1, P2  ):
+    # set seed for reproducibility
+    seed(n1*n2*p1*p2)
+
+    D = DomainDecomposition([n1,n2], periods=[P1,P2])
+
+    # Partition the points
+    npts = [n1,n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
+
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1,p2], shifts=[1,1])
+
+    # Create vector spaces, stencil matrices, and stencil vectors
+    V = StencilVectorSpace( cart, dtype=dtype )
+    M1 = StencilMatrix( V, V)
+    M2 = StencilMatrix( V, V )
+    M3 = StencilMatrix( V, V )
+    x1 = StencilVector( V )
+    x2 = StencilVector( V )
+
+    # Fill in stencil matrices based on diagonal index
+    if dtype==complex:
+        f=lambda k1,k2: 10j*k1+k2
+    else:
+        f=lambda k1,k2: 10*k1+k2
+
+    for k1 in range(-p1,p1+1):
+        for k2 in range(-p2,p2+1):
+            M1[:,:,k1,k2] = f(k1,k2)
+            M2[:,:,k1,k2] = f(k1,k2)+2.
+            M3[:,:,k1,k2] = f(k1,k2)+5.
+
+    M1.remove_spurious_entries()
+    M2.remove_spurious_entries()
+    M3.remove_spurious_entries()
+
+    # Fill in vector with random values, then update ghost regions
+    for i1 in range(n1):
+        for i2 in range(n2):
+            x1[i1,i2] = 2.0*random() - 1.0
+            x2[i1,i2] = 5.0*random() - 1.0
+    x1.update_ghost_regions()
+    x2.update_ghost_regions()
+
+    W = BlockVectorSpace(V, V)
+
+    # Construct a BlockLinearOperator object containing M1, M2, M, using 3 ways
+    #     |M1  M2|
+    # L = |      |
+    #     |M3  0 |
+
+    dict_blocks = {(0,0):M1, (0,1):M2, (1,0):M3}
+
+    L = BlockLinearOperator( W, W, blocks=dict_blocks )
+    Lm = SparseMatrixLinearOperator(W, W, L.tosparse().tocsr())
+
+    # Construct a BlockVector object containing x1 and x2
+    #     |x1|
+    # X = |  |
+    #     |x2|
+
+    X = BlockVector(W)
+    X[0] = x1
+    X[1] = x2
+
+    # Compute BlockLinearOperator product
+    Y = L.dot(X)
+
+    Ym = Lm.dot(X)
+
+    # Check data in 1D array
+    assert np.allclose( Ym.toarray(), Y.toarray(), rtol=1e-12, atol=1e-12 )
 #===============================================================================
 @pytest.mark.parametrize( 'dtype', [float, complex] )
 @pytest.mark.parametrize( 'n1', [8, 16] )

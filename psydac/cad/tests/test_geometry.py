@@ -17,6 +17,8 @@ from psydac.fem.tensor               import TensorFemSpace
 from psydac.utilities.utils          import refine_array_1d
 from psydac.ddm.cart                 import DomainDecomposition
 
+from mpi4py import MPI
+
 base_dir = os.path.dirname(os.path.realpath(__file__))
 #==============================================================================
 def test_geometry_2d_1():
@@ -170,6 +172,99 @@ def test_geometry_2d_4():
     geo.export('circle.h5')
 
 #==============================================================================
+@pytest.mark.parallel
+def test_geometry_with_mpi_dims_mask():
+
+    comm = MPI.COMM_WORLD
+    rank = comm.rank
+    size = comm.size
+    mpi_dims_mask = [False, True, False]  # We will verify that this has an effect
+    ncells = [4, 2*size, 8]  # Each process should have two cells along x2
+    degree = [2, 2, 2]
+
+    expected_starts = (0, 2 * rank, 0)
+    expected_ends   = (3, 2 * rank + 1, 7)
+    
+    # create an identity mapping
+    mapping = discrete_mapping('identity', ncells=ncells, degree=degree)
+
+    # create a topological domain
+    F = Mapping('F', dim=3)
+    domain = F(Cube(name='Omega'))
+
+    # associate the mapping to the topological domain
+    mappings = {domain.name: mapping}
+
+    # Define d_ncells as a dict
+    d_ncells = {domain.name: ncells}
+
+    # Create a geometry from a topological domain and the dict of mappings
+    # Here we allow for any distribution of the domain: mpi_dims_mask is not passed
+    geo = Geometry(domain=domain, ncells=d_ncells, mappings=mappings, comm=comm)
+    geo.export('geo_mpi_dims.h5')
+
+    # Read geometry file in parallel, but using mpi_dims_mask
+    geo_from_file = Geometry(filename='geo_mpi_dims.h5', comm=comm, mpi_dims_mask=mpi_dims_mask)
+
+    # Verify that the domain is distributed as expected
+    assert geo_from_file.ddm.starts == expected_starts
+    assert geo_from_file.ddm.ends   == expected_ends
+
+    # Safely remove the file
+    comm.Barrier()
+    if rank == 0:
+        os.remove('geo_mpi_dims.h5')
+
+
+# ==============================================================================
+@pytest.mark.parallel
+def test_from_discrete_mapping():
+
+    comm = MPI.COMM_WORLD
+    rank = comm.rank
+    size = comm.size
+    mpi_dims_mask = [False, False, True]  # We swill verify that this has an effect
+    ncells = [4, 8, 2 * size]  # Each process should have two cells along x3
+    degree = [3, 3, 3]
+
+    expected_starts = (0, 0, 2 * rank)
+    expected_ends   = (3, 7, 2 * rank + 1)
+
+    # Create a mapping
+    mapping = discrete_mapping('identity', ncells=ncells, degree=degree)
+
+    # Create geometry from the mapping using mpi_dims_mask
+    geo_from_mapping = Geometry.from_discrete_mapping(mapping, comm=comm, mpi_dims_mask=mpi_dims_mask)
+
+    # Verify that the domain is distributed as expected
+    assert geo_from_mapping.ddm.starts == expected_starts
+    assert geo_from_mapping.ddm.ends   == expected_ends
+
+# ==============================================================================
+@pytest.mark.parallel
+def test_from_topological_domain():
+
+    comm = MPI.COMM_WORLD
+    rank = comm.rank
+    size = comm.size
+    mpi_dims_mask = [False, True, False]  # We will verify that this has an effect
+    ncells = [4, 2 * size, 8]  # Each process should have two cells along x2
+
+    expected_starts = (0, 2 * rank, 0)
+    expected_ends   = (3, 2 * rank + 1, 7)
+
+    # Create a topological domain
+    F = Mapping('F', dim=3)
+    domain = F(Cube(name='Omega'))
+
+    # Create geometry from topological domain using mpi_dims_mask
+    geo_from_domain = Geometry.from_topological_domain(domain, ncells, comm=comm, mpi_dims_mask=mpi_dims_mask)
+
+    # Verify that the domain is distributed as expected
+    assert geo_from_domain.ddm.starts == expected_starts
+    assert geo_from_domain.ddm.ends   == expected_ends
+
+#==============================================================================
 @pytest.mark.parametrize( 'ncells', [[8,8], [12,12], [14,14]] )
 @pytest.mark.parametrize( 'degree', [[2,2], [3,2], [2,3], [3,3], [4,4]] )
 def test_export_nurbs_to_hdf5(ncells, degree):
@@ -289,7 +384,7 @@ def teardown_module():
         'quart_circle_1.h5',
         'circle.h5',
         'pipe.h5',
-        'L_shaped.h5'
+        'L_shaped.h5',
     ]
     for fname in filenames:
         if os.path.exists(fname):

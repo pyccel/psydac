@@ -759,15 +759,35 @@ class LinearOperator(ABC):
 
     def idot(self, v, out):
         """
-        Implements out += self @ v with a temporary.
-        Subclasses should provide an implementation without a temporary.
+        Implements `out += self @ v` without a temporary, using a work array.
+
+        This default implementation uses a local work array to store the result
+        of `self @ v`, and then sums it to the vector `out`. This doubles the
+        amount of read/write operations from/to local memory. If possible,
+        subclasses should provide a more efficient implementation which does
+        not use work arrays.
+
+        Parameters
+        ----------
+        v : Vector
+            The vector to which the linear operator `self` is applied. It must
+            belong to the domain of `self`.
+
+        out : Vector
+            The vector to be incremented by `self @ v`. It must belong to the
+            codomain of `self`.
 
         """
-        assert isinstance(v, Vector)
-        assert v.space == self.domain
+        assert isinstance(  v, Vector)
         assert isinstance(out, Vector)
-        assert out.space == self.codomain
-        out += self.dot(v)
+        assert   v.space is self.domain
+        assert out.space is self.codomain
+
+        if not hasattr(self, '_work'):
+            self._work = self.codomain.zeros()
+
+        self.dot(v, out=self._work)
+        out += self._work
 
     def dot_inner(self, v, w):
         """
@@ -1019,12 +1039,15 @@ class ScaledLinearOperator(LinearOperator):
     def dtype(self):
         return None
 
+    def set_scalar(self, c):
+        """ Modifies the scalar with which this LinearOperator is multiplied. E.g. for updating the stepsize."""
+        self._scalar = c
+
     def toarray(self):
-        return self._scalar*self._operator.toarray() 
+        return self._scalar * self._operator.toarray() 
 
     def tosparse(self):
-        from scipy.sparse import csr_matrix
-        return self._scalar*csr_matrix(self._operator.toarray())
+        return self._scalar * self._operator.tosparse().tocsr()
 
     def transpose(self, conjugate=False):
         return ScaledLinearOperator(domain=self.codomain, codomain=self.domain, c=self._scalar if not conjugate else np.conjugate(self._scalar), A=self._operator.transpose(conjugate=conjugate))
@@ -1082,7 +1105,11 @@ class SumLinearOperator(LinearOperator):
         self._domain = domain
         self._codomain = codomain
         self._addends = addends
+        self._out = codomain.zeros()
 
+    #-------------------------------------
+    # Abstract interface
+    #-------------------------------------
     @property
     def domain(self):
         """ The domain of the linear operator, element of class ``VectorSpace``. """
@@ -1094,19 +1121,8 @@ class SumLinearOperator(LinearOperator):
         return self._codomain
 
     @property
-    def addends(self):
-        """ A tuple containing the addends of the linear operator, elements of class ``LinearOperator``. """
-        return self._addends
-
-    @property
     def dtype(self):
         return None
-
-    def toarray(self):
-        out = np.zeros(self.shape, dtype=self.dtype)
-        for a in self._addends:
-            out += a.toarray()
-        return out
 
     def tosparse(self):
         from scipy.sparse import csr_matrix
@@ -1115,11 +1131,43 @@ class SumLinearOperator(LinearOperator):
             out += a.tosparse()
         return out
 
+    def toarray(self):
+        out = np.zeros(self.shape, dtype=self.dtype)
+        for a in self._addends:
+            out += a.toarray()
+        return out
+
+    def dot(self, v, out=None):
+        """ Evaluates SumLinearOperator object at a vector v element of domain. """
+
+        assert isinstance(v, Vector)
+        assert v.space is self.domain
+
+        if out is not None:
+            assert isinstance(out, Vector)
+            assert out.space is self.codomain
+            out *= 0
+        else:
+            out = self.codomain.zeros()
+
+        for A in self._addends:
+            A.idot(v, out)
+
+        return out
+
     def transpose(self, conjugate=False):
         t_addends = ()
         for a in self._addends:
             t_addends = (*t_addends, a.transpose(conjugate=conjugate))
         return SumLinearOperator(self.codomain, self.domain, *t_addends)
+
+    #--------------------------------------
+    # Other properties/methods
+    #--------------------------------------
+    @property
+    def addends(self):
+        """ A tuple containing the addends of the linear operator, elements of class ``LinearOperator``. """
+        return self._addends
 
     @staticmethod
     def simplify(addends):
@@ -1142,23 +1190,6 @@ class SumLinearOperator(LinearOperator):
                 else:
                     out = (*out, A)
         return out
-
-    def dot(self, v, out=None):
-        """ Evaluates SumLinearOperator object at a vector v element of domain. """
-        assert isinstance(v, Vector)
-        assert v.space == self.domain
-        if out is not None:
-            assert isinstance(out, Vector)
-            assert out.space == self.codomain
-            out *= 0
-            for a in self._addends:
-                a.idot(v, out)
-            return out
-        else:
-            out = self.codomain.zeros()
-            for a in self._addends:
-                a.idot(v, out=out)
-            return out
 
 #===============================================================================
 class ComposedLinearOperator(LinearOperator):
@@ -1603,7 +1634,7 @@ class MatrixFreeLinearOperator(LinearOperator):
             self._dot(v, out=out, **kwargs)
         else:
             # provided dot product does not take an out argument: we simply copy the result into out
-            self._dot(v).copy(out=out, **kwargs)
+            self._dot(v, **kwargs).copy(out=out)
                     
         return out
     

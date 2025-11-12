@@ -4,26 +4,27 @@ import numpy as np
 
 from psydac.linalg.kron           import KroneckerLinearSolver, KroneckerStencilMatrix
 from psydac.linalg.stencil        import StencilMatrix, StencilVectorSpace
-from psydac.linalg.block          import BlockLinearOperator
+from psydac.linalg.block          import BlockLinearOperator, BlockVector
 from psydac.core.bsplines         import quadrature_grid
 from psydac.utilities.quadratures import gauss_legendre
 from psydac.fem.basic             import FemField
 
 from psydac.fem.tensor import TensorFemSpace
-from psydac.fem.vector import VectorFemSpace
+from psydac.fem.vector import VectorFemSpace, MultipatchFemSpace
 
 from psydac.ddm.cart import DomainDecomposition, CartDecomposition
 from psydac.utilities.utils import roll_edges
 
 from abc import ABCMeta, abstractmethod
 
-__all__ = ('GlobalProjector', 'Projector_H1', 'Projector_Hcurl', 'Projector_Hdiv', 'Projector_L2',
+__all__ = ('GlobalGeometricProjector', 'GlobalGeometricProjectorH1', 'GlobalGeometricProjectorHcurl', 'GlobalGeometricProjectorHdiv', 'GlobalGeometricProjectorL2',
+           'MultipatchGeometricProjector',
            'evaluate_dofs_1d_0form', 'evaluate_dofs_1d_1form',
            'evaluate_dofs_2d_0form', 'evaluate_dofs_2d_1form_hcurl', 'evaluate_dofs_2d_1form_hdiv', 'evaluate_dofs_2d_2form',
            'evaluate_dofs_3d_0form', 'evaluate_dofs_3d_1form', 'evaluate_dofs_3d_2form', 'evaluate_dofs_3d_3form')
 
 #==============================================================================
-class GlobalProjector(metaclass=ABCMeta):
+class GlobalGeometricProjector(metaclass=ABCMeta):
     """
     Projects callable functions to some scalar or vector FEM space.
 
@@ -43,7 +44,7 @@ class GlobalProjector(metaclass=ABCMeta):
     space : VectorFemSpace | TensorFemSpace
         Some finite element space, codomain of the projection
         operator. The exact structure where to use histopolation and where interpolation
-        has to be given by a subclass of the GlobalProjector class.
+        has to be given by a subclass of the GlobalGeometricProjector class.
         As of now, it is implicitly assumed for a VectorFemSpace, that for each direction
         that all spaces with interpolation are the same, and all spaces with histopolation are the same
         (i.e. yield the same quadrature/interpolation points etc.); so use with care on an arbitrary VectorFemSpace.
@@ -389,7 +390,9 @@ class GlobalProjector(metaclass=ABCMeta):
         return FemField(self._space, coeffs=coeffs)
 
 #==============================================================================
-class Projector_H1(GlobalProjector):
+# SINGLEPATCH PROJECTORS
+#==============================================================================
+class GlobalGeometricProjectorH1(GlobalGeometricProjector):
     """
     Projector from H1 to an H1-conforming finite element space (i.e. a finite
     dimensional subspace of H1) constructed with tensor-product B-splines in 1,
@@ -439,7 +442,7 @@ class Projector_H1(GlobalProjector):
         return super().__call__(fun)
 
 #==============================================================================
-class Projector_Hcurl(GlobalProjector):
+class GlobalGeometricProjectorHcurl(GlobalGeometricProjector):
     """
     Projector from H(curl) to an H(curl)-conforming finite element space, i.e.
     a finite dimensional subspace of H(curl), constructed with tensor-product
@@ -512,7 +515,7 @@ class Projector_Hcurl(GlobalProjector):
         return super().__call__(fun)
 
 #==============================================================================
-class Projector_Hdiv(GlobalProjector):
+class GlobalGeometricProjectorHdiv(GlobalGeometricProjector):
     """
     Projector from H(div) to an H(div)-conforming finite element space, i.e. a
     finite dimensional subspace of H(div), constructed with tensor-product
@@ -589,7 +592,7 @@ class Projector_Hdiv(GlobalProjector):
         return super().__call__(fun)
 
 #==============================================================================
-class Projector_L2(GlobalProjector):
+class GlobalGeometricProjectorL2(GlobalGeometricProjector):
     """
     Projector from L2 to an L2-conforming finite element space (i.e. a finite
     dimensional subspace of L2) constructed with tensor-product M-splines in 1,
@@ -648,7 +651,8 @@ class Projector_L2(GlobalProjector):
         """
         return super().__call__(fun)
 
-class Projector_H1vec(GlobalProjector):
+#==============================================================================
+class GlobalGeometricProjectorH1vec(GlobalGeometricProjector):
     """
     Projector from H1^3 = H1 x H1 x H1 to a conforming finite element space, i.e.
     a finite dimensional subspace of H1^3, constructed with tensor-product
@@ -711,6 +715,42 @@ class Projector_H1vec(GlobalProjector):
             in the logical domain.
         """
         return super().__call__(fun)
+
+#==============================================================================
+# MULTIPATCH PROJECTORS (2D)
+#==============================================================================
+class MultipatchGeometricProjector: 
+    """
+    Global Geometric Projector base class for multipatch domains.
+
+    Parameters
+    ----------
+    space : MultipatchFemSpace
+        Multipatch finite element space, codomain of the projection operator.
+    Projector : type[GlobalGeometricProjector]
+        Class of the projector to instantiate for each patch.
+    nquads : Iterable[int]
+        Number of quadrature points per cell along each direction.
+        This is a parameter passed to the constructor of Projector.
+    """
+
+    def __init__(self, space, Projector, nquads=None):
+        assert isinstance(space, MultipatchFemSpace)
+        assert isinstance(Projector, type)
+        assert issubclass(Projector, GlobalGeometricProjector)
+
+        self._Vh = Vh = space
+        self._Ps = [Projector(V, nquads=nquads) for V in Vh.spaces]
+
+    def __call__(self, funs):
+        """
+        project a list of functions given in the logical domain
+        """
+        us = [P(fun) for P, fun, in zip(self._Ps, funs)]
+
+        u_c = BlockVector(self._Vh.coeff_space, blocks=[uj.coeffs for uj in us])
+
+        return FemField(self._Vh, coeffs=u_c)
 
 #==============================================================================
 # 1D DEGREES OF FREEDOM

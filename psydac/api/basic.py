@@ -143,9 +143,12 @@ class BasicCodeGen:
         #             raise ValueError('can not find {} implementation'.format(f))
 
         if ast:
-            self._save_code(self._generate_code(), backend=self.backend['name'])
+            python_code = self._generate_code()
+            self._save_code(python_code, backend=self.backend['name'])
 
-        if comm is not None and comm.size>1: comm.Barrier()
+        if comm is not None and comm.size > 1:
+            comm.Barrier()
+
         # compile code
         self._compile()
 
@@ -259,7 +262,6 @@ class BasicCodeGen:
         openmp          = self.backend["openmp"]
         _PYCCEL_FOLDER  = self.backend['folder']
 
-        # from pyccel.epyccel import epyccel
         from pyccel import epyccel
         fmod = epyccel(mod,
                        openmp  = openmp,
