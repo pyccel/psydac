@@ -7,6 +7,7 @@ on an analytical disk domain.
 """
 import os
 import numpy as np
+from mpi4py import MPI
 
 import matplotlib.pyplot as plt
 
@@ -300,6 +301,14 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
     else:
         rp_str += '_pm'  # WARNING: check that polar_mapping == True ?
 
+    # Communicator, size, rank
+    mpi_comm = MPI.COMM_WORLD
+    mpi_size = mpi_comm.Get_size()
+    mpi_rank = mpi_comm.Get_rank()
+    if mpi_rank != 0:
+        show_figs = False
+
+
     # ==================== SPLINE SPACE FOR SPLINE MAPPINGS =======================#
 
     if use_spline_mapping:
@@ -317,7 +326,7 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         V2 = SplineSpace(p2, grid=grid_2, periodic=True)
 
         # Create 2D tensor product finite element space
-        domain_decomposition = DomainDecomposition(ncells, [False, True])  # , comm = mpi_comm)
+        domain_decomposition = DomainDecomposition(ncells, [False, True], comm = mpi_comm)
         V = TensorFemSpace(domain_decomposition, V1, V2)
 
         s1, s2 = V.coeff_space.starts
@@ -339,7 +348,7 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         # In order to create a sympde.Domain object from this mapping we have
         # to create first a HDF5 file and then load as sympde.Domain.fromfile
         # t0 = time()
-        geometry = Geometry.from_discrete_mapping(map_discrete)  # , comm=mpi_comm)
+        geometry = Geometry.from_discrete_mapping(map_discrete, comm=mpi_comm)
         geometry.export('geo.h5')
         # t1 = time()
         # timing['export'] += t1 - t0
@@ -369,16 +378,16 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
 
     # Discrete physical domain and discrete DeRham sequence
     if use_spline_mapping:
-        domain_h = discretize(domain, filename='geo.h5')  # , comm = mpi_comm)
+        domain_h = discretize(domain, filename='geo.h5', comm = mpi_comm)
         # V0_h = discretize(V0, domain_h)
         derham_h = discretize(derham, domain_h)  # , degree = degree) #, quad_order = [4, 4])
-        # F = list(domain_h.mappings.values()).pop()
+        F = map_analytic
     else:
-        domain_h = discretize(domain, ncells=ncells, periodic=[False, True])  # , comm = mpi_comm)
+        domain_h = discretize(domain, ncells=ncells, periodic=[False, True], comm = mpi_comm)
         derham_h = discretize(derham, domain_h, degree=degree)  # , quad_order = [4, 4])
         # V0_h = discretize(V0, domain_h, degree = degree)
-        # F = mapping.get_callable_mapping()
-    F = mapping.get_callable_mapping()
+        F = mapping.get_callable_mapping()
+    # F = mapping.get_callable_mapping()
 
     def phys_domain_integral(f_log):
         """
@@ -528,6 +537,10 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         print('done: showing fh_filter')
 
         return locals()
+
+    # ==============================================================================
+    # DISCRETIZATION
+    # ==============================================================================
 
     # Differential operators
     D0, D1 = derham_h.derivatives(kind='linop')
@@ -681,8 +694,9 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
             nsteps = Nt
             print(f'nsteps recomputed: {nsteps}')
 
-    # Visualization setup
-    # --------------------------------------------------------------------------
+    # ==============================================================================
+    # VISUALIZATION SETUP
+    # ==============================================================================
 
     # Logical and physical grids
     grid_x1 = derham_h.V0.breaks[0]
@@ -700,6 +714,7 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
     y = np.empty_like(x1)
     print(x1.shape)
     print(x2.shape)
+
     for i in range(x1.shape[0]):
         for j in range(x1.shape[1]):
             # print(f'i = {i}')
@@ -722,7 +737,7 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
 
     if study_L2_proj:
         run_study_L2_proj()
-        plot_interval = 0
+        #plot_interval = 0
 
     # print( x2)
 
@@ -892,8 +907,9 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
 
         # input('\nSimulation setup done... press any key to start')
 
-    # Solution
-    # --------------------------------------------------------------------------
+    # ==============================================================================
+    # SOLUTION
+    # ==============================================================================
 
     de = derham_h.V1.coeff_space.zeros()
     db = derham_h.V2.coeff_space.zeros()
@@ -1040,6 +1056,9 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
                 plt.close(fig)
 
         print('ts = {:4d},  t = {:8.4f}'.format(ts, t))
+
+    N = 10
+    V.plot_2d_decomposition(mapping.get_callable_mapping(), refine=N)
 
     if not plot_interval:
         P1.dot(e.copy(), out=e)
