@@ -201,7 +201,7 @@ def plot_curve_along_s(name, s_str, time_str, theta0,
 
 def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
                       splitting_order, shift_D, use_spline_mapping, plot_time, tol,
-                      cfl=0.9, show_figs=False, plot_final=True,
+                      cfl=0.9, show_figs=True, plot_final=True,
                       study='maxwell_bessel', use_scipy=True, verbose=False):
     import numpy as np
     from numpy import pi
@@ -396,7 +396,7 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         f2_with_det = lambda eta1, eta2: f_log(eta1, eta2) ** 2 * np.sqrt(F.metric_det(eta1, eta2))
         return np.sqrt(derham_h.V0.integral(f2_with_det))
 
-    def study_L2_proj():
+    def run_study_L2_proj():
         omega = 4
         print(f'studying L2 proj of f in H_0(curl) .. with omega = {omega}')
         x, y = domain.coordinates
@@ -464,9 +464,9 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         cst_wi_det = lambda x1, x2: 1 * np.sqrt(F.metric_det(x1,x2))
         mydet = lambda x1, x2: x1**2
 
-        for x1 in [0.1, 0.01, 0.001]:
-            for x2 in [0.1, 0.01, 0.001]:
-                print(f'x1 = {x1}, x2 = {x2}, det_err = {F.metric_det(x1,x2)-mydet(x1,x2)}')
+        # for point1 in [0.1, 0.01, 0.001]:
+        #     for point2 in [0.1, 0.01, 0.001]:
+        #         print(f'x1 = {x1}, x2 = {x2}, det_err = {F.metric_det(x1,x2)-mydet(x1,x2)}')
         # print(f'a = {F.metric_det(.1,.1), cst_wo_det(.1,.1), cst_wi_det(.1,.1)}')
         # print(f'b = {F.metric_det(.01,.01), cst_wo_det(.01,.01), cst_wi_det(.01,.01)}')
         # print(f'c = {F.metric_det(.001,.001), cst_wo_det(.001,.001), cst_wi_det(.001,.001)}')
@@ -485,42 +485,47 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
 
         # plot
 
-        # fx_values = np.empty_like(x1)
-        # fy_values = np.empty_like(x1)
-        # fx_filter_values = np.empty_like(x1)
-        # fy_filter_values = np.empty_like(x1)
-        #
-        # for i, x1i in enumerate(x1[:, 0]):
-        #     for j, x2j in enumerate(x2[0, :]):
-        #
-        #         fx_ex_values = np.empty_like(x1)
-        #         fy_ex_values = np.empty_like(x1)
-        #         xij, yij = F(x1i, x2j)
-        #         fx_values[i, j], fy_values[i, j] = \
-        #             push_2d_hcurl(fh.fields[0], fh.fields[1], x1i, x2j, F)
-        #         fx_filter_values[i, j], fy_filter_values[i, j] = \
-        #             push_2d_hcurl(fh_filter.fields[0], fh_filter.fields[1], x1i, x2j, F)
-        #         fx_ex_values[i, j], fy_ex_values[i, j] = \
-        #             fx_call(xij, yij), fy_call(xij, yij)
-        #         fig2 = plot_field_and_error(r'f^x', 0, x, y, fx_values, fx_ex_values, *gridlines)
-        #         fig2.savefig(f'{visdir}/fx_{rp_str}.png')
-        #
-        # fig3 = plot_field_and_error(r'f^y', 0, x, y, fy_values, fy_ex_values, *gridlines)
-        # fig3.savefig(f'{visdir}/fy_{rp_str}.png')
-        #
-        # print('done: showing fh')
-        #
-        # fig2.clf()
-        # fig2 = plot_field_and_error(r'f^x filter', 0, x, y, fx_filter_values, fx_ex_values, *gridlines)
-        # fig2.savefig(f'{visdir}/fx_filter_{rp_str}.png')
-        #
-        # fig3.clf()
-        # fig3 = plot_field_and_error(r'f^y filter', 0, x, y, fy_filter_values, fy_ex_values, *gridlines)
-        # fig3.savefig(f'{visdir}/fy_filter_{rp_str}.png')
-        #
-        # print('done: showing fh_filter')
+        fx_values = np.empty_like(x1)
+        fy_values = np.empty_like(x1)
+        fx_filter_values = np.empty_like(x1)
+        fy_filter_values = np.empty_like(x1)
 
-        return locals()
+        for i, x1i in enumerate(x1[:, 0]):
+            for j, x2j in enumerate(x2[0, :]):
+
+                fx_ex_values = np.empty_like(x1)
+                fy_ex_values = np.empty_like(x1)
+                xij, yij = F(x1i, x2j)
+                fx_values[i, j], fy_values[i, j] = \
+                    push_2d_hcurl(fh.fields[0], fh.fields[1], x1i, x2j, F)
+                fx_filter_values[i, j], fy_filter_values[i, j] = \
+                    push_2d_hcurl(fh_filter.fields[0], fh_filter.fields[1], x1i, x2j, F)
+                fx_ex_values[i, j], fy_ex_values[i, j] = \
+                    fx_call(xij, yij), fy_call(xij, yij)
+                fig2 = plot_field_and_error(r'f^x', 0, x, y, fx_values, fx_ex_values, *gridlines)
+                fig2.savefig(f'{visdir}/fx_{rp_str}.png')
+
+        fig3 = plot_field_and_error(r'f^y', 0, x, y, fy_values, fy_ex_values, *gridlines)
+        fig3.savefig(f'{visdir}/fy_{rp_str}.png')
+
+        print('done: showing fh')
+
+        fig2.clf()
+        fig2 = plot_field_and_error(r'f^x filter', 0, x, y, fx_filter_values, fx_ex_values, *gridlines)
+        fig2.savefig(f'{visdir}/fx_filter_{rp_str}.png')
+
+        fig3.clf()
+        fig3 = plot_field_and_error(r'f^y filter', 0, x, y, fy_filter_values, fy_ex_values, *gridlines)
+        fig3.savefig(f'{visdir}/fy_filter_{rp_str}.png')
+
+        if show_figs:
+            # Update plot
+            update_plot(fig2, t, x, y, Ex_values, Ex_ex_values)
+            update_plot(fig3, t, x, y, Ey_values, Ey_ex_values)
+            # update_plot(fig4, t, x, y, Bz_values, Bz_ex_values)
+            plt.pause(0.1)
+
+        print('done: showing fh_filter')
 
         return locals()
 
@@ -543,7 +548,7 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         print("P1:")
         print(P1)
         P2 = C0PolarProjection_V2(V2)
-    #else:
+    #else: TODO
         #P1 = C1PolarProjection_V1(V1, hbc=True)
         #P2 = C1PolarProjection_V1(V2)
     P1_T = P1.T
@@ -716,7 +721,7 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
     Bz_values = np.empty_like(x1)
 
     if study_L2_proj:
-        study_L2_proj()
+        run_study_L2_proj()
         plot_interval = 0
 
     # print( x2)
@@ -913,136 +918,74 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
     gamma_1 = 1 / (2 - 2 ** (1 / 3))
     gamma_2 = 1 - 2 * gamma_1
 
-    # My temporary fix
-    if study_maxwell:
-        # Time loop
-        for ts in range(1, nsteps + 1):
+    # Time loop
+    for ts in range(1, nsteps + 1):
 
-            print(f'step = {ts}/{nsteps}')
-            # TODO: allow for high-order splitting
+        print(f'step = {ts}/{nsteps}')
+        # TODO: allow for high-order splitting
 
-            if splitting_order == 2:
+        if splitting_order == 2:
 
-                Strang_update(dt)
+            Strang_update(dt)
 
-                # # Strang splitting, 2nd order
-                # # b := b - dt/2 * curl e
-                # step_faraday_2d.dot(e, out = db)
-                # b.mul_iadd(- dt/2, db)
+            # # Strang splitting, 2nd order
+            # # b := b - dt/2 * curl e
+            # step_faraday_2d.dot(e, out = db)
+            # b.mul_iadd(- dt/2, db)
 
-                # # e := e + dt * curl b
-                # step_ampere_2d.dot(b, out = de)
-                # e.mul_iadd(dt, de)
+            # # e := e + dt * curl b
+            # step_ampere_2d.dot(b, out = de)
+            # e.mul_iadd(dt, de)
 
-                # # b := b - dt/2 * curl e
-                # step_faraday_2d.dot(e, out = db)
-                # b.mul_iadd(- dt/2, db)
+            # # b := b - dt/2 * curl e
+            # step_faraday_2d.dot(e, out = db)
+            # b.mul_iadd(- dt/2, db)
 
-            elif splitting_order == 4:
+        elif splitting_order == 4:
 
-                Strang_update(dt * gamma_1)
-                Strang_update(dt * gamma_2)
-                Strang_update(dt * gamma_1)
+            Strang_update(dt * gamma_1)
+            Strang_update(dt * gamma_2)
+            Strang_update(dt * gamma_1)
 
-            else:
-                raise NotImplementedError('splitting_order must be 2 or 4')
+        else:
+            raise NotImplementedError('splitting_order must be 2 or 4')
 
-            t += dt
+        t += dt
 
-            # diag
+        # diag
+        P1.dot(e.copy(), out=e)
+        P2.dot(b.copy(), out=b)
+
+        # for i, x1i in enumerate(x1[:, 0]):
+        #     for j, x2j in enumerate(x2[0, :]):
+
+        #         Ex_values[i, j], Ey_values[i, j] = \
+        #                 push_2d_hcurl(E_log.fields[0], E_log.fields[1], x1i, x2j, F)
+
+        #         Bz_values[i, j] = push_2d_l2(B_log, x1i, x2j, F)
+        #         # Bz_values[i, j] = B(x1i, x2j)
+
+        #         if use_logical_sol:
+        #             Ex_ex_values[i, j], Ey_ex_values[i, j] = \
+        #                     push_2d_hcurl(Es_ex(t), Et_ex(t), x1i, x2j, F)
+
+        #             Bz_ex_values[i, j] = push_2d_l2(B_log_ex(t), x1i, x2j, F)
+        #         else:
+        #             xij, yij = F(x1i, x2j)
+        #             Ex_ex_values[i, j], Ey_ex_values[i, j] = \
+        #                     Ex_ex_t(t, xij, yij), Ey_ex_t(t, xij, yij)
+
+        #             Bz_ex_values[i, j] = Bz_ex_t(t, xij, yij)
+
+        # ...
+        # Animation and diags
+        if plot_interval and (ts % plot_interval == 0 or ts == nsteps):
+
+            # project to conforming space to apply posh-forwards
             P1.dot(e.copy(), out=e)
-            P2.dot(b.copy(), out=b)
-
-            # for i, x1i in enumerate(x1[:, 0]):
-            #     for j, x2j in enumerate(x2[0, :]):
-
-            #         Ex_values[i, j], Ey_values[i, j] = \
-            #                 push_2d_hcurl(E_log.fields[0], E_log.fields[1], x1i, x2j, F)
-
-            #         Bz_values[i, j] = push_2d_l2(B_log, x1i, x2j, F)
-            #         # Bz_values[i, j] = B(x1i, x2j)
-
-            #         if use_logical_sol:
-            #             Ex_ex_values[i, j], Ey_ex_values[i, j] = \
-            #                     push_2d_hcurl(Es_ex(t), Et_ex(t), x1i, x2j, F)
-
-            #             Bz_ex_values[i, j] = push_2d_l2(B_log_ex(t), x1i, x2j, F)
-            #         else:
-            #             xij, yij = F(x1i, x2j)
-            #             Ex_ex_values[i, j], Ey_ex_values[i, j] = \
-            #                     Ex_ex_t(t, xij, yij), Ey_ex_t(t, xij, yij)
-
-            #             Bz_ex_values[i, j] = Bz_ex_t(t, xij, yij)
-
+            P2.dot(b.copy(), out=b)  # TO TEST: is this necessary? try to comment
             # ...
-            # Animation and diags
-            if plot_interval and (ts % plot_interval == 0 or ts == nsteps):
-
-                # project to conforming space to apply posh-forwards
-                P1.dot(e.copy(), out=e)
-                P2.dot(b.copy(), out=b)  # TO TEST: is this necessary? try to comment
-                # ...
-                # TODO: improve
-                for i, x1i in enumerate(x1[:, 0]):
-                    for j, x2j in enumerate(x2[0, :]):
-
-                        Ex_values[i, j], Ey_values[i, j] = \
-                            push_2d_hcurl(E_log.fields[0], E_log.fields[1], x1i, x2j, F)
-
-                        Bz_values[i, j] = push_2d_l2(B_log, x1i, x2j, F)
-                        # Bz_values[i, j] = B(x1i, x2j)
-
-                        if use_logical_sol:
-                            Ex_ex_values[i, j], Ey_ex_values[i, j] = \
-                                push_2d_hcurl(Es_ex(t), Et_ex(t), x1i, x2j, F)
-
-                            Bz_ex_values[i, j] = push_2d_l2(B_log_ex(t), x1i, x2j, F)
-
-                        else:
-                            xij, yij = F(x1i, x2j)
-                            Ex_ex_values[i, j], Ey_ex_values[i, j] = \
-                                Ex_ex_t(t, xij, yij), Ey_ex_t(t, xij, yij)
-
-                            Bz_ex_values[i, j] = Bz_ex_t(t, xij, yij)
-                # ...
-
-                # max norm
-                max_Ex = abs(Ex_values).max()
-                max_Ey = abs(Ey_values).max()
-                max_Bz = abs(Bz_values).max()
-                print()
-                print('Max-norm of Ex(t,x): {:.2e}'.format(max_Ex))
-                print('Max-norm of Ey(t,x): {:.2e}'.format(max_Ey))
-                print('Max-norm of Bz(t,x): {:.2e}'.format(max_Bz))
-
-                if show_figs:
-                    # Update plot
-                    update_plot(fig2, t, x, y, Ex_values, Ex_ex_values)
-                    update_plot(fig3, t, x, y, Ey_values, Ey_ex_values)
-                    update_plot(fig4, t, x, y, Bz_values, Bz_ex_values)
-                    plt.pause(0.1)
-                else:
-                    fig = plot_field_and_error(r'E^x', t, x, y, Ex_values, Ex_ex_values, *gridlines)
-                    fig.savefig(f'{visdir}/Ex_{ts}_{rp_str}.png')
-                    # fig.clf()
-                    plt.close(fig)
-
-                    fig = plot_field_and_error(r'E^y', t, x, y, Ey_values, Ey_ex_values, *gridlines)
-                    fig.savefig(f'{visdir}/Ey_{ts}_{rp_str}.png')
-                    # fig.clf()
-                    plt.close(fig)
-
-                    fig = plot_field_and_error(r'B^z', t, x, y, Bz_values, Bz_ex_values, *gridlines)
-                    fig.savefig(f'{visdir}/Bz_{ts}_{rp_str}.png')
-                    plt.close(fig)
-
-            print('ts = {:4d},  t = {:8.4f}'.format(ts, t))
-
-    # My temporary fix because some variables are referenced before assignment in study_L2_proj:
-    if study_maxwell:
-        if not plot_interval:
-            P1.dot(e.copy(), out=e)
-            P2.dot(b.copy(), out=b)
+            # TODO: improve
             for i, x1i in enumerate(x1[:, 0]):
                 for j, x2j in enumerate(x2[0, :]):
 
@@ -1064,6 +1007,64 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
                             Ex_ex_t(t, xij, yij), Ey_ex_t(t, xij, yij)
 
                         Bz_ex_values[i, j] = Bz_ex_t(t, xij, yij)
+            # ...
+
+            # max norm
+            max_Ex = abs(Ex_values).max()
+            max_Ey = abs(Ey_values).max()
+            max_Bz = abs(Bz_values).max()
+            print()
+            print('Max-norm of Ex(t,x): {:.2e}'.format(max_Ex))
+            print('Max-norm of Ey(t,x): {:.2e}'.format(max_Ey))
+            print('Max-norm of Bz(t,x): {:.2e}'.format(max_Bz))
+
+            # if show_figs:
+            #     # Update plot
+            #     update_plot(fig2, t, x, y, Ex_values, Ex_ex_values)
+            #     update_plot(fig3, t, x, y, Ey_values, Ey_ex_values)
+            #     update_plot(fig4, t, x, y, Bz_values, Bz_ex_values)
+            #     plt.pause(0.1)
+            if not show_figs:
+                fig = plot_field_and_error(r'E^x', t, x, y, Ex_values, Ex_ex_values, *gridlines)
+                fig.savefig(f'{visdir}/Ex_{ts}_{rp_str}.png')
+                # fig.clf()
+                plt.close(fig)
+
+                fig = plot_field_and_error(r'E^y', t, x, y, Ey_values, Ey_ex_values, *gridlines)
+                fig.savefig(f'{visdir}/Ey_{ts}_{rp_str}.png')
+                # fig.clf()
+                plt.close(fig)
+
+                fig = plot_field_and_error(r'B^z', t, x, y, Bz_values, Bz_ex_values, *gridlines)
+                fig.savefig(f'{visdir}/Bz_{ts}_{rp_str}.png')
+                plt.close(fig)
+
+        print('ts = {:4d},  t = {:8.4f}'.format(ts, t))
+
+    if not plot_interval:
+        P1.dot(e.copy(), out=e)
+        P2.dot(b.copy(), out=b)
+        for i, x1i in enumerate(x1[:, 0]):
+            for j, x2j in enumerate(x2[0, :]):
+
+                Ex_values[i, j], Ey_values[i, j] = \
+                    push_2d_hcurl(E_log.fields[0], E_log.fields[1], x1i, x2j, F)
+
+                Bz_values[i, j] = push_2d_l2(B_log, x1i, x2j, F)
+                # Bz_values[i, j] = B(x1i, x2j)
+
+                if use_logical_sol:
+                    Ex_ex_values[i, j], Ey_ex_values[i, j] = \
+                        push_2d_hcurl(Es_ex(t), Et_ex(t), x1i, x2j, F)
+
+                    Bz_ex_values[i, j] = push_2d_l2(B_log_ex(t), x1i, x2j, F)
+
+                else:
+                    xij, yij = F(x1i, x2j)
+                    Ex_ex_values[i, j], Ey_ex_values[i, j] = \
+                        Ex_ex_t(t, xij, yij), Ey_ex_t(t, xij, yij)
+
+                    Bz_ex_values[i, j] = Bz_ex_t(t, xij, yij)
 
         # ...
 

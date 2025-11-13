@@ -57,7 +57,7 @@ class GaussianSolution:
         """
         from numpy import exp
 
-        return 0  # -2*(y-self.y0)/self.sigma**2 * exp(-((x-self.x0)**2 + (y-self.y0)**2)/self.sigma**2)
+        return -2*(y-self.y0)/self.sigma**2 * exp(-((x-self.x0)**2 + (y-self.y0)**2)/self.sigma**2)
 
 
 def main():
