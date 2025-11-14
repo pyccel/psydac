@@ -1,5 +1,5 @@
 <h1 align="center">
-<img src="docs/source/logo/psydac_banner.svg" width="400">
+<img src="docs/source/logo/psydac_banner.svg" width="700" alt="Shows the psydac logo.">
 </h1><br>
 
 [![devel_tests](https://github.com/pyccel/psydac/actions/workflows/testing.yml/badge.svg)](https://github.com/pyccel/psydac/actions/workflows/testing.yml) [![docs](https://github.com/pyccel/psydac/actions/workflows/documentation.yml/badge.svg)](https://github.com/pyccel/psydac/actions/workflows/documentation.yml)
