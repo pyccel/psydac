@@ -1,4 +1,6 @@
-![banner](docs/source/logo/psydac_banner.svg)
+<h1 align="center">
+<img src="docs/source/logo/psydac_banner.svg" width="400">
+</h1><br>
 
 [![devel_tests](https://github.com/pyccel/psydac/actions/workflows/testing.yml/badge.svg)](https://github.com/pyccel/psydac/actions/workflows/testing.yml) [![docs](https://github.com/pyccel/psydac/actions/workflows/documentation.yml/badge.svg)](https://github.com/pyccel/psydac/actions/workflows/documentation.yml)
 
