@@ -12,7 +12,6 @@ Welcome to PSYDAC's documentation!
 
    This documentation is still under construction.
    For the time being, its purpose is to assist the developers.
-   Find our GitHub repository `here <https://github.com/pyccel/psydac/tree/devel/>`_.
 
 .. include:: ../../README.md
    :parser: myst_parser.sphinx_
