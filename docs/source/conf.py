@@ -35,7 +35,7 @@ with open('../../pyproject.toml', mode='rb') as pyproject:
     pkg_meta = tomli.load(pyproject)['project']
 
 project   = str(pkg_meta['name'])
-copyright = '2018-2023, Psydac Developers'
+copyright = '2018-2025, Psydac Developers'
 author    = str(pkg_meta['authors'][0]['name'])
 release   = str(pkg_meta['version'])
 
@@ -52,6 +52,7 @@ extensions = [
 'sphinx.ext.githubpages',
 'sphinx_math_dollar',
 'sphinx.ext.mathjax',
+'myst_parser',
 ]
 
 from docutils.nodes import FixedTextElement, literal,math
@@ -94,6 +95,9 @@ html_theme_options = {
         },
     ],
 }   
+
+# -- Options for myst_parser -------------------------------------------------
+myst_heading_anchors = 3
 
 # -- Options for autodoc extension -------------------------------------------
 autodoc_member_order = 'bysource'
