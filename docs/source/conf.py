@@ -79,9 +79,21 @@ add_module_names = False
 html_theme = 'pydata_sphinx_theme'
 #html_static_path = ['_static']
 
+html_logo = "logo/psydac_logo.svg"
+
 html_theme_options = {
+    "repository_branch": "devel",
     "show_toc_level": 2,
-}
+    "secondary_sidebar_items": ["page-toc"],
+    "icon_links": [
+        {
+            "name": "GitHub",
+            "url": "https://github.com/pyccel/psydac",
+            "icon": "fab fa-github",
+            "type": "fontawesome",
+        },
+    ],
+}   
 
 # -- Options for autodoc extension -------------------------------------------
 autodoc_member_order = 'bysource'
