@@ -408,17 +408,17 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
     def run_study_L2_proj():
         omega = 4
         print(f'studying L2 proj of f in H_0(curl) .. with omega = {omega}')
-        x, y = domain.coordinates
-        r = sqrt(x * x + y * y)
+        xs, ys = domain.coordinates
+        r = sqrt(xs * xs + ys * ys)
 
         # f in H_0(curl;Omega)
-        f_x = -x + sin(omega * (y + 2 * x * x)) * (r - R)
-        f_y = -y + cos(omega * (2 * x - y * y)) * (r - R)
+        f_x = -xs + sin(omega * (ys + 2 * xs * xs)) * (r - R)
+        f_y = -ys + cos(omega * (2 * xs - ys * ys)) * (r - R)
         f_phys = Tuple(f_x, f_y)
 
         from sympy import lambdify
-        fx_call = lambdify([x, y], f_x)
-        fy_call = lambdify([x, y], f_y)
+        fx_call = lambdify([xs, ys], f_x)
+        fy_call = lambdify([xs, ys], f_y)
 
         print('# compute tilde_f')
         # tilde_f = derham_h.get_dual_dofs(space='V1', f=f_ex)
@@ -492,6 +492,9 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         print('V1.x - integral of 1 (no det):   {:.2e}'.format(int_wo_det))
         print('V1.x - integral of 1 (with det): {:.2e}'.format(int_wi_det))
 
+        if plot_time <= 0:
+            return locals()
+
         # plot
 
         fx_values = np.empty_like(x1)
@@ -499,11 +502,13 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         fx_filter_values = np.empty_like(x1)
         fy_filter_values = np.empty_like(x1)
 
+        fx_ex_values = np.empty_like(x1)
+        fy_ex_values = np.empty_like(x1)
+
         for i, x1i in enumerate(x1[:, 0]):
             for j, x2j in enumerate(x2[0, :]):
 
-                fx_ex_values = np.empty_like(x1)
-                fy_ex_values = np.empty_like(x1)
+
                 xij, yij = F(x1i, x2j)
                 fx_values[i, j], fy_values[i, j] = \
                     push_2d_hcurl(fh.fields[0], fh.fields[1], x1i, x2j, F)
@@ -511,8 +516,9 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
                     push_2d_hcurl(fh_filter.fields[0], fh_filter.fields[1], x1i, x2j, F)
                 fx_ex_values[i, j], fy_ex_values[i, j] = \
                     fx_call(xij, yij), fy_call(xij, yij)
-                fig2 = plot_field_and_error(r'f^x', 0, x, y, fx_values, fx_ex_values, *gridlines)
-                fig2.savefig(f'{visdir}/fx_{rp_str}.png')
+
+        fig2 = plot_field_and_error(r'f^x', 0, x, y, fx_values, fx_ex_values, *gridlines)
+        fig2.savefig(f'{visdir}/fx_{rp_str}.png')
 
         fig3 = plot_field_and_error(r'f^y', 0, x, y, fy_values, fy_ex_values, *gridlines)
         fig3.savefig(f'{visdir}/fy_{rp_str}.png')
@@ -527,12 +533,6 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         fig3 = plot_field_and_error(r'f^y filter', 0, x, y, fy_filter_values, fy_ex_values, *gridlines)
         fig3.savefig(f'{visdir}/fy_filter_{rp_str}.png')
 
-        if show_figs:
-            # Update plot
-            update_plot(fig2, t, x, y, Ex_values, Ex_ex_values)
-            update_plot(fig3, t, x, y, Ey_values, Ey_ex_values)
-            # update_plot(fig4, t, x, y, Bz_values, Bz_ex_values)
-            plt.pause(0.1)
 
         print('done: showing fh_filter')
 
@@ -737,7 +737,7 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
 
     if study_L2_proj:
         run_study_L2_proj()
-        #plot_interval = 0
+        return locals()
 
     # print( x2)
 
@@ -788,7 +788,7 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         # ...
         # Plot initial conditions
         # TODO: improve
-        if not study_L2_proj:
+        if study_maxwell:
             for i, x1i in enumerate(x1[:, 0]):
                 for j, x2j in enumerate(x2[0, :]):
 
@@ -797,17 +797,11 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
 
                     Bz_values[i, j] = push_2d_l2(B_log, x1i, x2j, F)
 
-                    if use_logical_sol:
-                        Ex_ex_values[i, j], Ey_ex_values[i, j] = \
-                            push_2d_hcurl(Es_ex(t), Et_ex(t), x1i, x2j, F)
+                    xij, yij = F(x1i, x2j)
+                    Ex_ex_values[i, j], Ey_ex_values[i, j] = \
+                        Ex_ex_t(t, xij, yij), Ey_ex_t(t, xij, yij)
 
-                        Bz_ex_values[i, j] = push_2d_l2(B_log_ex(t), x1i, x2j, F)
-                    else:
-                        xij, yij = F(x1i, x2j)
-                        Ex_ex_values[i, j], Ey_ex_values[i, j] = \
-                            Ex_ex_t(t, xij, yij), Ey_ex_t(t, xij, yij)
-
-                        Bz_ex_values[i, j] = Bz_ex_t(t, xij, yij)
+                    Bz_ex_values[i, j] = Bz_ex_t(t, xij, yij)
 
         # fields along s for fixed theta
         plot_fields_along_s(tstr='t0')  # , j0=0, j1=ncells[1]//2)
