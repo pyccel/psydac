@@ -65,7 +65,11 @@ def partition_coefficients(domain_decomposition, spaces, min_blocks=None):
 
     for s, e, V, mb in zip(global_starts, global_ends, spaces, min_blocks):
         if V.periodic or mb is None:
-            assert all(e-s+1 >= V.degree)
+            assert all(e-s+1 >= V.degree), f"Local number of elements (after domain decomposition) is to small for spline degree p={V.degree}: {e-s+1} is not >= {V.degree} everywhere.\n \
+            You can:\n \
+                1. increase Nel\n \
+                2. lower p\n \
+                3. decrease the MPI size."
         else:
             assert all(e-s+1 >= mb)
 
