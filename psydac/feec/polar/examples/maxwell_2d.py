@@ -612,9 +612,6 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
     # raise ValueError('discard this case, it should not be used anymore')
     # derham_h._mapping = None
 
-    if plot_time <= 0:
-        return locals()
-
     # Time integration setup
     # --------------------------------------------------------------------------
 
@@ -1082,103 +1079,103 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         # ...
 
         # Error at final time
-        error_Ex = abs(Ex_ex_values - Ex_values).max()
-        error_Ey = abs(Ey_ex_values - Ey_values).max()
-        error_Bz = abs(Bz_ex_values - Bz_values).max()
-        print()
-        print('Max-norm of error on Ex(t,x) at final time: {:.2e}'.format(error_Ex))
-        print('Max-norm of error on Ey(t,x) at final time: {:.2e}'.format(error_Ey))
-        print('Max-norm of error on Bz(t,x) at final time: {:.2e}'.format(error_Bz))
+    error_Ex = abs(Ex_ex_values - Ex_values).max()
+    error_Ey = abs(Ey_ex_values - Ey_values).max()
+    error_Bz = abs(Bz_ex_values - Bz_values).max()
+    print()
+    print('Max-norm of error on Ex(t,x) at final time: {:.2e}'.format(error_Ex))
+    print('Max-norm of error on Ey(t,x) at final time: {:.2e}'.format(error_Ey))
+    print('Max-norm of error on Bz(t,x) at final time: {:.2e}'.format(error_Bz))
 
-        # L2 norms (of ref solution)
-        normx = lambda x1, x2: Ex_ex_t(t, *F(x1, x2))
-        normy = lambda x1, x2: Ey_ex_t(t, *F(x1, x2))
-        normz = lambda x1, x2: Bz_ex_t(t, *F(x1, x2))
+    # L2 norms (of ref solution)
+    normx = lambda x1, x2: Ex_ex_t(t, *F(x1, x2))
+    normy = lambda x1, x2: Ey_ex_t(t, *F(x1, x2))
+    normz = lambda x1, x2: Bz_ex_t(t, *F(x1, x2))
 
-        norm_l2_Ex = l2_norm_of(normx)
-        norm_l2_Ey = l2_norm_of(normy)
-        norm_l2_Bz = l2_norm_of(normz)
+    norm_l2_Ex = l2_norm_of(normx)
+    norm_l2_Ey = l2_norm_of(normy)
+    norm_l2_Bz = l2_norm_of(normz)
 
-        # L2 errors
-        errx = lambda x1, x2: push_2d_hcurl(E_log.fields[0], E_log.fields[1], x1, x2, F)[0] - Ex_ex_t(t, *F(x1, x2))
-        erry = lambda x1, x2: push_2d_hcurl(E_log.fields[0], E_log.fields[1], x1, x2, F)[1] - Ey_ex_t(t, *F(x1, x2))
-        errz = lambda x1, x2: push_2d_l2(B_log, x1, x2, F) - Bz_ex_t(t, *F(x1, x2))
+    # L2 errors
+    errx = lambda x1, x2: push_2d_hcurl(E_log.fields[0], E_log.fields[1], x1, x2, F)[0] - Ex_ex_t(t, *F(x1, x2))
+    erry = lambda x1, x2: push_2d_hcurl(E_log.fields[0], E_log.fields[1], x1, x2, F)[1] - Ey_ex_t(t, *F(x1, x2))
+    errz = lambda x1, x2: push_2d_l2(B_log, x1, x2, F) - Bz_ex_t(t, *F(x1, x2))
 
-        error_l2_Ex = l2_norm_of(errx) / norm_l2_Ex
-        error_l2_Ey = l2_norm_of(erry) / norm_l2_Ey
-        error_l2_Bz = l2_norm_of(errz) / norm_l2_Bz
+    error_l2_Ex = l2_norm_of(errx) / norm_l2_Ex
+    error_l2_Ey = l2_norm_of(erry) / norm_l2_Ey
+    error_l2_Bz = l2_norm_of(errz) / norm_l2_Bz
 
-        print()
-        print('L2 norm of rel. error on Ex(t,x,y) at final time: {:.2e}'.format(error_l2_Ex))
-        print('L2 norm of rel. error on Ey(t,x,y) at final time: {:.2e}'.format(error_l2_Ey))
-        print('L2 norm of rel. error on Bz(t,x,y) at final time: {:.2e}'.format(error_l2_Bz))
+    print()
+    print('L2 norm of rel. error on Ex(t,x,y) at final time: {:.2e}'.format(error_l2_Ex))
+    print('L2 norm of rel. error on Ey(t,x,y) at final time: {:.2e}'.format(error_l2_Ey))
+    print('L2 norm of rel. error on Bz(t,x,y) at final time: {:.2e}'.format(error_l2_Bz))
 
-        if plot_final:
-            # Plot exact and approximate solution at final time
-            fig1, axs = plt.subplots(3, 3, figsize=(12, 12))
-            im0 = axs[0, 0].contourf(x, y, Ex_ex_values, 50)
-            im1 = axs[0, 1].contourf(x, y, Ey_ex_values, 50)
-            im2 = axs[0, 2].contourf(x, y, Bz_ex_values, 50)
-            im3 = axs[1, 0].contourf(x, y, Ex_values, 50)
-            im4 = axs[1, 1].contourf(x, y, Ey_values, 50)
-            im5 = axs[1, 2].contourf(x, y, Bz_values, 50)
-            im6 = axs[2, 0].contourf(x, y, Ex_values - Ex_ex_values, 50)
-            im7 = axs[2, 1].contourf(x, y, Ey_values - Ey_ex_values, 50)
-            im8 = axs[2, 2].contourf(x, y, Bz_values - Bz_ex_values, 50)
-            axs[0, 0].set_title(r'$E^x$ at t = {:10.3e}'.format(t))
-            axs[0, 1].set_title(r'$E^y$ at t = {:10.3e}'.format(t))
-            axs[0, 2].set_title(r'$B$ at t = {:10.3e}'.format(t))
-            axs[1, 0].set_title(r'$E_h^x$ at t = {:10.3e}'.format(t))
-            axs[1, 1].set_title(r'$E_h^y$ at t = {:10.3e}'.format(t))
-            axs[1, 2].set_title(r'$B_h$ at t = {:10.3e}'.format(t))
-            axs[2, 0].set_title(r'$E^x - E^x_h$ at t = {:10.3e}'.format(t))
-            axs[2, 1].set_title(r'$E^y - E^y_h$ at t = {:10.3e}'.format(t))
-            axs[2, 2].set_title(r'$B - B_h$ at t = {:10.3e}'.format(t))
-            for i in range(3):
-                for j in range(3):
-                    axs[i, j].plot(*gridlines[0], color='k')
-                    axs[i, j].plot(*gridlines[1], color='k')
-                    axs[i, j].set_xlabel('x', fontsize=14)
-                    axs[i, j].set_ylabel('y', fontsize=14, rotation='horizontal')
-                    axs[i, j].set_aspect('equal')
-            add_colorbar(im0, axs[0, 0])
-            add_colorbar(im1, axs[0, 1])
-            add_colorbar(im2, axs[0, 2])
-            add_colorbar(im3, axs[1, 0])
-            add_colorbar(im4, axs[1, 1])
-            add_colorbar(im5, axs[1, 2])
-            add_colorbar(im6, axs[2, 0])
-            add_colorbar(im7, axs[2, 1])
-            add_colorbar(im8, axs[2, 2])
-            fig1.suptitle('Compare Exact Solution and Approximate solution at final time')
-            fig1.tight_layout()
+    if plot_final:
+        # Plot exact and approximate solution at final time
+        fig1, axs = plt.subplots(3, 3, figsize=(12, 12))
+        im0 = axs[0, 0].contourf(x, y, Ex_ex_values, 50)
+        im1 = axs[0, 1].contourf(x, y, Ey_ex_values, 50)
+        im2 = axs[0, 2].contourf(x, y, Bz_ex_values, 50)
+        im3 = axs[1, 0].contourf(x, y, Ex_values, 50)
+        im4 = axs[1, 1].contourf(x, y, Ey_values, 50)
+        im5 = axs[1, 2].contourf(x, y, Bz_values, 50)
+        im6 = axs[2, 0].contourf(x, y, Ex_values - Ex_ex_values, 50)
+        im7 = axs[2, 1].contourf(x, y, Ey_values - Ey_ex_values, 50)
+        im8 = axs[2, 2].contourf(x, y, Bz_values - Bz_ex_values, 50)
+        axs[0, 0].set_title(r'$E^x$ at t = {:10.3e}'.format(t))
+        axs[0, 1].set_title(r'$E^y$ at t = {:10.3e}'.format(t))
+        axs[0, 2].set_title(r'$B$ at t = {:10.3e}'.format(t))
+        axs[1, 0].set_title(r'$E_h^x$ at t = {:10.3e}'.format(t))
+        axs[1, 1].set_title(r'$E_h^y$ at t = {:10.3e}'.format(t))
+        axs[1, 2].set_title(r'$B_h$ at t = {:10.3e}'.format(t))
+        axs[2, 0].set_title(r'$E^x - E^x_h$ at t = {:10.3e}'.format(t))
+        axs[2, 1].set_title(r'$E^y - E^y_h$ at t = {:10.3e}'.format(t))
+        axs[2, 2].set_title(r'$B - B_h$ at t = {:10.3e}'.format(t))
+        for i in range(3):
+            for j in range(3):
+                axs[i, j].plot(*gridlines[0], color='k')
+                axs[i, j].plot(*gridlines[1], color='k')
+                axs[i, j].set_xlabel('x', fontsize=14)
+                axs[i, j].set_ylabel('y', fontsize=14, rotation='horizontal')
+                axs[i, j].set_aspect('equal')
+        add_colorbar(im0, axs[0, 0])
+        add_colorbar(im1, axs[0, 1])
+        add_colorbar(im2, axs[0, 2])
+        add_colorbar(im3, axs[1, 0])
+        add_colorbar(im4, axs[1, 1])
+        add_colorbar(im5, axs[1, 2])
+        add_colorbar(im6, axs[2, 0])
+        add_colorbar(im7, axs[2, 1])
+        add_colorbar(im8, axs[2, 2])
+        fig1.suptitle('Compare Exact Solution and Approximate solution at final time')
+        fig1.tight_layout()
 
-            # fields along s, final time
-            plot_fields_along_s(tstr='T')  # , j0=0, j1=ncells[1]//2)
+        # fields along s, final time
+        plot_fields_along_s(tstr='T')  # , j0=0, j1=ncells[1]//2)
 
-            # Electric field, x component
-            fig = plot_field_and_error(r'E^x', tend, x, y, Ex_values, Ex_ex_values, *gridlines)
-            if show_figs:
-                fig.show()
-            else:
-                fig.savefig(f'{visdir}/Ex_T_{rp_str}.png')
-                plt.close(fig)  # fig.clf()
+        # Electric field, x component
+        fig = plot_field_and_error(r'E^x', tend, x, y, Ex_values, Ex_ex_values, *gridlines)
+        if show_figs:
+            fig.show()
+        else:
+            fig.savefig(f'{visdir}/Ex_T_{rp_str}.png')
+            plt.close(fig)  # fig.clf()
 
-            # Electric field, y component
-            fig = plot_field_and_error(r'E^y', tend, x, y, Ey_values, Ey_ex_values, *gridlines)
-            if show_figs:
-                fig.show()
-            else:
-                fig.savefig(f'{visdir}/Ey_T_{rp_str}.png')
-                plt.close(fig)  # fig.clf()
+        # Electric field, y component
+        fig = plot_field_and_error(r'E^y', tend, x, y, Ey_values, Ey_ex_values, *gridlines)
+        if show_figs:
+            fig.show()
+        else:
+            fig.savefig(f'{visdir}/Ey_T_{rp_str}.png')
+            plt.close(fig)  # fig.clf()
 
-            # Magnetic field, z component
-            fig = plot_field_and_error(r'B^z', tend, x, y, Bz_values, Bz_ex_values, *gridlines)
-            if show_figs:
-                fig.show()
-            else:
-                fig.savefig(f'{visdir}/Bz_T_{rp_str}.png')
-                plt.close(fig)
+        # Magnetic field, z component
+        fig = plot_field_and_error(r'B^z', tend, x, y, Bz_values, Bz_ex_values, *gridlines)
+        if show_figs:
+            fig.show()
+        else:
+            fig.savefig(f'{visdir}/Bz_T_{rp_str}.png')
+            plt.close(fig)
 
     return locals()
 
