@@ -207,7 +207,7 @@ def test_function_space_boundary_projector(dim):
         fc2     = DP @ fc
         diff    = fc - fc2
         err_sqr = diff.inner(diff)
-        print(f' | f - P @ f |          = {err_sqr}')
+        print(f' || f - P @ f ||^2      = {err_sqr}')
         assert err_sqr < tol**2
 
         # 2.1
@@ -240,7 +240,7 @@ def test_function_space_boundary_projector(dim):
         fc3         = DP @ fc2
         diff        = fc2 - fc3
         err_sqr     = diff.inner(diff)
-        print(f' | P @ f - P @ P @ f |^2  = {err_sqr}')
+        print(f' || P @ f - P @ P @ f ||^2 = {err_sqr}')
         assert err_sqr < tol**2
 
         # 4.
@@ -380,7 +380,7 @@ def test_discrete_derham_boundary_projector(dim):
         fc2     = DP @ fc
         diff    = fc - fc2
         err_sqr = diff.inner(diff)
-        print(f' | f - P @ f |^2          = {err_sqr}')
+        print(f' || f - P @ f ||^2      = {err_sqr}')
         assert err_sqr < tol**2
 
         # 2.1
@@ -414,7 +414,7 @@ def test_discrete_derham_boundary_projector(dim):
         fc3     = DP @ fc2
         diff    = fc2 - fc3
         err_sqr = diff.inner(diff)
-        print(f' | P @ f - P @ P @ f |^2  = {err_sqr}')
+        print(f' || P @ f - P @ P @ f ||^2 = {err_sqr}')
         assert err_sqr < tol**2
 
         # 4.
@@ -506,7 +506,7 @@ def test_discrete_derham_boundary_projector_multipatch():
         fc2     = DP @ fc
         diff    = fc - fc2
         err_sqr = diff.inner(diff)
-        print(f' | f - P @ f |^2          = {err_sqr}')
+        print(f' || f - P @ f ||^2      = {err_sqr}')
         assert err_sqr < tol**2
 
         # 2.1
@@ -542,7 +542,7 @@ def test_discrete_derham_boundary_projector_multipatch():
         fc3     = DP @ fc2
         diff    = fc2 - fc3
         err_sqr = diff.inner(diff)
-        print(f' | P @ f - P @ P @ f |^2  = {err_sqr}')
+        print(f' || P @ f - P @ P @ f ||^2 = {err_sqr}')
         assert err_sqr < tol**2
 
         # 4.
