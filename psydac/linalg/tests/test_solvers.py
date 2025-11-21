@@ -1,11 +1,9 @@
+import  numpy as np
+import  pytest
 
-import numpy as np
-import pytest
-from psydac.linalg.solvers import inverse
-from psydac.linalg.stencil import StencilVectorSpace, StencilMatrix, StencilVector
-from psydac.linalg.basic import LinearSolver
-from psydac.ddm.cart import DomainDecomposition, CartDecomposition
-
+from    psydac.ddm.cart             import DomainDecomposition, CartDecomposition
+from    psydac.linalg.solvers       import inverse
+from    psydac.linalg.stencil       import StencilVectorSpace, StencilMatrix, StencilVector
 
 def define_data_hermitian(n, p, dtype=float):
     domain_decomposition = DomainDecomposition([n - p], [False])
@@ -55,7 +53,7 @@ def define_data(n, p, matrix_data, dtype=float):
     return(V, A, xe)
 
 #===============================================================================
-@pytest.mark.parametrize( 'n', [5, 10, 13] )
+@pytest.mark.parametrize('n', [5, 10, 13] )
 @pytest.mark.parametrize('p', [2, 3])
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('solver', ['cg', 'pcg', 'bicg', 'bicgstab', 'pbicgstab', 'minres', 'lsmr', 'gmres'])
@@ -204,6 +202,7 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
         assert errt_norm < tol
         assert errh_norm < tol
         assert solver == 'pcg' or errc_norm < tol
+
 
 # ===============================================================================
 # SCRIPT FUNCTIONALITY
