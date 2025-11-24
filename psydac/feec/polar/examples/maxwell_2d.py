@@ -11,6 +11,7 @@ from mpi4py import MPI
 
 import matplotlib.pyplot as plt
 
+from psydac.fem.basic import FemField
 from utils_congapol import print_map_polar_coeffs, check_regular_ring_map
 
 
@@ -641,6 +642,15 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         e = E_log.coeffs
         b = B_log.coeffs
 
+        V1x, V1y = V1.spaces
+        Ex_field = FemField(V1x, coeffs=e[0])
+        Ey_field = FemField(V1y, coeffs=e[1])
+        B_field = FemField(V2, coeffs=b)
+        V1x.export_fields('Ex.h5', Ex_field=Ex_field)
+        V1y.export_fields('Ey.h5', Ey_field=Ey_field)
+        V2.export_fields('B.h5', B_field=B_field)
+
+
         if study == 'maxwell_wave':
             D1.dot(e, out=b)
 
@@ -785,94 +795,107 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         # ...
         # Plot initial conditions
         # TODO: improve
-        if study_maxwell:
-            for i, x1i in enumerate(x1[:, 0]):
-                for j, x2j in enumerate(x2[0, :]):
 
-                    Ex_values[i, j], Ey_values[i, j] = \
-                        push_2d_hcurl(E_log.fields[0], E_log.fields[1], x1i, x2j, F)
+        if mpi_rank == 0:
+            if use_spline_mapping:
+                geometry = Geometry(filename='geo.h5')
+                domain_h_serial = discretize(domain, filename='geo.h5')
+                F_serial = [*domain_h_serial.mappings.values()].pop()
+            derham_h_serial = discretize(derham, domain_h_serial, degree=degree)
+            V0_s, V1_s, V2_s = derham_h_serial.spaces
+            V1_sx, V1_sy = V1_s.spaces
+            print(V1_sx.coeff_space.parallel)
+            Ex_serial, = V1_sx.import_fields('Ex.h5', 'Ex_field')
+            Ey_serial, = V1_sy.import_fields('Ey.h5', 'Ey_field')
+            B_serial, = V2_s.import_fields('B.h5', 'B_field')
+            if study_maxwell:
+                for i, x1i in enumerate(x1[:, 0]):
+                    for j, x2j in enumerate(x2[0, :]):
 
-                    Bz_values[i, j] = push_2d_l2(B_log, x1i, x2j, F)
+                        Ex_values[i, j], Ey_values[i, j] = \
+                            push_2d_hcurl(Ex_serial, Ey_serial, x1i, x2j, F_serial)
 
-                    xij, yij = F(x1i, x2j)
-                    Ex_ex_values[i, j], Ey_ex_values[i, j] = \
-                        Ex_ex_t(t, xij, yij), Ey_ex_t(t, xij, yij)
+                        Bz_values[i, j] = push_2d_l2(B_serial, x1i, x2j, F_serial)
 
-                    Bz_ex_values[i, j] = Bz_ex_t(t, xij, yij)
+                        xij, yij = F(x1i, x2j)
+                        Ex_ex_values[i, j], Ey_ex_values[i, j] = \
+                            Ex_ex_t(t, xij, yij), Ey_ex_t(t, xij, yij)
 
-        # fields along s for fixed theta
-        plot_fields_along_s(tstr='t0')  # , j0=0, j1=ncells[1]//2)
+                        Bz_ex_values[i, j] = Bz_ex_t(t, xij, yij)
 
-        # Electric field, x component
-        fig = plot_field_and_error(r'E^x', 0, x, y, Ex_values, Ex_ex_values, *gridlines)
-        if show_figs:
-            fig.show()
-        else:
-            fig.savefig(f'{visdir}/Ex_t0_{rp_str}.png')
-            plt.close(fig)
-            # fig.clf()
+            # fields along s for fixed theta
+            #plot_fields_along_s(tstr='t0')  # , j0=0, j1=ncells[1]//2)
 
-        # Electric field, y component
-        fig = plot_field_and_error(r'E^y', 0, x, y, Ey_values, Ey_ex_values, *gridlines)
-        if show_figs:
-            fig.show()
-        else:
-            fig.savefig(f'{visdir}/Ey_t0_{rp_str}.png')
-            plt.close(fig)
-            # fig.clf()
+            # Electric field, x component
+            fig = plot_field_and_error(r'E^x', 0, x, y, Ex_values, Ex_ex_values, *gridlines)
+            if show_figs:
+                fig.show()
+            else:
+                fig.savefig(f'{visdir}/Ex_t0_{rp_str}.png')
+                plt.close(fig)
+                # fig.clf()
 
-        # fig3.show()
+            # Electric field, y component
+            fig = plot_field_and_error(r'E^y', 0, x, y, Ey_values, Ey_ex_values, *gridlines)
+            if show_figs:
+                fig.show()
+            else:
+                fig.savefig(f'{visdir}/Ey_t0_{rp_str}.png')
+                plt.close(fig)
+                # fig.clf()
 
-        # Magnetic field, z component
-        fig = plot_field_and_error(r'B^z', 0, x, y, Bz_values, Bz_ex_values, *gridlines)
-        if show_figs:
-            fig.show()
-        else:
-            fig.savefig(f'{visdir}/Bz_t0_{rp_str}.png')
-            plt.close(fig)
+            # fig3.show()
 
-        if show_figs:
-            # Plot exact and approximate solutions at t = 0
-            fig, axs = plt.subplots(3, 3, figsize=(12, 12))
-            im0 = axs[0, 0].contourf(x, y, Ex_ex_values, 50)
-            im1 = axs[0, 1].contourf(x, y, Ey_ex_values, 50)
-            im2 = axs[0, 2].contourf(x, y, Bz_ex_values, 50)
-            im3 = axs[1, 0].contourf(x, y, Ex_values, 50)
-            im4 = axs[1, 1].contourf(x, y, Ey_values, 50)
-            im5 = axs[1, 2].contourf(x, y, Bz_values, 50)
-            im6 = axs[2, 0].contourf(x, y, Ex_values - Ex_ex_values, 50)
-            im7 = axs[2, 1].contourf(x, y, Ey_values - Ey_ex_values, 50)
-            im8 = axs[2, 2].contourf(x, y, Bz_values - Bz_ex_values, 50)
-            axs[0, 0].set_title(r'$E^x$ at t = 0')
-            axs[0, 1].set_title(r'$E^y$ at t = 0')
-            axs[0, 2].set_title(r'$B^z$ at t = 0')
-            axs[1, 0].set_title(r'$E_h^x$ at t = 0')
-            axs[1, 1].set_title(r'$E_h^y$ at t = 0')
-            axs[1, 2].set_title(r'$B_h^z$ at t = 0')
-            axs[2, 0].set_title(r'$E^x - E_h^x$ at t = 0')
-            axs[2, 1].set_title(r'$E^y - E_h^y$ at t = 0')
-            axs[2, 2].set_title(r'$B^z - B_h^z$ at t = 0')
-            for i in range(3):
-                for j in range(3):
-                    axs[i, j].plot(*gridlines[0], color='k')
-                    axs[i, j].plot(*gridlines[1], color='k')
-                    axs[i, j].set_xlabel('x', fontsize=14)
-                    axs[i, j].set_ylabel('y', fontsize=14, rotation='horizontal')
-                    axs[i, j].set_aspect('equal')
-            add_colorbar(im0, axs[0, 0])
-            add_colorbar(im1, axs[0, 1])
-            add_colorbar(im2, axs[0, 2])
-            add_colorbar(im3, axs[1, 0])
-            add_colorbar(im4, axs[1, 1])
-            add_colorbar(im5, axs[1, 2])
-            add_colorbar(im6, axs[2, 0])
-            add_colorbar(im7, axs[2, 1])
-            add_colorbar(im8, axs[2, 2])
-            fig.suptitle('Compare Exact Solution and Approximate solution at initial time')
-            fig.tight_layout()
+            # Magnetic field, z component
+            fig = plot_field_and_error(r'B^z', 0, x, y, Bz_values, Bz_ex_values, *gridlines)
+            if show_figs:
+                fig.show()
+            else:
+                fig.savefig(f'{visdir}/Bz_t0_{rp_str}.png')
+                plt.close(fig)
 
-            # Need a small pause to show the plot of the initial condition
-            plt.pause(.1)
+            if show_figs:
+                # Plot exact and approximate solutions at t = 0
+                fig, axs = plt.subplots(3, 3, figsize=(12, 12))
+                im0 = axs[0, 0].contourf(x, y, Ex_ex_values, 50)
+                im1 = axs[0, 1].contourf(x, y, Ey_ex_values, 50)
+                im2 = axs[0, 2].contourf(x, y, Bz_ex_values, 50)
+                im3 = axs[1, 0].contourf(x, y, Ex_values, 50)
+                im4 = axs[1, 1].contourf(x, y, Ey_values, 50)
+                im5 = axs[1, 2].contourf(x, y, Bz_values, 50)
+                im6 = axs[2, 0].contourf(x, y, Ex_values - Ex_ex_values, 50)
+                im7 = axs[2, 1].contourf(x, y, Ey_values - Ey_ex_values, 50)
+                im8 = axs[2, 2].contourf(x, y, Bz_values - Bz_ex_values, 50)
+                axs[0, 0].set_title(r'$E^x$ at t = 0')
+                axs[0, 1].set_title(r'$E^y$ at t = 0')
+                axs[0, 2].set_title(r'$B^z$ at t = 0')
+                axs[1, 0].set_title(r'$E_h^x$ at t = 0')
+                axs[1, 1].set_title(r'$E_h^y$ at t = 0')
+                axs[1, 2].set_title(r'$B_h^z$ at t = 0')
+                axs[2, 0].set_title(r'$E^x - E_h^x$ at t = 0')
+                axs[2, 1].set_title(r'$E^y - E_h^y$ at t = 0')
+                axs[2, 2].set_title(r'$B^z - B_h^z$ at t = 0')
+                for i in range(3):
+                    for j in range(3):
+                        axs[i, j].plot(*gridlines[0], color='k')
+                        axs[i, j].plot(*gridlines[1], color='k')
+                        axs[i, j].set_xlabel('x', fontsize=14)
+                        axs[i, j].set_ylabel('y', fontsize=14, rotation='horizontal')
+                        axs[i, j].set_aspect('equal')
+                add_colorbar(im0, axs[0, 0])
+                add_colorbar(im1, axs[0, 1])
+                add_colorbar(im2, axs[0, 2])
+                add_colorbar(im3, axs[1, 0])
+                add_colorbar(im4, axs[1, 1])
+                add_colorbar(im5, axs[1, 2])
+                add_colorbar(im6, axs[2, 0])
+                add_colorbar(im7, axs[2, 1])
+                add_colorbar(im8, axs[2, 2])
+                fig.suptitle('Compare Exact Solution and Approximate solution at initial time')
+                fig.tight_layout()
+
+                # Need a small pause to show the plot of the initial condition
+                plt.pause(.1)
 
         # L2 norms (of ref solution)
         normx = lambda x1, x2: Ex_ex_t(t, *F(x1, x2))
@@ -986,81 +1009,95 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
 
         # ...
         # Animation and diags
-        if plot_interval and (ts % plot_interval == 0 or ts == nsteps):
-
-            # project to conforming space to apply posh-forwards
-            P1.dot(e.copy(), out=e)
-            P2.dot(b.copy(), out=b)  # TO TEST: is this necessary? try to comment
-            # ...
-            # TODO: improve
-            for i, x1i in enumerate(x1[:, 0]):
-                for j, x2j in enumerate(x2[0, :]):
-
-                    Ex_values[i, j], Ey_values[i, j] = \
-                        push_2d_hcurl(E_log.fields[0], E_log.fields[1], x1i, x2j, F)
-
-                    Bz_values[i, j] = push_2d_l2(B_log, x1i, x2j, F)
-                    # Bz_values[i, j] = B(x1i, x2j)
-
-                    if use_logical_sol:
-                        Ex_ex_values[i, j], Ey_ex_values[i, j] = \
-                            push_2d_hcurl(Es_ex(t), Et_ex(t), x1i, x2j, F)
-
-                        Bz_ex_values[i, j] = push_2d_l2(B_log_ex(t), x1i, x2j, F)
-
-                    else:
-                        xij, yij = F(x1i, x2j)
-                        Ex_ex_values[i, j], Ey_ex_values[i, j] = \
-                            Ex_ex_t(t, xij, yij), Ey_ex_t(t, xij, yij)
-
-                        Bz_ex_values[i, j] = Bz_ex_t(t, xij, yij)
-            # ...
-
-            # max norm
-            max_Ex = abs(Ex_values).max()
-            max_Ey = abs(Ey_values).max()
-            max_Bz = abs(Bz_values).max()
-            print()
-            print('Max-norm of Ex(t,x): {:.2e}'.format(max_Ex))
-            print('Max-norm of Ey(t,x): {:.2e}'.format(max_Ey))
-            print('Max-norm of Bz(t,x): {:.2e}'.format(max_Bz))
-
-            # if show_figs:
-            #     # Update plot
-            #     update_plot(fig2, t, x, y, Ex_values, Ex_ex_values)
-            #     update_plot(fig3, t, x, y, Ey_values, Ey_ex_values)
-            #     update_plot(fig4, t, x, y, Bz_values, Bz_ex_values)
-            #     plt.pause(0.1)
-            if not show_figs:
-                fig = plot_field_and_error(r'E^x', t, x, y, Ex_values, Ex_ex_values, *gridlines)
-                fig.savefig(f'{visdir}/Ex_{ts}_{rp_str}.png')
-                # fig.clf()
-                plt.close(fig)
-
-                fig = plot_field_and_error(r'E^y', t, x, y, Ey_values, Ey_ex_values, *gridlines)
-                fig.savefig(f'{visdir}/Ey_{ts}_{rp_str}.png')
-                # fig.clf()
-                plt.close(fig)
-
-                fig = plot_field_and_error(r'B^z', t, x, y, Bz_values, Bz_ex_values, *gridlines)
-                fig.savefig(f'{visdir}/Bz_{ts}_{rp_str}.png')
-                plt.close(fig)
+        # if plot_interval and (ts % plot_interval == 0 or ts == nsteps):
+            # # project to conforming space to apply posh-forwards
+            # P1.dot(e.copy(), out=e)
+            # P2.dot(b.copy(), out=b)  # TO TEST: is this necessary? try to comment
+            # # ...
+            # # TODO: improve
+            # for i, x1i in enumerate(x1[:, 0]):
+            #     for j, x2j in enumerate(x2[0, :]):
+            #
+            #         Ex_values[i, j], Ey_values[i, j] = \
+            #             push_2d_hcurl(E_log.fields[0], E_log.fields[1], x1i, x2j, F)
+            #
+            #         Bz_values[i, j] = push_2d_l2(B_log, x1i, x2j, F)
+            #         # Bz_values[i, j] = B(x1i, x2j)
+            #
+            #         if use_logical_sol:
+            #             Ex_ex_values[i, j], Ey_ex_values[i, j] = \
+            #                 push_2d_hcurl(Es_ex(t), Et_ex(t), x1i, x2j, F)
+            #
+            #             Bz_ex_values[i, j] = push_2d_l2(B_log_ex(t), x1i, x2j, F)
+            #
+            #         else:
+            #             xij, yij = F(x1i, x2j)
+            #             Ex_ex_values[i, j], Ey_ex_values[i, j] = \
+            #                 Ex_ex_t(t, xij, yij), Ey_ex_t(t, xij, yij)
+            #
+            #             Bz_ex_values[i, j] = Bz_ex_t(t, xij, yij)
+            # # ...
+            #
+            # # max norm
+            # max_Ex = abs(Ex_values).max()
+            # max_Ey = abs(Ey_values).max()
+            # max_Bz = abs(Bz_values).max()
+            # print()
+            # print('Max-norm of Ex(t,x): {:.2e}'.format(max_Ex))
+            # print('Max-norm of Ey(t,x): {:.2e}'.format(max_Ey))
+            # print('Max-norm of Bz(t,x): {:.2e}'.format(max_Bz))
+            #
+            # # if show_figs:
+            # #     # Update plot
+            # #     update_plot(fig2, t, x, y, Ex_values, Ex_ex_values)
+            # #     update_plot(fig3, t, x, y, Ey_values, Ey_ex_values)
+            # #     update_plot(fig4, t, x, y, Bz_values, Bz_ex_values)
+            # #     plt.pause(0.1)
+            # if not show_figs:
+            #     fig = plot_field_and_error(r'E^x', t, x, y, Ex_values, Ex_ex_values, *gridlines)
+            #     fig.savefig(f'{visdir}/Ex_{ts}_{rp_str}.png')
+            #     # fig.clf()
+            #     plt.close(fig)
+            #
+            #     fig = plot_field_and_error(r'E^y', t, x, y, Ey_values, Ey_ex_values, *gridlines)
+            #     fig.savefig(f'{visdir}/Ey_{ts}_{rp_str}.png')
+            #     # fig.clf()
+            #     plt.close(fig)
+            #
+            #     fig = plot_field_and_error(r'B^z', t, x, y, Bz_values, Bz_ex_values, *gridlines)
+            #     fig.savefig(f'{visdir}/Bz_{ts}_{rp_str}.png')
+            #     plt.close(fig)
 
         print('ts = {:4d},  t = {:8.4f}'.format(ts, t))
 
     N = 10
     V.plot_2d_decomposition(mapping.get_callable_mapping(), refine=N)
 
-    if not plot_interval:
-        P1.dot(e.copy(), out=e)
-        P2.dot(b.copy(), out=b)
+    # if not plot_interval:
+    P1.dot(e.copy(), out=e)
+    P2.dot(b.copy(), out=b)
+
+    Ex_field = FemField(V1x, coeffs=e[0])
+    Ey_field = FemField(V1y, coeffs=e[1])
+    B_field = FemField(V2, coeffs=b)
+    V1x.export_fields('Ex_final.h5', Ex_field=Ex_field)
+    V1y.export_fields('Ey_final.h5', Ey_field=Ey_field)
+    V2.export_fields('B_final.h5', B_field=B_field)
+    print("exported fields at final time")
+
+    if mpi_rank == 0:
+        Ex_serial, = V1_sx.import_fields('Ex_final.h5', 'Ex_field')
+        Ey_serial, = V1_sy.import_fields('Ey_final.h5', 'Ey_field')
+        B_serial, = V2_s.import_fields('B_final.h5', 'B_field')
+        print("imported fields at final time")
+
         for i, x1i in enumerate(x1[:, 0]):
             for j, x2j in enumerate(x2[0, :]):
 
                 Ex_values[i, j], Ey_values[i, j] = \
-                    push_2d_hcurl(E_log.fields[0], E_log.fields[1], x1i, x2j, F)
+                    push_2d_hcurl(Ex_serial, Ey_serial, x1i, x2j, F_serial)
 
-                Bz_values[i, j] = push_2d_l2(B_log, x1i, x2j, F)
+                Bz_values[i, j] = push_2d_l2(B_serial, x1i, x2j, F_serial)
                 # Bz_values[i, j] = B(x1i, x2j)
 
                 if use_logical_sol:
@@ -1079,13 +1116,13 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         # ...
 
         # Error at final time
-    error_Ex = abs(Ex_ex_values - Ex_values).max()
-    error_Ey = abs(Ey_ex_values - Ey_values).max()
-    error_Bz = abs(Bz_ex_values - Bz_values).max()
-    print()
-    print('Max-norm of error on Ex(t,x) at final time: {:.2e}'.format(error_Ex))
-    print('Max-norm of error on Ey(t,x) at final time: {:.2e}'.format(error_Ey))
-    print('Max-norm of error on Bz(t,x) at final time: {:.2e}'.format(error_Bz))
+        error_Ex = abs(Ex_ex_values - Ex_values).max()
+        error_Ey = abs(Ey_ex_values - Ey_values).max()
+        error_Bz = abs(Bz_ex_values - Bz_values).max()
+        print()
+        print('Max-norm of error on Ex(t,x) at final time: {:.2e}'.format(error_Ex))
+        print('Max-norm of error on Ey(t,x) at final time: {:.2e}'.format(error_Ey))
+        print('Max-norm of error on Bz(t,x) at final time: {:.2e}'.format(error_Bz))
 
     # L2 norms (of ref solution)
     normx = lambda x1, x2: Ex_ex_t(t, *F(x1, x2))
@@ -1110,7 +1147,7 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
     print('L2 norm of rel. error on Ey(t,x,y) at final time: {:.2e}'.format(error_l2_Ey))
     print('L2 norm of rel. error on Bz(t,x,y) at final time: {:.2e}'.format(error_l2_Bz))
 
-    if plot_final:
+    if plot_final and mpi_rank == 0:
         # Plot exact and approximate solution at final time
         fig1, axs = plt.subplots(3, 3, figsize=(12, 12))
         im0 = axs[0, 0].contourf(x, y, Ex_ex_values, 50)
@@ -1151,7 +1188,7 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         fig1.tight_layout()
 
         # fields along s, final time
-        plot_fields_along_s(tstr='T')  # , j0=0, j1=ncells[1]//2)
+        # plot_fields_along_s(tstr='T')  # , j0=0, j1=ncells[1]//2)
 
         # Electric field, x component
         fig = plot_field_and_error(r'E^x', tend, x, y, Ex_values, Ex_ex_values, *gridlines)
