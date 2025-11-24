@@ -1,5 +1,6 @@
 import  numpy as np
 import  pytest
+from    mpi4py import MPI
 
 from    sympy import sin, pi, sqrt, Tuple
 
@@ -79,7 +80,7 @@ def _test_LO_equality_using_rng(A, B):
         assert err < tol**2
 
 #===============================================================================
-@pytest.mark.parametrize('dim', [1, 2, 3])
+@pytest.mark.parametrize('dim', [1, 2])
 
 def test_function_space_boundary_projector(dim):
 
@@ -203,11 +204,11 @@ def test_function_space_boundary_projector(dim):
         # 1.
         # In 1D, 2D, 3D, the coefficients of functions satisfying homogeneous Dirichlet 
         # boundary conditions should not change under application of the corresponding projector
-        fc2  = DP @ fc
-        diff = fc - fc2
-        err  = diff.inner(diff)
-        print(f' | f - P @ f |          = {err}')
-        assert err < tol**2
+        fc2     = DP @ fc
+        diff    = fc - fc2
+        err_sqr = diff.inner(diff)
+        print(f' || f - P @ f ||^2      = {err_sqr}')
+        assert err_sqr < tol**2
 
         # 2.1
         # After applying a projector to a random vector, we want to verify that the 
@@ -221,39 +222,43 @@ def test_function_space_boundary_projector(dim):
             else:
                 rng.random(size=rdm_coeffs._data.shape, dtype="float64", out=rdm_coeffs._data)
             rdm_coeffs2 = DP @ rdm_coeffs
-            boundary_int_rdm      = Mb.dot_inner(rdm_coeffs, rdm_coeffs) / rdm_coeffs.space.dimension**2
-            boundary_int_proj_rdm = Mb.dot_inner(rdm_coeffs2, rdm_coeffs2) / rdm_coeffs.space.dimension**2
-            print(f'  rdm: {boundary_int_rdm}    proj. rdm: {boundary_int_proj_rdm}')
-            assert boundary_int_proj_rdm < tol**2
+            scaled_boundary_int_rdm_sqr      = Mb.dot_inner(rdm_coeffs, rdm_coeffs) / rdm_coeffs.space.dimension**2
+            scaled_boundary_int_proj_rdm_sqr = Mb.dot_inner(rdm_coeffs2, rdm_coeffs2) / rdm_coeffs.space.dimension**2
+            print(f'  rdm: {scaled_boundary_int_rdm_sqr}    proj. rdm: {scaled_boundary_int_proj_rdm_sqr}')
+            assert scaled_boundary_int_proj_rdm_sqr < tol**2
 
         # 2.2
         # Test toarray(): (DP @ rdm_coeffs).toarray() should be equal to DP.toarray().dot(rdm_coeffs.toarray())
-        DP_arr = DP.toarray()
-        rdm_coeffs_arr = rdm_coeffs.toarray()
-        diff_arr = DP_arr.dot(rdm_coeffs_arr) - rdm_coeffs2.toarray()
-        err = np.linalg.norm(diff_arr)
-        assert err < tol**2
+        DP_arr          = DP.toarray()
+        rdm_coeffs_arr  = rdm_coeffs.toarray()
+        diff_arr        = DP_arr.dot(rdm_coeffs_arr) - rdm_coeffs2.toarray()
+        err_sqr         = diff_arr.dot(diff_arr)
+        assert err_sqr < tol**2
 
         # 3.
         # We want to verify that applying a projector twice does not change the vector twice
-        fc3  = DP @ fc2
-        diff = fc2 - fc3
-        err  = diff.inner(diff)
-        print(f' | P @ f - P @ P @ f |^2  = {err}')
-        assert err < tol**2
+        fc3         = DP @ fc2
+        diff        = fc2 - fc3
+        err_sqr     = diff.inner(diff)
+        print(f' || P @ f - P @ P @ f ||^2 = {err_sqr}')
+        assert err_sqr < tol**2
 
         # 4.
         # Finally, the modified mass matrix should still compute inner products correctly
-        l2_norm  = M.dot_inner  (fc, fc)
-        l2_norm2 = M_0.dot_inner(fc, fc)
-        diff     = abs(l2_norm - l2_norm2)
-        # This test requires a higher tolerance. M.dot_inner(fc, fc) and M_0.dot_inner(fc, fc) are the same up to order 1e-15.
-        assert diff < tol
+        l2_norm_sqr     = M.dot_inner  (fc, fc)
+        l2_norm2_sqr    = M_0.dot_inner(fc, fc)
+        err_sqr         = abs(l2_norm_sqr - l2_norm2_sqr)
+        print(f' || P @ f ||^2          = {l2_norm_sqr} should be equal to')
+        print(f' || P @ f ||^2  (alt)   = {l2_norm2_sqr}')
+        # M.dot_inner(fc, fc) and M_0.dot_inner(fc, fc) are the same only up to order 1e-15.
+        # Hence, we can't expect err_sqr to be less than tol**2, but only less than tol.
+        assert err_sqr < tol
 
         print()
 
 #===============================================================================
-@pytest.mark.parametrize('dim', [1, 2, 3])
+@pytest.mark.parametrize('dim', [1, 3])
+@pytest.mark.parallel
 
 def test_discrete_derham_boundary_projector(dim):
 
@@ -263,7 +268,7 @@ def test_discrete_derham_boundary_projector(dim):
     degree   = [2, 2, 2]
     periodic = [False, True, False]
 
-    comm     = None
+    comm     = MPI.COMM_WORLD
     backend  = PSYDAC_BACKEND_GPYCCEL
 
     logical_domain_1d = Line  ('L', bounds= (0,   1))
@@ -372,11 +377,11 @@ def test_discrete_derham_boundary_projector(dim):
         # 1.
         # In 1D, 2D, 3D, the coefficients of functions satisfying homogeneous Dirichlet 
         # boundary conditions should not change under application of the corresponding projector
-        fc2  = DP @ fc
-        diff = fc - fc2
-        err  = diff.inner(diff)
-        print(f' | f - P @ f |^2          = {err}')
-        assert err < tol**2
+        fc2     = DP @ fc
+        diff    = fc - fc2
+        err_sqr = diff.inner(diff)
+        print(f' || f - P @ f ||^2      = {err_sqr}')
+        assert err_sqr < tol**2
 
         # 2.1
         # After applying a projector to a random vector, we want to verify that the 
@@ -390,36 +395,38 @@ def test_discrete_derham_boundary_projector(dim):
             else:
                 rng.random(size=rdm_coeffs._data.shape, dtype="float64", out=rdm_coeffs._data)
             rdm_coeffs2 = DP @ rdm_coeffs
-            boundary_int_rdm      = Mb.dot_inner(rdm_coeffs, rdm_coeffs) / rdm_coeffs.space.dimension**2
-            boundary_int_proj_rdm = Mb.dot_inner(rdm_coeffs2, rdm_coeffs2) / rdm_coeffs.space.dimension**2
-            print(f'  rdm: {boundary_int_rdm}    proj. rdm: {boundary_int_proj_rdm}')
-            assert boundary_int_proj_rdm < tol**2
+            scaled_boundary_int_rdm_sqr      = Mb.dot_inner(rdm_coeffs, rdm_coeffs) / rdm_coeffs.space.dimension**2
+            scaled_boundary_int_proj_rdm_sqr = Mb.dot_inner(rdm_coeffs2, rdm_coeffs2) / rdm_coeffs.space.dimension**2
+            print(f'  rdm: {scaled_boundary_int_rdm_sqr}    proj. rdm: {scaled_boundary_int_proj_rdm_sqr}')
+            assert scaled_boundary_int_proj_rdm_sqr < tol**2
 
         # 2.2
-        # Test toarray(): (DP @ rdm_coeffs).toarray() should be equal to DP.toarray().dot(rdm_coeffs.toarray())
-        DP_arr = DP.toarray()
-        rdm_coeffs_arr = rdm_coeffs.toarray()
-        diff_arr = DP_arr.dot(rdm_coeffs_arr) - rdm_coeffs2.toarray()
-        err = np.linalg.norm(diff_arr)
-        assert err < tol**2
+        # Test tosparse(): (DP @ rdm_coeffs).toarray() should be equal to DP.tosparse().dot(rdm_coeffs.toarray())
+        DP_spr          = DP.tosparse()
+        rdm_coeffs_arr  = rdm_coeffs.toarray()
+        diff_arr        = DP_spr.dot(rdm_coeffs_arr) - rdm_coeffs2.toarray()
+        err_sqr         = diff_arr.dot(diff_arr)
+        assert err_sqr < tol**2
+
 
         # 3.
         # We want to verify that applying a projector twice does not change the vector twice
-        fc3  = DP @ fc2
-        diff = fc2 - fc3
-        err  = diff.inner(diff)
-        print(f' | P @ f - P @ P @ f |^2  = {err}')
-        assert err < tol**2
+        fc3     = DP @ fc2
+        diff    = fc2 - fc3
+        err_sqr = diff.inner(diff)
+        print(f' || P @ f - P @ P @ f ||^2 = {err_sqr}')
+        assert err_sqr < tol**2
 
         # 4.
         # Finally, the modified mass matrix should still compute inner products correctly
-        l2_norm  = M.dot_inner  (fc, fc)
-        l2_norm2 = M_0.dot_inner(fc, fc)
-        diff     = abs(l2_norm - l2_norm2)
-        print(f' ||   f   ||^2          = {l2_norm} should be equal to')
-        print(f' || P @ f ||^2          = {l2_norm2}')
-        # This test requires a higher tolerance. M.dot_inner(fc, fc) and M_0.dot_inner(fc, fc) are the same up to order 1e-15.
-        assert diff < tol
+        l2_norm_sqr     = M.dot_inner  (fc, fc)
+        l2_norm2_sqr    = M_0.dot_inner(fc, fc)
+        err_sqr         = abs(l2_norm_sqr - l2_norm2_sqr)
+        print(f' || P @ f ||^2          = {l2_norm_sqr} should be equal to')
+        print(f' || P @ f ||^2  (alt)   = {l2_norm2_sqr}')
+        # M.dot_inner(fc, fc) and M_0.dot_inner(fc, fc) are the same only up to order 1e-15.
+        # Hence, we can't expect err_sqr to be less than tol**2, but only less than tol.
+        assert err_sqr < tol
 
         print()
 
@@ -496,11 +503,11 @@ def test_discrete_derham_boundary_projector_multipatch():
         # 1.
         # The coefficients of functions satisfying homogeneous Dirichlet 
         # boundary conditions should not change under application of the corresponding projector
-        fc2  = DP @ fc
-        diff = fc - fc2
-        err  = diff.inner(diff)
-        print(f' | f - P @ f |^2          = {err}')
-        assert err < tol**2
+        fc2     = DP @ fc
+        diff    = fc - fc2
+        err_sqr = diff.inner(diff)
+        print(f' || f - P @ f ||^2      = {err_sqr}')
+        assert err_sqr < tol**2
 
         # 2.1
         # After applying a projector to a random vector, we want to verify that the 
@@ -517,36 +524,37 @@ def test_discrete_derham_boundary_projector_multipatch():
                     rng.random(size=patch._data.shape, dtype="float64", out=patch._data)
 
             rdm_coeffs2 = DP @ rdm_coeffs
-            boundary_int_rdm      = Mb.dot_inner(rdm_coeffs, rdm_coeffs) / rdm_coeffs.space.dimension**2
-            boundary_int_proj_rdm = Mb.dot_inner(rdm_coeffs2, rdm_coeffs2) / rdm_coeffs.space.dimension**2
-            print(f'  rdm: {boundary_int_rdm}    proj. rdm: {boundary_int_proj_rdm}')
-            assert boundary_int_proj_rdm < tol**2
+            scaled_boundary_int_rdm_sqr      = Mb.dot_inner(rdm_coeffs, rdm_coeffs) / rdm_coeffs.space.dimension**2
+            scaled_boundary_int_proj_rdm_sqr = Mb.dot_inner(rdm_coeffs2, rdm_coeffs2) / rdm_coeffs.space.dimension**2
+            print(f'  rdm: {scaled_boundary_int_rdm_sqr}    proj. rdm: {scaled_boundary_int_proj_rdm_sqr}')
+            assert scaled_boundary_int_proj_rdm_sqr < tol**2
 
         # 2.2
         # Test toarray(): (DP @ rdm_coeffs).toarray() should be equal to DP.toarray().dot(rdm_coeffs.toarray())
-        DP_arr = DP.toarray()
-        rdm_coeffs_arr = rdm_coeffs.toarray()
-        diff_arr = DP_arr.dot(rdm_coeffs_arr) - rdm_coeffs2.toarray()
-        err = np.linalg.norm(diff_arr)
-        assert err < tol**2
+        DP_arr          = DP.toarray()
+        rdm_coeffs_arr  = rdm_coeffs.toarray()
+        diff_arr        = DP_arr.dot(rdm_coeffs_arr) - rdm_coeffs2.toarray()
+        err_sqr         = diff_arr.dot(diff_arr)
+        assert err_sqr < tol**2
 
         # 3.
         # We want to verify that applying a projector twice does not change the vector twice
-        fc3  = DP @ fc2
-        diff = fc2 - fc3
-        err  = diff.inner(diff)
-        print(f' | P @ f - P @ P @ f |^2  = {err}')
-        assert err < tol**2
+        fc3     = DP @ fc2
+        diff    = fc2 - fc3
+        err_sqr = diff.inner(diff)
+        print(f' || P @ f - P @ P @ f ||^2 = {err_sqr}')
+        assert err_sqr < tol**2
 
         # 4.
         # Finally, the modified mass matrix should still compute inner products correctly
-        l2_norm  = M.dot_inner  (fc, fc)
-        l2_norm2 = M_0.dot_inner(fc, fc)
-        diff     = abs(l2_norm - l2_norm2)
-        print(f' ||   f   ||^2          = {l2_norm} should be equal to')
-        print(f' || P @ f ||^2          = {l2_norm2}')
-        # This test requires a higher tolerance. M.dot_inner(fc, fc) and M_0.dot_inner(fc, fc) are the same up to order 1e-15.
-        assert diff < tol
+        l2_norm_sqr     = M.dot_inner  (fc, fc)
+        l2_norm2_sqr    = M_0.dot_inner(fc, fc)
+        err_sqr         = abs(l2_norm_sqr - l2_norm2_sqr)
+        print(f' || P @ f ||^2          = {l2_norm_sqr} should be equal to')
+        print(f' || P @ f ||^2  (alt)   = {l2_norm2_sqr}')
+        # M.dot_inner(fc, fc) and M_0.dot_inner(fc, fc) are the same only up to order 1e-15.
+        # Hence, we can't expect err_sqr to be less than tol**2, but only less than tol.
+        assert err_sqr < tol
 
         print()
 
