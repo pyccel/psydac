@@ -1,20 +1,23 @@
-from functools import reduce
+from    functools import reduce
 
-import pytest
-import numpy as np
-from scipy.sparse import kron
+import  pytest
+import  numpy                   as np
+from    mpi4py                  import MPI
+from    scipy.sparse            import kron
 
-from psydac.ddm.cart       import DomainDecomposition, CartDecomposition
-from psydac.linalg.stencil import StencilVectorSpace
-from psydac.linalg.stencil import StencilVector
-from psydac.linalg.stencil import StencilMatrix
-from psydac.linalg.kron    import KroneckerStencilMatrix
+from    sympde.calculus         import inner
+from    sympde.expr             import integral, BilinearForm
+from    sympde.topology         import elements_of, Square, Line, Derham
 
-from sympde.topology import Square, Line, Derham, elements_of
-from sympde.expr import BilinearForm, integral
-from sympde.calculus import inner
-from psydac.linalg.block import BlockLinearOperator
-from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
+from    psydac.api.discretization import discretize
+from    psydac.api.settings     import PSYDAC_BACKEND_GPYCCEL
+from    psydac.ddm.cart         import DomainDecomposition, CartDecomposition
+from    psydac.linalg.kron      import KroneckerStencilMatrix
+from    psydac.linalg.block     import BlockLinearOperator
+from    psydac.linalg.stencil   import StencilVectorSpace
+from    psydac.linalg.stencil   import StencilVector
+from    psydac.linalg.stencil   import StencilMatrix
+
 #===============================================================================
 def compute_global_starts_ends(domain_decomposition, npts):
     ndims         = len(npts)
@@ -120,10 +123,8 @@ def test_KroneckerStencilMatrix(dtype, npts, pads, periodic):
     assert np.array_equal(M_sp.dot(w.toarray()), M.dot(w).toarray())
 
 #==============================================================================
-def test_KroneckerStencilMatrix_diagonal():
+def test_KroneckerStencilMatrix_diagonal(comm=None):
     """We create three mass matrices (Stencil/Block and Kronecker) belonging to a 2D de Rham sequence, and compare their diagonals."""
-
-    from psydac.api.discretization import discretize
 
     ncells   = [6, 7]
     degree   = [3, 2]
@@ -137,7 +138,7 @@ def test_KroneckerStencilMatrix_diagonal():
     domain = Square('S', bounds1=(0,1), bounds2=(0,2))
     derham = Derham(domain, sequence=['h1', 'hcurl', 'l2'])
 
-    domain_h = discretize(domain, ncells=ncells, periodic=periodic)
+    domain_h = discretize(domain, ncells=ncells, periodic=periodic, comm=comm)
     derham_h = discretize(derham, domain_h, degree=degree, multiplicity=mult)
 
     V0, V1, V2       = derham.spaces
@@ -162,9 +163,9 @@ def test_KroneckerStencilMatrix_diagonal():
 
     # 2. Obtain KroneckerStencilMatrix / BlockLinearOperator (of KroneckerStencilMatrices) mass matrices
 
-    domain_1d_x = Line('L', bounds=(0,1))
-    domain_1d_y = Line('L', bounds=(0,2))
-    domains_1d  = [domain_1d_x, domain_1d_y]
+    domain_1d_x = Line('L', bounds=domain.bounds1)
+    domain_1d_y = Line('L', bounds=domain.bounds2)
+    domains_1d  = (domain_1d_x, domain_1d_y)
 
     M0s_1d = []
     M1s_1d = []
@@ -195,22 +196,21 @@ def test_KroneckerStencilMatrix_diagonal():
                                                [None, KroneckerStencilMatrix(V1cs[1], V1cs[1], M0s_1d[0], M1s_1d[1])]])
     M2_kron = KroneckerStencilMatrix(V2cs, V2cs, *M1s_1d)
 
-    # 3. Test!
+    # 3. Test whether M0/1/2.diagonal() is equal to M0/1/2_kron.diagonal() for all possible kwargs
 
-    for M, M_kron in zip([M0, M1, M2], [M0_kron, M1_kron, M2_kron]):
-        M_diag_arr      = []
-        M_kron_diag_arr = []
-
+    for M, M_kron in zip((M0, M1, M2), (M0_kron, M1_kron, M2_kron)):
         options = [True, False]
 
         for inverse in options:
             for sqrt in options:
                 M_diag = M.diagonal(inverse=inverse, sqrt=sqrt)
                 M_kron_diag = M_kron.diagonal(inverse=inverse, sqrt=sqrt)
-                M_diag_arr.append(M_diag)
-                M_kron_diag_arr.append(M_kron_diag)
 
-        for M_diag, M_kron_diag in zip(M_diag_arr, M_kron_diag_arr):
-            diff = M_diag.toarray() - M_kron_diag.toarray()
-            err = np.linalg.norm(diff)
-            assert err < 1e-10 # arbitrary bound (largest occuring error = 6.7e-13)
+                from psydac.fem.tests.test_dirichlet_projectors import _test_LO_equality_using_rng
+                _test_LO_equality_using_rng(M_diag, M_kron_diag, tol=1e-13)
+
+#==============================================================================
+@pytest.mark.parallel
+def test_KroneckerStencilMatrix_diagonal_parallel():
+    comm = MPI.COMM_WORLD
+    test_KroneckerStencilMatrix_diagonal(comm=comm)

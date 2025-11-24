@@ -260,8 +260,8 @@ class KroneckerStencilMatrix(LinearOperator):
         # Obtain nested numpy array of diagonal entries (or their inverse (square root))
         # by using the `diagonal` method of StencilMatrices
         diag = 1.
-        for mat in self.mats[::-1]:
-            diag = np.array([d*diag for d in mat.diagonal(inverse=inverse, sqrt=sqrt)._data], dtype='float64')
+        for mat, start, end in zip(self.mats[::-1], V.starts[::-1], V.ends[::-1]):
+            diag = np.array([d*diag for d in mat.diagonal(inverse=inverse, sqrt=sqrt)._data[start:end+1]])
 
         if out is not None:
             np.copyto(diag, out._data)
