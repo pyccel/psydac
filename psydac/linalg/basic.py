@@ -801,15 +801,14 @@ class SumLinearOperator(LinearOperator):
         return None
 
     def tosparse(self):
-        from scipy.sparse import csr_matrix
-        out = csr_matrix(self.shape, dtype=self.dtype)
-        for a in self._addends:
+        out = self.addends[0].tosparse()
+        for a in self.addends[1:]:
             out += a.tosparse()
         return out
 
     def toarray(self):
-        out = np.zeros(self.shape, dtype=self.dtype)
-        for a in self._addends:
+        out = self.addends[0].toarray()
+        for a in self.addends[1:]:
             out += a.toarray()
         return out
 
