@@ -73,10 +73,10 @@ def _test_LO_equality_using_rng(A, B, tol=1e-15):
         A.dot(x, out=y1)
         B.dot(x, out=y2)
 
-        diff = y1 - y2
-        err  = diff.inner(diff) / diff.space.dimension**2
+        diff            = y1 - y2
+        scaled_err_sqr  = diff.inner(diff) / diff.space.dimension**2
         
-        assert err < tol**2
+        assert scaled_err_sqr < tol**2
 
 #===============================================================================
 @pytest.mark.parametrize('dim', [1, 2])

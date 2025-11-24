@@ -801,9 +801,9 @@ class SumLinearOperator(LinearOperator):
         return None
 
     def tosparse(self):
-        out = self.addends[0].tosparse()
+        out = self.addends[0].tosparse().tocsr()
         for a in self.addends[1:]:
-            out += a.tosparse()
+            out += a.tosparse().tocsr()
         return out
 
     def toarray(self):

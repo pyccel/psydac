@@ -2097,15 +2097,13 @@ class StencilDiagonalMatrix(LinearOperator):
         # Calculate entries, or set `out=self` in default case
         if inverse:
             data = np.divide(1, diag, out=data)
-        elif out:
+            if sqrt:
+                data = np.sqrt(data, out=data)
+        elif sqrt:
+            data = np.sqrt(diag, out=data)
+        elif out not in (None, self):
             np.copyto(data, diag)
-        
-        if sqrt:
-            if (not inverse) and (out is None):
-                data = diag.copy()
-            np.sqrt(data, out=data)
-
-        if (not inverse) and (not sqrt) and (out is None):
+        else:
             out = self
 
         # If needed create a new StencilDiagonalMatrix object
