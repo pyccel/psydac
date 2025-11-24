@@ -12,12 +12,6 @@ def main():
         description="Accelerate all computational kernels in Psydac using Pyccel (editable install only)"
     )
 
-    import os
-    from subprocess import run as sub_run
-    import shutil
-
-    import psydac
-
     # Add Argument --language at the pyccel command
     parser.add_argument('--language',
                         type=str,
@@ -38,6 +32,12 @@ def main():
 
     # Read input arguments
     args = parser.parse_args()
+
+    import os
+    from subprocess import run as sub_run
+    import shutil
+
+    import psydac
 
     # get the absolute path to the psydac directory
     psydac_path = os.path.abspath(psydac.__path__[0])
