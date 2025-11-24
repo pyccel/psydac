@@ -1,22 +1,22 @@
-
-import argparse
-import os
-from subprocess import run as sub_run
-import shutil
-
-import psydac
-
-
 #The purpose of this file is to be launched after an editable installation of Psydac, to pyccelise all the Psydac kernels.
 #This file is useless during a classic installation because the kernels are already pyccelised in the construction folder.
 
-
 def main():
+    """
+    console command to pyccelise all the Psydac kernels.
+    """
+    import argparse
 
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         description="Accelerate all computational kernels in Psydac using Pyccel (editable install only)"
     )
+
+    import os
+    from subprocess import run as sub_run
+    import shutil
+
+    import psydac
 
     # Add Argument --language at the pyccel command
     parser.add_argument('--language',
