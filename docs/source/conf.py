@@ -52,6 +52,7 @@ extensions = [
 'sphinx.ext.githubpages',
 'sphinx_math_dollar',
 'sphinx.ext.mathjax',
+'nbsphinx',
 ]
 
 from docutils.nodes import FixedTextElement, literal,math
