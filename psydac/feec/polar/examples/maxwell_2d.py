@@ -266,20 +266,9 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
     else:
         exact_solution = CircularCavitySolution(R=R, c=c, m=m, n=n, scale=scale)
 
-    use_logical_sol = (shift_D == 0)
-
-    use_logical_sol = False  ## TODO: USE AS DEFAULT !
-    print(f'[use_logical_sol = {use_logical_sol}]')
-
-    # Exact fields, as callable functions of (t, s, theta) or (t, x, y)
-    if use_logical_sol:
-        Es_ex_t = exact_solution.Es_ex
-        Et_ex_t = exact_solution.Et_ex
-        B_log_ex_t = exact_solution.B_ex
-    else:
-        Ex_ex_t = exact_solution.Ex_ex
-        Ey_ex_t = exact_solution.Ey_ex
-        Bz_ex_t = exact_solution.Bz_ex
+    Ex_ex_t = exact_solution.Ex_ex
+    Ey_ex_t = exact_solution.Ey_ex
+    Bz_ex_t = exact_solution.Bz_ex
 
     # Logical domain: [0, R] x [0, 2pi]
     logical_bounds = [[0, R], [0, 2 * pi]]
@@ -606,12 +595,6 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
     Pi0, Pi1, Pi2 = derham_h.projectors(nquads=[degree[0] + 10, degree[1] + 10])
 
     # Geometric Projectors
-    # if use_logical_sol:
-    # As the analytical solution is already expressed in the logical domain we
-    # do not perform the pullback in Pi. To do that we cancel the mapping from
-    # derham_h.
-    # raise ValueError('discard this case, it should not be used anymore')
-    # derham_h._mapping = None
 
     # Time integration setup
     # --------------------------------------------------------------------------
@@ -620,23 +603,14 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
 
     if study_maxwell:
         # Callable exact fields
-        if use_logical_sol:
-            Es_ex = lambda t: (lambda eta1, eta2, t0=t: Es_ex_t(t0, eta1, eta2))
-            Et_ex = lambda t: (lambda eta1, eta2, t0=t: Et_ex_t(t0, eta1, eta2))
-            B_log_ex = lambda t: (lambda eta1, eta2, t0=t: B_log_ex_t(t0, eta1, eta2))
 
-            # Initial conditions, discrete fields  -- here no pull-back because mapping removed by hand...
-            E_log = Pi1((Es_ex(t), Et_ex(t)))
-            B_log = Pi2(B_log_ex(t))
+        Ex_ex = lambda t: (lambda x, y, t0=t: Ex_ex_t(t0, x, y))
+        Ey_ex = lambda t: (lambda x, y, t0=t: Ey_ex_t(t0, x, y))
+        Bz_ex = lambda t: (lambda x, y, t0=t: Bz_ex_t(t0, x, y))
 
-        else:
-            Ex_ex = lambda t: (lambda x, y, t0=t: Ex_ex_t(t0, x, y))
-            Ey_ex = lambda t: (lambda x, y, t0=t: Ey_ex_t(t0, x, y))
-            Bz_ex = lambda t: (lambda x, y, t0=t: Bz_ex_t(t0, x, y))
-
-            # Initial conditions, discrete fields -- here with a pull-back in the projections
-            E_log = Pi1((Ex_ex(t), Ey_ex(t)))
-            B_log = Pi2(Bz_ex(t))
+        # Initial conditions, discrete fields -- here with a pull-back in the projections
+        E_log = Pi1((Ex_ex(t), Ey_ex(t)))
+        B_log = Pi2(Bz_ex(t))
 
         # Initial conditions, spline coefficients
         e = E_log.coeffs
@@ -995,17 +969,11 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         #         Bz_values[i, j] = push_2d_l2(B_log, x1i, x2j, F)
         #         # Bz_values[i, j] = B(x1i, x2j)
 
-        #         if use_logical_sol:
-        #             Ex_ex_values[i, j], Ey_ex_values[i, j] = \
-        #                     push_2d_hcurl(Es_ex(t), Et_ex(t), x1i, x2j, F)
+        #         xij, yij = F(x1i, x2j)
+        #         Ex_ex_values[i, j], Ey_ex_values[i, j] = \
+        #                 Ex_ex_t(t, xij, yij), Ey_ex_t(t, xij, yij)
 
-        #             Bz_ex_values[i, j] = push_2d_l2(B_log_ex(t), x1i, x2j, F)
-        #         else:
-        #             xij, yij = F(x1i, x2j)
-        #             Ex_ex_values[i, j], Ey_ex_values[i, j] = \
-        #                     Ex_ex_t(t, xij, yij), Ey_ex_t(t, xij, yij)
-
-        #             Bz_ex_values[i, j] = Bz_ex_t(t, xij, yij)
+        #         Bz_ex_values[i, j] = Bz_ex_t(t, xij, yij)
 
         # ...
         # Animation and diags
@@ -1024,18 +992,11 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
             #         Bz_values[i, j] = push_2d_l2(B_log, x1i, x2j, F)
             #         # Bz_values[i, j] = B(x1i, x2j)
             #
-            #         if use_logical_sol:
-            #             Ex_ex_values[i, j], Ey_ex_values[i, j] = \
-            #                 push_2d_hcurl(Es_ex(t), Et_ex(t), x1i, x2j, F)
+            #         xij, yij = F(x1i, x2j)
+            #         Ex_ex_values[i, j], Ey_ex_values[i, j] = \
+            #             Ex_ex_t(t, xij, yij), Ey_ex_t(t, xij, yij)
             #
-            #             Bz_ex_values[i, j] = push_2d_l2(B_log_ex(t), x1i, x2j, F)
-            #
-            #         else:
-            #             xij, yij = F(x1i, x2j)
-            #             Ex_ex_values[i, j], Ey_ex_values[i, j] = \
-            #                 Ex_ex_t(t, xij, yij), Ey_ex_t(t, xij, yij)
-            #
-            #             Bz_ex_values[i, j] = Bz_ex_t(t, xij, yij)
+            #         Bz_ex_values[i, j] = Bz_ex_t(t, xij, yij)
             # # ...
             #
             # # max norm
@@ -1100,18 +1061,11 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
                 Bz_values[i, j] = push_2d_l2(B_serial, x1i, x2j, F_serial)
                 # Bz_values[i, j] = B(x1i, x2j)
 
-                if use_logical_sol:
-                    Ex_ex_values[i, j], Ey_ex_values[i, j] = \
-                        push_2d_hcurl(Es_ex(t), Et_ex(t), x1i, x2j, F)
+                xij, yij = F(x1i, x2j)
+                Ex_ex_values[i, j], Ey_ex_values[i, j] = \
+                    Ex_ex_t(t, xij, yij), Ey_ex_t(t, xij, yij)
 
-                    Bz_ex_values[i, j] = push_2d_l2(B_log_ex(t), x1i, x2j, F)
-
-                else:
-                    xij, yij = F(x1i, x2j)
-                    Ex_ex_values[i, j], Ey_ex_values[i, j] = \
-                        Ex_ex_t(t, xij, yij), Ey_ex_t(t, xij, yij)
-
-                    Bz_ex_values[i, j] = Bz_ex_t(t, xij, yij)
+                Bz_ex_values[i, j] = Bz_ex_t(t, xij, yij)
 
         # ...
 
