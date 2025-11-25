@@ -11,5 +11,5 @@ Examples
    :maxdepth: 1
    :caption: Notebooks:
 
-   Poisson_non_periodic
-   Helmholtz_non_periodic
+   examples/Poisson_non_periodic
+   examples/Helmholtz_non_periodic

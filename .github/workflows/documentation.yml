@@ -141,7 +141,8 @@ jobs:
 
     - name: Copy Notebooks
       run: |
-        cp -r examples/notebooks/* docs/source/
+        mkdir docs/source/examples
+        cp -r examples/notebooks/* docs/source/examples/
 
     - name: Make the sphinx doc
       run: |
@@ -152,7 +153,7 @@ jobs:
 
     - name: Setup Pages
       uses: actions/configure-pages@v5
-      
+
     - name: Upload artifact
       uses: actions/upload-pages-artifact@v3
       with:
