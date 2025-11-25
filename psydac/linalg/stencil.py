@@ -1419,11 +1419,12 @@ class StencilMatrix(LinearOperator):
         Returns
         -------
         StencilDiagonalMatrix
-            The matrix which contains the main diagonal of self (or its inverse).
+            The matrix which contains the main diagonal of self (or its inverse (square root)).
 
         """
-        # Check `inverse` argument
+        # Check `inverse` and `sqrt` argument
         assert isinstance(inverse, bool)
+        assert isinstance(sqrt, bool)
 
         # Determine domain and codomain of the StencilDiagonalMatrix
         V, W = self.domain, self.codomain
@@ -1435,7 +1436,6 @@ class StencilMatrix(LinearOperator):
             assert isinstance(out, StencilDiagonalMatrix)
             assert out.domain is V
             assert out.codomain is W
-
 
         # Extract diagonal data from self and identify output array
         diagonal_indices = self._get_diagonal_indices()
@@ -2049,16 +2049,21 @@ class StencilDiagonalMatrix(LinearOperator):
 
         return out
 
-    def diagonal(self, *, inverse = False, out = None):
+    def diagonal(self, *, inverse = False, sqrt = False, out = None):
         """
         Get the coefficients on the main diagonal as a StencilDiagonalMatrix object.
 
-        In the default case (inverse=False, out=None) self is returned.
+        In the default case (inverse=False, sqrt=False, out=None) self is returned.
 
         Parameters
         ----------
         inverse : bool
             If True, get the inverse of the diagonal. (Default: False).
+            Can be combined with sqrt to get the inverse square root.
+
+        sqrt : bool
+            If True, get the square root of the diagonal. (Default: False).
+            Can be combined with inverse to get the inverse square root.
 
         out : StencilDiagonalMatrix
             If provided, write the diagonal entries into this matrix. (Default: None).
@@ -2066,11 +2071,12 @@ class StencilDiagonalMatrix(LinearOperator):
         Returns
         -------
         StencilDiagonalMatrix
-            Either self, or another StencilDiagonalMatrix with the diagonal inverse.
+            Either self, or another StencilDiagonalMatrix with the diagonal (or its inverse (square root)).
 
         """
-        # Check `inverse` argument
+        # Check `inverse` and `sqrt` argument
         assert isinstance(inverse, bool)
+        assert isinstance(sqrt, bool)
 
         # Determine domain and codomain of the `out` matrix
         V, W = self.domain, self.codomain
@@ -2086,10 +2092,16 @@ class StencilDiagonalMatrix(LinearOperator):
             assert out.codomain is W
             data = out._data
 
+        diag = self._data
+
         # Calculate entries, or set `out=self` in default case
         if inverse:
             data = np.divide(1, diag, out=data)
-        elif out:
+            if sqrt:
+                data = np.sqrt(data, out=data)
+        elif sqrt:
+            data = np.sqrt(diag, out=data)
+        elif out not in (None, self):
             np.copyto(data, diag)
         else:
             out = self
