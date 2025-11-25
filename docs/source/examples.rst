@@ -6,6 +6,7 @@ Examples
 +------------------------------------------------------------------------------------------------------------------------+ 
 
 .. The notebooks get copied into the source directory by the continuous integration pipeline. 
+.. The notebooks should have all output cleared before being committed to the repository.
 .. toctree::
    :maxdepth: 1
    :caption: Notebooks:
