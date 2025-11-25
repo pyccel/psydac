@@ -1,14 +1,23 @@
-from functools import reduce
+from    functools import reduce
 
-import pytest
-import numpy as np
-from scipy.sparse import kron
+import  pytest
+import  numpy                   as np
+from    mpi4py                  import MPI
+from    scipy.sparse            import kron
 
-from psydac.ddm.cart       import DomainDecomposition, CartDecomposition
-from psydac.linalg.stencil import StencilVectorSpace
-from psydac.linalg.stencil import StencilVector
-from psydac.linalg.stencil import StencilMatrix
-from psydac.linalg.kron    import KroneckerStencilMatrix
+from    sympde.calculus         import inner
+from    sympde.expr             import integral, BilinearForm
+from    sympde.topology         import elements_of, Square, Line, Derham
+
+from    psydac.api.discretization import discretize
+from    psydac.api.settings     import PSYDAC_BACKEND_GPYCCEL
+from    psydac.ddm.cart         import DomainDecomposition, CartDecomposition
+from    psydac.linalg.kron      import KroneckerStencilMatrix
+from    psydac.linalg.block     import BlockLinearOperator
+from    psydac.linalg.stencil   import StencilVectorSpace
+from    psydac.linalg.stencil   import StencilVector
+from    psydac.linalg.stencil   import StencilMatrix
+
 #===============================================================================
 def compute_global_starts_ends(domain_decomposition, npts):
     ndims         = len(npts)
@@ -112,3 +121,96 @@ def test_KroneckerStencilMatrix(dtype, npts, pads, periodic):
 
     # Test dot product
     assert np.array_equal(M_sp.dot(w.toarray()), M.dot(w).toarray())
+
+#==============================================================================
+def test_KroneckerStencilMatrix_diagonal(comm=None):
+    """We create three mass matrices (Stencil/Block and Kronecker) belonging to a 2D de Rham sequence, and compare their diagonals."""
+
+    ncells   = [6, 7]
+    degree   = [3, 2]
+    mult     = [1, 2]
+    periodic = [False, True]
+
+    backend = PSYDAC_BACKEND_GPYCCEL
+
+    # 1. Obtain StencilMatrix / BlockLinearOperator (of StencilMatrices) mass matrices
+
+    domain = Square('S', bounds1=(0,1), bounds2=(0,2))
+    derham = Derham(domain, sequence=['h1', 'hcurl', 'l2'])
+
+    domain_h = discretize(domain, ncells=ncells, periodic=periodic, comm=comm)
+    derham_h = discretize(derham, domain_h, degree=degree, multiplicity=mult)
+
+    V0, V1, V2       = derham.spaces
+    V0h, V1h, V2h    = derham_h.spaces
+    V0cs, V1cs, V2cs = [Vh.coeff_space for Vh in derham_h.spaces]
+
+    u0, v0 = elements_of(V0, names='u0, v0')
+    u1, v1 = elements_of(V1, names='u1, v1')
+    u2, v2 = elements_of(V2, names='u2, v2')
+
+    a0 = BilinearForm((u0, v0), integral(domain, u0*v0))
+    a1 = BilinearForm((u1, v1), integral(domain, inner(u1, v1)))
+    a2 = BilinearForm((u2, v2), integral(domain, u2*v2))
+
+    a0h = discretize(a0, domain_h, (V0h, V0h), backend=backend)
+    a1h = discretize(a1, domain_h, (V1h, V1h), backend=backend)
+    a2h = discretize(a2, domain_h, (V2h, V2h), backend=backend)
+
+    M0 = a0h.assemble()
+    M1 = a1h.assemble()
+    M2 = a2h.assemble()
+
+    # 2. Obtain KroneckerStencilMatrix / BlockLinearOperator (of KroneckerStencilMatrices) mass matrices
+
+    domain_1d_x = Line('L', bounds=domain.bounds1)
+    domain_1d_y = Line('L', bounds=domain.bounds2)
+    domains_1d  = (domain_1d_x, domain_1d_y)
+
+    M0s_1d = []
+    M1s_1d = []
+
+    for n, d, m, p, domain_1d in zip(ncells, degree, mult, periodic, domains_1d):
+        derham_1d = Derham(domain_1d)
+
+        domain_1d_h = discretize(domain_1d, ncells=[n, ], periodic=[p, ])
+        derham_1d_h = discretize(derham_1d, domain_1d_h, degree=[d, ], multiplicity=[m, ])
+
+        V0_1d,  V1_1d  = derham_1d.spaces
+        V0h_1d, V1h_1d = derham_1d_h.spaces
+        
+        u0_1d, v0_1d = elements_of(V0_1d, names='u0, v0')
+        u1_1d, v1_1d = elements_of(V1_1d, names='u1, v1')
+
+        a0_1d = BilinearForm((u0_1d, v0_1d), integral(domain_1d, u0_1d*v0_1d))
+        a1_1d = BilinearForm((u1_1d, v1_1d), integral(domain_1d, u1_1d*v1_1d))
+
+        a0h_1d = discretize(a0_1d, domain_1d_h, (V0h_1d, V0h_1d))
+        a1h_1d = discretize(a1_1d, domain_1d_h, (V1h_1d, V1h_1d))
+
+        M0s_1d.append(a0h_1d.assemble())
+        M1s_1d.append(a1h_1d.assemble())
+
+    M0_kron = KroneckerStencilMatrix(V0cs, V0cs, *M0s_1d)
+    M1_kron = BlockLinearOperator(V1cs, V1cs, [[KroneckerStencilMatrix(V1cs[0], V1cs[0], M1s_1d[0], M0s_1d[1]), None],
+                                               [None, KroneckerStencilMatrix(V1cs[1], V1cs[1], M0s_1d[0], M1s_1d[1])]])
+    M2_kron = KroneckerStencilMatrix(V2cs, V2cs, *M1s_1d)
+
+    # 3. Test whether M0/1/2.diagonal() is equal to M0/1/2_kron.diagonal() for all possible kwargs
+
+    for M, M_kron in zip((M0, M1, M2), (M0_kron, M1_kron, M2_kron)):
+        options = [True, False]
+
+        for inverse in options:
+            for sqrt in options:
+                M_diag = M.diagonal(inverse=inverse, sqrt=sqrt)
+                M_kron_diag = M_kron.diagonal(inverse=inverse, sqrt=sqrt)
+
+                from psydac.fem.tests.test_dirichlet_projectors import _test_LO_equality_using_rng
+                _test_LO_equality_using_rng(M_diag, M_kron_diag, tol=1e-13)
+
+#==============================================================================
+@pytest.mark.parallel
+def test_KroneckerStencilMatrix_diagonal_parallel():
+    comm = MPI.COMM_WORLD
+    test_KroneckerStencilMatrix_diagonal(comm=comm)
