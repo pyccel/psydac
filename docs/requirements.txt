@@ -5,3 +5,4 @@ tomli
 sphinx-math-dollar
 nbsphinx
 ipykernel
+pandoc
