@@ -4,6 +4,7 @@ __all__     = ['__version__', 'api', 'cad', 'core', 'ddm', 'feec', 'fem',
 
 from psydac.version import __version__
 
+# TODO [YG 24.11.2025]: verify if we can remove the imports below
 from psydac import api
 from psydac import cad
 from psydac import core
