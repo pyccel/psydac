@@ -187,4 +187,4 @@ def test_square_block_basic(n1, n2, p1, p2, P1=False, P2=False):
 #===============================================================================
 if __name__ == "__main__":
     import sys
-    pytest.main( sys.argv )
+    pytest.main(sys.argv)

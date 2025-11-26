@@ -1,5 +1,3 @@
-# -*- coding: UTF-8 -*-
-#
 import pytest
 import numpy as np
 
@@ -226,4 +224,4 @@ def test_block_linear_operator_parallel_dot( dtype, n1, n2, p1, p2, P1, P2 ):
 #===============================================================================
 if __name__ == "__main__":
     import sys
-    pytest.main( sys.argv )
+    pytest.main(sys.argv)
