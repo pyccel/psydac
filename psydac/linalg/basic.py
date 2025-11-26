@@ -411,25 +411,25 @@ class LinearOperator(ABC):
     #-------------------------------------
     def _tosparse_array(self, out=None, is_sparse=False):
         """
-        Transforms the linear operator into a matrix, which is either stored in dense or sparse format.
+        Transforms the linear operator into a matrix in dense or sparse format.
 
         Parameters
         ----------
-        out : Numpy.ndarray, optional
+        out : numpy.ndarray, optional
             If given, the output will be written in-place into this array.
         is_sparse : bool, optional
-            If set to True the method returns the matrix as a Scipy sparse matrix, if set to false
-            it returns the full matrix as a Numpy.ndarray
+            If True the method returns the matrix as a SciPy sparse matrix, if
+            False it returns the full matrix as a numpy.ndarray.
 
         Returns
         -------
-        out : Numpy.ndarray or scipy.sparse.csr.csr_matrix
-            The matrix form of the linear operator. If ran in parallel each rank gets the full
-            matrix representation of the linear operator.
+        out : numpy.ndarray or scipy.sparse.csr.csr_matrix
+            The matrix form of the linear operator. If ran in parallel each
+            rank gets the full matrix representation of the linear operator.
         """
         # v will be the unit vector with which we compute Av = ith column of A.
         v = self.domain.zeros()
-        # We define a temporal vector
+        # We define a temporary vector
         tmp2 = self.codomain.zeros()
 
         #We need to determine if we are a blockvector or a stencilvector but we are not able to use 
@@ -486,7 +486,7 @@ class LinearOperator(ABC):
             # since the size of npts changes denpending on h we need to compute a starting point for
             # our row index
             spoint2 = 0
-            if (is_sparse == False):
+            if not is_sparse:
                 #We also get the BlockVector's pads
                 pds = np.array([vi.pads for vi in tmp2])
                 spoint2list = [spoint2]
@@ -547,7 +547,7 @@ class LinearOperator(ABC):
         rank = comm.Get_rank()
         size = comm.Get_size()
 
-        if (is_sparse == False):
+        if not is_sparse:
             if out is None:
                 # We declare the matrix form of our linear operator
                 out = np.zeros(
@@ -594,7 +594,7 @@ class LinearOperator(ABC):
 
         currentrank = 0
         # Each rank will take care of setting to 1 each one of its entries while all other entries remain zero.
-        while (currentrank < size):
+        while currentrank < size:
             # since the size of npts changes denpending on h we need to compute a starting point for
             # our column index
             spoint = 0
@@ -627,7 +627,7 @@ class LinearOperator(ABC):
                     
                     # Case in which tmp2 is a StencilVector
                     if BoS2 == "s":
-                        if is_sparse == False:
+                        if not is_sparse:
                             #We iterate over the entries of tmp2 that belong to our rank
                             #The pyccel kernels are tantamount to this for loop.
                             #for ii in itertools.product(*itterables2):
@@ -654,7 +654,7 @@ class LinearOperator(ABC):
                     elif BoS2 =="b":
                         # We iterate over the stencil vectors inside the BlockVector
                         for hh in range(nsp2):
-                            if is_sparse == False:
+                            if not is_sparse:
                                 itterables2aux = np.array(itterables2[hh])
                                 # We iterate over all the tmp2 entries that belong to rank number currentrank
                                 #The pyccel kernels are tantamount to this for loop.
@@ -695,39 +695,37 @@ class LinearOperator(ABC):
                 npredim += ndim[h]
             currentrank += 1
 
-        if is_sparse == False:
+        if not is_sparse:
             return out
         else:
             return sparse.csr_matrix((data, (row, colarr)), shape=(numrows, numcols))
 
-    # Function that returns the local matrix corresponding to the linear operator. Returns a scipy.sparse.csr.csr_matrix.
     def tosparse(self):
         """
-        Transforms the linear operator into a matrix, which is stored in sparse csr format.
+        Transforms the linear operator into a matrix in sparse CSR format.
 
         Returns
         -------
-        out : Numpy.ndarray or scipy.sparse.csr.csr_matrix
-            The matrix form of the linear operator. If ran in parallel each rank gets the local
-            matrix representation of the linear operator.
+        out : numpy.ndarray or scipy.sparse.csr.csr_matrix
+            The matrix form of the linear operator. If ran in parallel each
+            rank gets the local matrix representation of the linear operator.
         """
         return self._tosparse_array(is_sparse=True)
 
-    # Function that returns the matrix corresponding to the linear operator. Returns a numpy array.
     def toarray(self, out=None):
         """
-        Transforms the linear operator into a matrix, which is stored in dense format.
+        Transforms the linear operator into a matrix in dense format.
 
         Parameters
         ----------
-        out : Numpy.ndarray, optional
+        out : numpy.ndarray, optional
             If given, the output will be written in-place into this array.
             
         Returns
         -------
-        out : Numpy.ndarray
-            The matrix form of the linear operator. If ran in parallel each rank gets the local
-            matrix representation of the linear operator.
+        out : numpy.ndarray
+            The matrix form of the linear operator. If ran in parallel each
+            rank gets the local matrix representation of the linear operator.
         """
         return self._tosparse_array(out=out, is_sparse=False)
 
@@ -760,7 +758,6 @@ class LinearOperator(ABC):
         out : Vector
             The vector to be incremented by `self @ v`. It must belong to the
             codomain of `self`.
-
         """
         assert isinstance(  v, Vector)
         assert isinstance(out, Vector)
@@ -1213,7 +1210,6 @@ class ComposedLinearOperator(LinearOperator):
         """
         A tuple containing the storage vectors that are repeatedly being used upon calling the `dot` method.
         This avoids the creation of new vectors at each call of the `dot` method.
-        
         """
         return self._tmp_vectors
 
@@ -1425,7 +1421,6 @@ class InverseLinearOperator(LinearOperator):
         no other options are viable, as it breaks the one-to-one map between
         the original linear operator $A$ (passed to the constructor) and the
         current `InverseLinearOperator` object $A^{-1}$. Use with extreme care!
-
         """
         return self._A
     
