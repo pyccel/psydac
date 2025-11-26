@@ -371,14 +371,14 @@ class DiscreteDeRham(BasicDiscrete):
 
         Returns
         -------
-        tuple psydac.linalg.stencil.StencilMatrix | psydac.linalg.block.BlockLinearOperator | list
+        tuple
             tuple of psydac.linalg.stencil.StencilMatrix and/or psydac.linalg.block.BlockLinearOperator
             LST preconditioner(s) for the passed mass matrices.
 
         References
         ----------
-        [1] Gabriele Loli, Giancarlo Sangalli, Mattia Tani, Easy and efficient preconditioning of the isogeometric mass
-            matrix, Elsevier 2022
+        [1] Gabriele Loli, Giancarlo Sangalli, Mattia Tani. “Easy and efficient preconditioning of the isogeometric mass 
+            matrix”. In: Computers & Mathematics with Applications 116 (2022), pp. 245–264
         
         """
         # To avoid circular imports

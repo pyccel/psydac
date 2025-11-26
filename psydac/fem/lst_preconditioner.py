@@ -59,9 +59,8 @@ def construct_LST_preconditioner(M, domain_h, fem_space, hom_bc=False, kind=None
 
     References
     ----------
-    [1] Gabriele Loli, Giancarlo Sangalli, Mattia Tani, Easy and efficient preconditioning of the isogeometric mass
-        matrix, Elsevier 2022
-    
+    [1] Gabriele Loli, Giancarlo Sangalli, Mattia Tani. “Easy and efficient preconditioning of the isogeometric mass 
+        matrix”. In: Computers & Mathematics with Applications 116 (2022), pp. 245–264
     """
 
     dim = fem_space.ldim
