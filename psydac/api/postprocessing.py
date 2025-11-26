@@ -3,9 +3,6 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-# coding: utf-8
-#
-# Copyright 2019 Yaman Güçlü
 
 # TODO [MCP 03.2025]: the new functions patch_spaces and component_spaces may be used instead of the ambiguous 'spaces'
 
