@@ -3,8 +3,6 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-# coding: utf-8
-
 # todo: this file has a lot of redundant code with psydac/feec/multipatch/multipatch_domain_utilities.py
 # it should probably be removed in the future
 

@@ -3,8 +3,7 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-# -*- coding: UTF-8 -*-
-#
+
 # A note on the mappings used in these tests:
 #
 #   - 'identity_2d.h5' is the identity mapping on the unit square [0, 1] X [0, 1]

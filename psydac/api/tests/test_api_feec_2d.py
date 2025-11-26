@@ -3,9 +3,6 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-# coding: utf-8
-# Copyright 2021 Yaman Güçlü
-
 """
     2D time-dependent Maxwell simulation using FEEC and time splitting with
     two operators. These integrate exactly one of the two equations,
