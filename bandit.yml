@@ -5,3 +5,5 @@
 #       we do not know if this is possible.
 skips:
   - B101  # Ignore assert statements
+  - B404  # Ignore warnings about importing subprocess
+  - B603  # Ignore warnings about calling subprocess functions without shell=True

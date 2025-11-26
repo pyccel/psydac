@@ -96,7 +96,7 @@ The classical installation translates all kernel files to Fortran without user i
 
 -   **Only in development mode**:
     ```bash
-    python /path/to/psydac/psydac_accelerate.py [--language LANGUAGE] [--openmp]
+    psydac-accelerate [--language LANGUAGE] [--openmp]
     ```
 
 ## Examples and Tutorials

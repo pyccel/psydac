@@ -30,7 +30,7 @@ from psydac.api.fem_sum_form import DiscreteSumForm
 from psydac.api.fem          import DiscreteBilinearForm
 from psydac.api.fem          import DiscreteLinearForm
 from psydac.api.fem          import DiscreteFunctional
-from psydac.api.feec         import DiscreteDeRham, DiscreteDeRhamMultipatch
+from psydac.api.feec         import DiscreteDeRham, MultipatchDiscreteDeRham
 from psydac.api.glt          import DiscreteGltExpr
 from psydac.api.expr         import DiscreteExpr
 from psydac.api.equation     import DiscreteEquation
@@ -199,7 +199,7 @@ def discretize_derham_multipatch(derham, domain_h, **kwargs):
     Create a discrete multipatch de Rham sequence from a symbolic one.
     
     This function creates the broken discrete spaces from the symbolic ones, and then
-    creates a DiscreteDeRhamMultipatch object from them.
+    creates a MultipatchDiscreteDeRham object from them.
 
     Parameters
     ----------
@@ -214,7 +214,7 @@ def discretize_derham_multipatch(derham, domain_h, **kwargs):
 
     Returns
     -------
-    DiscreteDeRhamMultipatch
+    MultipatchDiscreteDeRham
       The discrete multipatch de Rham sequence containing the discrete spaces, 
       differential operators and projectors.
 
@@ -229,7 +229,7 @@ def discretize_derham_multipatch(derham, domain_h, **kwargs):
     spaces = [discretize_space(V, domain_h, basis=basis, **kwargs) \
             for V, basis in zip(derham.spaces, bases)]
 
-    return DiscreteDeRhamMultipatch(
+    return MultipatchDiscreteDeRham(
         domain_h = domain_h,
         spaces   = spaces
     )
