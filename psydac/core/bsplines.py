@@ -3,10 +3,6 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-# coding: utf-8
-#
-# Copyright 2018 Yaman Güçlü
-
 """
 Basic module that provides the means for evaluating the B-Splines basis
 functions and their derivatives. In order to simplify automatic Fortran code
