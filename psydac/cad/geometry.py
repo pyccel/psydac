@@ -3,24 +3,22 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-# coding: utf-8
-#
+
 # a Geometry class contains the list of patches and additional information about
 # the topology i.e. connectivity, boundaries
 # For the moment, it is used as a container, that can be loaded from a file
 # (hdf5)
 from itertools import product
 from collections import abc
-import numpy as np
 import string
 import random
-import h5py
 import yaml
 import os
 import string
 import random
 
-
+import numpy as np
+import h5py
 from mpi4py import MPI
 
 from psydac.fem.splines        import SplineSpace

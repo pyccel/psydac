@@ -3,11 +3,11 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-# coding: utf-8
-#
+import os
+
 import pytest
 import numpy as np
-import os
+from mpi4py import MPI
 
 from sympde.topology import Domain, Line, Square, Cube, Mapping
 
@@ -22,7 +22,6 @@ from psydac.fem.tensor               import TensorFemSpace
 from psydac.utilities.utils          import refine_array_1d
 from psydac.ddm.cart                 import DomainDecomposition
 
-from mpi4py import MPI
 
 base_dir = os.path.dirname(os.path.realpath(__file__))
 #==============================================================================
