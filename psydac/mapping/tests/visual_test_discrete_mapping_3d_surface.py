@@ -3,9 +3,6 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-# coding: utf-8
-#
-# Copyright 2018 Yaman Güçlü
 
 #==============================================================================
 # Driver
@@ -21,7 +18,6 @@ def main(*, mapping, degree, ncells, name='F'):
                                                     TorusSurfaceMapping)
 
     from psydac.mapping.discrete import SplineMapping
-    from psydac.fem.basic        import FemField
     from psydac.fem.splines      import SplineSpace
     from psydac.fem.tensor       import TensorFemSpace
     from psydac.ddm.cart         import DomainDecomposition

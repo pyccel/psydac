@@ -4,14 +4,14 @@
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
 import os
-import pytest
 
+import pytest
 import numpy as np
 import h5py as h5
 
-from sympde.topology import Domain
-
 from igakit.cad import circle, ruled
+
+from sympde.topology import Domain
 
 from psydac.api.discretization import discretize
 from psydac.core.bsplines import cell_index
@@ -20,6 +20,7 @@ from psydac.fem.splines import SplineSpace
 from psydac.mapping.discrete import NurbsMapping
 from psydac.utilities.utils import refine_array_1d
 from psydac.ddm.cart        import DomainDecomposition
+
 
 try:
     mesh_dir = os.environ['PSYDAC_MESH_DIR']
