@@ -3,10 +3,6 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-# coding: utf-8
-#
-# Copyright 2018 Yaman Güçlü
-
 from psydac.linalg.stencil import StencilVectorSpace
 from psydac.linalg.block   import BlockVectorSpace
 from psydac.polar .dense   import DenseVectorSpace
