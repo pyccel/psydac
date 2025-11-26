@@ -3,7 +3,6 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-# -*- coding: UTF-8 -*-
 __all__     = ['__version__', 'api', 'cad', 'core', 'ddm', 'feec', 'fem',
                'linalg', 'mapping', 'utilities']
 
