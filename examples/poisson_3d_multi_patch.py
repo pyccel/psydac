@@ -3,10 +3,11 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-import pytest      
 import time
-import matplotlib.pyplot as plt
+
+import pytest
 import numpy as np
+import matplotlib.pyplot as plt
 from mpi4py import MPI
 
 from sympy.core.containers import Tuple
@@ -18,7 +19,6 @@ from sympde.core     import Constant
 from sympde.calculus import grad, dot, inner, rot, div
 from sympde.calculus import laplace, bracket, convect
 from sympde.calculus import jump, avg, Dn, minus, plus
-
 from sympde.topology import ScalarFunctionSpace
 from sympde.topology import element_of, elements_of
 from sympde.topology import InteriorDomain, Union
@@ -29,19 +29,19 @@ from sympde.topology import Cube
 from sympde.topology import ElementDomain
 from sympde.topology import Area
 from sympde.topology import IdentityMapping, PolarMapping, AffineMapping
-                         
-from sympde.expr.expr          import LinearExpr
-from sympde.expr.expr          import LinearForm, BilinearForm
-from sympde.expr.expr          import integral              
-from sympde.expr.expr          import Functional, Norm                       
-from sympde.expr.expr          import linearize                      
-from sympde.expr.evaluation    import TerminalExpr
-from sympde.expr               import find, EssentialBC
+from sympde.expr.expr         import LinearExpr
+from sympde.expr.expr         import LinearForm, BilinearForm
+from sympde.expr.expr         import integral              
+from sympde.expr.expr         import Functional, Norm                       
+from sympde.expr.expr         import linearize                      
+from sympde.expr.evaluation   import TerminalExpr
+from sympde.expr              import find, EssentialBC
 
 from psydac.api.discretization import discretize
 from psydac.fem.basic          import FemField
 from psydac.utilities.utils    import refine_array_1d
 from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL
+
 
 def union(domains, name):
     assert len(domains)>1
@@ -56,7 +56,6 @@ def set_interfaces(domain, interfaces):
     return domain
 
 #==============================================================================
-
 def run_poisson_3d_multi_patch(solution, f, domain, ncells, degree, comm=None, backend=None):
 
     #+++++++++++++++++++++++++++++++
