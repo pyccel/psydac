@@ -3,14 +3,12 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-# -*- coding: UTF-8 -*-
+import time
 
 import pytest
-import time
 import numpy as np
 from mpi4py import MPI
 from sympy  import pi, sin, cos, Tuple, Matrix
-
 from scipy.sparse.linalg import spsolve, inv
 
 from sympde.calculus      import grad, dot, curl, cross
