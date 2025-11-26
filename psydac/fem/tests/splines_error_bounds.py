@@ -3,9 +3,7 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-# coding: utf-8
-# Copyright 2018 Yaman Güçlü
-#
+
 # This file is the Python translation of a Selalib Fortran module:
 # 'selalib/src/splines/tests/m_splines_error_bounds.F90'
 

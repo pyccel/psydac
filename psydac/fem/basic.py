@@ -3,8 +3,6 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-# coding: utf-8
-
 """
 In order to avoid multiple inheritence, we define the base objects for Finite
 Elements as abstract classes that contain a topological member. This member can

@@ -3,21 +3,20 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-# coding: utf-8
+from collections import OrderedDict
 
 from mpi4py import MPI
 from sympy import lambdify
-
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib import cm, colors
-from collections import OrderedDict
 
 from psydac.linalg.utilities import array_to_psydac
 from psydac.fem.basic import FemField, FemSpace
 from psydac.utilities.utils import refine_array_1d
 from psydac.feec.pull_push import push_2d_h1_vec, push_2d_h1, push_2d_hcurl, push_2d_hdiv, push_2d_l2
+
 
 __all__ = (
     'get_grid_vals',

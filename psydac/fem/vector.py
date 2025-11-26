@@ -3,13 +3,13 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-# coding: utf-8
 
 # TODO: - have a block version for VectorSpace when all component spaces are the same
-import numpy as np
 
 from functools import reduce
 from typing import Optional
+
+import numpy as np
 
 from sympde.topology.space import BasicFunctionSpace
 from sympde.topology.callable_mapping import BasicCallableMapping

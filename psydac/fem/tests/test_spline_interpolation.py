@@ -3,13 +3,11 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-# coding: utf-8
-# Copyright 2018 Yaman Güçlü
+import time
 
 from mpi4py import MPI
 import numpy as np
 import pytest
-import time
 
 from psydac.core.bsplines import make_knots
 from psydac.fem.basic     import FemField

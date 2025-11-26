@@ -3,15 +3,13 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-# -*- coding: UTF-8 -*-
+from numpy import linspace
 
 from psydac.fem.basic   import FemField
 from psydac.fem.splines import SplineSpace
 from psydac.fem.tensor  import TensorFemSpace
 from psydac.fem.vector  import VectorFemSpace
 from psydac.ddm.cart    import DomainDecomposition
-
-from numpy import linspace
 
 
 def test_1d_1():

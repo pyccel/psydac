@@ -3,10 +3,10 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-import numpy as np
 from collections.abc import Iterable
 
-from scipy.sparse               import diags
+import numpy as np
+from scipy.sparse import diags
 
 from sympde.topology            import element_of, Boundary
 from sympde.calculus            import dot
@@ -21,6 +21,7 @@ from psydac.linalg.basic        import LinearOperator, Vector
 from psydac.linalg.kron         import KroneckerDenseMatrix
 from psydac.linalg.stencil      import StencilVectorSpace, StencilVector
 from psydac.linalg.utilities    import array_to_psydac
+
 
 __all__ = ('knots_to_insert', 'knot_insertion_projection_operator', 'get_dual_dofs',
            'DirichletProjector', 'MultipatchDirichletProjector')
