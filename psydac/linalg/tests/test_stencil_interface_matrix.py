@@ -3,11 +3,8 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-# -*- coding: UTF-8 -*-
-
 import pytest
 import numpy as np
-from random import random
 
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix, StencilInterfaceMatrix
 from psydac.api.settings   import *

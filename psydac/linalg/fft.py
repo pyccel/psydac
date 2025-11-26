@@ -3,13 +3,15 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
+import os
+
+import numpy as np
+import scipy.fft as scifft
+
 from psydac.linalg.basic import LinearOperator, LinearSolver
 from psydac.linalg.stencil import StencilVectorSpace
 from psydac.linalg.kron import KroneckerLinearSolver
 
-import numpy as np
-import scipy.fft as scifft
-import os
 
 class DistributedFFTBase(LinearOperator):
     """

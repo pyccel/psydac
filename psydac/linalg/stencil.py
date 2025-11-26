@@ -3,16 +3,11 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-# coding: utf-8
-#
-# Copyright 2018 Yaman Güçlü
-
 import os
 import warnings
+from types import MappingProxyType
 
 import numpy as np
-
-from types        import MappingProxyType
 from scipy.sparse import coo_matrix, diags as sp_diags
 from mpi4py       import MPI
 

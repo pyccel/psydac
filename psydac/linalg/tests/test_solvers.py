@@ -10,6 +10,7 @@ from    psydac.ddm.cart             import DomainDecomposition, CartDecompositio
 from    psydac.linalg.solvers       import inverse
 from    psydac.linalg.stencil       import StencilVectorSpace, StencilMatrix, StencilVector
 
+
 def define_data_hermitian(n, p, dtype=float):
     domain_decomposition = DomainDecomposition([n - p], [False])
     cart = CartDecomposition(domain_decomposition, [n], [np.array([0])], [np.array([n - 1])], [p], [1])

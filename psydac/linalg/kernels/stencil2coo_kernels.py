@@ -3,7 +3,6 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-# coding: utf-8
 
 #!!!!!!!!!!!!!
 #TODO avoid using The expensive modulo operator % in the non periodic case to make the methods faster

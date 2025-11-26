@@ -3,10 +3,6 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-# coding: utf-8
-#
-# Copyright 2018 Yaman Güçlü, Jalal Lakhlili
-# Copyright 2022 Yaman Güçlü, Said Hadjout, Julian Owezarek
 """
 provides the fundamental classes for linear algebra operations.
 

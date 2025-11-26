@@ -3,10 +3,9 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-# coding: utf-8
+from math import sqrt
 
 import numpy as np
-from math import sqrt
 
 from psydac.linalg.basic   import Vector
 from psydac.linalg.stencil import StencilVector, StencilVectorSpace

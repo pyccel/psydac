@@ -3,8 +3,6 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-# coding: utf-8
-
 from scipy.sparse import sparray, csr_array, bsr_array
 from scipy.sparse import spmatrix, csr_matrix, bsr_matrix
 

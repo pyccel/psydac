@@ -3,13 +3,9 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-# coding: utf-8
-#
-# Copyright 2018 Jalal Lakhlili, Yaman Güçlü
+from types import MappingProxyType
 
 import numpy as np
-
-from types import MappingProxyType
 from scipy.sparse import bmat, lil_matrix
 
 from psydac.linalg.basic    import VectorSpace, Vector, LinearOperator

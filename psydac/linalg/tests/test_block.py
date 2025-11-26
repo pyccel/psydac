@@ -3,12 +3,11 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-# -*- coding: UTF-8 -*-
-#
+from random import random, seed
+
 import pytest
 import numpy as np
 from scipy.sparse import csr_matrix
-from random import random, seed
 
 from psydac.linalg.direct_solvers import SparseSolver
 from psydac.linalg.stencil        import StencilVectorSpace, StencilVector, StencilMatrix

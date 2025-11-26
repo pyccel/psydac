@@ -3,13 +3,13 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-# coding: utf-8
 """
 This module provides iterative solvers and preconditioners.
 
 """
-import numpy as np
 from math import sqrt
+
+import numpy as np
 
 from psydac.utilities.utils  import is_real
 from psydac.linalg.utilities import _sym_ortho

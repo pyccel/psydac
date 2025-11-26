@@ -3,10 +3,6 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-# coding: utf-8
-# Copyright 2018 Jalal Lakhlili, Yaman Güçlü
-
-from abc                 import abstractmethod
 import numpy               as np
 from scipy.linalg.lapack import dgbtrf, dgbtrs, sgbtrf, sgbtrs, cgbtrf, cgbtrs, zgbtrf, zgbtrs
 from scipy.sparse        import spmatrix
