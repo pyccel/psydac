@@ -3,8 +3,6 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-# coding: utf-8
-#!/usr/bin/env python
 
 # TODO add version
 #  --version  show program's version number and exit
