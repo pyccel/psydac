@@ -3,8 +3,6 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-# Contents of test_cart_1d.py
-
 import numpy as np
 
 from psydac.ddm.blocking_data_exchanger    import BlockingCartDataExchanger

@@ -3,12 +3,11 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-# coding: utf-8
-
 import os
-import numpy as np
 from itertools import product
-from mpi4py    import MPI
+
+import numpy as np
+from mpi4py import MPI
 
 from psydac.ddm.partition import compute_dims, partition_procs_per_patch
 

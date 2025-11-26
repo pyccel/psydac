@@ -3,12 +3,11 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-# coding: utf-8
-
 from .cart                       import CartDecomposition, InterfaceCartDecomposition
 from .blocking_data_exchanger    import BlockingCartDataExchanger
 from .nonblocking_data_exchanger import NonBlockingCartDataExchanger
 from .interface_data_exchanger   import InterfaceCartDataExchanger
+
 
 __all__ = ('get_data_exchanger',)
 

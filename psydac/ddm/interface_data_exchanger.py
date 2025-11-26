@@ -3,11 +3,10 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-# coding: utf-8
-
 from mpi4py import MPI
 
 from .cart import InterfaceCartDecomposition, find_mpi_type
+
 
 __all__ = ('InterfaceCartDataExchanger',)
 

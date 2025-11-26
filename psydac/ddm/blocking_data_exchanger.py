@@ -3,13 +3,12 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-# coding: utf-8
-
 import numpy as np
 from mpi4py import MPI
 
 from .cart import CartDecomposition, find_mpi_type
 from .basic import CartDataExchanger
+
 
 __all__ = ('BlockingCartDataExchanger',)
 

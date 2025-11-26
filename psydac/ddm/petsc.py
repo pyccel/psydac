@@ -3,10 +3,9 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-# coding: utf-8
+from itertools import product
 
 import numpy as np
-from itertools import product
 
 from .cart import CartDecomposition
 

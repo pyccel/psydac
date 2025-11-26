@@ -3,7 +3,6 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-# File test_multicart_2d.py
 
 #===============================================================================
 # TEST MultiCartDecomposition in 2D

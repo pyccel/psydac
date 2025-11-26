@@ -8,6 +8,7 @@ import numpy.ma as ma
 
 from sympy.ntheory import factorint
 
+
 __all__ = ('compute_dims', 'partition_procs_per_patch')
 
 #==============================================================================
