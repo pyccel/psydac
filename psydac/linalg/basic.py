@@ -530,7 +530,7 @@ class LinearOperator(ABC):
             ndim2 = self.codomain.ndim
             #We build our ranges of iteration
             itterables2 = []
-            if (is_sparse == False):
+            if not is_sparse:
                 for ii in range(ndim2):
                     itterables2.append([starts2[ii], ends2[ii]+1])
                 itterables2 = np.array(itterables2)
