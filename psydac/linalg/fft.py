@@ -1,3 +1,8 @@
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 from psydac.linalg.basic import LinearOperator, LinearSolver
 from psydac.linalg.stencil import StencilVectorSpace
 from psydac.linalg.kron import KroneckerLinearSolver
