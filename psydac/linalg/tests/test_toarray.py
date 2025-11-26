@@ -1,21 +1,20 @@
 import pytest
 import numpy as np
-
-from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
-from psydac.linalg.basic import LinearOperator, ZeroOperator, IdentityOperator, ComposedLinearOperator, InverseLinearOperator, SumLinearOperator, PowerLinearOperator, ScaledLinearOperator
-from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
-from psydac.linalg.solvers import ConjugateGradient, inverse
-from psydac.ddm.cart       import DomainDecomposition, CartDecomposition
 from mpi4py import MPI
-from random import random, seed
-#===============================================================================
 
+from psydac.linalg.block   import BlockLinearOperator, BlockVector, BlockVectorSpace
+from psydac.linalg.basic   import InverseLinearOperator, PowerLinearOperator
+from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
+from psydac.linalg.solvers import inverse
+from psydac.ddm.cart       import DomainDecomposition, CartDecomposition
+
+#===============================================================================
 n1array = [2, 7]
 n2array = [2, 3]
 p1array = [1, 3]
 p2array = [1, 3]
 
-
+#===============================================================================
 def compute_global_starts_ends(domain_decomposition, npts):
     ndims         = len(npts)
     global_starts = [None]*ndims
@@ -97,7 +96,6 @@ def test_square_stencil_basic(n1, n2, p1, p2, P1=False, P2=False):
                     if (P1 or 0 <= i1+k1 < n1) and (P2 or 0 <= i2+k2 < n2):
                         A1[i,j] = nonzero_values[k1,k2]
 
-
     ###
     ### Use PowerLinearOperator to test toarray function.
     ###
@@ -127,7 +125,6 @@ def test_square_stencil_basic(n1, n2, p1, p2, P1=False, P2=False):
     
     Itest = np.matmul(A1,Sinvarr)
     assert np.allclose(Itest, np.eye(np.size(Itest[0])),atol= 10**(-5))
-    
 
 #===============================================================================
 @pytest.mark.parametrize('n1', n1array)
@@ -184,8 +181,6 @@ def test_square_block_basic(n1, n2, p1, p2, P1=False, P2=False):
     Bpowarr = Bpow.toarray()
     assert isinstance(Bpow, PowerLinearOperator)
     assert np.array_equal(np.matmul(Bpowarr,vbarr),Bpow.dot(vb).toarray())
-    
-
 
 #===============================================================================
 # SCRIPT FUNCTIONALITY
