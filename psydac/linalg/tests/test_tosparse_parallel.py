@@ -1,18 +1,11 @@
-# -*- coding: UTF-8 -*-
-#
 import pytest
 import numpy as np
-import scipy.sparse as spa
 
-from psydac.linalg.basic import LinearOperator, ZeroOperator, IdentityOperator, ComposedLinearOperator, InverseLinearOperator, SumLinearOperator, PowerLinearOperator, ScaledLinearOperator
-from psydac.linalg.direct_solvers import SparseSolver
-from psydac.linalg.stencil        import StencilVectorSpace, StencilVector, StencilMatrix
-from psydac.linalg.block          import BlockVectorSpace, BlockVector
-from psydac.linalg.block          import BlockLinearOperator
-from psydac.linalg.utilities      import array_to_psydac
-from psydac.linalg.kron           import KroneckerLinearSolver
-from psydac.api.settings          import PSYDAC_BACKEND_GPYCCEL
-from psydac.ddm.cart              import DomainDecomposition, CartDecomposition
+from psydac.linalg.basic   import PowerLinearOperator
+from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
+from psydac.linalg.block   import BlockVectorSpace, BlockVector
+from psydac.linalg.block   import BlockLinearOperator
+from psydac.ddm.cart       import DomainDecomposition, CartDecomposition
 
 #===============================================================================
 def compare_arrays(arr_psy, arr, rank, atol=1e-14, verbose=False):
@@ -125,8 +118,7 @@ def create_equal_random_arrays(W, seedv =123):
 
     return arr, arr_psy
 
-
-
+#===============================================================================
 @pytest.mark.parametrize( 'dtype', [float, complex] )
 @pytest.mark.parametrize( 'n1', [16] )
 @pytest.mark.parametrize( 'n2', [16, 32] )
@@ -146,7 +138,7 @@ def test_block_linear_operator_parallel_dot( dtype, n1, n2, p1, p2, P1, P2 ):
     # set seed for reproducibility
     np.random.seed(n1*n2*p1*p2)
 
-    from mpi4py       import MPI
+    from mpi4py import MPI
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -163,13 +155,12 @@ def test_block_linear_operator_parallel_dot( dtype, n1, n2, p1, p2, P1, P2 ):
     # Create vector space, stencil matrix, and stencil vector
     V = StencilVectorSpace( cart, dtype=dtype )
 
-    v0arr , v0 = create_equal_random_arrays(V, seedv=4568)
-    
+    v0arr, v0 = create_equal_random_arrays(V, seedv=4568)
     v0arr = v0arr[0].flatten()
-    
+
     # Create and Fill Block objects
     W = BlockVectorSpace(V, V)
-    
+
     v1arr1, v1 = create_equal_random_arrays(W, seedv=4568)
     v1arr = []
     for i in v1arr1:
@@ -196,8 +187,7 @@ def test_block_linear_operator_parallel_dot( dtype, n1, n2, p1, p2, P1, P2 ):
     K[0,1] = N2
     K[1,0] = N3
     K[1,1] = N4
-    
-    
+
     #####
     #Testing tosparse() for LinearOperators with domain being StencilVectorSpace
     
@@ -227,15 +217,10 @@ def test_block_linear_operator_parallel_dot( dtype, n1, n2, p1, p2, P1, P2 ):
     assert isinstance(KP, PowerLinearOperator)
     assert isinstance(KP.domain, BlockVectorSpace)
     compare_arrays(KP.dot(v1), KLarr.dot(v1arr), rank)
-    
-    
 
-    
-
-    
 #===============================================================================
 # SCRIPT FUNCTIONALITY
 #===============================================================================
 if __name__ == "__main__":
     import sys
-    pytest.main( sys.argv )
+    pytest.main(sys.argv)
