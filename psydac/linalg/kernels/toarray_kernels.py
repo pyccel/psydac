@@ -1,9 +1,8 @@
-from pyccel.decorators import template
+from typing import TypeVar
 
+T = TypeVar('T', float, complex)
 
-#@template(name='T', types=['float[:]', 'complex[:]'])
-#@template(name='Tarray', types=['float[:,:]', 'complex[:,:]'])
-def write_out_stencil_dense_3D(itterables2:'int[:,:]', tmp2:'float[:,:,:]', out:'float[:,:]', npts2:'int[:]', col:'int64', pds:'int[:]'):
+def write_out_stencil_dense_3D(itterables2:'int[:,:]', tmp2:'T[:,:,:]', out:'T[:,:]', npts2:'int[:]', col:int, pds:'int[:]'):
     counter0 = 0
     for i0 in range(itterables2[0][0],itterables2[0][1]):
         counter1 = 0
@@ -18,7 +17,7 @@ def write_out_stencil_dense_3D(itterables2:'int[:,:]', tmp2:'float[:,:,:]', out:
         counter0 += 1
 
        
-def write_out_stencil_dense_2D(itterables2:'int[:,:]', tmp2:'float[:,:]', out:'float[:,:]', npts2:'int[:]', col:'int64', pds:'int[:]'):
+def write_out_stencil_dense_2D(itterables2:'int[:,:]', tmp2:'T[:,:]', out:'T[:,:]', npts2:'int[:]', col:int, pds:'int[:]'):
     counter0 = 0
     for i0 in range(itterables2[0][0],itterables2[0][1]):
         counter1 = 0
@@ -30,7 +29,7 @@ def write_out_stencil_dense_2D(itterables2:'int[:,:]', tmp2:'float[:,:]', out:'f
         counter0 += 1
         
 
-def write_out_stencil_dense_1D(itterables2:'int[:,:]', tmp2:'float[:]', out:'float[:,:]', npts2:'int[:]', col:'int64', pds:'int[:]'):
+def write_out_stencil_dense_1D(itterables2:'int[:,:]', tmp2:'T[:]', out:'T[:,:]', npts2:'int[:]', col:int, pds:'int[:]'):
     counter0 = 0
     for i0 in range(itterables2[0][0],itterables2[0][1]):
         if(tmp2[pds[0]+counter0] != 0):
@@ -39,7 +38,7 @@ def write_out_stencil_dense_1D(itterables2:'int[:,:]', tmp2:'float[:]', out:'flo
         counter0 += 1
         
 
-def write_out_block_dense_3D(itterables2:'int[:,:]', tmp2:'float[:,:,:]', out:'float[:,:]', npts2:'int[:]', col:'int64', pds:'int[:]', spoint2list:'int64'):
+def write_out_block_dense_3D(itterables2:'int[:,:]', tmp2:'T[:,:,:]', out:'T[:,:]', npts2:'int[:]', col:int, pds:'int[:]', spoint2list:int):
     counter0 = 0
     for i0 in range(itterables2[0][0],itterables2[0][1]):
         counter1 = 0
@@ -54,7 +53,7 @@ def write_out_block_dense_3D(itterables2:'int[:,:]', tmp2:'float[:,:,:]', out:'f
         counter0 += 1
 
        
-def write_out_block_dense_2D(itterables2:'int[:,:]', tmp2:'float[:,:]', out:'float[:,:]', npts2:'int[:]', col:'int64', pds:'int[:]', spoint2list:'int64'):
+def write_out_block_dense_2D(itterables2:'int[:,:]', tmp2:'T[:,:]', out:'T[:,:]', npts2:'int[:]', col:int, pds:'int[:]', spoint2list:int):
     counter0 = 0
     for i0 in range(itterables2[0][0],itterables2[0][1]):
         counter1 = 0
@@ -66,7 +65,7 @@ def write_out_block_dense_2D(itterables2:'int[:,:]', tmp2:'float[:,:]', out:'flo
         counter0 += 1
         
 
-def write_out_block_dense_1D(itterables2:'int[:,:]', tmp2:'float[:]', out:'float[:,:]', npts2:'int[:]', col:'int64', pds:'int[:]', spoint2list:'int64'):
+def write_out_block_dense_1D(itterables2:'int[:,:]', tmp2:'T[:]', out:'T[:,:]', npts2:'int[:]', col:int, pds:'int[:]', spoint2list:int):
     counter0 = 0
     for i0 in range(itterables2[0][0],itterables2[0][1]):
         if(tmp2[pds[0]+counter0] != 0):

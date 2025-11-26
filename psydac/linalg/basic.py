@@ -285,7 +285,7 @@ class LinearOperator(ABC):
         """
 
     
-    def __tosparse_array(self, out=None, is_sparse=False):
+    def _tosparse_array(self, out=None, is_sparse=False):
         """
         Transforms the linear operator into a matrix, which is either stored in dense or sparse format.
 
@@ -365,7 +365,7 @@ class LinearOperator(ABC):
             if (is_sparse == False):
                 #We also get the BlockVector's pads
                 pds = np.array([vi.pads for vi in tmp2])
-                spoint2list = [np.int64(spoint2)]
+                spoint2list = [spoint2]
                 for hh in range(nsp2):
                     itterables2aux = []
                     for ii in range(ndim2[hh]):
@@ -374,7 +374,7 @@ class LinearOperator(ABC):
                     itterables2.append(itterables2aux)
                     cummulative2 = 1
                     for ii in range(ndim2[hh]):
-                        cummulative2 *= npts2[hh][ii]
+                        cummulative2 *= npts2[hh][ii].item()
                     spoint2 += cummulative2
                     spoint2list.append(spoint2) 
             else:
@@ -387,7 +387,7 @@ class LinearOperator(ABC):
                     itterables2.append(itterables2aux)
                     cummulative2 = 1
                     for ii in range(ndim2[hh]):
-                        cummulative2 *= npts2[hh][ii]
+                        cummulative2 *= npts2[hh][ii].item()
                     spoint2 += cummulative2
                     spoint2list.append(spoint2)
                     
@@ -499,7 +499,7 @@ class LinearOperator(ABC):
                     self.dot(v, out=tmp2)
                     # Compute to which column this iteration belongs
                     col = spoint
-                    col += np.ravel_multi_index(i, npts[h])
+                    col += int(np.ravel_multi_index(i, npts[h]))
                     
                     # Case in which tmp2 is a StencilVector
                     if BoS2 == "s":
@@ -590,7 +590,7 @@ class LinearOperator(ABC):
             The matrix form of the linear operator. If ran in parallel each rank gets the local
             matrix representation of the linear operator.
         """
-        return self.__tosparse_array(is_sparse=True)
+        return self._tosparse_array(is_sparse=True)
     
     
     # Function that returns the matrix corresponding to the linear operator. Returns a numpy array.
@@ -609,7 +609,7 @@ class LinearOperator(ABC):
             The matrix form of the linear operator. If ran in parallel each rank gets the local
             matrix representation of the linear operator.
         """
-        return self.__tosparse_array(out=out, is_sparse=False)
+        return self._tosparse_array(out=out, is_sparse=False)
 
     
     @abstractmethod
