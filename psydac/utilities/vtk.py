@@ -4,10 +4,10 @@
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
 import os
-from pyevtk.vtk import (VtkPUnstructuredGrid,
-                        VtkParallelFile,
-                        )
+
+from pyevtk.vtk import VtkPUnstructuredGrid, VtkParallelFile
 from pyevtk.hl import _addDataToParallelFile
+
 
 __all__ = ('writeParallelVTKUnstructuredGrid',)
 

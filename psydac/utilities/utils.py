@@ -3,12 +3,9 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-# coding: utf-8
-#
-# Copyright 2018 Yaman Güçlü
+from numbers import Number
 
 import numpy as np
-from numbers import Number
 
 __all__ = (
     'refine_array_1d',
