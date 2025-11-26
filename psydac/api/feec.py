@@ -340,9 +340,9 @@ class DiscreteDeRham(BasicDiscrete):
             return tuple(femlinop.linop for femlinop in self._dirichlet_proj)
 
     #--------------------------------------------------------------------------
-    def LST_preconditioner(self, M0=None, M1=None, M2=None, M3=None, hom_bc=False):
+    def LST_preconditioners(self, *, M0=None, M1=None, M2=None, M3=None, hom_bc=False):
         """
-        LST (Loli, Sangalli, Tani) preconditioners are mass matrix preconditioners of the form
+        LST (Loli, Sangalli, Tani) preconditioners [1] are mass matrix preconditioners of the form
         pc = D_inv_sqrt @ D_log_sqrt @ M_log_kron_solver @ D_log_sqrt @ D_inv_sqrt, where
 
         D_inv_sqrt          is the diagonal matrix of the square roots of the inverse diagonal entries of the mass matrix M,
@@ -351,11 +351,11 @@ class DiscreteDeRham(BasicDiscrete):
 
         These preconditioners work very well even on complex domains as numerical experiments have shown.
 
-        Upon choosing hom_bc=True, preconditioner for the modified mass matrices M{i}_0 are being returned.
+        Upon choosing hom_bc=True, preconditioners for the modified mass matrices M{i}_0 are being returned.
         The preconditioner for the last mass matrix of the sequence remains identical as there are no BCs to take care of.
         M{i}_0 is a mass matrix of the form
-        M{i}_0 = DBP @ M{i} @ DBP + (I - DBP)
-        where DBP and I are the corresponding DirichletBoundaryProjector and IdentityOperator.
+        M{i}_0 = DP @ M{i} @ DP + (I - DP)
+        where DP and I are the corresponding DirichletProjector and IdentityOperator.
         See examples/vector_potential_3d.
 
         Parameters
@@ -365,14 +365,20 @@ class DiscreteDeRham(BasicDiscrete):
             Returns only preconditioners for passed mass matrices.
 
         hom_bc : bool
-            If True, return LST preconditioner for modified M{i}_0 = DBP @ M{i} @ DBP + (I - DBP) mass matrix (i=0,1 (2D), i=0,1,2 (3D)).
-            The arguments M{i} in that case remain the same (M{i}, not M{i}_0). DBP and I are DirichletBoundaryProjector and IdentityOperator.
-            Default False
+            If True, return LST preconditioners for modified M{i}_0 = DP @ M{i} @ DP + (I - DP) mass matrices (i=0,1 (2D), i=0,1,2 (3D)).
+            The arguments M{i} in that case remain the same (M{i}, not M{i}_0). DP and I are DirichletProjector and IdentityOperator.
+            Default: False.
 
         Returns
         -------
-        psydac.linalg.stencil.StencilMatrix | psydac.linalg.block.BlockLinearOperator | list
-            LST preconditioner(s) for passed M{i}s (hom_bc=False) or M{i}_0s (hom_b=True).
+        tuple psydac.linalg.stencil.StencilMatrix | psydac.linalg.block.BlockLinearOperator | list
+            tuple of psydac.linalg.stencil.StencilMatrix and/or psydac.linalg.block.BlockLinearOperator
+            LST preconditioner(s) for the passed mass matrices.
+
+        References
+        ----------
+        [1] Gabriele Loli, Giancarlo Sangalli, Mattia Tani, Easy and efficient preconditioning of the isogeometric mass
+            matrix, Elsevier 2022
         
         """
         # To avoid circular imports
@@ -380,7 +386,7 @@ class DiscreteDeRham(BasicDiscrete):
         from psydac.linalg.tests.test_kron_direct_solver import matrix_to_bandsolver
 
         dim = self.dim
-        # dim=1 makes hardly any sense (because of the Kronecker solver that is no more Kronecker solver in 1D)
+        # In 1D one can solve the linear system directly (instead of using this preconditioner)
         assert dim in (2, 3)
 
         if hom_bc == True:
@@ -520,14 +526,14 @@ class DiscreteDeRham(BasicDiscrete):
             M1s_1d.append(M1_1d)
 
             # In order to obtain a good preconditioner for modified mass matrices 
-            # M{i}_0 = DBP @ M{i} @ DBP + (I - DBP) (see docstring)
+            # M{i}_0 = DP @ M{i} @ DP + (I - DP) (see docstring)
             # the Kronecker solver of M_log must be modified as well
             if hom_bc == True:
-                DBP0, DBP1 = derham_1d_h.dirichlet_projectors(kind='linop')
+                DP0, _ = derham_1d_h.dirichlet_projectors(kind='linop')
                 
-                if DBP0 is not None:
+                if DP0.bcs != ():
                     I0      = IdentityOperator(V0h_1d.coeff_space)
-                    M0_0_1d = DBP0 @ M0_1d @ DBP0 + (I0 - DBP0)
+                    M0_0_1d = DP0 @ M0_1d @ DP0 + (I0 - DP0)
 
                     M0_0_1d_solver = M0_0_1d_to_bandsolver(M0_0_1d)
                     M0_1d_solvers.append(M0_0_1d_solver)
@@ -661,7 +667,7 @@ class DiscreteDeRham(BasicDiscrete):
                 M_pc = D_inv_sqrt @ D_log_sqrt @ M_log_kron_solver @ D_log_sqrt @ D_inv_sqrt
                 M_pc_arr.append(M_pc)
 
-        return M_pc_arr
+        return tuple(M_pc_arr)
 
     #--------------------------------------------------------------------------
     def conforming_projectors(self, kind='femlinop', mom_pres=False, p_moments=-1, hom_bc=False):

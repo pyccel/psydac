@@ -130,7 +130,7 @@ def test_function_space_boundary_projector(dim):
     nn            = NormalVector('nn')
 
     for i in range(dim):
-        print(f'      - Test DBP{i}')
+        print(f'      - Test DP{i}')
 
         # The function defined here satisfy the corresponding homogeneous Dirichlet BCs
         if dim == 1:
@@ -338,7 +338,7 @@ def test_discrete_derham_boundary_projector(dim):
     nn            = NormalVector('nn')
 
     for i in range(dim):
-        print(f'      - Test DBP{i}')
+        print(f'      - Test DP{i}')
 
         u, v = elements_of(derham.spaces[i], names='u, v')
 
@@ -472,7 +472,7 @@ def test_discrete_derham_boundary_projector_multipatch():
     nn = NormalVector('nn')
 
     for i in range(2):
-        print(f'      - Test DBP{i}')
+        print(f'      - Test DP{i}')
 
         u, v = elements_of(derham.spaces[i], names='u, v')
 
