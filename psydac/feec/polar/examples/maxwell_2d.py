@@ -610,11 +610,21 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
 
         # Initial conditions, discrete fields -- here with a pull-back in the projections
         E_log = Pi1((Ex_ex(t), Ey_ex(t)))
+        E_log.coeffs.update_ghost_regions()
         B_log = Pi2(Bz_ex(t))
+        B_log.coeffs.update_ghost_regions()
 
         # Initial conditions, spline coefficients
         e = E_log.coeffs
         b = B_log.coeffs
+
+
+        if study == 'maxwell_wave':
+            D1.dot(e, out=b)
+
+        # Conga Projection
+        P1.dot(e.copy(), out=e)
+        P2.dot(b.copy(), out=b)
 
         V1x, V1y = V1.spaces
         Ex_field = FemField(V1x, coeffs=e[0])
@@ -624,13 +634,6 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         V1y.export_fields('Ey.h5', Ey_field=Ey_field)
         V2.export_fields('B.h5', B_field=B_field)
 
-
-        if study == 'maxwell_wave':
-            D1.dot(e, out=b)
-
-        # Conga Projection
-        P1.dot(e.copy(), out=e)
-        P2.dot(b.copy(), out=b)
 
         if use_scipy:
 
@@ -782,20 +785,20 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
             Ex_serial, = V1_sx.import_fields('Ex.h5', 'Ex_field')
             Ey_serial, = V1_sy.import_fields('Ey.h5', 'Ey_field')
             B_serial, = V2_s.import_fields('B.h5', 'B_field')
-            if study_maxwell:
-                for i, x1i in enumerate(x1[:, 0]):
-                    for j, x2j in enumerate(x2[0, :]):
 
-                        Ex_values[i, j], Ey_values[i, j] = \
-                            push_2d_hcurl(Ex_serial, Ey_serial, x1i, x2j, F_serial)
+            for i, x1i in enumerate(x1[:, 0]):
+                for j, x2j in enumerate(x2[0, :]):
 
-                        Bz_values[i, j] = push_2d_l2(B_serial, x1i, x2j, F_serial)
+                    Ex_values[i, j], Ey_values[i, j] = \
+                        push_2d_hcurl(Ex_serial, Ey_serial, x1i, x2j, F_serial)
 
-                        xij, yij = F(x1i, x2j)
-                        Ex_ex_values[i, j], Ey_ex_values[i, j] = \
-                            Ex_ex_t(t, xij, yij), Ey_ex_t(t, xij, yij)
+                    Bz_values[i, j] = push_2d_l2(B_serial, x1i, x2j, F_serial)
 
-                        Bz_ex_values[i, j] = Bz_ex_t(t, xij, yij)
+                    xij, yij = F(x1i, x2j)
+                    Ex_ex_values[i, j], Ey_ex_values[i, j] = \
+                        Ex_ex_t(t, xij, yij), Ey_ex_t(t, xij, yij)
+
+                    Bz_ex_values[i, j] = Bz_ex_t(t, xij, yij)
 
             # fields along s for fixed theta
             #plot_fields_along_s(tstr='t0')  # , j0=0, j1=ncells[1]//2)
@@ -959,75 +962,6 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         # diag
         P1.dot(e.copy(), out=e)
         P2.dot(b.copy(), out=b)
-
-        # for i, x1i in enumerate(x1[:, 0]):
-        #     for j, x2j in enumerate(x2[0, :]):
-
-        #         Ex_values[i, j], Ey_values[i, j] = \
-        #                 push_2d_hcurl(E_log.fields[0], E_log.fields[1], x1i, x2j, F)
-
-        #         Bz_values[i, j] = push_2d_l2(B_log, x1i, x2j, F)
-        #         # Bz_values[i, j] = B(x1i, x2j)
-
-        #         xij, yij = F(x1i, x2j)
-        #         Ex_ex_values[i, j], Ey_ex_values[i, j] = \
-        #                 Ex_ex_t(t, xij, yij), Ey_ex_t(t, xij, yij)
-
-        #         Bz_ex_values[i, j] = Bz_ex_t(t, xij, yij)
-
-        # ...
-        # Animation and diags
-        # if plot_interval and (ts % plot_interval == 0 or ts == nsteps):
-            # # project to conforming space to apply posh-forwards
-            # P1.dot(e.copy(), out=e)
-            # P2.dot(b.copy(), out=b)  # TO TEST: is this necessary? try to comment
-            # # ...
-            # # TODO: improve
-            # for i, x1i in enumerate(x1[:, 0]):
-            #     for j, x2j in enumerate(x2[0, :]):
-            #
-            #         Ex_values[i, j], Ey_values[i, j] = \
-            #             push_2d_hcurl(E_log.fields[0], E_log.fields[1], x1i, x2j, F)
-            #
-            #         Bz_values[i, j] = push_2d_l2(B_log, x1i, x2j, F)
-            #         # Bz_values[i, j] = B(x1i, x2j)
-            #
-            #         xij, yij = F(x1i, x2j)
-            #         Ex_ex_values[i, j], Ey_ex_values[i, j] = \
-            #             Ex_ex_t(t, xij, yij), Ey_ex_t(t, xij, yij)
-            #
-            #         Bz_ex_values[i, j] = Bz_ex_t(t, xij, yij)
-            # # ...
-            #
-            # # max norm
-            # max_Ex = abs(Ex_values).max()
-            # max_Ey = abs(Ey_values).max()
-            # max_Bz = abs(Bz_values).max()
-            # print()
-            # print('Max-norm of Ex(t,x): {:.2e}'.format(max_Ex))
-            # print('Max-norm of Ey(t,x): {:.2e}'.format(max_Ey))
-            # print('Max-norm of Bz(t,x): {:.2e}'.format(max_Bz))
-            #
-            # # if show_figs:
-            # #     # Update plot
-            # #     update_plot(fig2, t, x, y, Ex_values, Ex_ex_values)
-            # #     update_plot(fig3, t, x, y, Ey_values, Ey_ex_values)
-            # #     update_plot(fig4, t, x, y, Bz_values, Bz_ex_values)
-            # #     plt.pause(0.1)
-            # if not show_figs:
-            #     fig = plot_field_and_error(r'E^x', t, x, y, Ex_values, Ex_ex_values, *gridlines)
-            #     fig.savefig(f'{visdir}/Ex_{ts}_{rp_str}.png')
-            #     # fig.clf()
-            #     plt.close(fig)
-            #
-            #     fig = plot_field_and_error(r'E^y', t, x, y, Ey_values, Ey_ex_values, *gridlines)
-            #     fig.savefig(f'{visdir}/Ey_{ts}_{rp_str}.png')
-            #     # fig.clf()
-            #     plt.close(fig)
-            #
-            #     fig = plot_field_and_error(r'B^z', t, x, y, Bz_values, Bz_ex_values, *gridlines)
-            #     fig.savefig(f'{visdir}/Bz_{ts}_{rp_str}.png')
-            #     plt.close(fig)
 
         print('ts = {:4d},  t = {:8.4f}'.format(ts, t))
 
