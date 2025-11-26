@@ -3,10 +3,9 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-# -*- coding: UTF-8 -*-
-import numpy as np
-
 from itertools import product
+
+import numpy as np
 
 from sympy import Basic, Expr
 from sympy import AtomicExpr, S
