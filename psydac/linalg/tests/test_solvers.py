@@ -1,9 +1,15 @@
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 import  numpy as np
 import  pytest
 
 from    psydac.ddm.cart             import DomainDecomposition, CartDecomposition
 from    psydac.linalg.solvers       import inverse
 from    psydac.linalg.stencil       import StencilVectorSpace, StencilMatrix, StencilVector
+
 
 def define_data_hermitian(n, p, dtype=float):
     domain_decomposition = DomainDecomposition([n - p], [False])

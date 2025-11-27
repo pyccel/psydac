@@ -1,8 +1,14 @@
-import pytest      
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 import time
-import matplotlib.pyplot as plt
-import numpy as np
 
+import pytest
+import numpy as np
+import matplotlib.pyplot as plt
+from mpi4py import MPI
 from sympy.core.containers import Tuple
 from sympy                 import Matrix               
 from sympy                 import Function                                
@@ -12,7 +18,6 @@ from sympde.core     import Constant
 from sympde.calculus import grad, dot, inner, rot, div
 from sympde.calculus import laplace, bracket, convect
 from sympde.calculus import jump, avg, Dn, minus, plus
-
 from sympde.topology import ScalarFunctionSpace
 from sympde.topology import element_of, elements_of
 from sympde.topology import InteriorDomain, Union
@@ -23,22 +28,19 @@ from sympde.topology import Square
 from sympde.topology import ElementDomain
 from sympde.topology import Area
 from sympde.topology import IdentityMapping, PolarMapping, AffineMapping
-                         
-from sympde.expr.expr          import LinearExpr
-from sympde.expr.expr          import LinearForm, BilinearForm
-from sympde.expr.expr          import integral              
-from sympde.expr.expr          import Functional, Norm                       
-from sympde.expr.expr          import linearize                      
-from sympde.expr.evaluation    import TerminalExpr
-from sympde.expr               import find, EssentialBC
+from sympde.expr.expr         import LinearExpr
+from sympde.expr.expr         import LinearForm, BilinearForm
+from sympde.expr.expr         import integral              
+from sympde.expr.expr         import Functional, Norm                       
+from sympde.expr.expr         import linearize                      
+from sympde.expr.evaluation   import TerminalExpr
+from sympde.expr              import find, EssentialBC
 
 from psydac.api.discretization import discretize
 from psydac.fem.basic          import FemField
 from psydac.utilities.utils    import refine_array_1d
 
-from mpi4py import MPI
 #==============================================================================
-
 def run_poisson_2d(solution, f, domain, ncells, degree, comm=None):
 
     #+++++++++++++++++++++++++++++++

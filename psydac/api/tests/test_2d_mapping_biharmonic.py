@@ -1,5 +1,9 @@
-# -*- coding: UTF-8 -*-
-#
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
+
 # A note on the mappings used in these tests:
 #
 #   - 'identity_2d.h5' is the identity mapping on the unit square [0, 1] X [0, 1]

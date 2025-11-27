@@ -1,5 +1,8 @@
-# File test_cart_3d.py
-
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 from psydac.ddm.blocking_data_exchanger    import BlockingCartDataExchanger
 from psydac.ddm.nonblocking_data_exchanger import NonBlockingCartDataExchanger
 

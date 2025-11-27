@@ -1,13 +1,15 @@
-# -*- coding: UTF-8 -*-
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
+import time
 
 import pytest
-import time
 import numpy as np
-from mpi4py             import MPI
-
-
-from scipy.sparse               import csc_matrix, dia_matrix, kron
-from scipy.sparse.linalg        import splu
+from mpi4py              import MPI
+from scipy.sparse        import csc_matrix, dia_matrix, kron
+from scipy.sparse.linalg import splu
 
 from sympde.calculus import dot
 from sympde.expr     import BilinearForm, integral
