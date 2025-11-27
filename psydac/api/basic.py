@@ -12,7 +12,6 @@
 import sys
 import os
 import importlib
-import numpy as np
 from mpi4py import MPI
 
 from psydac.api.ast.fem         import AST

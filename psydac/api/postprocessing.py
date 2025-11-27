@@ -7,11 +7,12 @@
 # TODO [MCP 03.2025]: the new functions patch_spaces and component_spaces may be used instead of the ambiguous 'spaces'
 
 import os
-import mpi4py
-import numpy as np
-import yaml
 import re
 import warnings
+
+import yaml
+import numpy as np
+import mpi4py
 import h5py as h5
 
 from sympde.topology import Domain, VectorFunctionSpace, ScalarFunctionSpace, InteriorDomain, MultiPatchMapping, Mapping
@@ -21,16 +22,15 @@ from pyevtk.hl import unstructuredGridToVTK
 from pyevtk.vtk import VtkHexahedron, VtkQuad, VtkVertex
 
 from psydac.api.discretization import discretize
-from psydac.cad.geometry import Geometry
-from psydac.fem.tensor import TensorFemSpace
-from psydac.fem.vector import VectorFemSpace
-from psydac.mapping.discrete import SplineMapping
-from psydac.core.bsplines import cell_index
-from psydac.feec.pushforward import Pushforward
-from psydac.utilities.utils import refine_array_1d
-from psydac.fem.basic import FemSpace, FemField
-from psydac.utilities.vtk import writeParallelVTKUnstructuredGrid
-from psydac.core.bsplines import elevate_knots
+from psydac.cad.geometry       import Geometry
+from psydac.fem.basic          import FemSpace, FemField
+from psydac.fem.tensor         import TensorFemSpace
+from psydac.fem.vector         import VectorFemSpace
+from psydac.mapping.discrete   import SplineMapping
+from psydac.core.bsplines      import cell_index, elevate_knots
+from psydac.feec.pushforward   import Pushforward
+from psydac.utilities.utils    import refine_array_1d
+from psydac.utilities.vtk      import writeParallelVTKUnstructuredGrid
 
 __all__ = ('get_grid_lines_2d', '_augment_space_degree_dict',
            'OutputManager', 'PostProcessManager')

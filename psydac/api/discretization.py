@@ -6,10 +6,9 @@
 
 # TODO: - init_fem is called whenever we call discretize. we should check that
 #         nderiv has not been changed. shall we add nquads too?
-import os
 
-from sympy import Expr as sym_Expr
 import numpy as np
+from sympy import Expr as sym_Expr
 
 from sympde.expr     import BasicForm as sym_BasicForm
 from sympde.expr     import BilinearForm as sym_BilinearForm
