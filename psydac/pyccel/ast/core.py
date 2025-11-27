@@ -1,6 +1,8 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 import importlib
 from collections.abc import Iterable
 
@@ -13,8 +15,6 @@ from sympy import Float as sp_Float, Rational as sp_Rational
 from sympy import preorder_traversal
 
 from sympy.simplify.radsimp   import fraction
-from sympde.old_sympy_utilities import with_metaclass
-from sympy.core.assumptions   import StdFactKB
 from sympy.core.singleton     import S
 from sympy.core.function      import Function, Application
 from sympy.core.function      import Derivative, UndefinedFunction as sp_UndefinedFunction
@@ -29,7 +29,6 @@ from sympy.matrices.expressions.matexpr import MatrixSymbol, MatrixElement
 from sympy.tensor.array.ndim_array      import NDimArray
 from sympy.utilities.iterables          import iterable
 from sympy.utilities.misc               import filldedent
-
 
 from .singleton import Singleton
 from .basic     import Basic, PyccelAstNode

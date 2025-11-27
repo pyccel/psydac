@@ -1,10 +1,15 @@
-# coding: utf-8
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 """
 This module provides iterative solvers and preconditioners.
 
 """
-import numpy as np
 from math import sqrt
+
+import numpy as np
 
 from psydac.utilities.utils  import is_real
 from psydac.linalg.utilities import _sym_ortho

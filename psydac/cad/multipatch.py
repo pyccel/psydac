@@ -1,11 +1,15 @@
-# coding: utf-8
-#
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 import h5py
 import yaml
 import numpy as np
 
 from sympde.topology       import Domain, Line, Square, Cube, Mapping
 from sympde.topology.basic import Union
+
 
 def export_multipatch_nurbs_to_hdf5(filename:str, nurbs:list, connectivity:dict, comm=None ):
 

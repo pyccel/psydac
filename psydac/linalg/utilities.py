@@ -1,7 +1,11 @@
-# coding: utf-8
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
+from math import sqrt
 
 import numpy as np
-from math import sqrt
 
 from psydac.linalg.basic   import Vector
 from psydac.linalg.stencil import StencilVector, StencilVectorSpace
