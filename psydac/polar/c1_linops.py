@@ -1,14 +1,16 @@
-# coding: utf-8
-#
-# Copyright 2018 Yaman Güçlü
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
+from itertools import repeat
 
 import numpy as np
-from itertools    import repeat
 from scipy.sparse import coo_matrix
 
-from psydac.linalg.basic   import VectorSpace, Vector, LinearOperator
-from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
-from psydac.polar .dense   import DenseVectorSpace, DenseVector, DenseMatrix
+from psydac.linalg.basic   import LinearOperator
+from psydac.linalg.stencil import StencilVectorSpace, StencilVector
+from psydac.polar .dense   import DenseVectorSpace, DenseVector
 
 __all__ = ('LinearOperator_StencilToDense', 'LinearOperator_DenseToStencil')
 

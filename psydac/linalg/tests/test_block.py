@@ -1,9 +1,13 @@
-# -*- coding: UTF-8 -*-
-#
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
+from random import random, seed
+
 import pytest
 import numpy as np
 from scipy.sparse import csr_matrix
-from random import random, seed
 
 from psydac.linalg.direct_solvers import SparseSolver
 from psydac.linalg.stencil        import StencilVectorSpace, StencilVector, StencilMatrix

@@ -1,7 +1,13 @@
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
+from itertools import product
+
 import numpy as np
 import h5py
-from mpi4py    import MPI
-from itertools import product
+from mpi4py import MPI
 
 from psydac.ddm.cart import CartDecomposition
 

@@ -1,5 +1,8 @@
-# Contents of test_cart_1d.py
-
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 import numpy as np
 
 from psydac.ddm.blocking_data_exchanger    import BlockingCartDataExchanger

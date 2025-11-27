@@ -1,5 +1,8 @@
-# coding: utf-8
-#!/usr/bin/env python
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 
 # TODO add version
 #  --version  show program's version number and exit
