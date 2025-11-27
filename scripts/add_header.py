@@ -1,3 +1,9 @@
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
+
 def add_header_to_python_files(directory, string_to_add, *, dry_run=True):
 
     print(f'Adding header to all Python files:')
@@ -19,8 +25,7 @@ def add_header_to_python_files(directory, string_to_add, *, dry_run=True):
                         f.write(string_to_add.rstrip('\r\n') + '\n' + content)
     print()
 
-
-#------------------------------------------------------------------------------
+#==============================================================================
 if __name__ == '__main__':
 
     # Test the function
@@ -37,5 +42,7 @@ if __name__ == '__main__':
     header = header.strip()
 
     dry_run = True
-    add_header_to_python_files('../psydac'  , header, dry_run=dry_run)
-    add_header_to_python_files('../examples', header, dry_run=dry_run)
+    add_header_to_python_files('../psydac'     , header, dry_run=dry_run)
+    add_header_to_python_files('../examples'   , header, dry_run=dry_run)
+    add_header_to_python_files('../mesh'       , header, dry_run=dry_run)
+    add_header_to_python_files('../performance', header, dry_run=dry_run)
