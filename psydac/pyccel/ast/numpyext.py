@@ -9,28 +9,21 @@ from sympy import Integer as sp_Integer
 from sympy import Expr
 from sympy import Rational as sp_Rational
 from sympy.core.function import Application
-from sympy.core.assumptions import StdFactKB
 from sympy.logic.boolalg import BooleanTrue, BooleanFalse
 
 from .basic import PyccelAstNode
 from .core  import (Variable, IndexedElement, Slice, Len,
                    For, Range, Assign, List, Nil,
                    ValuedArgument, Constant, process_shape)
-
 from .core           import PyccelPow, PyccelMinus, PyccelAssociativeParenthesis
 from .core           import PyccelMul, PyccelAdd
 from .core           import broadcast
-from .core           import create_variable
-from .core           import CodeBlock
-from .core           import ClassDef, FunctionDef
-
 from .builtins       import PythonInt, PythonBool
 from .builtins       import PythonFloat, PythonTuple, PythonComplex
 from .datatypes      import dtype_and_precision_registry as dtype_registry
 from .datatypes      import default_precision
 from .datatypes      import datatype
 from .datatypes      import NativeInteger, NativeReal, NativeComplex, NativeBool
-from .mathext        import MathFloor
 from .numbers        import Integer, Float
 from .type_inference import str_dtype
 

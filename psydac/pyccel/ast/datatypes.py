@@ -3,13 +3,10 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
+import numpy
 
 from .singleton import Singleton
 from .basic import Basic
-
-from sympde.old_sympy_utilities import with_metaclass
-
-import numpy
 
 # TODO [YG, 12.03.2020] verify why we need all these types
 # NOTE: symbols not used in pyccel are commented out

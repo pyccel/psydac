@@ -4,14 +4,12 @@
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
 import math
+
 from sympy import Function
 
 from .basic     import PyccelAstNode
 from .core      import Constant
-from .datatypes import (datatype, DataType, NativeSymbol,
-                        NativeInteger, NativeBool, NativeReal,
-                        NativeComplex, NativeRange, NativeTensor, NativeString,
-                        NativeGeneric, NativeTuple, default_precision)
+from .datatypes import NativeInteger, NativeBool, NativeReal, default_precision
 
 __all__ = (
     'math_constants',

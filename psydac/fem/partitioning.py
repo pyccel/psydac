@@ -3,16 +3,12 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-import os
-
 import numpy as np
-from mpi4py import MPI
 
 from sympde.topology import Interface
 
-from psydac.ddm.cart       import CartDecomposition, InterfaceCartDecomposition, create_interfaces_cart
-from psydac.core.bsplines  import elements_spans
-from psydac.fem.vector     import VectorFemSpace
+from psydac.ddm.cart   import CartDecomposition, InterfaceCartDecomposition, create_interfaces_cart
+from psydac.fem.vector import VectorFemSpace
 
 
 __all__ = (

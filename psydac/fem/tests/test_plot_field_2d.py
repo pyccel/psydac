@@ -3,8 +3,6 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-# from mpi4py import MPI
-# from sympy import pi, cos, sin, log, exp, lambdify, symbols
 import pytest
 import numpy as np
 
@@ -13,14 +11,10 @@ from sympde.topology import PolarMapping
 from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
 
 from psydac.fem.basic              import FemField
-# from psydac.fem.tensor             import TensorFemSpace
-# from psydac.fem.vector             import VectorFemSpace
 from psydac.api.discretization     import discretize
 from psydac.fem.plotting_utilities import plot_field_2d as plot_field
 
-#------------------------------------------------------------------------------
-
-
+#==============================================================================
 def plot_some_field(Vh):
     uh = FemField(Vh)
 
@@ -39,6 +33,7 @@ def plot_some_field(Vh):
         plot_fn=f'uh_{domain_type}_{values_type}_{plot_type}_test.pdf'
         plot_field(fem_field=uh, Vh=Vh, domain=domain, plot_type=plot_type, title='uh', filename=plot_fn, hide_plot=True)
 
+#==============================================================================
 @pytest.mark.parametrize('use_scalar_field', [True, False])
 @pytest.mark.parametrize('use_multipatch', [True, False])
 def test_plot_field(use_scalar_field, use_multipatch):
