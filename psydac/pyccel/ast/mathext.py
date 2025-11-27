@@ -1,14 +1,15 @@
-# Copyright 2020 Yaman Guçlü
-
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 import math
+
 from sympy import Function
 
 from .basic     import PyccelAstNode
 from .core      import Constant
-from .datatypes import (datatype, DataType, NativeSymbol,
-                        NativeInteger, NativeBool, NativeReal,
-                        NativeComplex, NativeRange, NativeTensor, NativeString,
-                        NativeGeneric, NativeTuple, default_precision)
+from .datatypes import NativeInteger, NativeBool, NativeReal, default_precision
 
 __all__ = (
     'math_constants',

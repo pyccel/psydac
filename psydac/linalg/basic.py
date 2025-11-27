@@ -1,7 +1,8 @@
-# coding: utf-8
-#
-# Copyright 2018 Yaman Güçlü, Jalal Lakhlili
-# Copyright 2022 Yaman Güçlü, Said Hadjout, Julian Owezarek
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 """
 provides the fundamental classes for linear algebra operations.
 

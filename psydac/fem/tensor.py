@@ -1,17 +1,20 @@
-# coding: utf-8
-
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 """
 We assume here that a tensor space is the product of fem spaces whom basis are
 of compact support
 
 """
+import os
+import itertools
+from types import MappingProxyType
+
 from mpi4py import MPI
 import numpy as np
-import itertools
 import h5py
-import os
-
-from types import MappingProxyType
 
 from sympde.topology.space import BasicFunctionSpace
 

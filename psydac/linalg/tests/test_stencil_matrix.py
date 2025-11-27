@@ -1,8 +1,12 @@
-# -*- coding: UTF-8 -*-
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
+from random import random
 
 import pytest
 import numpy as np
-from random import random
 
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
 from psydac.linalg.utilities import petsc_to_psydac
