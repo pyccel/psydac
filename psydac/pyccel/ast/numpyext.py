@@ -3,9 +3,6 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 import numpy
 from sympy import Basic, Function, Tuple
 from sympy import Integer as sp_Integer

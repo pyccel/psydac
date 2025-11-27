@@ -3,7 +3,6 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-# coding: utf-8
 # pylint: disable=R0201
 
 from itertools import chain

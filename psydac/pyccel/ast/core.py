@@ -3,9 +3,6 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 import importlib
 from collections.abc import Iterable
 

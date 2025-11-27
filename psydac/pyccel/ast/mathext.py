@@ -3,8 +3,6 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-# Copyright 2020 Yaman Guçlü
-
 import math
 from sympy import Function
 
