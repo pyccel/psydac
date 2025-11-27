@@ -1,6 +1,8 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 import inspect
 
 from sympy.core.function import Application
@@ -8,20 +10,19 @@ from sympy import Not
 from sympy import Function
 from numpy import pi
 
+import pyccel.decorators as pyccel_decorators
+
 from ..symbolic.lambdify import lambdify
 
-from .core import AsName
-from .core import Import
-from .core import Product
-from .core import FunctionDef
-from .core import ValuedVariable
-from .core import Constant, Variable, IndexedVariable
-from .core import String
-
+from .core     import AsName
+from .core     import Import
+from .core     import Product
+from .core     import FunctionDef
+from .core     import ValuedVariable
+from .core     import Constant, Variable, IndexedVariable
+from .core     import String
 from .builtins import PythonBool, Enumerate, PythonInt, PythonFloat, PythonComplex, Len, Map, Range, Zip
-
 from .mathext  import math_functions, math_constants
-
 from .numpyext import Full, Empty, Zeros, Ones
 from .numpyext import FullLike, EmptyLike, ZerosLike, OnesLike
 from .numpyext import Diag, Cross
@@ -35,8 +36,6 @@ from .numpyext import NumpySinh, NumpyCosh, NumpyTanh
 from .numpyext import NumpyArcsinh, NumpyArccosh, NumpyArctanh
 from .numpyext import numpy_constants, Linspace
 from .numpyext import Product as Prod
-
-import pyccel.decorators as pyccel_decorators
 
 from ..errors.errors import Errors
 

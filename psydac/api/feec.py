@@ -1,3 +1,8 @@
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 from psydac.api.basic                           import BasicDiscrete
 
 from psydac.feec.derivatives                    import Derivative1D, Gradient2D, Gradient3D
