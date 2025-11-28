@@ -34,7 +34,7 @@ def hcurl_solve_eigen_pbm(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), doma
                              generalized_pbm=False, sigma=5, nb_eigs_solve=8, nb_eigs_plot=5, skip_eigs_threshold=1e-7,
                              plot_dir=None):
     """
-    Solve the eigenvalue problem for the curl-curl operator in 2D with DG discretization
+    Solve the eigenvalue problem for the curl-curl operator in 2D with a brokenFEEC discretization
 
     Parameters
     ----------
