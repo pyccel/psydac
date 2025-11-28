@@ -17,18 +17,10 @@ Welcome to PSYDAC's documentation!
    :parser: myst_parser.sphinx_
 
 
-Contents
---------
 .. toctree::
    :maxdepth: 1
-   
+   :hidden: 
+
    modules
    examples
    maintenance
-
-Indices and tables
-------------------
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
