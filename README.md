@@ -1,4 +1,6 @@
-# Welcome to PSYDAC
+<h1 align="center">
+<img src="https://raw.githubusercontent.com/pyccel/psydac/devel/docs/source/logo/psydac_banner.svg" width="600" alt="Shows the psydac logo.">
+</h1><br>
 
 [![devel_tests](https://github.com/pyccel/psydac/actions/workflows/testing.yml/badge.svg)](https://github.com/pyccel/psydac/actions/workflows/testing.yml) [![docs](https://github.com/pyccel/psydac/actions/workflows/documentation.yml/badge.svg)](https://github.com/pyccel/psydac/actions/workflows/documentation.yml)
 
@@ -22,7 +24,7 @@ If PSYDAC has been significant in your research, and you would like to acknowled
 
 Güçlü, Y., S. Hadjout, and A. Ratnani. “PSYDAC: A High-Performance IGA Library in Python.” In 8th European Congress on Computational Methods in Applied Sciences and Engineering. CIMNE, 2022. https://doi.org/10.23967/eccomas.2022.227.
 
-The associated BibTeX file can be found [here](./CITATION.bib).
+The associated BibTeX file can be found [here](https://github.com/pyccel/psydac/blob/devel/CITATION.bib).
 
 ## Installation
 
@@ -36,7 +38,7 @@ PSYDAC requires a certain number of components to be installed on the machine:
 
 The installation instructions depend on the operating system and on the packaging manager used.
 It is particularly important to determine the **HDF5 root folder**, as this will be needed to install the [`h5py`](https://docs.h5py.org/en/latest/build.html#source-installation) package in parallel mode.
-Detailed instructions can be found in the [documentation](./docs/installation.md).
+Detailed instructions can be found in the [documentation](https://github.com/pyccel/psydac/blob/devel/docs/installation.md).
 
 Once those components are installed, we recommend using [`venv`](https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/#creating-a-virtual-environment) to set up a fresh Python virtual environment at a location `<ENV-PATH>`:
 ```bash
@@ -59,12 +61,12 @@ pip install ./psydac
 Here `<HDF5-PATH>` is the path to the HDF5 root folder, such that `<HDF5-PATH>/lib/` contains the HDF5 dynamic libraries with MPI support.
 For an editable install, the `-e/--editable` flag should be provided to the last command above.
 
-Again, for more details we refer to our [documentation](./docs/installation.md).
+Again, for more details we refer to our [documentation](https://github.com/pyccel/psydac/blob/devel/docs/installation.md).
 
 > [!TIP]
 > PSYDAC provides the functionality to convert its MPI-parallel matrices and vectors to their [PETSc](https://petsc.org) equivalent, and back.
 > This gives the user access to a wide variety of linear solvers and other algorithms.
-> Instructions for installing [PETSc](https://petsc.org) and `petsc4py` can be found in our [documentation](.docs/installation.md#optional-petsc-installation).
+> Instructions for installing [PETSc](https://petsc.org) and `petsc4py` can be found in our [documentation](https://github.com/pyccel/psydac/blob/devel/docs/installation.md#optional-petsc-installation).
 
 ## Running Tests
 
@@ -102,12 +104,12 @@ The classical installation translates all kernel files to Fortran without user i
 ## Examples and Tutorials
 
 A [tutorial](https://pyccel.github.io/IGA-Python/intro.html) on isogeometric analysis, with many example notebooks where various PDEs are solved with PSYDAC, is under construction in the [IGA-Python](https://github.com/pyccel/IGA-Python) repository.
-Some other examples can be found [here](./examples/).
+Some other examples can be found [here](https://github.com/pyccel/psydac/blob/devel/examples).
 
 ## Library Documentation
 
--   [Output formats](./docs/output.md)
--   [Mesh generation](./docs/psydac-mesh.md)
+-   [Output formats](https://github.com/pyccel/psydac/blob/devel/docs/output.md)
+-   [Mesh generation](https://github.com/pyccel/psydac/blob/devel/docs/psydac-mesh.md)
 -   [Library reference](https://pyccel.github.io/psydac/)
 
 ## Contributing
@@ -119,5 +121,5 @@ If you want to fix an issue, improve our notebooks, or add a new example, please
 All PRs are reviewed by the project maintainers.
 During the PR review, GitHub workflows are triggered on various platforms.
 
-We keep an up-to-date list of maintainers and contributors in our [AUTHORS](./AUTHORS) file.
+We keep an up-to-date list of maintainers and contributors in our [AUTHORS](https://github.com/pyccel/psydac/blob/devel/AUTHORS) file.
 Thank you!

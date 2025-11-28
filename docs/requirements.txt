@@ -6,3 +6,4 @@ sphinx-math-dollar
 nbsphinx
 ipykernel
 ipytest
+myst-parser
