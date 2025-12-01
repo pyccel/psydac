@@ -14,13 +14,16 @@ Welcome to PSYDAC's documentation!
    For the time being, its purpose is to assist the developers.
 
 .. include:: ../../README.md
-   .. :parser: myst_parser.sphinx_
+   :parser: myst_parser.sphinx_
 
 
 .. toctree::
    :maxdepth: 1
    :hidden: 
 
-   modules
+   installation
+   output
    examples
+   modules
+   psydac-mesh
    maintenance

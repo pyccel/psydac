@@ -54,7 +54,6 @@ extensions = [
 'sphinx.ext.mathjax',
 'nbsphinx',
 'myst_parser',
-"click_extra.sphinx",
 ]
 
 from docutils.nodes import FixedTextElement, literal,math
@@ -100,7 +99,6 @@ html_theme_options = {
 
 # -- Options for myst_parser -------------------------------------------------
 myst_heading_anchors = 3
-myst_enable_extensions = ["colon_fence"]
 
 # -- Options for autodoc extension -------------------------------------------
 autodoc_member_order = 'bysource'
