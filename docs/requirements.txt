@@ -7,3 +7,4 @@ nbsphinx
 ipykernel
 ipytest
 myst-parser
+click-extra[sphinx]
