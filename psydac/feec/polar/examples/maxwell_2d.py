@@ -682,42 +682,6 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
     # VISUALIZATION SETUP
     # ==============================================================================
 
-    # Logical and physical grids
-    grid_x1 = derham_h.V0.breaks[0]
-    grid_x2 = derham_h.V0.breaks[1]
-    # Fix division by zero without taking care of the limit as s --> 0
-    grid_x1[0] = 1e-20
-
-    # Very fine grids for evaluation of solution
-    N = 5
-    x1 = refine_array_1d(grid_x1, N)
-    x2 = refine_array_1d(grid_x2, N)
-
-    x1, x2 = np.meshgrid(x1, x2, indexing='ij')
-    x = np.empty_like(x1)
-    y = np.empty_like(x1)
-    print(x1.shape)
-    print(x2.shape)
-
-    for i in range(x1.shape[0]):
-        for j in range(x1.shape[1]):
-            # print(f'i = {i}')
-            # print(f'x1i = {x1i}')
-            # print(f'x2i = {x2i}')
-            # for x1i, x2i in zip(x1, x2):
-            x[i, j], y[i, j] = F(x1[i, j], x2[i, j])
-
-    gridlines_x1 = (x[:, ::N], y[:, ::N])
-    gridlines_x2 = (x[::N, :].T, y[::N, :].T)
-    gridlines = (gridlines_x1, gridlines_x2)
-
-    Ex_ex_values = np.empty_like(x1)
-    Ey_ex_values = np.empty_like(x1)
-    Bz_ex_values = np.empty_like(x1)
-
-    Ex_values = np.empty_like(x1)
-    Ey_values = np.empty_like(x1)
-    Bz_values = np.empty_like(x1)
 
     if study_L2_proj:
         run_study_L2_proj()
@@ -785,6 +749,38 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
             Ex_serial, = V1_sx.import_fields('Ex.h5', 'Ex_field')
             Ey_serial, = V1_sy.import_fields('Ey.h5', 'Ey_field')
             B_serial, = V2_s.import_fields('B.h5', 'B_field')
+
+            grid_x1 = V0_s.breaks[0]
+            grid_x2 = V0_s.breaks[1]
+            # Fix division by zero without taking care of the limit as s --> 0
+            grid_x1[0] = 1e-15
+
+            # Very fine grids for evaluation of solution
+            N = 5
+            x1 = refine_array_1d(grid_x1, N)
+            x2 = refine_array_1d(grid_x2, N)
+
+            x1, x2 = np.meshgrid(x1, x2, indexing='ij')
+            x = np.empty_like(x1)
+            y = np.empty_like(x1)
+            print(x1.shape)
+            print(x2.shape)
+
+            for i in range(x1.shape[0]):
+                for j in range(x1.shape[1]):
+                    x[i, j], y[i, j] = F_serial(x1[i, j], x2[i, j])
+
+            gridlines_x1 = (x[:, ::N], y[:, ::N])
+            gridlines_x2 = (x[::N, :].T, y[::N, :].T)
+            gridlines = (gridlines_x1, gridlines_x2)
+
+            Ex_ex_values = np.empty_like(x1)
+            Ey_ex_values = np.empty_like(x1)
+            Bz_ex_values = np.empty_like(x1)
+
+            Ex_values = np.empty_like(x1)
+            Ey_values = np.empty_like(x1)
+            Bz_values = np.empty_like(x1)
 
             for i, x1i in enumerate(x1[:, 0]):
                 for j, x2j in enumerate(x2[0, :]):
@@ -960,6 +956,9 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         t += dt
 
         # diag
+        e.update_ghost_regions()
+        b.update_ghost_regions()
+
         P1.dot(e.copy(), out=e)
         P2.dot(b.copy(), out=b)
 
@@ -986,6 +985,9 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         B_serial, = V2_s.import_fields('B_final.h5', 'B_field')
         print("imported fields at final time")
 
+        print("Serial coeff after import:")
+        print(Ey_serial.coeffs)
+
         for i, x1i in enumerate(x1[:, 0]):
             for j, x2j in enumerate(x2[0, :]):
 
@@ -1002,6 +1004,8 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
                 Bz_ex_values[i, j] = Bz_ex_t(t, xij, yij)
 
         # ...
+        print("AFTER PUSH_2D_HCURL")
+        print(Ey_values[0])
 
         # Error at final time
         error_Ex = abs(Ex_ex_values - Ex_values).max()
