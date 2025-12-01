@@ -13,5 +13,5 @@ Examples
 
    examples/Poisson_non_periodic
    examples/Helmholtz_non_periodic
-   examples/fem_l2_projection
+   examples/fem_L2_projection
    
