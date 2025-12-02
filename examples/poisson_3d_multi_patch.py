@@ -104,7 +104,8 @@ def run_poisson_3d_multi_patch(solution, f, domain, ncells, degree, comm=None, b
     domain_h = discretize(domain, ncells=ncells, comm=comm)
     Vh       = discretize(V, domain_h, degree=degree)
 
-    equation_h = discretize(equation, domain_h, [Vh, Vh], nquads=nquads, backend=backend)
+    equation_h = discretize(equation, domain_h, [Vh, Vh], nquads=nquads,
+                            backend=backend, sum_factorization=False)
 
     l2norm_h = discretize(l2norm, domain_h, Vh, nquads=nquads, backend=backend)
     h1norm_h = discretize(h1norm, domain_h, Vh, nquads=nquads, backend=backend)
