@@ -11,25 +11,20 @@ import numpy as np
 
 from sympde.topology import Derham
 
-from psydac.api.discretization import discretize
-from psydac.api.settings import PSYDAC_BACKENDS
-from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
-from psydac.feec.multipatch.utilities import time_count
+from psydac.api.discretization  import discretize
+from psydac.api.postprocessing  import OutputManager, PostProcessManager
 
+from psydac.linalg.basic        import IdentityOperator
+from psydac.linalg.utilities    import array_to_psydac
 
-from scipy.sparse.linalg import spilu, lgmres
-from scipy.sparse.linalg import LinearOperator, eigsh, minres
-from scipy.linalg import norm
-from psydac.linalg.basic       import IdentityOperator
-
-from psydac.linalg.utilities import array_to_psydac
 from psydac.fem.basic import FemField
 
-from psydac.feec.multipatch.multipatch_domain_utilities import build_cartesian_multipatch_domain
-
-from psydac.api.postprocessing import OutputManager, PostProcessManager
+from psydac.feec.multipatch_domain_utilities import build_cartesian_multipatch_domain, build_multipatch_domain
 
 
+#==============================================================================
+# Solver for curl-curl eigenvalue problems
+#==============================================================================
 def hcurl_solve_eigen_pbm(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), domain=([0, np.pi], [0, np.pi]), domain_name='refined_square', backend_language='pyccel-gcc', mu=1, nu=0, gamma_h=0,
                              generalized_pbm=False, sigma=5, nb_eigs_solve=8, nb_eigs_plot=5, skip_eigs_threshold=1e-7,
                              plot_dir=None):
@@ -68,8 +63,6 @@ def hcurl_solve_eigen_pbm(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), doma
         Directory for the plots
     """
 
-    diags = {}
-
     if sigma is None:
         raise ValueError('please specify a value for sigma')
 
@@ -80,9 +73,8 @@ def hcurl_solve_eigen_pbm(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), doma
     print(' domain_name = {}'.format(domain_name))
     print(' backend_language = {}'.format(backend_language))
     print('---------------------------------------------------------------------------------------------------------')
-    t_stamp = time_count()
-    print('building symbolic and discrete domain...')
 
+    print('building symbolic and discrete domain...')
     int_x, int_y = domain
     if isinstance(ncells, int):
         domain = build_multipatch_domain(domain_name=domain_name)
@@ -105,16 +97,13 @@ def hcurl_solve_eigen_pbm(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), doma
         ncells = {patch.name: [ncells[int(patch.name[2])][int(patch.name[4])], 
                 ncells[int(patch.name[2])][int(patch.name[4])]] for patch in domain.interior}
 
-    t_stamp = time_count(t_stamp)
     print(' .. discrete domain...')
     domain_h = discretize(domain, ncells=ncells)   # Vh space
 
     print('building symbolic and discrete derham sequences...')
-    t_stamp = time_count()
     print(' .. derham sequence...')
     derham = Derham(domain, ["H1", "Hcurl", "L2"])
 
-    t_stamp = time_count(t_stamp)
     print(' .. discrete derham sequence...')
     derham_h = discretize(derham, domain_h, degree=degree)
 
@@ -122,30 +111,22 @@ def hcurl_solve_eigen_pbm(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), doma
     print('dim(V0h) = {}'.format(V0h.nbasis))
     print('dim(V1h) = {}'.format(V1h.nbasis))
     print('dim(V2h) = {}'.format(V2h.nbasis))
-    diags['ndofs_V0'] = V0h.nbasis
-    diags['ndofs_V1'] = V1h.nbasis
-    diags['ndofs_V2'] = V2h.nbasis
 
-    t_stamp = time_count(t_stamp)
     print('building the discrete operators:')
     print('commuting projection operators...')
 
     I1 = IdentityOperator(V1h.coeff_space)
 
-    t_stamp = time_count(t_stamp)
     print('Hodge operators...')
     # multi-patch (broken) linear operators / matrices
     H0, H1, H2 = derham_h.hodge_operators(kind='linop', backend_language=backend_language)
     dH0, dH1, dH2 = derham_h.hodge_operators(kind='linop', dual=True, backend_language=backend_language)
 
-    t_stamp = time_count(t_stamp)
     print('conforming projection operators...')
     # conforming Projections (should take into account the boundary conditions
     # of the continuous deRham sequence)
     cP0, cP1, cP2 = derham_h.conforming_projectors(kind='linop', hom_bc = True)
 
-
-    t_stamp = time_count(t_stamp)
     print('broken differential operators...')
     bD0, bD1 = derham_h.derivatives(kind='linop')
 
@@ -155,7 +136,6 @@ def hcurl_solve_eigen_pbm(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), doma
     # Conga (projection-based) stiffness matrices
     if mu != 0:
         # curl curl:
-        t_stamp = time_count(t_stamp)
         print('mu = {}'.format(mu))
         print('curl-curl stiffness matrix...')
 
@@ -168,7 +148,6 @@ def hcurl_solve_eigen_pbm(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), doma
 
     # jump stabilization in V1h:
     if gamma_h != 0 or generalized_pbm:
-        t_stamp = time_count(t_stamp)
         print('jump stabilization matrix...')
         JS = (I1 - cP1).T @ H1 @ (I1 - cP1)
         A += gamma_h * JS
@@ -179,11 +158,9 @@ def hcurl_solve_eigen_pbm(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), doma
     else:
         B = H1
 
-    t_stamp = time_count(t_stamp)
     print('solving matrix eigenproblem...')
     all_eigenvalues, all_eigenvectors_transp = get_eigenvalues(nb_eigs_solve, sigma, A.tosparse(), B.tosparse())
     # Eigenvalue processing
-    t_stamp = time_count(t_stamp)
     print('sorting out eigenvalues...')
     zero_eigenvalues = []
     if skip_eigs_threshold is not None:
@@ -200,15 +177,7 @@ def hcurl_solve_eigen_pbm(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), doma
         eigenvalues = all_eigenvalues
         eigenvectors = all_eigenvectors_transp.T
 
-    for k, val in enumerate(eigenvalues):
-        diags['eigenvalue_{}'.format(k)] = val  # eigenvalues[k]
-
-    for k, val in enumerate(zero_eigenvalues):
-        diags['skipped eigenvalue_{}'.format(k)] = val
-
-    t_stamp = time_count(t_stamp)
     print('plotting the eigenmodes...')
-
     if plot_dir:
 
         if not os.path.exists(plot_dir):
@@ -249,11 +218,11 @@ def hcurl_solve_eigen_pbm(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), doma
             fields='vh')
         PM.close()
 
-    t_stamp = time_count(t_stamp)
+    return eigenvalues
 
-    return diags, eigenvalues
-
-
+#==============================================================================
+# Eigenvalue solver
+#==============================================================================
 def get_eigenvalues(nb_eigs, sigma, A_m, M_m):
     """
     Compute the eigenvalues of the matrix A close to sigma and right-hand-side M
@@ -269,6 +238,10 @@ def get_eigenvalues(nb_eigs, sigma, A_m, M_m):
     M_m : sparse matrix
         Matrix M
     """
+
+    from scipy.sparse.linalg    import spilu, lgmres
+    from scipy.sparse.linalg    import LinearOperator, eigsh, minres
+    from scipy.linalg           import norm
 
     print('-----  -----  -----  -----  -----  -----  -----  -----  -----  -----  -----  -----  -----  -----  -----  ----- ')
     print(
@@ -327,3 +300,79 @@ def get_eigenvalues(nb_eigs, sigma, A_m, M_m):
 
     print("done: eigenvalues found: " + repr(eigenvalues))
     return eigenvalues, eigenvectors
+
+if __name__ == '__main__':
+    # Degree
+    degree = [3, 3]
+
+    # Refined square domain
+    domain_name = 'refined_square'
+    domain = [[0, np.pi], [0, np.pi]]
+    ncells = np.array([[10, 5, 10],
+                        [5, 10, 5],
+                        [10, 5, 10]])
+
+    # Curved L-shape domain
+    # domain_name = 'curved_L_shape'
+    # domain = [[1, 3], [0, np.pi / 4]]  # interval in x- and y-direction
+    # ncells = np.array([[None, 5],
+    #                 [5, 10]])
+
+    # Jump stabilization parameter
+    gamma_h = 0
+    # solves generalized eigenvalue problem with:  B(v,w) = <Pv,Pw> +
+    # <(I-P)v,(I-P)w> in rhs
+    generalized_pbm = True
+
+    # curl-curl operator
+    nu = 0
+    mu = 1
+
+    # reference eigenvalues for validation
+    if domain_name == 'refined_square':
+        assert domain == [[0, np.pi], [0, np.pi]]
+        ref_sigmas = [
+            1, 1,
+            2,
+            4, 4,
+            5, 5,
+            8,
+            9, 9,
+        ]
+        sigma = 5
+        nb_eigs_solve = 10
+        nb_eigs_plot = 10
+        skip_eigs_threshold = 1e-7
+
+    elif domain_name == 'curved_L_shape':
+        # ref eigenvalues from Monique Dauge benchmark page
+        assert domain == [[1, 3], [0, np.pi / 4]]
+        ref_sigmas = [
+            0.181857115231E+01,
+            0.349057623279E+01,
+            0.100656015004E+02,
+            0.101118862307E+02,
+            0.124355372484E+02,
+        ]
+        sigma = 7
+        nb_eigs_solve = 5
+        nb_eigs_plot = 5
+        skip_eigs_threshold = 1e-7
+
+    eigenvalues = hcurl_solve_eigen_pbm(
+        ncells=ncells, degree=degree,
+        gamma_h=gamma_h,
+        generalized_pbm=generalized_pbm,
+        nu=nu,
+        mu=mu,
+        sigma=sigma,
+        skip_eigs_threshold=skip_eigs_threshold,
+        nb_eigs_solve=nb_eigs_solve,
+        nb_eigs_plot=nb_eigs_plot,
+        domain_name=domain_name, domain=domain,
+    )
+
+    if ref_sigmas is not None:
+        n_errs = min(len(ref_sigmas), len(eigenvalues))
+        for k in range(n_errs):
+            print('error_{}: '.format(k), abs(eigenvalues[k] - ref_sigmas[k]))

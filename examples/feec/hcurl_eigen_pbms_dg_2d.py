@@ -9,37 +9,30 @@
     SIAM Journal on Numerical Analysis 44 (2006)
 """
 import os
-from mpi4py import MPI
-from collections import OrderedDict
-
 import numpy as np
-import matplotlib.pyplot
 
-from scipy.sparse.linalg import LinearOperator, eigsh, minres
-
-from sympde.calculus import grad, dot, curl, cross
+from sympde.calculus import dot, curl, cross
 from sympde.calculus import minus, plus
 from sympde.topology import VectorFunctionSpace
 from sympde.topology import elements_of
 from sympde.topology import NormalVector
-from sympde.topology import Square
-from sympde.topology import IdentityMapping, PolarMapping
 from sympde.expr.expr import LinearForm, BilinearForm
 from sympde.expr.expr import integral
-from sympde.expr.expr import Norm
-from sympde.expr.equation import find, EssentialBC
 
 from psydac.linalg.utilities import array_to_psydac
-from psydac.fem.basic import FemField
-from psydac.feec.pull_push import pull_2d_hcurl
 
-from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
-from psydac.feec.multipatch.utilities import time_count
+from psydac.fem.basic import FemField
+
+from psydac.feec.multipatch_domain_utilities import build_multipatch_domain, build_cartesian_multipatch_domain
+
 from psydac.api.discretization import discretize
-from psydac.feec.multipatch.multipatch_domain_utilities import build_cartesian_multipatch_domain
 from psydac.api.postprocessing import OutputManager, PostProcessManager
 
+from hcurl_eigen_pbms_conga_2d import get_eigenvalues
 
+#==============================================================================
+# Solver for curl-curl eigenvalue problems
+#==============================================================================
 def hcurl_solve_eigen_pbm_dg(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), domain=([0, np.pi], [0, np.pi]), domain_name='refined_square', backend_language='pyccel-gcc', mu=1, nu=0,
                              sigma=5, nb_eigs_solve=8, nb_eigs_plot=5, skip_eigs_threshold=1e-7,
                              plot_dir=None,):
@@ -74,8 +67,6 @@ def hcurl_solve_eigen_pbm_dg(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), d
         Directory for the plots
     """
 
-    diags = {}
-
     if sigma is None:
         raise ValueError('please specify a value for sigma')
 
@@ -86,7 +77,6 @@ def hcurl_solve_eigen_pbm_dg(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), d
     print(' domain_name = {}'.format(domain_name))
     print(' backend_language = {}'.format(backend_language))
     print('---------------------------------------------------------------------------------------------------------')
-    t_stamp = time_count()
     print('building symbolic and discrete domain...')
 
     int_x, int_y = domain
@@ -111,13 +101,8 @@ def hcurl_solve_eigen_pbm_dg(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), d
         ncells = {patch.name: [ncells[int(patch.name[2])][int(patch.name[4])], 
                 ncells[int(patch.name[2])][int(patch.name[4])]] for patch in domain.interior}
 
-    mappings = OrderedDict([(P.logical_domain, P.mapping)
-                           for P in domain.interior])
-    mappings_list = list(mappings.values())
 
-    t_stamp = time_count(t_stamp)
     print(' .. discrete domain...')
-
     V = VectorFunctionSpace('V', domain, kind='hcurl')
 
     u, v, F = elements_of(V, names='u, v, F')
@@ -166,17 +151,16 @@ def hcurl_solve_eigen_pbm_dg(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), d
     bh = discretize(b, domain_h, [Vh, Vh])
     Bh_m = bh.assemble().tosparse()
 
-    all_eigenvalues_2, all_eigenvectors_transp_2 = get_eigenvalues(
+    all_eigenvalues, all_eigenvectors_transp = get_eigenvalues(
         nb_eigs_solve, sigma, Ah_m, Bh_m)
 
     # Eigenvalue processing
-    t_stamp = time_count(t_stamp)
     print('sorting out eigenvalues...')
     zero_eigenvalues = []
     if skip_eigs_threshold is not None:
         eigenvalues = []
         eigenvectors = []
-        for val, vect in zip(all_eigenvalues_2, all_eigenvectors_transp_2.T):
+        for val, vect in zip(all_eigenvalues, all_eigenvectors_transp.T):
             if abs(val) < skip_eigs_threshold:
                 zero_eigenvalues.append(val)
                 # we skip the eigenvector
@@ -184,18 +168,10 @@ def hcurl_solve_eigen_pbm_dg(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), d
                 eigenvalues.append(val)
                 eigenvectors.append(vect)
     else:
-        eigenvalues = all_eigenvalues_2
-        eigenvectors = all_eigenvectors_transp_2.T
-    diags['DG'] = True
-    for k, val in enumerate(eigenvalues):
-        diags['eigenvalue2_{}'.format(k)] = val  # eigenvalues[k]
+        eigenvalues = all_eigenvalues
+        eigenvectors = all_eigenvectors_transp.T
 
-    for k, val in enumerate(zero_eigenvalues):
-        diags['skipped eigenvalue2_{}'.format(k)] = val
-
-    t_stamp = time_count(t_stamp)
     print('plotting the eigenmodes...')
-
     if plot_dir:
         if not os.path.exists(plot_dir):
             os.makedirs(plot_dir)
@@ -232,81 +208,76 @@ def hcurl_solve_eigen_pbm_dg(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), d
             fields='vh')
         PM.close()
 
-    t_stamp = time_count(t_stamp)
+    return eigenvalues
 
-    return diags, eigenvalues
+if __name__ == '__main__':
+    # Degree
+    degree = [3, 3]
 
+    # Refined square domain
+    domain_name = 'refined_square'
+    domain = [[0, np.pi], [0, np.pi]]
+    ncells = np.array([[10, 5, 10],
+                        [5, 10, 5],
+                        [10, 5, 10]])
 
-def get_eigenvalues(nb_eigs, sigma, A_m, M_m):
-    """
-    Compute the eigenvalues of the matrix A close to sigma and right-hand-side M
+    # Curved L-shape domain
+    # domain_name = 'curved_L_shape'
+    # domain = [[1, 3], [0, np.pi / 4]]  # interval in x- and y-direction
+    # ncells = np.array([[None, 5],
+    #                 [5, 10]])
 
-    Parameters
-    ----------
-    nb_eigs : int
-        Number of eigenvalues to compute
-    sigma : float
-        Value close to which the eigenvalues are computed
-    A_m : sparse matrix
-        Matrix A
-    M_m : sparse matrix
-        Matrix M
-    """
+    # solves generalized eigenvalue problem with:  B(v,w) = <Pv,Pw> +
+    # <(I-P)v,(I-P)w> in rhs
+    generalized_pbm = True
 
-    print('-----  -----  -----  -----  -----  -----  -----  -----  -----  -----  -----  -----  -----  -----  -----  ----- ')
-    print(
-        'computing {0} eigenvalues (and eigenvectors) close to sigma={1} with scipy.sparse.eigsh...'.format(
-            nb_eigs,
-            sigma))
-    mode = 'normal'
-    which = 'LM'
-    # from eigsh docstring:
-    #   ncv = number of Lanczos vectors generated ncv must be greater than k and smaller than n;
-    #   it is recommended that ncv > 2*k. Default: min(n, max(2*k + 1, 20))
-    ncv = 4 * nb_eigs
-    print('A_m.shape = ', A_m.shape)
-    try_lgmres = True
-    max_shape_splu = 24000   # OK for nc=20, deg=6 on pretzel_f
-    if A_m.shape[0] < max_shape_splu:
-        print('(via sparse LU decomposition)')
-        OPinv = None
-        tol_eigsh = 0
-    else:
+    # curl-curl operator
+    nu = 0
+    mu = 1
 
-        OP_m = A_m - sigma * M_m
-        tol_eigsh = 1e-7
-        if try_lgmres:
-            print(
-                '(via SPILU-preconditioned LGMRES iterative solver for A_m - sigma*M1_m)')
-            OP_spilu = spilu(OP_m, fill_factor=15, drop_tol=5e-5)
-            preconditioner = LinearOperator(
-                OP_m.shape, lambda x: OP_spilu.solve(x))
-            tol = tol_eigsh
-            OPinv = LinearOperator(
-                matvec=lambda v: lgmres(OP_m, v, x0=None, tol=tol, atol=tol, M=preconditioner,
-                                        callback=lambda x: print(
-                                            'cg -- residual = ', norm(OP_m.dot(x) - v))
-                                        )[0],
-                shape=M_m.shape,
-                dtype=M_m.dtype
-            )
+    # reference eigenvalues for validation
+    if domain_name == 'refined_square':
+        assert domain == [[0, np.pi], [0, np.pi]]
+        ref_sigmas = [
+            1, 1,
+            2,
+            4, 4,
+            5, 5,
+            8,
+            9, 9,
+        ]
+        sigma = 5
+        nb_eigs_solve = 10
+        nb_eigs_plot = 10
+        skip_eigs_threshold = 1e-7
 
-        else:
-            # from https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.linalg.eigsh.html:
-            # the user can supply the matrix or operator OPinv, which gives x = OPinv @ b = [A - sigma * M]^-1 @ b.
-            # > here, minres: MINimum RESidual iteration to solve Ax=b
-            # suggested in https://github.com/scipy/scipy/issues/4170
-            print('(with minres iterative solver for A_m - sigma*M1_m)')
-            OPinv = LinearOperator(
-                matvec=lambda v: minres(
-                    OP_m,
-                    v,
-                    tol=1e-10)[0],
-                shape=M_m.shape,
-                dtype=M_m.dtype)
+    elif domain_name == 'curved_L_shape':
+        # ref eigenvalues from Monique Dauge benchmark page
+        assert domain == [[1, 3], [0, np.pi / 4]]
+        ref_sigmas = [
+            0.181857115231E+01,
+            0.349057623279E+01,
+            0.100656015004E+02,
+            0.101118862307E+02,
+            0.124355372484E+02,
+        ]
+        sigma = 7
+        nb_eigs_solve = 5
+        nb_eigs_plot = 5
+        skip_eigs_threshold = 1e-7
 
-    eigenvalues, eigenvectors = eigsh(
-        A_m, k=nb_eigs, M=M_m, sigma=sigma, mode=mode, which=which, ncv=ncv, tol=tol_eigsh, OPinv=OPinv)
+    eigenvalues = hcurl_solve_eigen_pbm_dg(
+        ncells=ncells, degree=degree,
+        nu=nu,
+        mu=mu,
+        sigma=sigma,
+        skip_eigs_threshold=skip_eigs_threshold,
+        nb_eigs_solve=nb_eigs_solve,
+        nb_eigs_plot=nb_eigs_plot,
+        domain_name=domain_name, domain=domain,
+    )
 
-    print("done: eigenvalues found: " + repr(eigenvalues))
-    return eigenvalues, eigenvectors
+    if ref_sigmas is not None:
+        n_errs = min(len(ref_sigmas), len(eigenvalues))
+        for k in range(n_errs):
+            print('error_{}: '.format(k), abs(eigenvalues[k] - ref_sigmas[k]))
