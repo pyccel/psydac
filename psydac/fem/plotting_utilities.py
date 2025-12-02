@@ -42,7 +42,13 @@ def get_grid_vals(u, etas, mappings_list, space_kind=None):
         vector_valued = u.space.is_vector_valued 
     else:
         # then u should be callable
-        vector_valued = isinstance(u, (list, tuple)) # [MCP 04.03.25]: this needs to be tested
+        if len(mappings_list) == 1:
+            # single patch
+            u_single_patch = u
+        else:
+            # multiple patches
+            u_single_patch = u[0]
+        vector_valued = isinstance(u_single_patch, (list, tuple)) # [MCP 04.03.25]: this needs to be tested
 
     if space_kind is None:
         # use a simple change of variable
@@ -235,8 +241,8 @@ def get_patch_knots_gridlines(Vh, N, mappings, plotted_patch=-1):
     F = [M.get_callable_mapping() for d, M in mappings.items()]
 
     if plotted_patch in range(len(mappings)):
-        grid_x1 = Vh.patch_spaces[plotted_patch].spaces[0].breaks[0]
-        grid_x2 = Vh.patch_spaces[plotted_patch].spaces[0].breaks[1]
+        grid_x1 = Vh.patch_spaces[plotted_patch].spaces[0].breaks
+        grid_x2 = Vh.patch_spaces[plotted_patch].spaces[0].breaks
 
         x1 = refine_array_1d(grid_x1, N)
         x2 = refine_array_1d(grid_x2, N)
