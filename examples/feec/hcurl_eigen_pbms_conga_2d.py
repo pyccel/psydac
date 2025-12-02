@@ -160,6 +160,7 @@ def hcurl_solve_eigen_pbm(ncells=np.array([[8, 4], [4, 4]]), degree=(3, 3), doma
 
     print('solving matrix eigenproblem...')
     all_eigenvalues, all_eigenvectors_transp = get_eigenvalues(nb_eigs_solve, sigma, A.tosparse(), B.tosparse())
+    
     # Eigenvalue processing
     print('sorting out eigenvalues...')
     zero_eigenvalues = []
