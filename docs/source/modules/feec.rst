@@ -11,5 +11,6 @@ feec
     feec.derivatives
     feec.global_geometric_projectors
     feec.hodge
+    feec.multipatch_domain_utilities
     feec.pull_push
     feec.pushforward
