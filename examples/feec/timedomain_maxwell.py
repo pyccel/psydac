@@ -15,44 +15,30 @@
       V0h  --grad->  V1h  -—curl-> V2h
                      (Eh)          (Bh)
 """
-
-from pytest import param
-from mpi4py import MPI
-
 import os
 import numpy as np
-import scipy as sp
-from collections import OrderedDict
-import matplotlib.pyplot as plt
 
-from sympy import lambdify, Matrix
+from sympde.calculus        import grad, dot, curl, cross
+from sympde.topology        import NormalVector
+from sympde.topology        import elements_of
+from sympde.topology        import Derham
+from sympde.expr.expr       import integral
+from sympde.expr.expr       import BilinearForm
 
-from scipy.sparse.linalg import spsolve
-from scipy import special
+from psydac.linalg.basic    import IdentityOperator
 
-from sympde.calculus import dot
-from sympde.topology import element_of
-from sympde.expr.expr import LinearForm
-from sympde.expr.expr import integral, Norm
-from sympde.topology import Derham
-from psydac.linalg.basic import IdentityOperator
-
-from psydac.api.settings import PSYDAC_BACKENDS
+from psydac.api.settings       import PSYDAC_BACKENDS
 from psydac.api.discretization import discretize
-
-from psydac.fem.plotting_utilities import plot_field_2d as plot_field
-from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
-
-from psydac.feec.multipatch.examples.ppc_test_cases import get_source_and_solution_hcurl, get_div_free_pulse, get_curl_free_pulse, get_Delta_phi_pulse, get_Gaussian_beam
-from psydac.feec.multipatch.utils_conga_2d import DiagGrid, P0_phys, P1_phys, P2_phys, get_Vh_diags_for
-from psydac.feec.multipatch.utilities import time_count 
-from psydac.fem.basic import FemField
-from psydac.feec.multipatch.multipatch_domain_utilities import build_cartesian_multipatch_domain
-
 from psydac.api.postprocessing import OutputManager, PostProcessManager
-from psydac.fem.projectors import get_dual_dofs
 
+from psydac.feec.multipatch_domain_utilities    import build_multipatch_domain, build_cartesian_multipatch_domain
 
+from psydac.fem.basic       import FemField
+from psydac.fem.projectors  import get_dual_dofs
+
+#==============================================================================
+# Solver for the TD Maxwell problem
+#==============================================================================
 def solve_td_maxwell_pbm(*,
                          nc=4,
                          deg=4,
@@ -62,15 +48,10 @@ def solve_td_maxwell_pbm(*,
                          domain_name='pretzel_f',
                          backend='pyccel-gcc',
                          source_type='zero',
-                         source_omega=None,
-                         source_proj='P_L2',
-                         project_sol=False,
-                         filter_source=True,
                          E0_type='pulse_2',
-                         E0_proj='P_L2',
                          plot_dir=None,
-                         plot_time_ranges=None,
-                         domain_lims=None
+                         domain_lims=None,
+                         p_moments=4,
                          ):
     """
     solver for the TD Maxwell problem: find E(t) in H(curl), B in L2, such that
@@ -113,66 +94,30 @@ def solve_td_maxwell_pbm(*,
         Name of the backend used for acceleration of the computational kernels,
         to be chosen among the available keys of the PSYDAC_BACKENDS dict.
 
-    source_type : str {'zero' | 'pulse' | 'cf_pulse' | 'Il_pulse'}
+    source_type : str {'zero' | 'pulse' | 'cf_pulse' }
         Name that identifies the space-time profile of the current source, to be
         chosen among those available in the function get_source_and_solution().
         Available options:
             - 'zero'    : no current source
             - 'pulse'   : div-free current source, time-harmonic
             - 'cf_pulse': curl-free current source, time-harmonic
-            - 'Il_pulse': Issautier-like pulse, with both a div-free and a
-                          curl-free component, not time-harmonic.
-
-    source_omega : float
-        Pulsation of the time-harmonic component (if any) of a time-dependent
-        current source.
-
-    source_proj : str {'P_geom' | 'P_L2'}
-        Name of the approximation operator for the current source: 'P_geom' is
-        a geometric projector (based on inter/histopolation) which yields the
-        primal degrees of freedom; 'P_L2' is an L2 projector which yields the
-        dual degrees of freedom. Change of basis from primal to dual (and vice
-        versa) is obtained through multiplication with the proper Hodge matrix.
-
-    project_sol : bool
-        Whether the solution fields should be projected onto the corresponding
-        conforming spaces before plotting them.
-
-    filter_source : bool
-        If True, the current source will be filtered with the conforming
-        projector operator (or its dual, depending on which basis is used).
 
     E0_type : str {'zero', 'pulse'}
         Initial conditions for the electric field. Choose 'zero' for E0=0
         and 'pulse' for a non-zero field localized in a small region.
 
-    E0_proj : str {'P_geom' | 'P_L2'}
-        Name of the approximation operator for the initial electric field E0
-        (see source_proj for details). Only relevant if E0 is not zero.
-
     plot_dir : str
         Path to the directory where the figures will be saved.
-
-    plot_time_ranges : list
-        List of lists, of the form `[[start, end], dtp]`, where `[start, end]`
-        is a time interval and `dtp` is the time between two successive plots.
 
     domain_lims : list
         If the domain_name is 'refined_square' or 'square_L_shape', this
         parameter must be set to the list of the two intervals defining the
         rectangular domain, i.e. `[[x_min, x_max], [y_min, y_max]]`.
-
+    
+    p_moments : int
+        Degree of the polynomial moments used in the conforming projection.
     """
     degree = [deg, deg]
-
-    if source_omega is not None:
-        period_time = 2 * np.pi / source_omega
-        Nt_pp = period_time // dt_max
-
-    if plot_time_ranges is None:
-        plot_time_ranges = [
-            [[0, final_time], final_time]
-        ]
 
 
     print('---------------------------------------------------------------------------------------------------------')
@@ -180,10 +125,6 @@ def solve_td_maxwell_pbm(*,
     print(' ncells = {}'.format(nc))
     print(' degree = {}'.format(degree))
     print(' domain_name = {}'.format(domain_name))
-    print(' E0_type = {}'.format(E0_type))
-    print(' E0_proj = {}'.format(E0_proj))
-    print(' source_type = {}'.format(source_type))
-    print(' source_proj = {}'.format(source_proj))
     print(' backend = {}'.format(backend))
     print('---------------------------------------------------------------------------------------------------------')
 
@@ -191,12 +132,10 @@ def solve_td_maxwell_pbm(*,
     print()
     print(' -- building discrete spaces and operators  --')
 
-    t_stamp = time_count()
     print(' .. multi-patch domain...')
     if domain_name == 'refined_square' or domain_name == 'square_L_shape':
         int_x, int_y = domain_lims
         domain = build_cartesian_multipatch_domain(nc, int_x, int_y, mapping='identity')
-
     else:
         domain = build_multipatch_domain(domain_name=domain_name)
 
@@ -209,67 +148,43 @@ def solve_td_maxwell_pbm(*,
         ncells = {patch.name: [nc[int(patch.name[2])][int(patch.name[4])], 
                 nc[int(patch.name[2])][int(patch.name[4])]] for patch in domain.interior}
 
-    mappings = OrderedDict([(P.logical_domain, P.mapping)
-                           for P in domain.interior])
-    mappings_list = list(mappings.values())
 
-
-    t_stamp = time_count(t_stamp)
     print(' .. derham sequence...')
     derham = Derham(domain, ["H1", "Hcurl", "L2"])
 
-    t_stamp = time_count(t_stamp)
     print(' .. discrete domain...')
     domain_h = discretize(domain, ncells=ncells)
 
-    t_stamp = time_count(t_stamp)
     print(' .. discrete derham sequence...')
-
     derham_h = discretize(derham, domain_h, degree=degree)
 
-    t_stamp = time_count(t_stamp)
     print(' .. commuting projection operators...')
     nquads = [4 * (d + 1) for d in degree]
     P0, P1, P2 = derham_h.projectors(nquads=nquads)
 
-    t_stamp = time_count(t_stamp)
     print(' .. multi-patch spaces...')
     V0h, V1h, V2h = derham_h.spaces
 
-    t_stamp = time_count(t_stamp)
     print(' .. Id operator and matrix...')
     I1 = IdentityOperator(V1h.coeff_space)
 
-    t_stamp = time_count(t_stamp)
     print(' .. Hodge operators...')
     H0, H1, H2 = derham_h.hodge_operators(kind='linop')
     dH0, dH1, dH2 = derham_h.hodge_operators(kind='linop', dual=True)
 
-
-    t_stamp = time_count(t_stamp)
     print(' .. conforming Projection operators...')
-    cP0, cP1, cP2 = derham_h.conforming_projectors(kind='linop', p_moments = degree[0]+2, hom_bc = False)
+    cP0, cP1, cP2 = derham_h.conforming_projectors(kind='linop', p_moments = p_moments, hom_bc = False)
 
-    t_stamp = time_count(t_stamp)
     print(' .. broken differential operators...')
     bD0, bD1 = derham_h.derivatives(kind='linop')
 
-
-    if plot_dir is not None and not os.path.exists(plot_dir):
-        os.makedirs(plot_dir)
-
     print(' .. matrix of the primal curl (in primal bases)...')
     C = bD1 @ cP1
+
     print(' .. matrix of the dual curl (also in primal bases)...')
     dC = dH1 @ C.T @ H2
 
-
     ### Silvermueller ABC
-    from sympde.calculus import grad, dot, curl, cross
-    from sympde.topology import NormalVector
-    from sympde.expr.expr import BilinearForm
-    from sympde.topology import elements_of
-
     u, v = elements_of(derham.V1, names='u, v')
     nn = NormalVector('nn')
     boundary = domain.boundary
@@ -278,16 +193,15 @@ def solve_td_maxwell_pbm(*,
     a = BilinearForm((u, v), integral(boundary, expr_b))
     ah = discretize(a, domain_h, [V1h, V1h], backend=PSYDAC_BACKENDS[backend],)
     A_eps = ah.assemble()
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Compute stable time step size based on max CFL and max dt
     dt = compute_stable_dt(C=C, dC=dC, cfl_max=cfl_max, dt_max=dt_max)
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    print(" Reduce time step to match the simulation final time:")
+    Nt = int(np.ceil(final_time / dt))
+    dt = final_time / Nt
+    print(f"   . Time step size  : dt = {dt}")
+    print(' total nb of time steps: Nt = {}, final time: T = {:5.4f}'.format(Nt, final_time))
 
-    # Absorbing dC
-    CH2 = C.T @ H2
     H1A = H1 + dt * A_eps
 
     # alternative inverse
@@ -303,48 +217,15 @@ def solve_td_maxwell_pbm(*,
     H1A_inv = SparseMatrixLinearOperator(M.codomain, M.domain, M_inv)
     ####
 
-    dC   = H1A_inv @ CH2 
+    # Absorbing dC
+    dC   = H1A_inv @ C.T @ H2 
     dCH1 = H1A_inv @ H1 
 
-    print(' .. matrix of the dual div (still in primal bases)...')
-    D = dH0 @ cP0.T @ bD0.T @ H1
-
-
-    print(" Reduce time step to match the simulation final time:")
-    Nt = int(np.ceil(final_time / dt))
-    dt = final_time / Nt
-    print(f"   . Time step size  : dt = {dt}")
-    print(f"   . Nb of time steps: Nt = {Nt}")
-
-    # ...
-    def is_plotting_time(nt, *, dt=dt, Nt=Nt, plot_time_ranges=plot_time_ranges):
-        if nt in [0, Nt]:
-            return True
-        for [start, end], dt_plots in plot_time_ranges:
-            # number of time steps between two successive plots
-            ds = max(dt_plots // dt, 1)
-            if (start <= nt * dt <= end) and (nt % ds == 0):
-                return True
-        return False
-    # ...
-
-
-    print(' ------ ------ ------ ------ ------ ------ ------ ------ ')
-    print(' ------ ------ ------ ------ ------ ------ ------ ------ ')
-    print(' total nb of time steps: Nt = {}, final time: T = {:5.4f}'.format(Nt, final_time))
-    print(' ------ ------ ------ ------ ------ ------ ------ ------ ')
-    print(' ------ ------ ------ ------ ------ ------ ------ ------ ')
-    print(' ------ ------ ------ ------ ------ ------ ------ ------ ')
 
     # ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- -----
     # source
-
-    t_stamp = time_count(t_stamp)
     print()
     print(' -- getting source --')
-    f0_h = None
-    f0_harmonic_h = None
-    rho0_h = None
     
     if source_type == 'zero':
 
@@ -359,113 +240,28 @@ def solve_td_maxwell_pbm(*,
 
         f0 = get_curl_free_pulse(x_0=np.pi/2, y_0=np.pi/2, domain=domain)
 
-    elif source_type == 'Il_pulse':  # Issautier-like pulse
-        # source will be
-        #   J = curl A + cos(om*t) * grad phi
-        # so that
-        #   dt rho = - div J = - cos(om*t) Delta phi
-        # for instance, with rho(t=0) = 0 this  gives
-        #   rho = - sin(om*t)/om * Delta phi
-        # and Gauss' law reads
-        #  div E = rho = - sin(om*t)/om * Delta phi
-        f0 = get_div_free_pulse(x_0=np.pi/2, y_0=np.pi/2, domain=domain)  # this is curl A
-        f0_harmonic = get_curl_free_pulse( x_0=np.pi/2, y_0=np.pi/2, domain=domain)  # this is grad phi
-
-        rho0 = get_Delta_phi_pulse(x_0=np.pi/2, y_0=np.pi/2, domain=domain)  # this is Delta phi
-        tilde_rho0_h = get_dual_dofs(Vh=V0h, f=rho0, domain_h=domain_h, backend_language=backend)
-        tilde_rho0_h = cP0.T @ tilde_rho0_h
-        rho0_h = dH0.dot(tilde_rho0_h)
     else:
 
-        f0, u_bc, u_ex, curl_u_ex, div_u_ex = get_source_and_solution_hcurl(source_type=source_type, domain=domain, domain_name=domain_name)
-        assert u_bc is None  # only homogeneous BC's for now
+        raise ValueError(source_type)
 
 
-    if source_omega is not None:
-        f0_harmonic = f0
-        f0 = None
+    if f0 is not None:
+        print(' .. projecting the source f0 with L2 projection...')
+        tilde_f0_h = get_dual_dofs(Vh=V1h, f=f0, domain_h=domain_h, backend_language=backend)
 
-        def source_enveloppe(tau):
-            return 1
-
-    t_stamp = time_count(t_stamp)
-    tilde_f0_h = f0_h = None
-    tilde_f0_harmonic_h = f0_harmonic_h = None
-
-    if source_proj == 'P_geom':
-        print(' .. projecting the source with commuting projection...')
-
-        if f0 is not None:
-            f0_h = P1_phys(f0, P1, domain).coeffs
-            tilde_f0_h = H1.dot(f0_h)
-
-        if f0_harmonic is not None:
-            f0_harmonic_h = P1_phys(f0_harmonic, P1, domain).coeffs
-            tilde_f0_harmonic_h = H1.dot(f0_harmonic_h)
-
-    elif source_proj == 'P_L2':
-
-        if f0 is not None:
-            if source_type == 'Il_pulse':
-                source_name = 'Il_pulse_f0'
-            else:
-                source_name = source_type
-
-            print(' .. projecting the source f0 with L2 projection...')
-            tilde_f0_h = get_dual_dofs(Vh=V1h, f=f0, domain_h=domain_h, backend_language=backend)
-
-        if f0_harmonic is not None:
-            if source_type == 'Il_pulse':
-                source_name = 'Il_pulse_f0_harmonic'
-            else:
-                source_name = source_type
-
-            print(' .. projecting the source f0_harmonic with L2 projection...')
-            tilde_f0_harmonic_h = get_dual_dofs(Vh=V1h, f=f0_harmonic, domain_h=domain_h, backend_language=backend)
-
-    else:
-        raise ValueError(source_proj)
-
-    t_stamp = time_count(t_stamp)
-    if filter_source:
         print(' .. filtering the source...')
-        if tilde_f0_h is not None:
-            tilde_f0_h = cP1.T @ tilde_f0_h
+        tilde_f0_h = cP1.T @ tilde_f0_h
 
-        if tilde_f0_harmonic_h is not None:
-            tilde_f0_harmonic_h = cP1.T @ tilde_f0_harmonic_h
-
-    if tilde_f0_h is not None:
         f0_h = dH1.dot(tilde_f0_h)
 
-    if tilde_f0_harmonic_h is not None:
-        f0_harmonic_h = dH1.dot(tilde_f0_harmonic_h)
-
-
-    if f0_h is None:
-        f0_h = V1h.coeff_space.zeros()
-
-    t_stamp = time_count(t_stamp)
-
-    # diags arrays
-    E_norm2_diag = np.zeros(Nt + 1)
-    B_norm2_diag = np.zeros(Nt + 1)
-    divE_norm2_diag = np.zeros(Nt + 1)
-    time_diag = np.zeros(Nt + 1)
-    PE_norm2_diag = np.zeros(Nt + 1)
-    I_PE_norm2_diag = np.zeros(Nt + 1)
-    J_norm2_diag = np.zeros(Nt + 1)
-    if source_type == 'Il_pulse':
-        GaussErr_norm2_diag = np.zeros(Nt + 1)
-        GaussErrP_norm2_diag = np.zeros(Nt + 1)
     else:
-        GaussErr_norm2_diag = None
-        GaussErrP_norm2_diag = None
+
+        f0_h = V1h.coeff_space.zeros()
 
     # ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- -----
     # initial solution
 
-    print(' .. initial solution ..')
+    print(' -- initial solution --')
 
     # initial B sol
     B_h = V2h.coeff_space.zeros()
@@ -479,38 +275,31 @@ def solve_td_maxwell_pbm(*,
 
         E0 = get_div_free_pulse(x_0=np.pi/2, y_0=np.pi/2, domain=domain)
 
-        if E0_proj == 'P_geom':
-            print(' .. projecting E0 with commuting projection...')
-            E0_h = P1_phys(E0, P1, domain)
-            E_h = E0_h.coeffs
-
-        elif E0_proj == 'P_L2':
-
-            print(' .. projecting E0 with L2 projection...')
-            tilde_E0_h = get_dual_dofs(Vh=V1h, f=E0, domain_h=domain_h, backend_language=backend)
-            E_h = dH1.dot(tilde_E0_h)
+        print(' .. projecting E0 with L2 projection...')
+        tilde_E0_h = get_dual_dofs(Vh=V1h, f=E0, domain_h=domain_h, backend_language=backend)
+        E_h = dH1.dot(tilde_E0_h)
 
     elif E0_type == 'pulse_2':
 
         E0, B0 = get_Gaussian_beam(y_0=np.pi/2, x_0=np.pi/2, domain=domain)
 
-        if E0_proj == 'P_geom':
-            print(' .. projecting E0 with commuting projection...')
+        print(' .. projecting E0 with L2 projection...')
+        tilde_E0_h = get_dual_dofs(Vh=V1h, f=E0, domain_h=domain_h, backend_language=backend)
+        E_h = dH1.dot(tilde_E0_h)
 
-            E0_h = P1_phys(E0, P1, domain)
-            E_h = E0_h.coeffs
+        tilde_B0_h = get_dual_dofs(Vh=V2h, f=B0, domain_h=domain_h, backend_language=backend)
+        B_h = dH2.dot(tilde_B0_h)
 
-            B0_h = P2_phys(B0, P2, domain)
-            B_h = B0_h.coeffs
+    elif E0_type == 'Gaussian':
+        
+        E0, B0 = get_Gaussian_beam(y_0=np.pi/2, x_0=np.pi/2, domain=domain)
 
-        elif E0_proj == 'P_L2':
-           
-            print(' .. projecting E0 with L2 projection...')
-            tilde_E0_h = get_dual_dofs(Vh=V1h, f=E0, domain_h=domain_h, backend_language=backend)
-            E_h = dH1.dot(tilde_E0_h)
+        print(' .. projecting E0 with L2 projection...')
+        tilde_E0_h = get_dual_dofs(Vh=V1h, f=E0, domain_h=domain_h, backend_language=backend)
+        E_h = dH1.dot(tilde_E0_h)
 
-            tilde_B0_h = get_dual_dofs(Vh=V2h, f=B0, domain_h=domain_h, backend_language=backend)
-            B_h = dH2.dot(tilde_B0_h)
+        tilde_B0_h = get_dual_dofs(Vh=V2h, f=B0, domain_h=domain_h, backend_language=backend)
+        B_h = dH2.dot(tilde_B0_h)
 
     else:
         raise ValueError(E0_type)
@@ -518,23 +307,9 @@ def solve_td_maxwell_pbm(*,
     # ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- -----
     # time loop
 
-    def compute_diags(E_h, B_h, J_h, nt):
-        time_diag[nt] = (nt) * dt
-        PE_h = cP1.dot(E_h)
-        I_PE_h = E_h - PE_h
-        E_norm2_diag[nt] = E_h.inner(H1.dot(E_h))
-        PE_norm2_diag[nt] = PE_h.inner(H1.dot(PE_h))
-        I_PE_norm2_diag[nt] = I_PE_h.inner(H1.dot(I_PE_h))
-        J_norm2_diag[nt] = J_h.inner(H1.dot(J_h))
-        B_norm2_diag[nt] = B_h.inner(H2.dot(B_h))
-        divE_h = D @ E_h
-        divE_norm2_diag[nt] = divE_h.inner(H0.dot(divE_h))
-        if source_type == 'Il_pulse' and source_omega is not None:
-            rho_h = rho0_h * np.sin(source_omega * nt * dt) / omega
-            GaussErr = rho_h - divE_h
-            GaussErrP = rho_h - D @ PE_h
-            GaussErr_norm2_diag[nt] = GaussErr.inner(H0.dot(GaussErr))
-            GaussErrP_norm2_diag[nt] = GaussErrP.inner(H0.dot(GaussErrP))
+
+    if plot_dir is not None and not os.path.exists(plot_dir):
+        os.makedirs(plot_dir)
 
     if plot_dir:
         OM1 = OutputManager(plot_dir + '/spaces1.yml', plot_dir + '/fields1.h5')
@@ -555,38 +330,35 @@ def solve_td_maxwell_pbm(*,
 
 
     f_h = f0_h.copy()
+    Btemp_h = B_h.copy()
+    Etemp_h = E_h.copy()
+
+    print(" -- time loop --")
     for nt in range(Nt):
-        print(' .. nt+1 = {}/{}'.format(nt + 1, Nt))
+        print(' .. nt+1 = {}/{}'.format(nt+1, Nt))
 
         # 1/2 faraday: Bn -> Bn+1/2
-        B_h -= (dt / 2) * C @ E_h
+        # B_h -=  (dt/2) * C @ E_h
+        # E_h = A_eps @ E_h + dt * dC @ B_h
+        # B_h -= (dt/2) * C @ E_h
+        
+        C.dot(E_h, out=Btemp_h)
+        B_h -= (dt/2) * Btemp_h
+        
+        dCH1.dot(E_h, out=E_h)
+        dC.dot(B_h, out=Etemp_h) 
+        E_h += dt * (Etemp_h - f_h)
 
-        # ampere: En -> En+1
-        if f0_harmonic_h is not None and source_omega is not None:
-            f_harmonic_h = f0_harmonic_h * (np.sin(source_omega * (nt + 1) * dt) - np.sin(source_omega * (nt) * dt)) / (dt * source_omega)  # * source_enveloppe(omega*(nt+1/2)*dt)
-            f_h = f0_h + f_harmonic_h
+        C.dot(E_h, out=Btemp_h)
+        B_h -= (dt/2) * Btemp_h
 
-        E_h = dCH1 @ E_h + dt * (dC @ B_h - f_h)
+        Eh = FemField(V1h, coeffs=cP1 @ E_h)
+        OM1.add_snapshot(t=nt*dt, ts=nt) 
+        OM1.export_fields(Eh = Eh)
 
-        # 1/2 faraday: Bn+1/2 -> Bn+1
-        B_h -= (dt / 2) * C @ E_h
-
-        # diags:
-        compute_diags(E_h, B_h, f_h, nt=nt + 1)
-
-
-
-        if is_plotting_time(nt + 1) and plot_dir:
-            print("Plot fields")
-
-            Eh = FemField(V1h, coeffs=cP1 @ E_h)
-            OM1.add_snapshot(t=nt * dt, ts=nt)
-            OM1.export_fields(Eh=Eh)
-
-            Bh = FemField(V2h, coeffs=B_h)
-            OM2.add_snapshot(t=nt * dt, ts=nt)
-            OM2.export_fields(Bh=Bh)
-
+        Bh = FemField(V2h, coeffs=B_h)
+        OM2.add_snapshot(t=nt*dt, ts=nt) 
+        OM2.export_fields(Bh=Bh)
 
     if plot_dir:
         OM1.close()
@@ -616,8 +388,9 @@ def solve_td_maxwell_pbm(*,
             fields='Bh')
         PM.close()
 
-
-
+# ==============================================================================
+# Compute stable time step size
+# ==============================================================================
 def compute_stable_dt(*, C, dC, cfl_max, dt_max=None):
     """
     Compute a stable time step size based on the maximum CFL parameter in the
@@ -666,7 +439,6 @@ def compute_stable_dt(*, C, dC, cfl_max, dt_max=None):
         print('         WARNING !!!  cfl = {}  '.format(cfl))
         print(' ******  ****** ******  ****** ******  ****** ')
 
-    t_stamp = time_count()
     V = C.domain
     from psydac.linalg.utilities import array_to_psydac
     vv = array_to_psydac(np.random.rand(V.dimension), V)
@@ -690,7 +462,6 @@ def compute_stable_dt(*, C, dC, cfl_max, dt_max=None):
         spectral_rho = norm_vv  # approximation
         conv = abs((spectral_rho - old_spectral_rho) / spectral_rho) < 0.001
         print("    ... spectral radius iteration: spectral_rho( dC @ C ) ~= {}".format(spectral_rho))
-    t_stamp = time_count(t_stamp)
 
     norm_op = np.sqrt(spectral_rho)
     c_dt_max = 2. / norm_op
@@ -707,3 +478,91 @@ def compute_stable_dt(*, C, dC, cfl_max, dt_max=None):
     print(f"     -- and spectral_radius((c*dt)**2* dC @ C ) = {(light_c * dt * norm_op)**2} (should be < 4).")
 
     return dt
+
+# ==============================================================================
+# Test Sources
+# ==============================================================================
+def get_div_free_pulse(x_0, y_0, domain=None):
+
+    from sympy import pi, cos, sin, Tuple, exp
+
+    x, y = domain.coordinates
+    ds2_0 = (0.02)**2
+    sigma_0 = (x - x_0)**2 + (y - y_0)**2
+    phi_0 = exp(-sigma_0**2 / (2 * ds2_0))
+    dx_sig_0 = 2 * (x - x_0)
+    dy_sig_0 = 2 * (y - y_0)
+    dx_phi_0 = - dx_sig_0 * sigma_0 / ds2_0 * phi_0
+    dy_phi_0 = - dy_sig_0 * sigma_0 / ds2_0 * phi_0
+    f_x = dy_phi_0
+    f_y = - dx_phi_0
+    f_vect = Tuple(f_x, f_y)
+
+    return f_vect
+
+
+def get_curl_free_pulse(x_0, y_0, domain=None, pp=False):
+
+    from sympy import pi, cos, sin, Tuple, exp
+
+    # return -grad phi_0
+    x, y = domain.coordinates
+    if pp:
+        # psi=phi
+        ds2_0 = (0.02)**2
+    else:
+        ds2_0 = (0.1)**2
+    sigma_0 = (x - x_0)**2 + (y - y_0)**2
+    phi_0 = exp(-sigma_0**2 / (2 * ds2_0))
+    dx_sig_0 = 2 * (x - x_0)
+    dy_sig_0 = 2 * (y - y_0)
+    dx_phi_0 = - dx_sig_0 * sigma_0 / ds2_0 * phi_0
+    dy_phi_0 = - dy_sig_0 * sigma_0 / ds2_0 * phi_0
+    f_x = -dx_phi_0
+    f_y = -dy_phi_0
+    f_vect = Tuple(f_x, f_y)
+
+    return f_vect
+
+def get_Gaussian_beam(x_0, y_0, domain=None):
+
+    from sympy import pi, cos, sin, Tuple, exp
+
+    # return E = cos(k*x) exp( - x^2 + y^2 / 2 sigma^2) v
+    x, y = domain.coordinates
+
+    x = x - x_0
+    y = y - y_0
+
+    sigma = 0.1
+
+    xy = x**2 + y**2
+    ef = 1 / (sigma**2) * exp(- xy / (2 * sigma**2))
+
+    # E = curl exp
+    E = Tuple(y * ef, -x * ef)
+
+    # B = curl E
+    B = (xy / (sigma**2) - 2) * ef
+
+    return E, B
+
+if __name__ == '__main__':
+    domain_name = 'refined_square'
+    domain_lims = [[0, np.pi], [0, np.pi]]
+
+    nc = 20
+    ncells  = np.array([[nc, nc, nc],
+                        [nc, 2*nc, nc], 
+                        [nc, nc, nc]])
+
+    deg = 3
+    p_moments = deg+1
+
+    final_time = 2
+
+    plot_dir = './td_maxwell_pulse/'  
+
+    solve_td_maxwell_pbm(nc=ncells, deg=deg, p_moments=p_moments, final_time=final_time, 
+                        domain_name=domain_name, domain_lims=domain_lims, 
+                        source_type='zero', E0_type='pulse', plot_dir=plot_dir)
