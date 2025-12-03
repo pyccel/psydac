@@ -13,10 +13,3 @@ feec
     feec.hodge
     feec.pull_push
     feec.pushforward
-
-feec submodules
----------------
-.. toctree::
-    :maxdepth: 1
-
-    feec.multipatch
