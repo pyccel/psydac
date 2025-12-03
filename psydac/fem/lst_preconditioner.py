@@ -2,19 +2,17 @@ import  numpy as np
 
 from    scipy.sparse                               import dia_matrix
 
-from    sympde.topology             import elements_of, Line, ScalarFunctionSpace
-from    sympde.topology.datatype    import SpaceType
-from    sympde.expr                 import integral, BilinearForm
+from    sympde.topology                             import elements_of, Line, ScalarFunctionSpace
+from    sympde.topology.datatype                    import SpaceType
+from    sympde.expr                                 import integral, BilinearForm
 
-from    psydac.api.discretization   import discretize
-from    psydac.fem.projectors       import DirichletProjector
-from    psydac.linalg.basic         import IdentityOperator, LinearOperator
-from    psydac.linalg.block         import BlockVectorSpace, BlockLinearOperator
-from    psydac.linalg.stencil       import StencilVectorSpace
+from    psydac.fem.projectors                       import DirichletProjector
+from    psydac.linalg.basic                         import IdentityOperator, LinearOperator
+from    psydac.linalg.block                         import BlockVectorSpace, BlockLinearOperator
+from    psydac.linalg.stencil                       import StencilVectorSpace
 
 from    psydac.linalg.direct_solvers                import BandedSolver
 from    psydac.linalg.kron                          import KroneckerLinearSolver, KroneckerStencilMatrix
-from    psydac.linalg.tests.test_kron_direct_solver import matrix_to_bandsolver
 
 def construct_LST_preconditioner(M, domain_h, fem_space, hom_bc=False, kind=None):
     """
@@ -62,6 +60,10 @@ def construct_LST_preconditioner(M, domain_h, fem_space, hom_bc=False, kind=None
     [1] Gabriele Loli, Giancarlo Sangalli, Mattia Tani. “Easy and efficient preconditioning of the isogeometric mass 
         matrix”. In: Computers & Mathematics with Applications 116 (2022), pp. 245–264
     """
+
+    # to avoid circular import
+    from psydac.api.discretization                   import discretize
+    from psydac.linalg.tests.test_kron_direct_solver import matrix_to_bandsolver
 
     dim = fem_space.ldim
     # In 1D one can solve the linear system directly (instead of using this preconditioner)

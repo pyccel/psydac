@@ -37,6 +37,7 @@ from psydac.feec.pull_push                      import pull_3d_h1, pull_3d_hcurl
 from psydac.feec.pull_push                      import pull_3d_hdiv, pull_3d_l2, pull_3d_h1vec
 
 from psydac.fem.basic                           import FemSpace, FemLinearOperator
+from psydac.fem.lst_preconditioner              import construct_LST_preconditioner
 from psydac.fem.vector                          import VectorFemSpace
 from psydac.fem.projectors                      import DirichletProjector, MultipatchDirichletProjector
 
@@ -343,7 +344,7 @@ class DiscreteDeRham(BasicDiscrete):
             return self._dirichlet_proj
         elif kind == 'linop':
             return tuple(femlinop.linop for femlinop in self._dirichlet_proj)
-
+    
     #--------------------------------------------------------------------------
     def LST_preconditioners(self, *, M0=None, M1=None, M2=None, M3=None, hom_bc=False):
         """
@@ -386,292 +387,18 @@ class DiscreteDeRham(BasicDiscrete):
             matrix”. In: Computers & Mathematics with Applications 116 (2022), pp. 245–264
         
         """
-        # To avoid circular imports
-        from psydac.api.discretization                   import discretize
-        from psydac.linalg.tests.test_kron_direct_solver import matrix_to_bandsolver
-
-        dim = self.dim
-        # In 1D one can solve the linear system directly (instead of using this preconditioner)
-        assert dim in (2, 3)
-
-        if hom_bc == True:
-            # We require a numpy array represenation of the modified 1D mass matrices
-            def toarray_1d(A):
-                """
-                Obtain a numpy array representation of a (1D) LinearOperator (which has not implemented toarray()).
-                
-                We fill an empty numpy array row by row by repeatedly applying unit vectors
-                to the transpose of A. In order to obtain those unit vectors in Stencil format,
-                we make use of an auxiliary function that takes periodicity into account.
-                """
-                
-                assert isinstance(A, LinearOperator)
-                W = A.codomain
-                assert isinstance(W, StencilVectorSpace)
-
-                def get_unit_vector_1d(v, periodic, n1, npts1, pads1):
-
-                    v *= 0.0
-                    v._data[pads1+n1] = 1.
-
-                    if periodic:
-                        if n1 < pads1:
-                            v._data[-pads1+n1] = 1.
-                        if n1 >= npts1-pads1:
-                            v._data[n1-npts1+pads1] = 1.
-                    
-                    return v
-
-                periods  = W.periods
-                periodic = periods[0]
-
-                w = W.zeros()
-                At = A.T
-
-                A_arr = np.zeros(A.shape, dtype=A.dtype)
-
-                npts1,  = W.npts
-                pads1,  = W.pads
-                for n1 in range(npts1):
-                    e_n1 = get_unit_vector_1d(w, periodic, n1, npts1, pads1)
-                    A_n1 = At @ e_n1
-                    A_arr[n1, :] = A_n1.toarray()
-
-                return A_arr
-
-            def M0_0_1d_to_bandsolver(M0_0_1d):
-                """
-                Converts the M0_0_1d StencilMatrix to a BandedSolver.
-
-                Closely resembles a combination of the two functions
-                matrix_to_bandsolver & to_bnd
-                found in test_kron_direct_solver,
-                the difference being that M0_0_1d neither has a 
-                remove_spurious_entries() nor a toarray() function.
-                
-                """
-
-                dmat = dia_matrix(toarray_1d(M0_0_1d), dtype=M0_0_1d.dtype)
-                la   = abs(dmat.offsets.min())
-                ua   = dmat.offsets.max()
-                cmat = dmat.tocsr()
-
-                M0_0_1d_bnd = np.zeros((1+ua+2*la, cmat.shape[1]), M0_0_1d.dtype)
-
-                for i,j in zip(*cmat.nonzero()):
-                    M0_0_1d_bnd[la+ua+i-j, j] = cmat[i,j]
-
-                return BandedSolver(ua, la, M0_0_1d_bnd)
 
         domain_h    = self.domain_h
-        domain      = domain_h.domain
+        Ms          = (M0, M1, M2, M3)
 
-        ncells,     = domain_h.ncells.values()
-        degree      = self.V0.degree
-        periodic,   = domain_h.periodic.values()
-        
-        logical_domain = domain.logical_domain
+        M_pc_arr    = []
 
-        Ms = [M0, M1, M2] if dim == 2 else [M0, M1, M2, M3]
-
-        # ----- Gather D_inv_sqrt
-
-        D_inv_sqrt_arr = []
-
-        for M in Ms:
+        for M, Vh in zip(Ms, self.spaces):
             if M is not None:
-                D_inv_sqrt_arr.append(M.diagonal(inverse=True, sqrt=True))
-            else:
-                D_inv_sqrt_arr.append(None)
 
-        # ----- Gather M_log_kron_solver
-
-        M_log_kron_solver_arr = []
-
-        logical_domain_1d_x = Line('L', bounds=logical_domain.bounds1)
-        logical_domain_1d_y = Line('L', bounds=logical_domain.bounds2)
-        if dim == 3:
-            logical_domain_1d_z = Line('L', bounds=logical_domain.bounds3)
-
-        logical_domain_1d_list = [logical_domain_1d_x, logical_domain_1d_y]
-        if dim == 3:
-            logical_domain_1d_list += [logical_domain_1d_z]
-
-        M0_1d_solvers = []
-        M1_1d_solvers = []
-        # We gather all (2x3=6) 1D mass matrices.
-        # Those will be used to obtain D_log_sqrt using the new
-        # diagonal function for KroneckerStencilMatrices.
-        M0s_1d = []
-        M1s_1d = []
-
-        for ncells_1d, degree_1d, periodic_1d, logical_domain_1d in zip(ncells, degree, periodic, logical_domain_1d_list):
-
-            derham_1d = Derham(logical_domain_1d)
-
-            logical_domain_1d_h = discretize(logical_domain_1d, ncells=[ncells_1d, ], periodic=[periodic_1d, ])
-            derham_1d_h = discretize(derham_1d, logical_domain_1d_h, degree=[degree_1d, ])
-
-            V0_1d,  V1_1d  = derham_1d.spaces
-            V0h_1d, V1h_1d = derham_1d_h.spaces
-
-            u0, v0 = elements_of(V0_1d, names='u0, v0')
-            u1, v1 = elements_of(V1_1d, names='u1, v1')
-
-            a0_1d = BilinearForm((u0, v0), integral(logical_domain_1d, u0*v0))
-            a1_1d = BilinearForm((u1, v1), integral(logical_domain_1d, u1*v1))
-
-            a0h_1d = discretize(a0_1d, logical_domain_1d_h, (V0h_1d, V0h_1d))
-            a1h_1d = discretize(a1_1d, logical_domain_1d_h, (V1h_1d, V1h_1d))
-
-            M0_1d = a0h_1d.assemble()
-            M1_1d = a1h_1d.assemble()
-
-            M0s_1d.append(M0_1d)
-            M1s_1d.append(M1_1d)
-
-            # In order to obtain a good preconditioner for modified mass matrices 
-            # M{i}_0 = DP @ M{i} @ DP + (I - DP) (see docstring)
-            # the Kronecker solver of M_log must be modified as well
-            if hom_bc == True:
-                DP0, _ = derham_1d_h.dirichlet_projectors(kind='linop')
-                
-                if DP0.bcs != ():
-                    I0      = IdentityOperator(V0h_1d.coeff_space)
-                    M0_0_1d = DP0 @ M0_1d @ DP0 + (I0 - DP0)
-
-                    M0_0_1d_solver = M0_0_1d_to_bandsolver(M0_0_1d)
-                    M0_1d_solvers.append(M0_0_1d_solver)
-                else:
-                    M0_1d_solver = matrix_to_bandsolver(M0_1d)
-                    M0_1d_solvers.append(M0_1d_solver)
-            else:
-                M0_1d_solver = matrix_to_bandsolver(M0_1d)
-                M0_1d_solvers.append(M0_1d_solver)
-
-            M1_1d_solver = matrix_to_bandsolver(M1_1d)
-            M1_1d_solvers.append(M1_1d_solver)
-
-        if dim == 2:
-            V0_cs, V1_cs, V2_cs = [Vh.coeff_space for Vh in self.spaces]
-
-            if M0 is not None:
-                M0_log_kron_solver = KroneckerLinearSolver(V0_cs, V0_cs, (M0_1d_solvers[0], M0_1d_solvers[1]))
-                M_log_kron_solver_arr.append(M0_log_kron_solver)
-            else:
-                M_log_kron_solver_arr.append(None)
-
-            if M1 is not None:
-                if self.sequence[1] == 'hcurl':
-                    M1_0_log_kron_solver = KroneckerLinearSolver(V1_cs[0], V1_cs[0], (M1_1d_solvers[0], M0_1d_solvers[1]))
-                    M1_1_log_kron_solver = KroneckerLinearSolver(V1_cs[1], V1_cs[1], (M0_1d_solvers[0], M1_1d_solvers[1]))
-                    M1_log_kron_solver = BlockLinearOperator(V1_cs, V1_cs, [[M1_0_log_kron_solver, None],
-                                                                            [None, M1_1_log_kron_solver]])
-                elif self.sequence[1] == 'hdiv':
-                    M1_0_log_kron_solver = KroneckerLinearSolver(V1_cs[0], V1_cs[0], (M0_1d_solvers[0], M1_1d_solvers[1]))
-                    M1_1_log_kron_solver = KroneckerLinearSolver(V1_cs[1], V1_cs[1], (M1_1d_solvers[0], M0_1d_solvers[1]))
-                    M1_log_kron_solver = BlockLinearOperator(V1_cs, V1_cs, [[M1_0_log_kron_solver, None],
-                                                                            [None, M1_1_log_kron_solver]])
-                else:
-                    raise ValueError(f'The second space in the sequence {self.sequence} must be either "hcurl" or "hdiv".')
-                M_log_kron_solver_arr.append(M1_log_kron_solver)
-            else:
-                M_log_kron_solver_arr.append(None)
-
-            if M2 is not None:
-                M2_log_kron_solver = KroneckerLinearSolver(V2_cs, V2_cs, (M1_1d_solvers[0], M1_1d_solvers[1]))
-                M_log_kron_solver_arr.append(M2_log_kron_solver)
-            else:
-                M_log_kron_solver_arr.append(None)
-        else:
-            V0_cs, V1_cs, V2_cs, V3_cs = [Vh.coeff_space for Vh in self.spaces]
-
-            if M0 is not None:
-                M0_log_kron_solver = KroneckerLinearSolver(V0_cs, V0_cs, (M0_1d_solvers[0], M0_1d_solvers[1], M0_1d_solvers[2]))
-                M_log_kron_solver_arr.append(M0_log_kron_solver)
-            else:
-                M_log_kron_solver_arr.append(None)
-
-            if M1 is not None:
-                M1_0_log_kron_solver = KroneckerLinearSolver(V1_cs[0], V1_cs[0], (M1_1d_solvers[0], M0_1d_solvers[1], M0_1d_solvers[2]))
-                M1_1_log_kron_solver = KroneckerLinearSolver(V1_cs[1], V1_cs[1], (M0_1d_solvers[0], M1_1d_solvers[1], M0_1d_solvers[2]))
-                M1_2_log_kron_solver = KroneckerLinearSolver(V1_cs[2], V1_cs[2], (M0_1d_solvers[0], M0_1d_solvers[1], M1_1d_solvers[2]))
-                M1_log_kron_solver = BlockLinearOperator(V1_cs, V1_cs, [[M1_0_log_kron_solver, None, None],
-                                                                        [None, M1_1_log_kron_solver, None],
-                                                                        [None, None, M1_2_log_kron_solver]])
-                M_log_kron_solver_arr.append(M1_log_kron_solver)
-            else:
-                M_log_kron_solver_arr.append(None)
-            
-            if M2 is not None:
-                M2_0_log_kron_solver = KroneckerLinearSolver(V2_cs[0], V2_cs[0], (M0_1d_solvers[0], M1_1d_solvers[1], M1_1d_solvers[2]))
-                M2_1_log_kron_solver = KroneckerLinearSolver(V2_cs[1], V2_cs[1], (M1_1d_solvers[0], M0_1d_solvers[1], M1_1d_solvers[2]))
-                M2_2_log_kron_solver = KroneckerLinearSolver(V2_cs[2], V2_cs[2], (M1_1d_solvers[0], M1_1d_solvers[1], M0_1d_solvers[2]))
-                M2_log_kron_solver = BlockLinearOperator(V2_cs, V2_cs, [[M2_0_log_kron_solver, None, None],
-                                                                        [None, M2_1_log_kron_solver, None],
-                                                                        [None, None, M2_2_log_kron_solver]])
-                M_log_kron_solver_arr.append(M2_log_kron_solver)
-            else:
-                M_log_kron_solver_arr.append(None)
-
-            if M3 is not None:
-                M3_log_kron_solver = KroneckerLinearSolver(V3_cs, V3_cs, (M1_1d_solvers[0], M1_1d_solvers[1], M1_1d_solvers[2]))
-                M_log_kron_solver_arr.append(M3_log_kron_solver)
-            else:
-                M_log_kron_solver_arr.append(None)
-
-        # ----- Gather D_log_sqrt
-
-        D_log_sqrt_arr = []
-
-        M0_log = KroneckerStencilMatrix(V0_cs, V0_cs, *M0s_1d)
-        if dim == 2:
-            if self.sequence[1] == 'hcurl':
-                M1_0_log = KroneckerStencilMatrix(V1_cs[0], V1_cs[0], M1s_1d[0], M0s_1d[1])
-                M1_1_log = KroneckerStencilMatrix(V1_cs[1], V1_cs[1], M0s_1d[0], M1s_1d[1])
-            else:
-                M1_0_log = KroneckerStencilMatrix(V1_cs[0], V1_cs[0], M0s_1d[0], M1s_1d[1])
-                M1_1_log = KroneckerStencilMatrix(V1_cs[1], V1_cs[1], M1s_1d[0], M0s_1d[1])
-            M1_log = BlockLinearOperator(V1_cs, V1_cs, [[M1_0_log, None],
-                                                        [None, M1_1_log]])
-        else:
-            M1_0_log = KroneckerStencilMatrix(V1_cs[0], V1_cs[0], M1s_1d[0], M0s_1d[1], M0s_1d[2])
-            M1_1_log = KroneckerStencilMatrix(V1_cs[1], V1_cs[1], M0s_1d[0], M1s_1d[1], M0s_1d[2])
-            M1_2_log = KroneckerStencilMatrix(V1_cs[2], V1_cs[2], M0s_1d[0], M0s_1d[1], M1s_1d[2])
-            M1_log = BlockLinearOperator(V1_cs, V1_cs, [[M1_0_log, None, None],
-                                                        [None, M1_1_log, None],
-                                                        [None, None, M1_2_log]])
-        if dim == 2:
-            M2_log = KroneckerStencilMatrix(V2_cs, V2_cs, *M1s_1d)
-        else:
-            M2_0_log = KroneckerStencilMatrix(V2_cs[0], V2_cs[0], M0s_1d[0], M1s_1d[1], M1s_1d[2])
-            M2_1_log = KroneckerStencilMatrix(V2_cs[1], V2_cs[1], M1s_1d[0], M0s_1d[1], M1s_1d[2])
-            M2_2_log = KroneckerStencilMatrix(V2_cs[2], V2_cs[2], M1s_1d[0], M1s_1d[1], M0s_1d[2])
-            M2_log = BlockLinearOperator(V2_cs, V2_cs, [[M2_0_log, None, None],
-                                                        [None, M2_1_log, None],
-                                                        [None, None, M2_2_log]])
-        if dim == 3:
-            M3_log = KroneckerStencilMatrix(V3_cs, V3_cs, *M1s_1d)
-
-        Ms_log = [M0_log, M1_log, M2_log]
-        if dim == 3:
-            Ms_log += [M3_log]
-
-        for M, M_log in zip(Ms, Ms_log):
-            if M is not None:
-                D_log_sqrt_arr.append(M_log.diagonal(inverse=False, sqrt=True))
-            else:
-                D_log_sqrt_arr.append(None)
-
-        # --------------------------------
-
-        M_pc_arr = []
-
-        for M, D_inv_sqrt, D_log_sqrt, M_log_kron_solver in zip(Ms, D_inv_sqrt_arr, D_log_sqrt_arr, M_log_kron_solver_arr):
-            if M is not None:
-                M_pc = D_inv_sqrt @ D_log_sqrt @ M_log_kron_solver @ D_log_sqrt @ D_inv_sqrt
+                M_pc = construct_LST_preconditioner(M, domain_h, Vh, hom_bc=hom_bc)
                 M_pc_arr.append(M_pc)
-
+        
         return tuple(M_pc_arr)
 
     #--------------------------------------------------------------------------
