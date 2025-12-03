@@ -445,7 +445,7 @@ def test_discrete_derham_boundary_projector_multipatch():
     comm     = None
     backend  = PSYDAC_BACKEND_GPYCCEL
 
-    from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
+    from psydac.feec.multipatch_domain_utilities import build_multipatch_domain
     domain = build_multipatch_domain(domain_name='annulus_3')
 
     rng = np.random.default_rng(42)
