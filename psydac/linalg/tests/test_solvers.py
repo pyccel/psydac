@@ -1,3 +1,8 @@
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 import  time
 import  numpy as np
 import  pytest
@@ -24,6 +29,7 @@ class SinMapping1D(Mapping):
     
     _ldim        = 1
     _pdim        = 1
+
 
 def define_data_hermitian(n, p, dtype=float):
     domain_decomposition = DomainDecomposition([n - p], [False])
