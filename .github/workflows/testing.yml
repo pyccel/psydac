@@ -236,6 +236,11 @@ jobs:
         run: |
           python mpi_tester.py --mpirun="mpiexec -n 4 ${MPI_OPTS}" --pyargs psydac -m "parallel and petsc"
 
+      - name: Run tests in examples/feec
+        working-directory: ./pytest
+        run: |
+          python -m pytest examples/feec
+
       - name: Remove test directory
         if: always()
         run: |
