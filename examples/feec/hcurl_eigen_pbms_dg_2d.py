@@ -28,7 +28,7 @@ from psydac.feec.multipatch_domain_utilities import build_multipatch_domain, bui
 from psydac.api.discretization import discretize
 from psydac.api.postprocessing import OutputManager, PostProcessManager
 
-from hcurl_eigen_pbms_conga_2d import get_eigenvalues
+from examples.feec.hcurl_eigen_pbms_conga_2d import get_eigenvalues
 
 #==============================================================================
 # Solver for curl-curl eigenvalue problems

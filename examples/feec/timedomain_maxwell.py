@@ -51,7 +51,7 @@ def solve_td_maxwell_pbm(*,
                          E0_type='pulse_2',
                          plot_dir=None,
                          domain_lims=None,
-                         p_moments=4,
+                         p_moments=-1,
                          ):
     """
     solver for the TD Maxwell problem: find E(t) in H(curl), B in L2, such that
@@ -352,13 +352,14 @@ def solve_td_maxwell_pbm(*,
         C.dot(E_h, out=Btemp_h)
         B_h -= (dt/2) * Btemp_h
 
-        Eh = FemField(V1h, coeffs=cP1 @ E_h)
-        OM1.add_snapshot(t=nt*dt, ts=nt) 
-        OM1.export_fields(Eh = Eh)
+        if plot_dir:
+            Eh = FemField(V1h, coeffs=cP1 @ E_h)
+            OM1.add_snapshot(t=nt*dt, ts=nt) 
+            OM1.export_fields(Eh = Eh)
 
-        Bh = FemField(V2h, coeffs=B_h)
-        OM2.add_snapshot(t=nt*dt, ts=nt) 
-        OM2.export_fields(Bh=Bh)
+            Bh = FemField(V2h, coeffs=B_h)
+            OM2.add_snapshot(t=nt*dt, ts=nt) 
+            OM2.export_fields(Bh=Bh)
 
     if plot_dir:
         OM1.close()
