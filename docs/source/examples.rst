@@ -14,4 +14,4 @@ Examples
    examples/Poisson_non_periodic
    examples/Helmholtz_non_periodic
    examples/fem_L2_projection
-   
+   examples/positive_Helmholtz_3D_VTK
