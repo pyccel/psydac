@@ -28,7 +28,7 @@ To do so, execute the following commands from the root directory of the reposito
    # if on macOS
    >>> brew install graphviz
 
-   >>> python -m pip install -r docs_requirements.txt
+   >>> python -m pip install -r docs/requirements.txt
 
    # go to psydac/docs/
    >>> rm -rf source/modules/STUBDIR
