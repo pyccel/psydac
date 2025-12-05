@@ -16,3 +16,4 @@ Examples
    examples/fem_L2_projection
    examples/positive_Helmholtz_3D_VTK
    examples/petsc_eigenvalues_positive_Helmholtz
+   examples/feec_curlcurl_eigenvalue
