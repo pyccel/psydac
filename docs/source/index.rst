@@ -7,12 +7,6 @@
 Welcome to PSYDAC's documentation!
 ==================================
 
-.. _note:
-.. note::
-
-   This documentation is still under construction.
-   For the time being, its purpose is to assist the developers.
-
 .. include:: ../../README.md
    :parser: myst_parser.sphinx_
 
@@ -22,8 +16,8 @@ Welcome to PSYDAC's documentation!
    :hidden: 
 
    installation
-   output
    examples
+   output
    modules
    psydac-mesh
    maintenance

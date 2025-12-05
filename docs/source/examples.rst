@@ -9,6 +9,10 @@ Examples
 .. The notebooks should have all output cleared before being committed to the repository.
 Notebooks
 ---------
+For the documentation, we provide several Jupyter notebooks that illustrate how to use PSYDAC to solve different types of problems.
+They can be found in the `notebooks directory <https://github.com/pyccel/psydac/tree/devel/examples/notebooks>`_, 
+but are also generated as part of the documentation and can be accessed here:
+
 
 .. toctree::
    :maxdepth: 1
@@ -29,6 +33,8 @@ FEEC Examples
 In the `FEEC examples directory <https://github.com/pyccel/psydac/tree/devel/examples/feec>`_, 
 you will find several examples of how to use Psydac to solve problems arising within the Finite Element Exterior Calculus (FEEC) framework.
 These examples include:
+
+
 * Poisson problems
 * General curl-curl eigenvalue problems
 * Time-harmonic Maxwell equations with source terms
