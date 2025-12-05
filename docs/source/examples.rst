@@ -15,3 +15,4 @@ Examples
    examples/Helmholtz_non_periodic
    examples/fem_L2_projection
    examples/positive_Helmholtz_3D_VTK
+   examples/petsc_eigenvalues_positive_Helmholtz
