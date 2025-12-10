@@ -65,11 +65,11 @@ jobs:
 
       - name: Install non-Python dependencies on Ubuntu
         if: matrix.os == 'ubuntu-24.04'
-        uses: ./.github/actions/ubuntu_install.yml
+        uses: ./.github/actions/ubuntu_install
 
       - name: Install non-Python dependencies on macOS
         if: matrix.os == 'macos-14'
-        uses: ./.github/actions/macos_install.yml
+        uses: ./.github/actions/macos_install
 
       - name: Print information on MPI and HDF5 libraries
         run: |
