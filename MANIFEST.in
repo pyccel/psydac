@@ -1,0 +1,5 @@
+include setup*.py *.rst *.cfg 
+
+recursive-include spl *.py *.pyf *.f90 *.F90
+
+recursive-include spl *.h5

@@ -1,0 +1,14 @@
+# h5py must be built from source using MPI compiler
+# and linked to parallel HDF5 library. To do so set
+#
+# CC="mpicc"
+# HDF5_MPI="ON"
+# HDF5_DIR=/usr/lib/x86_64-linux-gnu/hdf5/openmpi
+#
+numpy>=1.16
+mpi4py
+h5py
+--no-binary h5py
+
+# Igakit (TODO: remove library dependency)
+https://bitbucket.org/dalcinl/igakit/get/master.tar.gz

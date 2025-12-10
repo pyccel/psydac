@@ -1,0 +1,121 @@
+!    -*- F90 -*-
+! Note: the context of this file is case sensitive.
+
+python module bsp 
+
+  interface
+    module bsp_utils
+
+      ! ................................................
+      subroutine compute_greville(p, n, knots, arr_x) 
+          integer(kind=4) intent(in) :: p 
+          integer(kind=4) intent(in) :: n 
+          real(kind=8) dimension(n+p+1), intent(in), depend(n, p) :: knots
+          real(kind=8) dimension(n), intent(out), depend(n) :: arr_x
+      end subroutine compute_greville
+      ! ................................................
+
+      ! ................................................
+      subroutine eval_on_grid_splines_ders(p, n, k, d, knots, points, basis)
+          integer(kind=4) intent(in) :: p 
+          integer(kind=4) intent(in) :: n 
+          integer(kind=4) intent(in) :: k
+          integer(kind=4) intent(in) :: d
+          real(kind=8) dimension(n+p+1), intent(in), depend(n, p) :: knots
+          real(kind=8) dimension(k, n-p), intent(in), depend(k, n, p) :: points
+          real(kind=8) dimension(p+1,d+1,k,n-p), intent(out), depend(p,d,k,n,p) :: basis
+      end subroutine eval_on_grid_splines_ders
+      ! ................................................
+      
+      ! ................................................
+      subroutine compute_spans(p, n, knots, elements_spans)
+          integer(kind=4) intent(in) :: p 
+          integer(kind=4) intent(in) :: n 
+          real(kind=8) dimension(n+p+1), intent(in), depend(n, p) :: knots
+          integer(kind=4) dimension(n+p), intent(out), depend(n, p) :: elements_spans
+      end subroutine compute_spans
+      ! ................................................
+    
+      ! ................................................
+      subroutine construct_grid_from_knots(p, n, knots, grid)
+          integer(kind=4) intent(in) :: p 
+          integer(kind=4) intent(in) :: n 
+          integer(kind=4) intent(in) :: n_elements 
+          real(kind=8) dimension(n+p+1), intent(in), depend(n, p) :: knots
+          real(kind=8) dimension(n-p+1), intent(out), depend(n, p) :: grid
+      end subroutine construct_grid_from_knots
+      ! ...............................................
+      
+      ! ................................................
+      subroutine construct_quadrature_grid(n_elements, k, u, w, grid, points, weights) 
+          integer(kind=4) intent(in) :: n_elements 
+          integer(kind=4) intent(in) :: k
+          real(kind=8) dimension(k), intent(in), depend(k) :: u
+          real(kind=8) dimension(k), intent(in), depend(k) :: w
+          real(kind=8) dimension(n_elements+1), intent(in), depend(n_elements) :: grid
+          real(kind=8) dimension(k, n_elements), intent(out), depend(k, n_elements) :: points
+          real(kind=8) dimension(k, n_elements), intent(out), depend(k, n_elements) :: weights
+      end subroutine construct_quadrature_grid
+      ! ................................................
+      
+      ! ................................................
+      subroutine make_open_knots(p, n, knots) 
+          integer(kind=4) intent(in) :: p 
+          integer(kind=4) intent(in) :: n 
+          real(kind=8) dimension(n+p+1), intent(out), depend(n, p) :: knots
+      end subroutine make_open_knots
+      ! ................................................
+      
+      ! ................................................
+      subroutine make_periodic_knots(p, n, knots) 
+          integer(kind=4) intent(in) :: p 
+          integer(kind=4) intent(in) :: n 
+          real(kind=8) dimension(n+p+1), intent(out), depend(n, p) :: knots
+      end subroutine make_periodic_knots
+      ! ................................................
+      
+      ! ................................................
+      subroutine compute_origins_element(p, n, knots, origins_element) 
+          integer(kind=4) intent(in) :: p 
+          integer(kind=4) intent(in) :: n 
+          real(kind=8) dimension(n+p+1), intent(in), depend(n, p) :: knots
+          integer(kind=4) dimension(n), intent(out), depend(n) :: origins_element
+      end subroutine compute_origins_element
+      ! ................................................
+
+      ! ................................................
+      subroutine collocation_matrix(p, n, m, knots, u, mat) 
+          integer(kind=4) intent(in) :: p 
+          integer(kind=4) intent(in) :: n 
+          integer(kind=4) intent(in) :: m 
+          real(kind=8) dimension(n+p+1), intent(in), depend(n, p) :: knots
+          real(kind=8) dimension(m), intent(in), depend(m) :: u
+          real(kind=8) dimension(m, n), intent(out), depend(m, n) :: mat
+      end subroutine collocation_matrix
+      ! ................................................
+
+      ! ................................................
+      subroutine collocation_cardinal_splines(p, n, mat)
+          integer(kind=4) intent(in) :: p 
+          integer(kind=4) intent(in) :: n 
+          real(kind=8) dimension(n, n),intent(out),depend(n, n) :: mat
+      end subroutine collocation_cardinal_splines
+      ! ................................................
+      
+      ! ................................................
+      subroutine matrix_multi_stages(m, ts, n, p, knots, mat)
+          integer(kind=4) intent(in) :: m 
+          real(kind=8) dimension(m), intent(in), depend(m) :: ts
+          integer(kind=4) intent(in) :: n 
+          integer(kind=4) intent(in) :: p 
+          real(kind=8) dimension(n+p+1),  intent(in),  depend(n, p) :: knots
+          real(kind=8) dimension(n+m, n), intent(out), depend(m, n) :: mat
+      end subroutine matrix_multi_stages
+      ! ................................................
+
+    end module bsp_utils
+  end interface 
+
+end python module bsp
+
+!

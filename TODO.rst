@@ -1,48 +1,63 @@
 TODO
 ====
 
-Pre-RELEASE
-***********
+* mv psydac/feec/tests/todo_test_derivatives.py to psydac/feec/tests/test_derivatives.py once it is fixed
 
-general
-^^^^^^^
+* Add GMRES solver to 'psydac.linalg.solvers'
 
-- make sure that every class has the method print_info                     
-- setup: remove SPL_DIR, ... and clean make_project.sh
-- bug linear_operator_diagonal when n_block_rows <> n_block_cols. the bug is in the dot operation
-- dot kron does not work if n_blocks > 1
-- resets pointers to null whenver they are used in SPL
-+ make -j2  
-- add make doc
-- update README.md for every project SPL, SPL, and all our libraries 
-- have 1 argument per line, when defining a function/subroutine
-- check that pointers to classes are always initialized with null()
-+ make free deferred in all objects 
-+ add spl_t_abstract as the abstract class that all other objects extend
-- use is_allocated in all objects
-- use  GCC_COMPILING when needed
-- recompile plaf with agmg
+* Add unit tests for Cart subcommunicators in 'psydac.ddm.cart'
 
-Documentation
-^^^^^^^^^^^^^
+* Create parallel 'KroneckerLinearOperator' in 'psydac.linalg.kronecker' using Cart subcommunicators
 
-- doxygen    (ahmed)
-- slides     (ahmed)
+* Create object of type 'psydac.fem.psydacines.SplineSpace' with Cart
 
-inputs
-^^^^^^^^^^^^^^^
-- inputs folder for tests parameters   
+* Extend functionality of 'SplineSpace' class:
+  . add (private?) methods 'init_fem' and 'init_collocation'
+  . call methods above when required
+  . add method 'compute_interpolant( self, values, field )'
+  . implement 'eval_field_gradient' method
 
-REALSE
-******
+* Create 'SplineMapping' class in module 'psydac.mapping.discrete'
 
-general
-^^^^^^^
-
-Documentation
-^^^^^^^^^^^^^
-
-- user guide (ahmed)
+* add a section in documentation about hdf5 installation (serial/parallel) + h5-tools (install+usage)
 
 
+Core
+****
 
+* interface to *psydac_eval_psydacines_ders*
+
+API
+***
+
+- reorganize code in api (no change to codgen)
+
+- additional tests and unit tests in api/tests
+
+- for the moment the codegen is not using the support from space:
+
+  * allow *fem_context* to be called with grid and degrees, and return a discrete space and a None for mapping.
+
+  * use support in codegen/interface
+
+- normal vector in 3d
+
+- periodic bc in codegen
+
+- init_fem is called everytime wa call discretize: maybe we should first do some checks (nderiv is ok norder etc)
+
+- hessian not yet implemented in sympde and api
+
+- add other solvers to the solver_driver (only cg is available now)
+
+- however, we need to clear the cache of sympy after 1d, 2d and 3d tests, otherwise pytest will crash.
+
+- add sympde and pyccel install procedure; maybe wget to download the requierements files as requirements_pyccel.txt etc then call pip3
+
+- api tests should be moved to examples
+
+- shall we add the Boundayr object as an attribut of SplineMapping? what to do if we don't use a mapping? we can also add the notion of a patch ... 
+
+- DiscreteModel is not up to date; changes need to be done because of the SumForm concept that was introduced lately. in fact, things will become even easier. a Model will be like a namespace or a Module.
+
+- add BoundaryDomain to define the whole boundary of a domain
