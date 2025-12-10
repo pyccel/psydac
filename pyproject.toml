@@ -11,7 +11,7 @@ license         = "MIT"
 license-files   = ["LICENSE"]
 requires-python = ">= 3.10"
 authors         = [
-    {name = "Psydac development team", email = "psydac@googlegroups.com"}
+    {name = "PSYDAC development team", email = "psydac@googlegroups.com"}
 ]
 maintainers = [
     {name = "Yaman Güçlü", email = "yaman.guclu@gmail.com"},
