@@ -62,8 +62,6 @@ jobs:
           cache: 'pip'
           cache-dependency-path: |
             pyproject.toml
-            requirements.txt
-            requirements_extra.txt
 
       - name: Install non-Python dependencies on Ubuntu
         if: matrix.os == 'ubuntu-24.04'
