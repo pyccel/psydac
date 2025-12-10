@@ -43,4 +43,7 @@ setup(
     cmdclass={
         'build_py': BuildPyCommand,
     },
+    install_requires=[
+       'igakit @ https://github.com/dalcinl/igakit/archive/refs/heads/master.zip',
+    ]
 )

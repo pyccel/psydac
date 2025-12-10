@@ -52,7 +52,7 @@ dependencies = [
     'tblib',
 
     # IGAKIT - not on PyPI
-    'igakit @ https://github.com/dalcinl/igakit/archive/refs/heads/master.zip'
+#    'igakit @ https://github.com/dalcinl/igakit/archive/refs/heads/master.zip'
 ]
 
 [project.optional-dependencies]
