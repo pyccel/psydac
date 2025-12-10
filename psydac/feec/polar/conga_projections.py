@@ -175,6 +175,9 @@ class C0PolarProjection_V1_00(LinearOperator):
     def dot(self, x, out=None):
         assert isinstance(x, StencilVector)
 
+        if not x.ghost_regions_in_sync:
+            x.update_ghost_regions()
+
         [s1, s2] = self.W1.coeff_space[0].starts
         [e1, e2] = self.W1.coeff_space[0].ends
 
@@ -185,7 +188,7 @@ class C0PolarProjection_V1_00(LinearOperator):
             assert out.space is self.W1.coeff_space[0]
             y = out
 
-        y[:, s2:e2 + 1] = x[:, s2:e2 + 1]
+        y[s1:e1+1, s2:e2+1] = x[s1:e1+1, s2:e2+1]
 
         y.update_ghost_regions()
         return y
@@ -248,10 +251,14 @@ class C0PolarProjection_V1_10(LinearOperator):
     def dot(self, x, out=None):
         assert isinstance(x, StencilVector)
 
+        if not x.ghost_regions_in_sync:
+            x.update_ghost_regions()
+
         # The number of radial basis functions is one less than the number on the angular basis functions along dir x1
         [s1, s2] = self.domain.starts
         [e1, e2] = self.domain.ends
         [n1, n2] = self.domain.npts
+        rank_at_polar_edge = (s1 == 0)
 
         if out is None:
             y = self.codomain.zeros()
@@ -260,13 +267,14 @@ class C0PolarProjection_V1_10(LinearOperator):
             assert out.space is self.codomain
             y = out
 
+        y[s1:e1 + 1, s2:e2 + 1] = 0
+
         if self.transposed:
-            y[0, s2:e2 + 1] = np.subtract(np.roll(x[1, s2:e2 + 1], 1), x[1, s2:e2 + 1])
-            y[1:, s2:e2 + 1] = 0
+            if rank_at_polar_edge:
+                y[0, s2:e2 + 1] = np.subtract(np.roll(x[1, s2:e2 + 1], 1), x[1, s2:e2 + 1])
         else:
-            y[0, s2:e2 + 1] = 0
-            y[1, s2:e2 + 1] = np.subtract(np.roll(x[0, s2:e2 + 1], -1), x[0, s2:e2 + 1])
-            y[2:, s2:e2 + 1] = 0
+            if rank_at_polar_edge:
+                y[1, s2:e2 + 1] = np.subtract(np.roll(x[0, s2:e2 + 1], -1), x[0, s2:e2 + 1])
 
         y.update_ghost_regions()
         return y
@@ -350,9 +358,14 @@ class C0PolarProjection_V1_11(LinearOperator):
     def dot(self, x, out=None):
         assert isinstance(x, StencilVector)
 
+        if not x.ghost_regions_in_sync:
+            x.update_ghost_regions()
+
         [s1, s2] = self.codomain.starts
         [e1, e2] = self.codomain.ends
         [n1, n2] = self.codomain.npts
+        rank_at_polar_edge = (s1 == 0)
+        rank_at_outer_edge = (e1 == n1 - 1)
 
         if out is None:
             y = self.W1.coeff_space[1].zeros()
@@ -360,13 +373,14 @@ class C0PolarProjection_V1_11(LinearOperator):
             assert isinstance(out, StencilVector)
             assert out.space is self.codomain
             y = out
+        if rank_at_polar_edge:
+            y[0, s2:e2 + 1] = 0
+            y[1, s2:e2 + 1] = 0
+            y[2:, s2:e2 + 1] = x[2:, s2:e2 + 1]  # Identity block
+        else:
+            y[s1:e1 + 1, s2:e2 + 1] = x[s1:e1 + 1, s2:e2 + 1]
 
-        y[0, s2:e2 + 1] = 0
-        y[1, s2:e2 + 1] = 0
-        y[2:, s2:e2 + 1] = x[2:, s2:e2 + 1]  # Identity block
-
-        if self.hbc:
-            if e1 == n1 - 1:
+        if self.hbc and rank_at_outer_edge:
                 y[e1, :] = 0.
 
         y.update_ghost_regions()
@@ -486,6 +500,7 @@ class C0PolarProjection_V2(LinearOperator):
         [s1, s2] = self.W2.coeff_space.starts
         [e1, e2] = self.W2.coeff_space.ends
         [n1, n2] = self.W2.coeff_space.npts
+        rank_at_polar_edge = (s1 == 0)
 
         if out is None:
             y = self.W2.coeff_space.zeros()
@@ -495,15 +510,19 @@ class C0PolarProjection_V2(LinearOperator):
             y = out
 
         if self.transposed:
-
-            y[0, s2:e2 + 1] = x[1, s2:e2 + 1]
-            y[1, s2:e2 + 1] = x[1, s2:e2 + 1]
+            if rank_at_polar_edge:
+                y[0, s2:e2 + 1] = x[1, s2:e2 + 1]
+                y[1, s2:e2 + 1] = x[1, s2:e2 + 1]
+            y[2:, s2:e2 + 1] = x[2:, s2:e2 + 1]
 
         else:
-            y[0, s2:e2 + 1] = 0
-            y[1, s2:e2 + 1] = x[0, s2:e2 + 1] + x[1, s2:e2 + 1]
+            if rank_at_polar_edge:
+                y[0, s2:e2 + 1] = 0
+                y[1, s2:e2 + 1] = x[0, s2:e2 + 1] + x[1, s2:e2 + 1]
+                y[2:, s2:e2 + 1] = x[2:, s2:e2 + 1]
+            else:
+                y[s1:e1 + 1, s2:e2 + 1] = x[s1:e1 + 1, s2:e2 + 1]
 
-        y[2:, s2:e2 + 1] = x[2:, s2:e2 + 1]
 
         y.update_ghost_regions()
         return y

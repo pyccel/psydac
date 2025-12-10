@@ -395,6 +395,132 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         f2_with_det = lambda eta1, eta2: f_log(eta1, eta2) ** 2 * np.sqrt(F.metric_det(eta1, eta2))
         return np.sqrt(derham_h.V0.integral(f2_with_det))
 
+    #TODO Remove this! It's only for debugging
+    def compare_serial_parallel():
+
+        if mpi_rank == 0:
+            if use_spline_mapping:
+                #geometry = Geometry(filename='geo.h5')
+                domain_h_s = discretize(domain, filename='geo.h5')
+                #F_serial = [*domain_h_serial.mappings.values()].pop()
+            derham_h_s = discretize(derham, domain_h_s, degree=degree)
+            V0_s, V1_s, V2_s = derham_h_s.spaces
+            V1_sx, V1_sy = V1_s.spaces
+            ex_field, = V1_sx.import_fields('Ex.h5', 'Ex_field')
+            ey_field, = V1_sy.import_fields('Ey.h5', 'Ey_field')
+            ex_data = ex_field.coeffs._data
+            ey_data = ey_field.coeffs._data
+            #B_serial, = V2_s.import_fields('B.h5', 'B_field')
+
+
+            if mpi_size == 1:
+                np.save('Ex_coeffs_ser.npy', ex_data)
+            else:
+                np.save('Ex_coeffs_par.npy', ex_data)
+
+            if mpi_size == 1:
+                np.save('Ey_coeffs_ser.npy', ey_data)
+            else:
+                np.save('Ey_coeffs_par.npy', ey_data)
+
+            Ex_coeffs_ser = np.load('Ex_coeffs_ser.npy')
+            Ex_coeffs_par = np.load('Ex_coeffs_par.npy')
+            Ey_coeffs_ser = np.load('Ey_coeffs_ser.npy')
+            Ey_coeffs_par = np.load('Ey_coeffs_par.npy')
+            print(Ex_coeffs_ser - Ex_coeffs_par)
+            print(np.linalg.norm(Ex_coeffs_ser - Ex_coeffs_par))
+            print(Ey_coeffs_ser - Ey_coeffs_par)
+            print(np.linalg.norm(Ey_coeffs_ser - Ey_coeffs_par))
+            a = input()
+        exit()
+
+    def compare_P():
+
+        if mpi_rank == 0:
+            if use_spline_mapping:
+                #geometry = Geometry(filename='geo.h5')
+                domain_h_s = discretize(domain, filename='geo.h5')
+                #F_serial = [*domain_h_serial.mappings.values()].pop()
+            derham_h_s = discretize(derham, domain_h_s, degree=degree)
+            V0_s, V1_s, V2_s = derham_h_s.spaces
+            V1_sx, V1_sy = V1_s.spaces
+            print("NCELLS")
+            print(V1_sx.degree, V1_sx.ncells, V1_sx.nbasis)
+            print(V1_sy.degree, V1_sy.ncells, V1_sy.nbasis)
+            ex_field, = V1_sx.import_fields('Ex.h5', 'Ex_field')
+            ey_field, = V1_sy.import_fields('Ey.h5', 'Ey_field')
+
+            ex_fieldP, = V1_sx.import_fields('ExP.h5', 'Ex_field')
+            ey_fieldP, = V1_sy.import_fields('EyP.h5', 'Ey_field')
+
+            ex_fieldPP, = V1_sx.import_fields('ExPP.h5', 'Ex_field')
+            ey_fieldPP, = V1_sy.import_fields('EyPP.h5', 'Ey_field')
+
+            ex_data = ex_field.coeffs._data
+            ey_data = ey_field.coeffs._data
+            ex_dataP = ex_fieldP.coeffs._data
+            ey_dataP = ey_fieldP.coeffs._data
+            ex_dataPP = ex_fieldPP.coeffs._data
+            ey_dataPP = ey_fieldPP.coeffs._data
+            #B_serial, = V2_s.import_fields('B.h5', 'B_field')
+
+
+            print(ey_data)
+            print(ey_dataP)
+            print(ex_data.shape)
+            print(ey_data.shape)
+            # print(ex_dataP - ex_dataPP)
+            # print(np.linalg.norm(ex_dataP - ex_dataPP))
+            # print(ey_dataP - ey_dataPP)
+            # print(np.linalg.norm(ey_dataP - ey_dataPP))
+            a = input()
+        exit()
+
+    def test_P1(V1, P1):
+
+        e = V1.coeff_space.zeros()
+        Ex, Ey = e[0], e[1]
+
+        [s1, s2] = Ey.starts
+        [e1, e2] = Ey.ends
+
+        # for i in range(s1, e1 + 1):
+        #     for j in range(s2, e2 + 1):
+        #         Ex[i, j] = 0.1 * i + 0.01 * j
+        #         Ey[i, j] = -0.2 * i + 0.03 * j
+        print("RANK")
+        print(mpi_rank, s1, e1, s2, e2)
+        print(Ey._data)
+        Ey[0, 0] = 1
+
+        # e.update_ghost_regions()
+        Ex_field = FemField(V1x, coeffs=Ex)
+        Ey_field = FemField(V1y, coeffs=Ey)
+        V1x.export_fields('Ex.h5', Ex_field=Ex_field)
+        V1y.export_fields('Ey.h5', Ey_field=Ey_field)
+
+        eP = V1.coeff_space.zeros()
+        P1.dot(e, out=eP)
+        ExP, EyP = eP[0], eP[1]
+        ExP.update_ghost_regions()
+        EyP.update_ghost_regions()
+        Ex_field = FemField(V1x, coeffs=ExP)
+        Ey_field = FemField(V1y, coeffs=EyP)
+        V1x.export_fields('ExP.h5', Ex_field=Ex_field)
+        V1y.export_fields('EyP.h5', Ey_field=Ey_field)
+
+        P1.dot(eP, out=eP)
+        ExP, EyP = eP[0], eP[1]
+        ExP.update_ghost_regions()
+        EyP.update_ghost_regions()
+        Ex_field = FemField(V1x, coeffs=ExP)
+        Ey_field = FemField(V1y, coeffs=EyP)
+        V1x.export_fields('ExPP.h5', Ex_field=Ex_field)
+        V1y.export_fields('EyPP.h5', Ey_field=Ey_field)
+        compare_P()
+
+        exit()
+
     def run_study_L2_proj():
         omega = 4
         print(f'studying L2 proj of f in H_0(curl) .. with omega = {omega}')
@@ -626,7 +752,19 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         P1.dot(e.copy(), out=e)
         P2.dot(b.copy(), out=b)
 
-        V1x, V1y = V1.spaces
+
+        V1x, V1y = V1.spaces #call them s, theta
+        #test_P1(V1, P1)
+
+        # Ex_field = FemField(V1x, coeffs=e[0])
+        # Ey_field = FemField(V1y, coeffs=e[1])
+        # B_field = FemField(V2, coeffs=b)
+        # V1x.export_fields('Ex.h5', Ex_field=Ex_field)
+        # V1y.export_fields('Ey.h5', Ey_field=Ey_field)
+        # V2.export_fields('B.h5', B_field=B_field)
+        # compare_serial_parallel()
+
+        V1x, V1y = V1.spaces #call them s, theta
         Ex_field = FemField(V1x, coeffs=e[0])
         Ey_field = FemField(V1y, coeffs=e[1])
         B_field = FemField(V2, coeffs=b)
@@ -753,7 +891,7 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
             grid_x1 = V0_s.breaks[0]
             grid_x2 = V0_s.breaks[1]
             # Fix division by zero without taking care of the limit as s --> 0
-            grid_x1[0] = 1e-15
+            grid_x1[0] = 1e-20
 
             # Very fine grids for evaluation of solution
             N = 5
