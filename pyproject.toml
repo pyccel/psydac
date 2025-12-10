@@ -7,8 +7,9 @@ name            = "psydac"
 version         = "0.1"
 description     = "Python package for isogeometric analysis (IGA)"
 readme          = "README.md"
+license         = "MIT"
+license-files   = ["LICENSE"]
 requires-python = ">= 3.10"
-license         = {file = "LICENSE"}
 authors         = [
     {name = "Psydac development team", email = "psydac@googlegroups.com"}
 ]
