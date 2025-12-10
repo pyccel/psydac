@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 from shutil import which
 from subprocess import PIPE, STDOUT  # nosec B404
 from subprocess import run as sub_run
@@ -38,8 +39,14 @@ class BuildPyCommand(build_py):
                 if name == '.lock_acquisition.lock':
                     os.remove(os.path.join(path, name))
 
+def get_version():
+    """ Get the package version from psydac/version.py """
+    sys.path.insert(0, 'psydac')
+    from version import __version__
+    return __version__
 
 setup(
+    version = get_version(),
     cmdclass={
         'build_py': BuildPyCommand,
     },

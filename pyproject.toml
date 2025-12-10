@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name            = "psydac"
-version         = "0.1"
 description     = "Python package for isogeometric analysis (IGA)"
+dynamic         = ["version"]
 readme          = "README.md"
 license         = "MIT"
 license-files   = ["LICENSE"]
