@@ -1,0 +1,34 @@
+name: Install Struphy in Container
+
+inputs:
+  compile_language:
+    required: true
+    default: c
+  struphy_branch:
+    required: true
+    default: devel
+
+runs:
+  using: composite
+  steps:
+    - name: Git branch name
+      id: git-branch-name 
+      uses: EthanSK/git-branch-name-action@v1
+    - name: Echo the branch name
+      shell: bash 
+      run: echo "Branch name ${GIT_BRANCH_NAME}"
+    - name: Install psydac
+      shell: bash
+      run: |
+          ls / -a
+          which python3
+          git clone https://github.com/struphy-hub/struphy.git
+          cd struphy
+          echo ${{ inputs.struphy_branch }}
+          git checkout ${{ inputs.struphy_branch }}
+          git pull
+          source /struphy_${{ inputs.compile_language }}_/env_${{ inputs.compile_language }}_/bin/activate
+          pip show struphy
+          struphy compile -d
+          pip uninstall struphy -y
+          python3 -m pip install . --force-reinstall --no-cache-dir

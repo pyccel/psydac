@@ -38,7 +38,7 @@ parser.add_argument('--openmp',
 args = parser.parse_args()
 
 # get the absolute path to the psydac directory
-psydac_path = os.path.dirname(os.path.abspath(__file__))+'/psydac'
+psydac_path = os.path.dirname(os.path.abspath(__file__))+'/feectools'
 
 print("\nNOTE: This script should only be used if Psydac was installed in editable mode.\n")
 

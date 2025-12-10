@@ -1,0 +1,87 @@
+name: PR - test Psydac in container
+
+on:
+  pull_request:
+    branches: [devel-tiny]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  contents: read
+
+jobs:
+  test_psydac:
+    runs-on: ubuntu-latest
+
+    container:
+      image: ghcr.io/struphy-hub/struphy/ubuntu-with-reqs:latest
+      credentials:
+        username: spossann
+        password: ${{ secrets.GHCR_PROJECT_TOKEN }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # TODO: Make sure that struphy works with python > 3.11, keep the lower bound to 3.10
+        python-version: [ '3.12' ]
+        compile_language: ['c', 'fortran']
+
+    name: Test feectools for Python ${{ matrix.python-version }} / ${{ matrix.compile_language }}
+
+    steps:
+      - name: Check for dockerenv file
+        run: (ls /.dockerenv && echo Found dockerenv) || (echo No dockerenv)
+
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install project without mpi
+        run: |
+          python3 -m venv env
+          source env/bin/activate
+          python3 -m pip install ".[test]" --no-cache-dir
+          python3 -m pip freeze
+      
+      - name: Compile feectools kernels
+        run: |
+          source env/bin/activate
+          psydac-accelerate --language ${{ matrix.compile_language }}
+
+      # - name: Test Pyccel optimization flags
+      #   run: |
+      #     pytest --pyargs psydac -m pyccel --capture=no
+
+      - name: Initialize test directory
+        run: |
+          mkdir pytest
+          cp mpi_tester.py pytest
+
+      - name: Run single-process tests with Pytest on Ubuntu
+        run: |
+          source env/bin/activate
+          cd pytest
+          python3 -m pytest -n auto --pyargs feectools -m "not parallel and not petsc"
+
+      - name: Install project with mpi
+        run: |
+          source env/bin/activate
+          python3 -m pip install ".[mpi]" 
+          python3 -m pip freeze
+
+      - name: Run MPI tests with Pytest
+        run: |
+          source env/bin/activate
+          cd pytest
+          python3 mpi_tester.py --mpirun="mpiexec -n 4 ${MPI_OPTS}" --pyargs feectools -m "parallel and not petsc"
+
+      - name: Remove test directory
+        if: always()
+        run: |
+          rm -rf pytest
+  

@@ -3,7 +3,7 @@
 First Steps with PSYDAC
 =======================
 
-This document is meant to give a tutorial-like overview of PSYDAC.
+This document is meant to give a tutorial-like overview of feectools.
 
 The green arrows designate "more info" links leading to advanced sections about
 the described task.

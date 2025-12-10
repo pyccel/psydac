@@ -1,7 +1,7 @@
 Modules
 =======
 
-Find here every class and every function of every module in PSYDAC.
+Find here every class and every function of every module in feectools.
 Relying solely on docstrings.
 
 .. toctree::

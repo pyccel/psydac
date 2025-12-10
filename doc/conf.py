@@ -145,7 +145,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'psydac.tex', u'psydac Documentation',
+    (master_doc, 'feectools.tex', u'psydac Documentation',
      u'A. Ratnani, J. Lakhlili', 'manual'),
 ]
 
@@ -232,5 +232,5 @@ class Mock(MagicMock):
     def __getattr__(cls, name):
         return MagicMock()
 
-MOCK_MODULES = ['psydac.core.bsp']
+MOCK_MODULES = ['feectools.core.bsp']
 sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)

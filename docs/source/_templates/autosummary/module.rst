@@ -33,7 +33,7 @@
    -------
    .. inheritance-diagram:: {{ fullname }}
       :parts: 1
-      :top-classes: psydac.linalg.basic.LinearOperator, psydac.linalg.basic.Vector, psydac.linalg.basic.VectorSpace, psydac.linalg.basic.LinearSolver
+      :top-classes: feectools.linalg.basic.LinearOperator, feectools.linalg.basic.Vector, feectools.linalg.basic.VectorSpace, feectools.linalg.basic.LinearSolver
    .. autosummary::
    {% for item in classes %}
       {{ item }}

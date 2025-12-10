@@ -10,7 +10,7 @@
 
 # add these directories to sys.path here.
 
-# Make AutosummaryRenderer have a filter (smart_fullname) that reduces psydac.module.submodule to module.submodule in the navigation part of the documentation
+# Make AutosummaryRenderer have a filter (smart_fullname) that reduces feectools.module.submodule to module.submodule in the navigation part of the documentation
 from sphinx.ext.autosummary.generate import AutosummaryRenderer
 
 def smart_fullname(fullname):

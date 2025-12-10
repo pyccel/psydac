@@ -13,11 +13,11 @@ from   sympde.calculus             import dot, cross, grad, curl
 from   sympde.expr                 import BilinearForm, integral
 from   sympde.topology             import element_of, elements_of, Cube, Mapping, ScalarFunctionSpace, Domain, Derham
 
-from   psydac.api.discretization   import discretize
-from   psydac.api.settings         import PSYDAC_BACKEND_GPYCCEL
-from   psydac.cad.geometry         import Geometry
-from   psydac.fem.basic            import FemField
-from   psydac.mapping.discrete     import SplineMapping
+from   feectools.api.discretization   import discretize
+from   feectools.api.settings         import PSYDAC_BACKEND_GPYCCEL
+from   feectools.cad.geometry         import Geometry
+from   feectools.fem.basic            import FemField
+from   feectools.mapping.discrete     import SplineMapping
 
 datetime_md = datetime.today().strftime('%Y-%m-%d %H:%M:%S')
 datetime_file = datetime.today().strftime('%Y-%m-%d_%H:%M:%S')

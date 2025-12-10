@@ -1,8 +1,9 @@
 name: Test struphy
 
 on:
-  pull_request:
+  push:
     branches: [devel-tiny]
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -15,25 +16,41 @@ jobs:
       fail-fast: false
       matrix:
         os: [ ubuntu-latest ]
-        # TODO: Make sure that struphy works with python > 3.11, keep the lower bound to 3.10
-        python-version: [ '3.10', '3.12', '3.13' ]
+        python-version: [ '3.12' ]
         compile_language: ['c', 'fortran']
-        isMerge:
-          - ${{ github.event_name == 'push' && github.ref == 'refs/heads/devel' }}
-        # exclude:
-        #  - { isMerge: false, python-version: '3.10' }
-        #  - { isMerge: false, python-version: '3.11' }
-        # include:
-        #   - os: macos-14
-        #     python-version: '3.10'
-        #   - os: macos-14
-        #     python-version: '3.13'
 
     name: Test Struphy on ${{ matrix.os }} / Python ${{ matrix.python-version }} / ${{ matrix.compile_language }}
 
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+
+      - name: Set up environment variables
+        run: |
+          echo "PSYDAC_DIR=$GITHUB_WORKSPACE" >> $GITHUB_ENV
+          echo "STRUPHY_DIR=$GITHUB_WORKSPACE/struphy" >> $GITHUB_ENV
+
+      - name: Check .testmondata 1
+        run: |
+          ls .testmon* || echo "No .testmondata"
+
+      - name: Setup cache for testmon
+        uses: actions/cache@v4
+        with:
+          path: |
+            .testmondata-struphy-${{ matrix.compile_language }}
+            .testmondata-struphy-${{ matrix.compile_language }}-mpi
+          key: testmon-struphy-${{ matrix.compile_language }}-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
+          restore-keys: |
+            testmon-struphy-${{ matrix.compile_language }}-${{ github.ref_name }}-${{ github.event.number }}-
+            testmon-struphy-${{ matrix.compile_language }}-${{ github.ref_name }}
+            testmon-struphy-${{ matrix.compile_language }}-devel
+            testmon-struphy-${{ matrix.compile_language }}-
+            testmon-struphy-
+
+      - name: Check .testmondata 2
+        run: |
+          ls .testmon* || echo "No .testmondata"
 
       - name: Install prerequisites
         uses: ./.github/actions/install/psydac-req
@@ -42,11 +59,6 @@ jobs:
         run: |
           python -m pip install ".[test]" --no-cache-dir
           python -m pip freeze
-      
-      - name: Set up environment variables
-        run: |
-          echo "PSYDAC_DIR=$GITHUB_WORKSPACE" >> $GITHUB_ENV
-          echo "STRUPHY_DIR=$GITHUB_WORKSPACE/struphy" >> $GITHUB_ENV
 
       - name: Clone struphy from Github
         run: |
@@ -73,33 +85,30 @@ jobs:
           pip show psydac
           
       - name: Compile struphy
-        working-directory: ${{ env.STRUPHY_DIR }}
         run: |
           pip show psydac
           struphy -h
           struphy compile -y --language ${{ matrix.compile_language }}
 
       - name: Run struphy unit tests
-        working-directory: ${{ env.STRUPHY_DIR }}
+        env:
+          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-struphy-${{ matrix.compile_language }}
         run: |
             struphy test unit
       
       - name: Run struphy model tests
-        working-directory: ${{ env.STRUPHY_DIR }}
+        env:
+          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-struphy-${{ matrix.compile_language }}
         run: |
             struphy test models 
 
       - name: Install mpi4py
-        working-directory: ${{ env.STRUPHY_DIR }}
         run: |
             pip install -U mpi4py
 
-      - name: Run struphy unit tests with mpi
-        working-directory: ${{ env.STRUPHY_DIR }}
+      - name: Run struphy model tests with mpi
+        env:
+          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-struphy-${{ matrix.compile_language }}-mpi
         run: |
-            struphy test unit --mpi 2
-
-      - name: Remove test directory
-        if: always()
-        run: |
-          rm -rf pytest
+            struphy test Maxwell
+            struphy test models --mpi 2

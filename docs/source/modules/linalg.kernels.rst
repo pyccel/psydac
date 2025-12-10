@@ -1,7 +1,7 @@
 linalg.kernels
 ==============
 
-.. currentmodule:: psydac.linalg
+.. currentmodule:: feectools.linalg
 .. autosummary::
     :nosignatures:
     :toctree: STUBDIR

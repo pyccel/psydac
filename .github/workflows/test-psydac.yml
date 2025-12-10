@@ -1,35 +1,25 @@
-name: Test psydac
+name: Test feectools
 
 on:
-  pull_request:
+  push:
     branches: [devel-tiny]
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  test_psydac:
+  test_feectools:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ ubuntu-latest ]
-        # TODO: Make sure that struphy works with python > 3.11, keep the lower bound to 3.10
-        python-version: [ '3.10', '3.12', '3.13' ]
+        python-version: [ '3.12' ]
         compile_language: ['c', 'fortran']
-        isMerge:
-          - ${{ github.event_name == 'push' && github.ref == 'refs/heads/devel' }}
-        # exclude:
-        #  - { isMerge: false, python-version: '3.10' }
-        #  - { isMerge: false, python-version: '3.11' }
-        # include:
-        #   - os: macos-14
-        #     python-version: '3.10'
-        #   - os: macos-14
-        #     python-version: '3.13'
 
-    name: Test Psydac on ${{ matrix.os }} / Python ${{ matrix.python-version }} / ${{ matrix.compile_language }}
+    name: Test feectools on ${{ matrix.os }} / Python ${{ matrix.python-version }} / ${{ matrix.compile_language }}
 
     steps:
       - name: Checkout repo
@@ -43,7 +33,7 @@ jobs:
           python -m pip install ".[test]" --no-cache-dir
           python -m pip freeze
       
-      - name: Compile psydac kernels
+      - name: Compile feectools kernels
         run: |
           psydac-accelerate --language ${{ matrix.compile_language }}
 
@@ -61,21 +51,21 @@ jobs:
         working-directory: ./pytest
         run: >- 
           python -m pytest -n auto
-          --cov psydac
+          --cov feectools
           --cov-config $GITHUB_WORKSPACE/pyproject.toml
           --cov-report xml
-          --pyargs psydac -m "not parallel and not petsc"
+          --pyargs feectools -m "not parallel and not petsc"
 
       - name: Run single-process tests with Pytest on Ubuntu
         if: matrix.os == 'ubuntu-latest'
         working-directory: ./pytest
         run: |
-          python -m pytest -n auto --pyargs psydac -m "not parallel and not petsc"
+          python -m pytest -n auto --pyargs feectools -m "not parallel and not petsc"
 
       - name: Run single-process PETSc tests with Pytest
         working-directory: ./pytest
         run: |
-          python -m pytest -n auto --pyargs psydac -m "not parallel and petsc"
+          python -m pytest -n auto --pyargs feectools -m "not parallel and petsc"
 
       - name: Install project with mpi
         run: |
@@ -85,12 +75,12 @@ jobs:
       - name: Run MPI tests with Pytest
         working-directory: ./pytest
         run: |
-          python mpi_tester.py --mpirun="mpiexec -n 4 ${MPI_OPTS}" --pyargs psydac -m "parallel and not petsc"
+          python mpi_tester.py --mpirun="mpiexec -n 4 ${MPI_OPTS}" --pyargs feectools -m "parallel and not petsc"
 
       - name: Run MPI PETSc tests with Pytest
         working-directory: ./pytest
         run: |
-          python mpi_tester.py --mpirun="mpiexec -n 4 ${MPI_OPTS}" --pyargs psydac -m "parallel and petsc"
+          python mpi_tester.py --mpirun="mpiexec -n 4 ${MPI_OPTS}" --pyargs feectools -m "parallel and petsc"
 
       - name: Remove test directory
         if: always()

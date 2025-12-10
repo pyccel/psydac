@@ -1,7 +1,7 @@
 feec.multipatch
 ===============
 
-.. currentmodule:: psydac.feec
+.. currentmodule:: feectools.feec
 .. autosummary::
     :nosignatures:
     :toctree: STUBDIR

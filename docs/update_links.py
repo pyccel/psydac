@@ -17,7 +17,7 @@ old_links = []
 
 for module in modules:
     html_files.append( f'docs/build/html/modules/{module}.html' )
-    old_links.append( rf'#module-psydac.{module}.(.*?)"' )
+    old_links.append( rf'#module-feectools.{module}.(.*?)"' )
 
 for i, html_file in enumerate(html_files):
     with open(html_file, 'r+') as f:

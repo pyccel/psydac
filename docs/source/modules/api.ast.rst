@@ -1,7 +1,7 @@
 api.ast
 =======
 
-.. currentmodule:: psydac.api
+.. currentmodule:: feectools.api
 .. autosummary::
     :nosignatures:
     :toctree: STUBDIR

@@ -1,5 +1,9 @@
-# Welcome to tiny-psydac
+# Welcome!
 
-This is a tiny version of [psydac-for-struphy](https://github.com/max-models/psydac-for-struphy) tha contains the bare minimum for working with [struphy](https://gitlab.mpcdf.mpg.de/struphy/struphy).
+This is a fork of [Psydac](https://github.com/pyccel/psydac) that provides Finite Element Exterior Calculus (FEEC) for [Struphy](https://github.com/struphy-hub/struphy). It is a stripped-down version of the original repo with less functionality and fewer dependencies.
 
-The version tag of tiny-psydac contains `.dev0`.
+The latest version can be installed with
+```
+pip install -U feectools
+```
+See the [Struphy documentation](https://struphy-hub.github.io/struphy/index.html) for details on how to use.
