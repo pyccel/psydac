@@ -19,3 +19,4 @@ runs:
       run: |
         sudo apt-get update
         sudo apt-get install --reinstall openmpi-bin libhdf5-openmpi-dev liblapack-dev libblas-dev
+      shell: bash
