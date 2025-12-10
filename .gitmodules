@@ -1,0 +1,3 @@
+[submodule "external/igakit"]
+	path = external/igakit
+	url = https://github.com/dalcinl/igakit/
