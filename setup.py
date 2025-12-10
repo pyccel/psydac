@@ -19,7 +19,7 @@ class BuildPyCommand(build_py):
         # case
         if module.endswith('_kernels'):
             self.announce(f"\nPyccelising [{module}] ...", level=logging.INFO)
-            pyccel = sub_run([which('pyccel'), outfile, '--language', 'fortran', '--openmp'],
+            pyccel = sub_run([which('pyccel'), 'compile', outfile, '--language', 'fortran', '--openmp'],
                               stdout=PIPE, stderr=STDOUT,
                               text=True, shell=False, check=True) # nosec B603
             self.announce(pyccel.stdout, level=logging.INFO)
@@ -30,7 +30,7 @@ class BuildPyCommand(build_py):
         super().run()
 
         # Remove __pyccel__ directories
-        sub_run([which('pyccel-clean'), self.build_lib], shell=False, check=True) # nosec B603, B607
+        sub_run([which('pyccel'), 'clean', self.build_lib], shell=False, check=True) # nosec B603, B607
 
         # Remove useless .lock files
         for path, subdirs, files in os.walk(self.build_lib):

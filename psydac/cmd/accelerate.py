@@ -61,5 +61,5 @@ def main():
         for name in files:
             if name.endswith('_kernels.py'):
                 print('  Pyccelize file: ' + os.path.join(path, name))
-                sub_run([shutil.which('pyccel'), os.path.join(path, name), *parameters], shell=False)
+                sub_run([shutil.which('pyccel'), 'compile', os.path.join(path, name), *parameters], shell=False)
     print()
