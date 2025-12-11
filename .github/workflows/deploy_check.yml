@@ -7,7 +7,7 @@ on:
       - reopened
       - synchronize
       - ready_for_review
-    branches: [main, devel] # TODO: should only run on main
+    branches: [main, devel, prepare-release] # TODO: should only run on main
 
 jobs:
   deployTest:
