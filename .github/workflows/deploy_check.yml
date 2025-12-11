@@ -50,7 +50,10 @@ jobs:
           sed -i.bak "s/${CURRENT_VERSION}/${TEST_VERSION}/g" version.py && rm version.py.bak
           sed -i.bak "s/\"${CURRENT_VERSION}\"/\"${TEST_VERSION}\"/g" pyproject.toml && rm pyproject.toml.bak
           echo "TEST_VERSION=${TEST_VERSION}" >> $GITHUB_ENV
-          git commit -m "Temp save version" psydac/version.py pyproject.toml
+          # Setup dummy user to save temp version for meson
+          git config --global user.email "you@example.com"
+          git config --global user.name "Your Name"
+          git commit -m "Save temp version" psydac/version.py pyproject.toml
           python -m build --sdist
           ls dist/*
           twine check --strict dist/*
