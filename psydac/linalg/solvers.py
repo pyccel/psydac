@@ -7,16 +7,19 @@
 This module provides iterative solvers and preconditioners.
 
 """
-from math import sqrt
-
+from math           import sqrt
+from scipy.sparse   import dia_matrix
 import numpy as np
 
-from psydac.utilities.utils  import is_real
-from psydac.linalg.utilities import _sym_ortho
-from psydac.linalg.basic     import (Vector, LinearOperator,
-        InverseLinearOperator, IdentityOperator, ScaledLinearOperator)
+from psydac.utilities.utils         import is_real
+from psydac.linalg.direct_solvers   import BandedSolver
+from psydac.linalg.utilities        import _sym_ortho
+from psydac.linalg.basic            import (Vector, LinearOperator, InverseLinearOperator, 
+                                            IdentityOperator, ScaledLinearOperator)
 
 __all__ = (
+    'to_bnd',
+    'matrix_to_bandsolver',
     'inverse',
     'ConjugateGradient',
     'PConjugateGradient',
@@ -29,6 +32,27 @@ __all__ = (
 )
 
 #===============================================================================
+# Converts a 1D StencilMatrix to a band matrix
+def to_bnd(A):
+
+    dmat = dia_matrix(A.toarray(), dtype=A.dtype)
+    la   = abs(dmat.offsets.min())
+    ua   = dmat.offsets.max()
+    cmat = dmat.tocsr()
+
+    A_bnd = np.zeros((1+ua+2*la, cmat.shape[1]), A.dtype)
+
+    for i,j in zip(*cmat.nonzero()):
+        A_bnd[la+ua+i-j, j] = cmat[i,j]
+
+    return A_bnd, la, ua
+
+# Converts a 1D StencilMatrix to a BandedSolver
+def matrix_to_bandsolver(A):
+    A.remove_spurious_entries()
+    A_bnd, la, ua = to_bnd(A)
+    return BandedSolver(ua, la, A_bnd)
+
 def inverse(A, solver, **kwargs):
     """
     A function to create objects of all InverseLinearOperator subclasses.

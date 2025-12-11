@@ -1,3 +1,8 @@
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 import  time
 import  numpy as np
 
@@ -13,7 +18,7 @@ from    psydac.linalg.solvers               import inverse
 def compute_vector_potential_3d(b, derham_h):
     """
     Computes a weak-divergence-free vector potential A in a subspace of H_0(curl) of a divergence-free function B in a subspace of H_0(div).
-    This example highlights the usage of LST preconditioners and Dirichlet projectors introduced in recent PRs.
+    This example highlights the usage of LST preconditioners and Dirichlet projectors.
 
     Parameters
     ----------
@@ -22,7 +27,7 @@ def compute_vector_potential_3d(b, derham_h):
         of the discrete de Rham sequence derham_h.
 
     derham_h : psydac.api.feec.DiscreteDeRham
-        b belongs to the second third space V2_h of derham_h.
+        b belongs to the third space V2_h of derham_h.
     
     Returns
     -------
@@ -32,8 +37,9 @@ def compute_vector_potential_3d(b, derham_h):
 
     Notes
     -----
-    Denoting the hom. DBC satisfying function spaces of a 3D de Rham sequence by V0h, V1h, V2h and V3h,
-    the problem
+    We denote the function spaces of a 3D de Rham sequence satisfying
+    homogeneous Dirichlet boundary conditions (DBCs) as V0h, V1h, V2h and V3h.
+    Then the problem
 
         Given B in V2h s.th. div(B)=0, find A in V1h s.th.
                 curl(A) = B,

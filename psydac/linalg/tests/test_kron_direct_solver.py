@@ -8,7 +8,7 @@ import time
 import pytest
 import numpy as np
 from mpi4py              import MPI
-from scipy.sparse        import csc_matrix, dia_matrix, kron
+from scipy.sparse        import csc_matrix, kron
 from scipy.sparse.linalg import splu
 
 from sympde.calculus import dot
@@ -21,9 +21,9 @@ from sympde.topology import elements_of
 from psydac.api.discretization     import discretize
 from psydac.ddm.cart               import DomainDecomposition, CartDecomposition
 from psydac.linalg.block           import BlockLinearOperator
-from psydac.linalg.direct_solvers  import SparseSolver, BandedSolver
+from psydac.linalg.direct_solvers  import SparseSolver
 from psydac.linalg.kron            import KroneckerLinearSolver
-from psydac.linalg.solvers         import inverse
+from psydac.linalg.solvers         import inverse, matrix_to_bandsolver
 from psydac.linalg.stencil         import StencilVectorSpace, StencilVector, StencilMatrix
 
 #===============================================================================
@@ -58,28 +58,6 @@ def kron_solve_seq_ref(Y, A, transposed):
     X = C_op.solve(Y.flatten())
 
     return X.reshape(Y.shape)
-# ...
-
-# ... convert a 1D stencil matrix to band matrix
-def to_bnd(A):
-
-    dmat = dia_matrix(A.toarray(), dtype=A.dtype)
-    la   = abs(dmat.offsets.min())
-    ua   = dmat.offsets.max()
-    cmat = dmat.tocsr()
-
-    A_bnd = np.zeros((1+ua+2*la, cmat.shape[1]), A.dtype)
-
-    for i,j in zip(*cmat.nonzero()):
-        A_bnd[la+ua+i-j, j] = cmat[i,j]
-
-    return A_bnd, la, ua
-# ...
-
-def matrix_to_bandsolver(A):
-    A.remove_spurious_entries()
-    A_bnd, la, ua = to_bnd(A)
-    return BandedSolver(ua, la, A_bnd)
 
 def matrix_to_sparse(A):
     A.remove_spurious_entries()

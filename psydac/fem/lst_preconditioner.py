@@ -1,18 +1,23 @@
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 import  numpy as np
 
-from    scipy.sparse                               import dia_matrix
+from    scipy.sparse                    import dia_matrix
 
-from    sympde.topology                             import elements_of, Line, ScalarFunctionSpace
-from    sympde.topology.datatype                    import SpaceType
-from    sympde.expr                                 import integral, BilinearForm
+from    sympde.topology                 import elements_of, Line, ScalarFunctionSpace
+from    sympde.topology.datatype        import SpaceType
+from    sympde.expr                     import integral, BilinearForm
 
-from    psydac.fem.projectors                       import DirichletProjector
-from    psydac.linalg.basic                         import IdentityOperator, LinearOperator
-from    psydac.linalg.block                         import BlockVectorSpace, BlockLinearOperator
-from    psydac.linalg.stencil                       import StencilVectorSpace
-
-from    psydac.linalg.direct_solvers                import BandedSolver
-from    psydac.linalg.kron                          import KroneckerLinearSolver, KroneckerStencilMatrix
+from    psydac.fem.projectors           import DirichletProjector
+from    psydac.linalg.basic             import IdentityOperator, LinearOperator
+from    psydac.linalg.block             import BlockVectorSpace, BlockLinearOperator
+from    psydac.linalg.direct_solvers    import BandedSolver
+from    psydac.linalg.kron              import KroneckerLinearSolver, KroneckerStencilMatrix
+from    psydac.linalg.solvers           import matrix_to_bandsolver
+from    psydac.linalg.stencil           import StencilVectorSpace
 
 def construct_LST_preconditioner(M, domain_h, fem_space, hom_bc=False, kind=None):
     """
@@ -63,7 +68,6 @@ def construct_LST_preconditioner(M, domain_h, fem_space, hom_bc=False, kind=None
 
     # to avoid circular import
     from psydac.api.discretization                   import discretize
-    from psydac.linalg.tests.test_kron_direct_solver import matrix_to_bandsolver
 
     dim = fem_space.ldim
     # In 1D one can solve the linear system directly (instead of using this preconditioner)

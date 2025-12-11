@@ -230,9 +230,9 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
 #===============================================================================
 def test_LST_preconditioner(comm=None):
 
-    ncells_3d      = [16, 7, 11]
-    degree_3d      = [1, 4, 2]
-    periodic_3d    = [False, True, False]
+    ncells_3d   = [16, 7, 11]
+    degree_3d   = [1, 4, 2]
+    periodic_3d = [False, True, False]
 
     prin = True if ((comm is None) or (comm.rank == 0)) else False
     backend = PSYDAC_BACKEND_GPYCCEL
@@ -249,9 +249,9 @@ def test_LST_preconditioner(comm=None):
         if prin:
             print(f' ----- Start {dim}D test -----')
 
-        ncells      = ncells_3d  [0:2] if dim == 2 else ncells_3d
-        degree      = degree_3d  [0:2] if dim == 2 else degree_3d
-        periodic    = periodic_3d[0:2] if dim == 2 else periodic_3d
+        ncells   = ncells_3d  [0:2] if dim == 2 else ncells_3d
+        degree   = degree_3d  [0:2] if dim == 2 else degree_3d
+        periodic = periodic_3d[0:2] if dim == 2 else periodic_3d
 
         if dim == 2:
             logical_domain = Square('S', bounds1=(0.5, 1), bounds2=(0, 2*np.pi))
@@ -261,19 +261,19 @@ def test_LST_preconditioner(comm=None):
             logical_domain = Cube  ('C', bounds1=(0.5, 1), bounds2=(0, 2*np.pi), bounds3=(0, 1))
             mapping = SquareTorus('ST')
 
-        domain  = mapping(logical_domain)
+        domain = mapping(logical_domain)
 
         derham = Derham(domain, sequence=sequence) if dim == 2 else Derham(domain)
 
         domain_h = discretize(domain, ncells=ncells, periodic=periodic, comm=comm)
         derham_h = discretize(derham, domain_h, degree=degree)
 
-        Vs                      = derham.spaces
-        Vhs                     = derham_h.spaces
+        Vs  = derham.spaces
+        Vhs = derham_h.spaces
 
         d_projectors = derham_h.dirichlet_projectors(kind='linop')
 
-        mass_matrices = []
+        mass_matrices   = []
         mass_0_matrices = []
 
         for i, (V, Vh) in enumerate(zip(Vs, Vhs)):
@@ -292,7 +292,7 @@ def test_LST_preconditioner(comm=None):
         if dim == 2:
             M0, M1, M2 = mass_matrices
         else:
-            M0, M1, M2, M3   = mass_matrices
+            M0, M1, M2, M3 = mass_matrices
 
         if dim == 2:
             mass_matrix_preconditioners   = derham_h.LST_preconditioners(M0=M0, M1=M1, M2=M2             )
@@ -322,17 +322,17 @@ def test_LST_preconditioner(comm=None):
 
         # For comparison and testing: Number of iterations required, not using and using a preconditioner
         # More information via " -s" when running the test
-        #                           dim 2                           dim 3
-        #                  M0   M1  M2  M0_0  M1_0     M0    M1    M2   M3  M0_0  M1_0  M2_0
-        true_cg_niter  = [[90, 681, 62,   77,  600], [486, 7970, 5292, 147,  356, 5892, 4510]]
-        true_pcg_niter = [[ 6,   6,  2,    5,    5], [  6,    7,    6,   2,    5,    5,    5]]
+        #                            dim 2                           dim 3
+        #                   M0   M1  M2  M0_0  M1_0     M0    M1    M2   M3  M0_0  M1_0  M2_0
+        true_cg_niter   = [[90, 681, 62,   77,  600], [486, 7970, 5292, 147,  356, 5892, 4510]]
+        true_pcg_niter  = [[ 6,   6,  2,    5,    5], [  6,    7,    6,   2,    5,    5,    5]]
         # M{i}_0 matrices preconditioned with a LST preconditioner designed for M{i} instead:
-        #                               M0_0  M1_0                          M0_0  M1_0  M2_0
-        true_pcg_niter2= [[               23,   24], [                       367, 2867,  220]]
+        #                                M0_0  M1_0                          M0_0  M1_0  M2_0
+        true_pcg_niter2 = [[               23,   24], [                       367, 2867,  220]]
 
         mass_matrices               += mass_0_matrices
         mass_matrix_preconditioners += mass_0_matrix_preconditioners
-        extended_fem_spaces         = Vhs + Vhs[:-1]
+        extended_fem_spaces          = Vhs + Vhs[:-1]
 
         for i, (M, Mpc, Vh) in enumerate(zip(mass_matrices, mass_matrix_preconditioners, extended_fem_spaces)):
 
@@ -350,7 +350,7 @@ def test_LST_preconditioner(comm=None):
                 print(' The LST pc obtained using derham_h.LST_preconditioners is the same as the one obtained from construct_LST_preconditioner.')
 
             if cg:
-                M_inv_cg  = inverse(M, 'cg',          maxiter=maxiter, tol=tol)
+                M_inv_cg = inverse(M, 'cg',          maxiter=maxiter, tol=tol)
             M_inv_pcg = inverse(M, 'pcg', pc=Mpc, maxiter=maxiter, tol=tol)
 
             y = M.codomain.zeros()
@@ -363,19 +363,19 @@ def test_LST_preconditioner(comm=None):
             if (i > dim):
                 if prin:
                     print(f' Projecting rhs vector into space of functions satisfying hom. DBCs')
-                DP  = d_projectors[i-(dim+1)]
-                y   = DP @ y
+                DP = d_projectors[i-(dim+1)]
+                y  = DP @ y
 
             if cg:
                 t0 = time.time()
                 x_cg = M_inv_cg @ y
                 t1 = time.time()
 
-                y_cg     = M @ x_cg
-                diff_cg  = y - y_cg
-                err_cg   = np.sqrt(M.codomain.inner(diff_cg, diff_cg))
-                time_cg  = t1 - t0
-                info_cg  = M_inv_cg.get_info()
+                y_cg    = M @ x_cg
+                diff_cg = y - y_cg
+                err_cg  = np.sqrt(M.codomain.inner(diff_cg, diff_cg))
+                time_cg = t1 - t0
+                info_cg = M_inv_cg.get_info()
 
             t0 = time.time()
             x_pcg = M_inv_pcg @ y
