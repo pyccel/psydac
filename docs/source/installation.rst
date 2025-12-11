@@ -203,7 +203,7 @@ First, we download the latest release of PETSc from its `official Git repository
 
 .. code-block:: sh
 
-   git clone --depth 1 --branch v3.21.4 https://gitlab.com/petsc/petsc.git
+   git clone --depth 1 --branch v3.23.2 https://gitlab.com/petsc/petsc.git
 
 Next, we specify a configuration for complex numbers, and install PETSc in a local directory:
 
