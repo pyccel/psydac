@@ -45,5 +45,6 @@ subdir('__pyccel__/psydac')
 
 # Install the pure-Python package itself
 install_subdir('psydac', install_dir: py.get_install_dir())
+install_subdir('mesh', install_dir: py.get_install_dir())
 
 
