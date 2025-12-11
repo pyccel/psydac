@@ -3,13 +3,6 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-import numpy as np
-
-from scipy.sparse                               import dia_matrix
-
-from sympde.expr                                import integral, BilinearForm
-from sympde.topology                            import elements_of, Line, Derham
-
 from psydac.api.basic                           import BasicDiscrete
 
 from psydac.feec.derivatives                    import Derivative1D, Gradient2D, Gradient3D
@@ -41,11 +34,7 @@ from psydac.fem.lst_preconditioner              import construct_LST_preconditio
 from psydac.fem.vector                          import VectorFemSpace
 from psydac.fem.projectors                      import DirichletProjector, MultipatchDirichletProjector
 
-from psydac.linalg.basic                        import LinearOperator, IdentityOperator
-from psydac.linalg.block                        import BlockLinearOperator
-from psydac.linalg.direct_solvers               import BandedSolver
-from psydac.linalg.kron                         import KroneckerLinearSolver, KroneckerStencilMatrix
-from psydac.linalg.stencil                      import StencilVectorSpace
+from psydac.linalg.basic                        import IdentityOperator
 
 __all__ = ('DiscreteDeRham', 'MultipatchDiscreteDeRham',)
 

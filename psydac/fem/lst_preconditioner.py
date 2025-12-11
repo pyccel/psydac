@@ -16,7 +16,6 @@ from    psydac.linalg.basic             import IdentityOperator, LinearOperator
 from    psydac.linalg.block             import BlockVectorSpace, BlockLinearOperator
 from    psydac.linalg.direct_solvers    import BandedSolver
 from    psydac.linalg.kron              import KroneckerLinearSolver, KroneckerStencilMatrix
-from    psydac.linalg.solvers           import matrix_to_bandsolver
 from    psydac.linalg.stencil           import StencilVectorSpace
 
 def construct_LST_preconditioner(M, domain_h, fem_space, hom_bc=False, kind=None):
@@ -121,14 +120,9 @@ def construct_LST_preconditioner(M, domain_h, fem_space, hom_bc=False, kind=None
             """
             Converts the M0_0_1d StencilMatrix to a BandedSolver.
 
-            Closely resembles a combination of the two functions
-            matrix_to_bandsolver & to_bnd
-            found in test_kron_direct_solver,
+            Closely resembles BandedSolver.from_stencil_mat_1d,
             the difference being that M0_0_1d neither has a 
-            remove_spurious_entries()
-            nor a 
-            toarray()
-            function.
+            remove_spurious_entries() nor a toarray() function.
             
             """
 
@@ -240,10 +234,10 @@ def construct_LST_preconditioner(M, domain_h, fem_space, hom_bc=False, kind=None
                     M_0_1d_solver = M_0_1d_to_bandsolver(M_0_1d)
                     M_1d_solvers[j].append(M_0_1d_solver)
                 else:
-                    M_1d_solver = matrix_to_bandsolver(M_1d)
+                    M_1d_solver = BandedSolver.from_stencil_mat_1d(M_1d)
                     M_1d_solvers[j].append(M_1d_solver)
             else:
-                M_1d_solver = matrix_to_bandsolver(M_1d)
+                M_1d_solver = BandedSolver.from_stencil_mat_1d(M_1d)
                 M_1d_solvers[j].append(M_1d_solver)
 
     if isinstance(V_cs, StencilVectorSpace):
