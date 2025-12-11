@@ -37,10 +37,13 @@ endforeach
 
 igakit_proj = subproject('igakit')
 
-py = import('python').find_installation(modules: ['numpy'])
+py = import('python').find_installation(modules: ['numpy'], pure: false)
 
 subdir('__pyccel__/math')
 subdir('__pyccel__/cwrapper')
 subdir('__pyccel__/psydac')
+
+# Install the pure-Python package itself
+install_subdir('psydac', install_dir: py.get_install_dir())
 
 
