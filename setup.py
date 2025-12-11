@@ -39,18 +39,45 @@ class BuildPyCommand(build_py):
                 if name == '.lock_acquisition.lock':
                     os.remove(os.path.join(path, name))
 
+
+#==============================================================================
+# Workaround to make requirements with URLs compatible with PyPI
+# See https://github.com/biobuddies/helicopyter/pull/43
+#==============================================================================
+from io import StringIO
+from typing import TextIO
+import setuptools
+from packaging.metadata import Metadata
+from setuptools._core_metadata import _write_requirements
+
+def write_pypi_compatible_requirements(self: Metadata, final_file: TextIO) -> None:
+    """Mark requirements with URLs as external."""
+    initial_file = StringIO()
+    _write_requirements(self, initial_file)
+    initial_file.seek(0)
+    for initial_line in initial_file:
+        final_line = initial_line
+        metadata = Metadata.from_email(initial_line, validate=False)
+        if metadata.requires_dist and metadata.requires_dist[0].url:
+            final_line = initial_line.replace('Requires-Dist:', 'Requires-External:')
+        final_file.write(final_line)
+
+setuptools._core_metadata._write_requirements = write_pypi_compatible_requirements
+
+#==============================================================================
 def get_version():
     """ Get the package version from psydac/version.py """
     sys.path.insert(0, 'psydac')
     from version import __version__
     return __version__
 
+#==============================================================================
 setup(
     version = get_version(),
     cmdclass={
         'build_py': BuildPyCommand,
     },
-    install_requires=[
-       'igakit @ https://github.com/dalcinl/igakit/archive/refs/heads/master.zip',
-    ]
+#    install_requires=[
+#       'igakit @ https://github.com/dalcinl/igakit/archive/refs/heads/master.zip',
+#    ]
 )
