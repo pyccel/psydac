@@ -155,7 +155,8 @@ At this point the Psydac library may be installed from the cloned directory `<RO
 
 -   **Development mode**:
     ```bash
-    pip install --editable .
+    pip install meson-python "pyccel>=2.1.0"
+    pip install --no-build-isolation --editable .
     ```
 
 ## Optional PETSc installation
