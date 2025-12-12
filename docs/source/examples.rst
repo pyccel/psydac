@@ -21,8 +21,8 @@ but are also generated as part of the documentation and can be accessed here:
    examples/Poisson_non_periodic
    examples/Helmholtz_non_periodic
    examples/fem_L2_projection
-   examples/positive_Helmholtz_3D_VTK
-   examples/petsc_eigenvalues_positive_Helmholtz
+   examples/regularized_curlcurl_3D_VTK
+   examples/petsc_eigenvalues_regularized_curlcurl
    examples/feec_curlcurl_eigenvalue
    examples/feec_time_harmonic_Maxwell
 
