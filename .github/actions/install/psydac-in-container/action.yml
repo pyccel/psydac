@@ -25,7 +25,7 @@ runs:
           git checkout ${GIT_BRANCH_NAME}
           git pull
           source /struphy_${{ inputs.compile_language }}_/env_${{ inputs.compile_language }}_/bin/activate
-          pip show psydac
+          pip show feectools
           psydac-accelerate --cleanup --yes
-          pip uninstall psydac -y
+          pip uninstall feectools -y
           python3 -m pip install . --force-reinstall --no-cache-dir

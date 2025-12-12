@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name            = "feectools"
-version         = "0.1.0"
+version         = "0.1.1"
 description     = "Slimmed-down fork of Psydac (https://github.com/pyccel/psydac) with less functionality and fewer dependencies."
 readme          = "README.md"
 requires-python = ">= 3.10"
@@ -32,7 +32,7 @@ dependencies = [
     'pyevtk',
 
     # Our packages from PyPi
-    'pyccel >= 2.0.1',
+    'pyccel >= 2.1.0',
     'h5py',
 
     # When pyccel is run in parallel with MPI, it uses tblib to pickle

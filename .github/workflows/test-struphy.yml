@@ -67,26 +67,24 @@ jobs:
       - name: Install struphy without mpi #TODO: Set branch to devel
         working-directory: ${{ env.STRUPHY_DIR }}
         run: |
-          echo "Psydac location for this branch"
-          pip show psydac
-          pip uninstall psydac -y
+          pip show feectools
+          pip uninstall feectools -y
           python -m pip install ".[phys]" --no-cache-dir
-          echo "Psydac location after installing struphy"
-          pip show psydac
+          echo "feectools location after installing struphy"
+          pip show feectools
           
-      - name: Re-install Psydac from the current branch
+      - name: Re-install feectools from the current branch
         run: |
-          echo "Uninstall psydac"
           psydac-accelerate --cleanup --yes
-          pip show psydac
-          pip uninstall psydac -y
+          pip show feectools
+          pip uninstall feectools -y
           python -m pip install ${{ env.PSYDAC_DIR }} --force-reinstall --no-cache-dir
-          echo "Psydac location after installing psydac from the current branch (should be the same as in the previous step)"
-          pip show psydac
+          echo "feectools location after installing feectools from the current branch (should be the same as in the previous step)"
+          pip show feectools
           
       - name: Compile struphy
         run: |
-          pip show psydac
+          pip show feectools
           struphy -h
           struphy compile -y --language ${{ matrix.compile_language }}
 

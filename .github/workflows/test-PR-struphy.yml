@@ -63,12 +63,12 @@ jobs:
         run: |
           ls .testmon* || echo "No .testmondata"
 
-      # temporary - remove after feectools merge
-      - name: Install Struphy in container
-        uses: ./.github/actions/install/struphy-in-container
-        with:
-          compile_language: ${{ matrix.compile_language }}
-          struphy_branch: 146-install-feectools
+      # # temporary - remove after feectools merge
+      # - name: Install Struphy in container
+      #   uses: ./.github/actions/install/struphy-in-container
+      #   with:
+      #     compile_language: ${{ matrix.compile_language }}
+      #     struphy_branch: 146-install-feectools
 
       - name: Install Psydac in container
         uses: ./.github/actions/install/psydac-in-container
@@ -78,8 +78,8 @@ jobs:
       - name: Compile all kernels
         run: |
           source /struphy_${{ matrix.compile_language }}_/env_${{ matrix.compile_language }}_/bin/activate
-          struphy compile --language ${{ matrix.compile_language }}
-        # psydac-accelerate --language ${{ matrix.compile_language }}
+          psydac-accelerate --language ${{ matrix.compile_language }}
+        # struphy compile --language ${{ matrix.compile_language }}
 
       - name: Run struphy unit tests
         env:
