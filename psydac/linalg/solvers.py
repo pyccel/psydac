@@ -10,10 +10,14 @@ This module provides iterative solvers and preconditioners.
 from math           import sqrt
 import numpy as np
 
-from psydac.utilities.utils         import is_real
-from psydac.linalg.utilities        import _sym_ortho
-from psydac.linalg.basic            import (Vector, LinearOperator, InverseLinearOperator, 
-                                            IdentityOperator, ScaledLinearOperator)
+from math import sqrt
+
+import numpy as np
+
+from psydac.utilities.utils  import is_real
+from psydac.linalg.utilities import _sym_ortho
+from psydac.linalg.basic     import (Vector, LinearOperator, InverseLinearOperator, 
+                                     IdentityOperator, ScaledLinearOperator)
 
 __all__ = (
     'inverse',
@@ -28,7 +32,6 @@ __all__ = (
 )
 
 #===============================================================================
-
 def inverse(A, solver, **kwargs):
     """
     A function to create objects of all InverseLinearOperator subclasses.
