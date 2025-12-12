@@ -74,10 +74,11 @@ def inverse(A, solver, **kwargs):
     if solver not in solvers_dict:
         raise ValueError(f"Required solver '{solver}' not understood.")
 
-    # Discard the pc argument if not accepted by solver
-    if solver not in solvers_with_pc and 'pc' in kwargs:
-        pc = kwargs.pop('pc', None)
-        print(f'Solver {solver} does not accept a preconditioner, discarding the pc = {pc} argument')
+    # If pc not accepted by solver: discard (if None) or raise an error
+    if 'pc' in kwargs and solver not in solvers_with_pc:
+        pc = kwargs.pop('pc')
+        if pc is not None:
+            raise ValueError(f"Invalid preconditioner '{pc}' passed with solver '{solver}'.")
 
     assert isinstance(A, LinearOperator)
 
