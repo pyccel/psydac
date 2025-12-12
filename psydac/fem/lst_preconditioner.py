@@ -3,27 +3,9 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-import  numpy as np
-
-from    functools                       import lru_cache
-
-from    scipy.sparse                    import dia_matrix
-
-from    sympde.topology                 import elements_of, Line, ScalarFunctionSpace
-from    sympde.topology.datatype        import SpaceType
-from    sympde.expr                     import integral, BilinearForm
-
-from    psydac.fem.projectors           import DirichletProjector
-from    psydac.linalg.basic             import IdentityOperator, LinearOperator
-from    psydac.linalg.block             import BlockVectorSpace, BlockLinearOperator
-from    psydac.linalg.direct_solvers    import BandedSolver
-from    psydac.linalg.kron              import KroneckerLinearSolver, KroneckerStencilMatrix
-from    psydac.linalg.stencil           import StencilVectorSpace
-
 from   functools                    import lru_cache
-
-import numpy as np
 from   scipy.sparse                 import dia_matrix
+import numpy as np
 
 from   sympde.topology              import elements_of, Line, ScalarFunctionSpace
 from   sympde.topology.datatype     import SpaceType
@@ -35,6 +17,7 @@ from   psydac.linalg.direct_solvers import BandedSolver
 from   psydac.linalg.kron           import KroneckerLinearSolver, KroneckerStencilMatrix
 from   psydac.linalg.stencil        import StencilVectorSpace
 from   psydac.fem.projectors        import DirichletProjector
+
 
 @lru_cache
 def construct_LST_preconditioner(M, domain_h, fem_space, hom_bc=False, kind=None):
