@@ -13,8 +13,8 @@ from psydac.linalg.basic    import LinearSolver
 __all__ = ('to_bnd', 'BandedSolver', 'SparseSolver')
 
 #===============================================================================
-# Converts a 1D StencilMatrix to a band matrix
 def to_bnd(A):
+    """Converts a 1D StencilMatrix to a band matrix"""
 
     dmat = dia_matrix(A.toarray(), dtype=A.dtype)
     la   = abs(dmat.offsets.min())
@@ -77,6 +77,8 @@ class BandedSolver(LinearSolver):
 
     @staticmethod
     def from_stencil_mat_1d(A):
+        """Converts a 1D StencilMatrix to a BandedSolver."""
+
         A.remove_spurious_entries()
         A_bnd, la, ua = to_bnd(A)
         return BandedSolver(ua, la, A_bnd)
