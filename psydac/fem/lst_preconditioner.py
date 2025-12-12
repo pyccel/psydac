@@ -5,6 +5,8 @@
 #---------------------------------------------------------------------------#
 import  numpy as np
 
+from    functools                       import lru_cache
+
 from    scipy.sparse                    import dia_matrix
 
 from    sympde.topology                 import elements_of, Line, ScalarFunctionSpace
@@ -18,6 +20,7 @@ from    psydac.linalg.direct_solvers    import BandedSolver
 from    psydac.linalg.kron              import KroneckerLinearSolver, KroneckerStencilMatrix
 from    psydac.linalg.stencil           import StencilVectorSpace
 
+@lru_cache
 def construct_LST_preconditioner(M, domain_h, fem_space, hom_bc=False, kind=None):
     """
     LST (Loli, Sangalli, Tani) preconditioners [1] are mass matrix preconditioners of the form
