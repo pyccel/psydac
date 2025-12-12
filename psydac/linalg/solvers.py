@@ -67,9 +67,17 @@ def inverse(A, solver, **kwargs):
         'gmres'    : GMRES,
     }
 
+    # Only these solvers accept a preconditioner argument for now:
+    solvers_with_pc = ['cg', 'bicgstab']
+
     # Check solver input
     if solver not in solvers_dict:
         raise ValueError(f"Required solver '{solver}' not understood.")
+
+    # Discard the pc argument if not accepted by solver
+    if solver not in solvers_with_pc and 'pc' in kwargs:
+        pc = kwargs.pop('pc', None)
+        print(f'Solver {solver} does not accept a preconditioner, discarding the pc = {pc} argument')
 
     assert isinstance(A, LinearOperator)
 

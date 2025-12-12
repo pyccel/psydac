@@ -112,14 +112,14 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
     if solver in ['pcg', 'pbicgstab']:
         base_solver = solver[1:]
         pc = A.diagonal(inverse=True)
-        solv = inverse(A, base_solver, pc=pc, tol=1e-13, verbose=verbose, recycle=True)
     else:
         base_solver = solver
-        solv = inverse(A, base_solver, tol=1e-13, verbose=verbose, recycle=True)
+        pc = None
+    solv = inverse(A, base_solver, pc=pc, tol=1e-13, verbose=verbose, recycle=True)
     solvt = solv.transpose()
     solvh = solv.H
-    solv2 = inverse(A@A, base_solver, tol=1e-13, verbose=verbose, recycle=True) # Test solver of composition of operators
-
+    solv2 = inverse(A@A, base_solver, pc=None, tol=1e-13, verbose=verbose, recycle=True) # Test solver of composition of operators
+    
     # Manufacture right-hand-side vector from exact solution
     be  = A @ xe
     be2 = A @ be # Test solver with consecutive solves
