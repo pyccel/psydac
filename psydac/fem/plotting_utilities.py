@@ -242,7 +242,7 @@ def get_patch_knots_gridlines(Vh, N, mappings, plotted_patch=-1):
 
     if plotted_patch in range(len(mappings)):
         grid_x1 = Vh.patch_spaces[plotted_patch].spaces[0].breaks
-        grid_x2 = Vh.patch_spaces[plotted_patch].spaces[0].breaks
+        grid_x2 = Vh.patch_spaces[plotted_patch].spaces[1].breaks
 
         x1 = refine_array_1d(grid_x1, N)
         x2 = refine_array_1d(grid_x2, N)
