@@ -21,9 +21,6 @@ sed = find_program('sed', required: true)
 run_command(sed, '-i.swp', 's/install: true//g', pyccel_meson_math_file, pyccel_meson_cwrapper_file,
     check: true)
 
-run_command(sed, '-i.swp', 's/install: true//g', pyccel_meson_math_file, pyccel_meson_cwrapper_file,
-    check: true)
-
 foreach f : pyccel_meson_files
   f_parts = f.split('/')
   rel_f = f_parts.get(1)
