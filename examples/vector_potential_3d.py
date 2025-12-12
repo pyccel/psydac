@@ -27,7 +27,7 @@ def compute_vector_potential_3d(b, derham_h):
         of the discrete de Rham sequence derham_h.
 
     derham_h : psydac.api.feec.DiscreteDeRham
-        b belongs to the third space V2_h of derham_h.
+        b belongs to the coefficient space of the third space V2_h of derham_h.
     
     Returns
     -------
