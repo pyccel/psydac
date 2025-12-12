@@ -1,5 +1,5 @@
 [build-system]
-requires = ["meson-python", "wheel", "numpy", "pyccel >= 2.1.0"]
+requires = ["meson-python", "pyccel >= 2.1.0"]
 build-backend = "mesonpy"
 
 [project]
