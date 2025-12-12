@@ -85,7 +85,7 @@ def inverse(A, solver, **kwargs):
     if isinstance(A, IdentityOperator):
         return A
     elif isinstance(A, ScaledLinearOperator):
-        return ScaledLinearOperator(domain=A.codomain, codomain=A.domain, c=1/A.scalar, A=inverse(A, solver, **kwargs))
+        return ScaledLinearOperator(domain=A.codomain, codomain=A.domain, c=1/A.scalar, A=inverse(A.operator, solver, **kwargs))
     elif isinstance(A, InverseLinearOperator):
         return A.linop
 

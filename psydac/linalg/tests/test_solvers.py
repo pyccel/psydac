@@ -9,6 +9,7 @@ import  pytest
 from    psydac.ddm.cart             import DomainDecomposition, CartDecomposition
 from    psydac.linalg.solvers       import inverse
 from    psydac.linalg.stencil       import StencilVectorSpace, StencilMatrix, StencilVector
+from    psydac.linalg.basic         import InverseLinearOperator, ScaledLinearOperator, MatrixFreeLinearOperator
 
 
 def define_data_hermitian(n, p, dtype=float):
@@ -118,28 +119,47 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
     solv = inverse(A, base_solver, pc=pc, tol=1e-13, verbose=verbose, recycle=True)
     solvt = solv.transpose()
     solvh = solv.H
-    solv2 = inverse(A@A, base_solver, pc=None, tol=1e-13, verbose=verbose, recycle=True) # Test solver of composition of operators
-    
+    # Test solver on composition of operators
+    solv2 = inverse(A@A, base_solver, pc=pc, tol=1e-13, verbose=verbose, recycle=True) 
+    # Test solver on scaled linear operators
+    A_mf = MatrixFreeLinearOperator(domain=A.codomain, codomain=A.domain, dot=lambda x:A@x, dot_transpose=lambda x:(A.T)@x)
+    A3 = 3*A_mf
+    assert isinstance(A3, ScaledLinearOperator)
+    solv3 = inverse(A3, base_solver, pc=pc, tol=1e-13, verbose=verbose, recycle=True) 
+    # Test solver on inverse linear operators
+    assert isinstance(solv, InverseLinearOperator)
+    solv4 = inverse(solv, base_solver, pc=pc, tol=1e-13, verbose=verbose, recycle=True) 
+
     # Manufacture right-hand-side vector from exact solution
     be  = A @ xe
     be2 = A @ be # Test solver with consecutive solves
+    be3 = 3 * be
+    be4 = xe
     bet = A.T @ xe
     beh = A.H @ xe
 
     # Solve linear system
     # Assert x0 got updated correctly and is not the same object as the previous solution, but just a copy
-    x = solv @ be
+    x = solv @ be  # A^{-1} @ A @ xe  = xe
     info = solv.get_info()
     solv_x0 = solv._options["x0"]
     assert np.array_equal(x.toarray(), solv_x0.toarray())
     assert x is not solv_x0
 
-    x2 = solv @ be2
+    x2 = solv @ be2  # A^{-1} @ A @ A @ xe = A @ xe
     solv_x0 = solv._options["x0"]
     assert np.array_equal(x2.toarray(), solv_x0.toarray())
     assert x2 is not solv_x0
 
-    xt = solvt.solve(bet)
+    x3 = solv3 @ be3  # (3A)^{-1} @ (3 * A @ xe ) = xe
+    assert isinstance(solv3, ScaledLinearOperator)
+    # a ScaledLinearOperator has no attribute '_option'
+
+    x4 = solv4 @ be4  # ((A)^{-1))^{-1} @ xe = A @ xe
+    assert isinstance(solv4, StencilMatrix)
+    # a StencilMatrix has no attribute '_option'
+
+    xt = solvt.solve(bet) 
     solvt_x0 = solvt._options["x0"]
     assert np.array_equal(xt.toarray(), solvt_x0.toarray())
     assert xt is not solvt_x0
@@ -156,10 +176,11 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
         assert np.array_equal(xc.toarray(), solv2_x0.toarray())
         assert xc is not solv2_x0
 
-
     # Verify correctness of calculation: 2-norm of error
     b = A @ x
     b2 = A @ x2
+    b3 = A @ x3
+    b4 = A @ x4
     bt = A.T @ xt
     bh = A.H @ xh
     if solver != 'pcg':
@@ -169,6 +190,10 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
     err_norm = np.linalg.norm( err.toarray() )
     err2 = b2 - be2
     err2_norm = np.linalg.norm( err2.toarray() )
+    err3 = b3 - be
+    err3_norm = np.linalg.norm( err3.toarray() )
+    err4 = b4 - be2
+    err4_norm = np.linalg.norm( err4.toarray() )
     errt = bt - bet
     errt_norm = np.linalg.norm( errt.toarray() )
     errh = bh - beh
@@ -205,6 +230,8 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
     if solver != 'lsmr':
         assert err_norm < tol
         assert err2_norm < tol
+        assert err3_norm < tol
+        assert err4_norm < tol
         assert errt_norm < tol
         assert errh_norm < tol
         assert solver == 'pcg' or errc_norm < tol
