@@ -9,7 +9,7 @@ __all__ = (
     'SquareTorus',
     'Annulus',
     'SinMapping1D',
-    '_test_LO_equality_using_rng'
+    'check_linop_equality_using_rng'
 )
 
 class SquareTorus(Mapping):
@@ -33,7 +33,7 @@ class SinMapping1D(Mapping):
     _pdim = 1
 
 
-def _test_LO_equality_using_rng(A, B, tol=1e-15):
+def check_linop_equality_using_rng(A, B, tol=1e-15):
     """
     A simple tool to check with almost certainty that two linear operators are
     identical, by applying them repeatedly to random vectors with entries drawn

@@ -22,7 +22,7 @@ from   psydac.linalg.block           import BlockLinearOperator
 from   psydac.linalg.stencil         import StencilVectorSpace
 from   psydac.linalg.stencil         import StencilVector
 from   psydac.linalg.stencil         import StencilMatrix
-from   psydac.linalg.tests.utilities import _test_LO_equality_using_rng
+from   psydac.linalg.tests.utilities import check_linop_equality_using_rng
 
 #===============================================================================
 def compute_global_starts_ends(domain_decomposition, npts):
@@ -212,7 +212,7 @@ def test_KroneckerStencilMatrix_diagonal(comm=None):
                 M_diag = M.diagonal(inverse=inverse, sqrt=sqrt)
                 M_kron_diag = M_kron.diagonal(inverse=inverse, sqrt=sqrt)
 
-                _test_LO_equality_using_rng(M_diag, M_kron_diag, tol=1e-13)
+                check_linop_equality_using_rng(M_diag, M_kron_diag, tol=1e-13)
 
 #==============================================================================
 @pytest.mark.parallel

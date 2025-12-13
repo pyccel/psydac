@@ -19,7 +19,7 @@ from    psydac.fem.projectors         import DirichletProjector
 from    psydac.linalg.basic           import LinearOperator, IdentityOperator
 from    psydac.linalg.block           import BlockVectorSpace
 from    psydac.linalg.solvers         import inverse
-from    psydac.linalg.tests.utilities import _test_LO_equality_using_rng, SinMapping1D, Annulus, SquareTorus
+from    psydac.linalg.tests.utilities import check_linop_equality_using_rng, SinMapping1D, Annulus, SquareTorus
 
 #===============================================================================
 @pytest.mark.parametrize('dim', [1, 2])
@@ -307,7 +307,7 @@ def test_discrete_derham_boundary_projector(dim):
 
         if dim == 2: 
             CP = conf_projectors[i]
-            _test_LO_equality_using_rng(DP, CP)
+            check_linop_equality_using_rng(DP, CP)
 
         M   = ah.assemble()
         M_0 = DP @ M @ DP + (I - DP)

@@ -20,7 +20,7 @@ from    psydac.linalg.basic           import IdentityOperator
 from    psydac.linalg.block           import BlockVectorSpace
 from    psydac.linalg.solvers         import inverse
 from    psydac.linalg.stencil         import StencilVectorSpace, StencilMatrix, StencilVector
-from    psydac.linalg.tests.utilities import _test_LO_equality_using_rng, Annulus, SquareTorus
+from    psydac.linalg.tests.utilities import check_linop_equality_using_rng, Annulus, SquareTorus
 
 
 def define_data_hermitian(n, p, dtype=float):
@@ -336,7 +336,7 @@ def test_LST_preconditioner(comm=None):
 
         # Test whether obtaining only a subset of all possible preconditioners works
         for pc, test_pc in zip(mass_matrix_preconditioners, test_pcs):
-            _test_LO_equality_using_rng(pc, test_pc)#, tol=1e-13)
+            check_linop_equality_using_rng(pc, test_pc)#, tol=1e-13)
 
         if prin:
             print(f' Accessing a subset of all possible preconditioners works.')
@@ -368,7 +368,7 @@ def test_LST_preconditioner(comm=None):
             # M2 = M{i} if M = M{i}_0 and hence can be used to obtain the pc for M{i}_0
             M2 = mass_matrices[i-dim-1] if i > dim else M
             Mpc2 = construct_LST_preconditioner(M2, domain_h, Vh, hom_bc=hom_bc)
-            _test_LO_equality_using_rng(Mpc, Mpc2, tol=1e-12)
+            check_linop_equality_using_rng(Mpc, Mpc2, tol=1e-12)
             if prin:
                 print(' The LST pc obtained using derham_h.LST_preconditioners is the same as the one obtained from construct_LST_preconditioner.')
 
