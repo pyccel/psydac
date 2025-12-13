@@ -3,13 +3,32 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
+import  time
 import  numpy as np
 import  pytest
+from    mpi4py import MPI
 
-from    psydac.ddm.cart             import DomainDecomposition, CartDecomposition
-from    psydac.linalg.solvers       import inverse
-from    psydac.linalg.stencil       import StencilVectorSpace, StencilMatrix, StencilVector
-from    psydac.linalg.basic         import InverseLinearOperator, ScaledLinearOperator, MatrixFreeLinearOperator
+from    sympde.topology             import elements_of, Mapping, Derham, Square, Cube
+from    sympde.calculus             import inner
+from    sympde.expr                 import integral, BilinearForm
+
+from    psydac.api.discretization       import discretize
+from    psydac.api.settings             import PSYDAC_BACKEND_GPYCCEL
+from    psydac.ddm.cart                 import DomainDecomposition, CartDecomposition
+from    psydac.fem.lst_preconditioner   import construct_LST_preconditioner
+from    psydac.linalg.basic             import IdentityOperator
+from    psydac.linalg.block             import BlockVectorSpace
+from    psydac.linalg.solvers           import inverse
+from    psydac.linalg.stencil           import StencilVectorSpace, StencilMatrix, StencilVector
+from    psydac.fem.tests.test_dirichlet_projectors import _test_LO_equality_using_rng, Annulus, SquareTorus
+
+
+class SinMapping1D(Mapping):
+
+    _expressions = {'x': 'sin((pi/2)*x1)'}
+    
+    _ldim        = 1
+    _pdim        = 1
 
 
 def define_data_hermitian(n, p, dtype=float):
@@ -239,6 +258,189 @@ def test_solver_tridiagonal(n, p, dtype, solver, use_jacobi_pc, verbose=False):
         assert errh_norm < tol
         assert solver == 'pcg' or errc_norm < tol
 
+#===============================================================================
+def test_LST_preconditioner(comm=None):
+
+    ncells_3d   = [16, 7, 11]
+    degree_3d   = [1, 4, 2]
+    periodic_3d = [False, True, False]
+
+    prin = True if ((comm is None) or (comm.rank == 0)) else False
+    backend = PSYDAC_BACKEND_GPYCCEL
+
+    dimensions = [2, 3]
+
+    maxiter = 20000
+    tol     = 1e-13
+
+    if prin:
+        print()
+    # Test both in 2D and 3D
+    for dim in dimensions:
+        if prin:
+            print(f' ----- Start {dim}D test -----')
+
+        ncells   = ncells_3d  [0:2] if dim == 2 else ncells_3d
+        degree   = degree_3d  [0:2] if dim == 2 else degree_3d
+        periodic = periodic_3d[0:2] if dim == 2 else periodic_3d
+
+        if dim == 2:
+            logical_domain = Square('S', bounds1=(0.5, 1), bounds2=(0, 2*np.pi))
+            mapping = Annulus('A')
+            sequence = ['h1', 'hcurl', 'l2']
+        else:
+            logical_domain = Cube  ('C', bounds1=(0.5, 1), bounds2=(0, 2*np.pi), bounds3=(0, 1))
+            mapping = SquareTorus('ST')
+
+        domain = mapping(logical_domain)
+
+        derham = Derham(domain, sequence=sequence) if dim == 2 else Derham(domain)
+
+        domain_h = discretize(domain, ncells=ncells, periodic=periodic, comm=comm)
+        derham_h = discretize(derham, domain_h, degree=degree)
+
+        Vs  = derham.spaces
+        Vhs = derham_h.spaces
+
+        d_projectors = derham_h.dirichlet_projectors(kind='linop')
+
+        mass_matrices   = []
+        mass_0_matrices = []
+
+        for i, (V, Vh) in enumerate(zip(Vs, Vhs)):
+            u, v = elements_of(V, names='u, v')
+            expr = inner(u, v) if isinstance(Vh.coeff_space, BlockVectorSpace) else u*v
+            a    = BilinearForm((u, v), integral(domain, expr))
+            ah   = discretize(a, domain_h, (Vh, Vh), backend=backend)
+            M    = ah.assemble()
+            mass_matrices.append(M)
+            if i < dim:
+                DP  = d_projectors[i]
+                I   = IdentityOperator(Vhs[i].coeff_space)
+                M_0 = DP @ M @ DP + (I - DP)
+                mass_0_matrices.append(M_0)
+
+        if dim == 2:
+            M0, M1, M2 = mass_matrices
+        else:
+            M0, M1, M2, M3 = mass_matrices
+
+        if dim == 2:
+            mass_matrix_preconditioners   = derham_h.LST_preconditioners(M0=M0, M1=M1, M2=M2             )
+            mass_0_matrix_preconditioners = derham_h.LST_preconditioners(M0=M0, M1=M1,        hom_bc=True)
+        else:
+            mass_matrix_preconditioners   = derham_h.LST_preconditioners(M0=M0, M1=M1, M2=M2, M3=M3,            )
+            mass_0_matrix_preconditioners = derham_h.LST_preconditioners(M0=M0, M1=M1, M2=M2,        hom_bc=True)
+
+        # Prepare testing whether obtaining only a subset of preconditioners works
+        M1_pc,       = derham_h.LST_preconditioners(M1=M1       )
+        M0_pc, M2_pc = derham_h.LST_preconditioners(M0=M0, M2=M2)
+        if dim == 3:
+            M3_pc,   = derham_h.LST_preconditioners(M3=M3       )
+
+        test_pcs = [M0_pc, M1_pc, M2_pc]
+        if dim == 3:
+            test_pcs += [M3_pc]
+
+        # Test whether obtaining only a subset of all possible preconditioners works
+        for pc, test_pc in zip(mass_matrix_preconditioners, test_pcs):
+            _test_LO_equality_using_rng(pc, test_pc)#, tol=1e-13)
+
+        if prin:
+            print(f' Accessing a subset of all possible preconditioners works.')
+
+        rng = np.random.default_rng(42)
+
+        # For comparison and testing: Number of iterations required, not using and using a preconditioner
+        # More information via " -s" when running the test
+        #                            dim 2                           dim 3
+        #                   M0   M1  M2  M0_0  M1_0     M0    M1    M2   M3  M0_0  M1_0  M2_0
+        true_cg_niter   = [[90, 681, 62,   77,  600], [486, 7970, 5292, 147,  356, 5892, 4510]]
+        true_pcg_niter  = [[ 6,   6,  2,    5,    5], [  6,    7,    6,   2,    5,    5,    5]]
+        # M{i}_0 matrices preconditioned with a LST preconditioner designed for M{i} instead:
+        #                                M0_0  M1_0                          M0_0  M1_0  M2_0
+        true_pcg_niter2 = [[               23,   24], [                       367, 2867,  220]]
+
+        mass_matrices               += mass_0_matrices
+        mass_matrix_preconditioners += mass_0_matrix_preconditioners
+        extended_fem_spaces          = Vhs + Vhs[:-1]
+
+        for i, (M, Mpc, Vh) in enumerate(zip(mass_matrices, mass_matrix_preconditioners, extended_fem_spaces)):
+
+            cg = False # Set to True to compare iterations and time with not-preconditioned Conjugate Gradient solver
+
+            # hom_bc = False for M0 M1 M2 (M3), then hom_bc = True for M0_0 M1_0 (M2_0)
+            hom_bc = True if i > dim else False
+
+            # In order to obtain an LST for M{i}_0, we still have to pass M{i} to `construct_LST_preconditioner`.`
+            # M2 = M{i} if M = M{i}_0 and hence can be used to obtain the pc for M{i}_0
+            M2 = mass_matrices[i-dim-1] if i > dim else M
+            Mpc2 = construct_LST_preconditioner(M2, domain_h, Vh, hom_bc=hom_bc)
+            _test_LO_equality_using_rng(Mpc, Mpc2, tol=1e-12)
+            if prin:
+                print(' The LST pc obtained using derham_h.LST_preconditioners is the same as the one obtained from construct_LST_preconditioner.')
+
+            if cg:
+                M_inv_cg = inverse(M, 'cg',          maxiter=maxiter, tol=tol)
+            M_inv_pcg = inverse(M, 'pcg', pc=Mpc, maxiter=maxiter, tol=tol)
+
+            y = M.codomain.zeros()
+            if isinstance(M.codomain, BlockVectorSpace):
+                for block in y.blocks:
+                    rng.random(size=block._data.shape, dtype="float64", out=block._data)
+            else:
+                rng.random(size=y._data.shape, dtype="float64", out=y._data)
+
+            if (i > dim):
+                if prin:
+                    print(f' Projecting rhs vector into space of functions satisfying hom. DBCs')
+                DP = d_projectors[i-(dim+1)]
+                y  = DP @ y
+
+            if cg:
+                t0 = time.time()
+                x_cg = M_inv_cg @ y
+                t1 = time.time()
+
+                y_cg    = M @ x_cg
+                diff_cg = y - y_cg
+                err_cg  = np.sqrt(M.codomain.inner(diff_cg, diff_cg))
+                time_cg = t1 - t0
+                info_cg = M_inv_cg.get_info()
+
+            t0 = time.time()
+            x_pcg = M_inv_pcg @ y
+            t1 = time.time()
+
+            y_pcg    = M @ x_pcg
+            diff_pcg = y - y_pcg
+            err_pcg  = np.sqrt(M.codomain.inner(diff_pcg, diff_pcg))
+            time_pcg = t1 - t0
+            info_pcg = M_inv_pcg.get_info()
+
+            if dim == 2:
+                mat_txt = f'M{i}' if i <= 2 else f'M{i-3}_0'
+            else:
+                mat_txt = f'M{i}' if i <= 3 else f'M{i-4}_0'
+
+            if prin:
+                print(f' - {mat_txt} test -')
+                if cg:
+                    print(f' CG : {info_cg} in {time_cg:.3g}s       - err.: {err_cg:.3g}')
+                print(f' PCG: {info_pcg} in {time_pcg:.3g}s     - err.: {err_pcg:.3g}')
+
+            if dim == 2:
+                assert info_pcg['niter'] == true_pcg_niter[0][i]
+            else:
+                assert info_pcg['niter'] == true_pcg_niter[1][i]
+
+        print()
+
+#===============================================================================
+@pytest.mark.parallel
+def test_LST_preconditioner_parallel():
+    comm = MPI.COMM_WORLD
+    test_LST_preconditioner(comm=comm)
 
 # ===============================================================================
 # SCRIPT FUNCTIONALITY
