@@ -677,10 +677,11 @@ class ScaledLinearOperator(LinearOperator):
         assert isinstance(domain, VectorSpace)
         assert isinstance(codomain, VectorSpace)
         assert np.isscalar(c)
-        assert np.iscomplexobj(c) == (codomain._dtype == complex)
+        if np.iscomplexobj(c):
+            assert codomain._dtype == complex
         assert isinstance(A, LinearOperator)
-        assert domain   == A.domain
-        assert codomain == A.codomain
+        assert A.domain   is domain
+        assert A.codomain is codomain
 
         if isinstance(A, ScaledLinearOperator):
             scalar = A.scalar * c
