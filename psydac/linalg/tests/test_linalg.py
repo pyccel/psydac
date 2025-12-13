@@ -973,7 +973,7 @@ def test_internal_storage():
      ('LSMR'    , False),
      ('GMRES'   , False)]
  )
-def test_x0update(solver, needs_pc):
+def test_x0update(solver, use_jacobi_pc):
     n1 = 4
     n2 = 3
     p1 = 5

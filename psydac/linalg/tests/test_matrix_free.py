@@ -95,7 +95,7 @@ def test_fake_matrix_free(n1, n2, p1, p2):
      ('LSMR'    , False),
      ('GMRES'   , False)]
  )
- def test_solvers_matrix_free(solver, use_jacobi_pc):
+def test_solvers_matrix_free(solver, use_jacobi_pc):
     print(f'solver = {solver}')
     n1 = 4
     n2 = 3
