@@ -8,7 +8,7 @@ import time
 import pytest
 import numpy as np
 from mpi4py              import MPI
-from scipy.sparse        import csc_matrix, dia_matrix, kron
+from scipy.sparse        import csc_matrix, kron
 from scipy.sparse.linalg import splu
 
 from sympde.calculus import dot
@@ -58,28 +58,6 @@ def kron_solve_seq_ref(Y, A, transposed):
     X = C_op.solve(Y.flatten())
 
     return X.reshape(Y.shape)
-# ...
-
-# ... convert a 1D stencil matrix to band matrix
-def to_bnd(A):
-
-    dmat = dia_matrix(A.toarray(), dtype=A.dtype)
-    la   = abs(dmat.offsets.min())
-    ua   = dmat.offsets.max()
-    cmat = dmat.tocsr()
-
-    A_bnd = np.zeros((1+ua+2*la, cmat.shape[1]), A.dtype)
-
-    for i,j in zip(*cmat.nonzero()):
-        A_bnd[la+ua+i-j, j] = cmat[i,j]
-
-    return A_bnd, la, ua
-# ...
-
-def matrix_to_bandsolver(A):
-    A.remove_spurious_entries()
-    A_bnd, la, ua = to_bnd(A)
-    return BandedSolver(ua, la, A_bnd)
 
 def matrix_to_sparse(A):
     A.remove_spurious_entries()
@@ -248,9 +226,9 @@ def get_M1_block_kron_solver(V1, ncells, degree, periodic):
     B2_mat = [M0_matrices[0], M1_matrices[1], M0_matrices[2]]
     B3_mat = [M0_matrices[0], M0_matrices[1], M1_matrices[2]]
 
-    B1_solvers = [matrix_to_bandsolver(Ai) for Ai in B1_mat]
-    B2_solvers = [matrix_to_bandsolver(Ai) for Ai in B2_mat]
-    B3_solvers = [matrix_to_bandsolver(Ai) for Ai in B3_mat]
+    B1_solvers = [BandedSolver.from_stencil_mat_1d(Ai) for Ai in B1_mat]
+    B2_solvers = [BandedSolver.from_stencil_mat_1d(Ai) for Ai in B2_mat]
+    B3_solvers = [BandedSolver.from_stencil_mat_1d(Ai) for Ai in B3_mat]
 
     B1_kron_inv = KroneckerLinearSolver(V1_1, V1_1, B1_solvers)
     B2_kron_inv = KroneckerLinearSolver(V1_2, V1_2, B2_solvers)
@@ -321,7 +299,7 @@ def get_inverse_mass_matrices(derham_h, domain_h):
     
     B_mat_V0 = [M0_matrices[0], M0_matrices[1]]
     
-    B_solvers_V0 = [matrix_to_bandsolver(Ai) for Ai in B_mat_V0]
+    B_solvers_V0 = [BandedSolver.from_stencil_mat_1d(Ai) for Ai in B_mat_V0]
     
     M0_kron_solver = KroneckerLinearSolver(V0h, V0h, B_solvers_V0)
 
@@ -333,8 +311,8 @@ def get_inverse_mass_matrices(derham_h, domain_h):
     B1_mat_V1 = [M0_matrices[0], M1_matrices[1]]
     B2_mat_V1 = [M1_matrices[0], M0_matrices[1]]
 
-    B1_solvers_V1 = [matrix_to_bandsolver(Ai) for Ai in B1_mat_V1]
-    B2_solvers_V1 = [matrix_to_bandsolver(Ai) for Ai in B2_mat_V1]
+    B1_solvers_V1 = [BandedSolver.from_stencil_mat_1d(Ai) for Ai in B1_mat_V1]
+    B2_solvers_V1 = [BandedSolver.from_stencil_mat_1d(Ai) for Ai in B2_mat_V1]
 
     B1_kron_inv_V1 = KroneckerLinearSolver(V1_1, V1_1, B1_solvers_V1)
     B2_kron_inv_V1 = KroneckerLinearSolver(V1_2, V1_2, B2_solvers_V1)
@@ -346,7 +324,7 @@ def get_inverse_mass_matrices(derham_h, domain_h):
     
     B_mat_V2 = [M1_matrices[0], M1_matrices[1]]
     
-    B_solvers_V2 = [matrix_to_bandsolver(Ai) for Ai in B_mat_V2]
+    B_solvers_V2 = [BandedSolver.from_stencil_mat_1d(Ai) for Ai in B_mat_V2]
     
     M2_kron_solver = KroneckerLinearSolver(V2h, V2h, B_solvers_V2)
     
@@ -361,7 +339,7 @@ def get_inverse_mass_matrices(derham_h, domain_h):
 @pytest.mark.parametrize( 'p', [1, 3] )
 @pytest.mark.parametrize( 'P', [True, False] )
 @pytest.mark.parametrize( 'nrhs', [1, 3] )
-@pytest.mark.parametrize( 'direct_solver', [matrix_to_bandsolver, matrix_to_sparse] )
+@pytest.mark.parametrize( 'direct_solver', [BandedSolver.from_stencil_mat_1d, matrix_to_sparse] )
 @pytest.mark.parametrize( 'transposed', [True, False] )
 def test_direct_solvers(dtype, seed, n, p, P, nrhs, direct_solver, transposed):
 
@@ -416,7 +394,7 @@ def test_direct_solvers(dtype, seed, n, p, P, nrhs, direct_solver, transposed):
 @pytest.mark.parametrize( 'dtype', [float, complex] )
 @pytest.mark.parametrize( 'seed', [0, 2] )
 @pytest.mark.parametrize( 'params', [([8], [2], [False]), ([8,9], [2,3], [False,True])] )
-@pytest.mark.parametrize( 'direct_solver', [matrix_to_bandsolver, matrix_to_sparse] )
+@pytest.mark.parametrize( 'direct_solver', [BandedSolver.from_stencil_mat_1d, matrix_to_sparse] )
 def test_kron_solver_nompi(seed, params, direct_solver, dtype):
     compare_solve(seed, None, params[0], params[1], params[2], direct_solver, dtype=dtype, transposed=False, verbose=False)
 
@@ -432,7 +410,7 @@ def test_kron_solver_nompi(seed, params, direct_solver, dtype):
 @pytest.mark.parametrize( 'n1', [8, 17] )
 @pytest.mark.parametrize( 'p1', [1, 2, 3] )
 @pytest.mark.parametrize( 'P1', [True, False] )
-@pytest.mark.parametrize( 'direct_solver', [matrix_to_bandsolver, matrix_to_sparse] )
+@pytest.mark.parametrize( 'direct_solver', [BandedSolver.from_stencil_mat_1d, matrix_to_sparse] )
 def test_kron_solver_1d_ser(dtype, seed, n1, p1, P1, direct_solver):
     compare_solve(seed, MPI.COMM_SELF, [n1], [p1], [P1], direct_solver, dtype=dtype, transposed=False, verbose=False)
 #===============================================================================
@@ -446,7 +424,7 @@ def test_kron_solver_1d_ser(dtype, seed, n1, p1, P1, direct_solver):
 @pytest.mark.parametrize( 'p2', [1, 2] )
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True, False] )
-@pytest.mark.parametrize( 'direct_solver', [matrix_to_bandsolver, matrix_to_sparse] )
+@pytest.mark.parametrize( 'direct_solver', [BandedSolver.from_stencil_mat_1d, matrix_to_sparse] )
 def test_kron_solver_2d_ser(dtype, seed, n1, n2, p1, p2, P1, P2, direct_solver):
     compare_solve(seed, MPI.COMM_SELF, [n1,n2], [p1,p2], [P1,P2], direct_solver, dtype=dtype, transposed=False, verbose=False)
 #===============================================================================
@@ -459,7 +437,7 @@ def test_kron_solver_2d_ser(dtype, seed, n1, n2, p1, p2, P1, P2, direct_solver):
 @pytest.mark.parametrize( 'p2', [1, 2] )
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True, False] )
-@pytest.mark.parametrize( 'direct_solver', [matrix_to_bandsolver, matrix_to_sparse] )
+@pytest.mark.parametrize( 'direct_solver', [BandedSolver.from_stencil_mat_1d, matrix_to_sparse] )
 def test_kron_solver_2d_transposed_ser(seed, n1, n2, p1, p2, P1, P2, direct_solver, dtype):
     compare_solve(seed, MPI.COMM_SELF, [n1,n2], [p1,p2], [P1,P2], direct_solver, dtype=dtype, transposed=True, verbose=False)
 #===============================================================================
@@ -497,7 +475,7 @@ def test_kron_solver_nd_ser(seed, dim, dtype):
 @pytest.mark.parametrize( 'n1', [8, 17] )
 @pytest.mark.parametrize( 'p1', [1, 2, 3] )
 @pytest.mark.parametrize( 'P1', [True, False] )
-@pytest.mark.parametrize( 'direct_solver', [matrix_to_bandsolver, matrix_to_sparse] )
+@pytest.mark.parametrize( 'direct_solver', [BandedSolver.from_stencil_mat_1d, matrix_to_sparse] )
 @pytest.mark.parallel
 def test_kron_solver_1d_par(seed, n1, p1, P1, direct_solver, dtype):
     # we take n1*p1 here to prevent MPI topology problems
@@ -512,7 +490,7 @@ def test_kron_solver_1d_par(seed, n1, p1, P1, direct_solver, dtype):
 @pytest.mark.parametrize( 'p2', [1, 2] )
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True, False] )
-@pytest.mark.parametrize( 'direct_solver', [matrix_to_bandsolver, matrix_to_sparse] )
+@pytest.mark.parametrize( 'direct_solver', [BandedSolver.from_stencil_mat_1d, matrix_to_sparse] )
 @pytest.mark.parallel
 def test_kron_solver_2d_par(seed, n1, n2, p1, p2, P1, P2, direct_solver, dtype):
     compare_solve(seed, MPI.COMM_WORLD, [n1,n2], [p1,p2], [P1,P2], direct_solver, dtype=dtype, transposed=False, verbose=False)
@@ -526,7 +504,7 @@ def test_kron_solver_2d_par(seed, n1, n2, p1, p2, P1, P2, direct_solver, dtype):
 @pytest.mark.parametrize( 'p2', [1, 2] )
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True, False] )
-@pytest.mark.parametrize( 'direct_solver', [matrix_to_bandsolver, matrix_to_sparse] )
+@pytest.mark.parametrize( 'direct_solver', [BandedSolver.from_stencil_mat_1d, matrix_to_sparse] )
 @pytest.mark.parallel
 def test_kron_solver_2d_transposed_par(seed, n1, n2, p1, p2, P1, P2, direct_solver, dtype):
     compare_solve(seed, MPI.COMM_WORLD, [n1,n2], [p1,p2], [P1,P2], direct_solver, dtype=dtype, transposed=True, verbose=False)
@@ -775,5 +753,5 @@ def test_2d_mass_solver(ncells, degree, bounds, periodic):
 
 if __name__ == '__main__':
     # showcase testcase
-    compare_solve(0, MPI.COMM_WORLD, [4,4,5], [1,2,3], [False,True,False], matrix_to_bandsolver, dtype=[float, complex], transposed=False, verbose=True)
+    compare_solve(0, MPI.COMM_WORLD, [4,4,5], [1,2,3], [False,True,False], BandedSolver.from_stencil_mat_1d, dtype=[float, complex], transposed=False, verbose=True)
     #compare_solve(0, MPI.COMM_WORLD, [2]*10, [1]*10, [False]*10, matrix_to_sparse, verbose=True)

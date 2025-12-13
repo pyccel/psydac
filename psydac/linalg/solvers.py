@@ -13,8 +13,8 @@ import numpy as np
 
 from psydac.utilities.utils  import is_real
 from psydac.linalg.utilities import _sym_ortho
-from psydac.linalg.basic     import (Vector, LinearOperator,
-        InverseLinearOperator, IdentityOperator, ScaledLinearOperator)
+from psydac.linalg.basic     import (Vector, LinearOperator, InverseLinearOperator, 
+                                     IdentityOperator, ScaledLinearOperator)
 
 __all__ = (
     'inverse',
