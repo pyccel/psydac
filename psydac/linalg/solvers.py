@@ -612,7 +612,8 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
             self._tmps = {key: self.domain.zeros() for key in ("v", "r", "p", "vr", "r0")}
         else:
             assert isinstance(pc, LinearOperator)
-
+            assert pc.domain is A.codomain
+            assert pc.codomain is A.domain
             self._tmps = {key: self.domain.zeros() for key in ("v", "r", "s", "t", 
                                                       "vp", "rp", "sp", "tp",
                                                       "pp", "av", "app", "osp", 
