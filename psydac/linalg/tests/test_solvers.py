@@ -16,7 +16,7 @@ from    psydac.api.discretization     import discretize
 from    psydac.api.settings           import PSYDAC_BACKEND_GPYCCEL
 from    psydac.ddm.cart               import DomainDecomposition, CartDecomposition
 from    psydac.fem.lst_preconditioner import construct_LST_preconditioner
-from    psydac.linalg.basic           import IdentityOperator
+from    psydac.linalg.basic           import IdentityOperator, ScaledLinearOperator, InverseLinearOperator, MatrixFreeLinearOperator
 from    psydac.linalg.block           import BlockVectorSpace
 from    psydac.linalg.solvers         import inverse
 from    psydac.linalg.stencil         import StencilVectorSpace, StencilMatrix, StencilVector
