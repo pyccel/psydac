@@ -45,9 +45,10 @@ def inverse(A, solver, **kwargs):
         function (e.g. a matrix-vector product A*p).
 
     solver : str
-        Preferred iterative solver. Options are: 'cg', 'bicg',
-        'bicgstab', 'minres', 'lsmr', 'gmres'.
-
+        Preferred iterative solver. Options are: 'CG', 'BiCG',
+        'BiCGSTAB', 'MINRES', 'LSMR', 'GMRES'. Capitalization
+        is not required.
+    
     Returns
     -------
     obj : psydac.linalg.basic.InverseLinearOperator
@@ -70,6 +71,9 @@ def inverse(A, solver, **kwargs):
     # Only these solvers accept a preconditioner argument for now:
     solvers_with_pc = ['cg', 'bicgstab']
 
+    # Convert input solver string to lower case
+    solver = solver.lower()
+    
     # Check solver input
     if solver not in solvers_dict:
         raise ValueError(f"Required solver '{solver}' not understood.")
