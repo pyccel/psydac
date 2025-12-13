@@ -8,27 +8,19 @@ import  numpy as np
 import  pytest
 from    mpi4py import MPI
 
-from    sympde.topology             import elements_of, Mapping, Derham, Square, Cube
-from    sympde.calculus             import inner
-from    sympde.expr                 import integral, BilinearForm
+from    sympde.topology               import elements_of, Mapping, Derham, Square, Cube
+from    sympde.calculus               import inner
+from    sympde.expr                   import integral, BilinearForm
 
-from    psydac.api.discretization       import discretize
-from    psydac.api.settings             import PSYDAC_BACKEND_GPYCCEL
-from    psydac.ddm.cart                 import DomainDecomposition, CartDecomposition
-from    psydac.fem.lst_preconditioner   import construct_LST_preconditioner
-from    psydac.linalg.basic             import IdentityOperator
-from    psydac.linalg.block             import BlockVectorSpace
-from    psydac.linalg.solvers           import inverse
-from    psydac.linalg.stencil           import StencilVectorSpace, StencilMatrix, StencilVector
-from    psydac.fem.tests.test_dirichlet_projectors import _test_LO_equality_using_rng, Annulus, SquareTorus
-
-
-class SinMapping1D(Mapping):
-
-    _expressions = {'x': 'sin((pi/2)*x1)'}
-    
-    _ldim        = 1
-    _pdim        = 1
+from    psydac.api.discretization     import discretize
+from    psydac.api.settings           import PSYDAC_BACKEND_GPYCCEL
+from    psydac.ddm.cart               import DomainDecomposition, CartDecomposition
+from    psydac.fem.lst_preconditioner import construct_LST_preconditioner
+from    psydac.linalg.basic           import IdentityOperator
+from    psydac.linalg.block           import BlockVectorSpace
+from    psydac.linalg.solvers         import inverse
+from    psydac.linalg.stencil         import StencilVectorSpace, StencilMatrix, StencilVector
+from    psydac.linalg.tests.utilities import _test_LO_equality_using_rng, Annulus, SquareTorus
 
 
 def define_data_hermitian(n, p, dtype=float):
