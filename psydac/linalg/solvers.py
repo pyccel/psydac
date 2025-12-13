@@ -147,6 +147,8 @@ class ConjugateGradient(InverseLinearOperator):
 
         else: 
             assert isinstance(pc, LinearOperator)
+            assert pc.domain is A.codomain
+            assert pc.codomain is A.domain
             tmps_codomain = {key: self.codomain.zeros() for key in ("p", "s")}
             tmps_domain = {key: self.domain.zeros() for key in ("v", "r")}
             self._tmps = {**tmps_codomain, **tmps_domain}
