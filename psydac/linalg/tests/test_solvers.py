@@ -74,7 +74,6 @@ def define_data(n, p, matrix_data, dtype=float):
 @pytest.mark.parametrize('n', [5, 10, 13] )
 @pytest.mark.parametrize('p', [2, 3])
 @pytest.mark.parametrize('dtype', [float, complex])
-# @pytest.mark.parametrize('solver', ['cg', 'pcg', 'bicg', 'bicgstab', 'pbicgstab', 'minres', 'lsmr', 'gmres'])
 @pytest.mark.parametrize(('solver', 'use_jacobi_pc'),
     [('CG'      , False), ('CG', True),
      ('BiCG'    , False),
@@ -183,7 +182,7 @@ def test_solver_tridiagonal(n, p, dtype, solver, use_jacobi_pc, verbose=False):
     assert np.array_equal(xh.toarray(), solvh_x0.toarray())
     assert xh is not solvh_x0
 
-    if solver != 'pcg':
+    if not (solver == 'cg' and use_jacobi_pc):
         # PCG only works with operators with diagonal
         xc = solv2 @ be2
         solv2_x0 = solv2._options["x0"]
@@ -197,7 +196,7 @@ def test_solver_tridiagonal(n, p, dtype, solver, use_jacobi_pc, verbose=False):
     b4 = A @ x4
     bt = A.T @ xt
     bh = A.H @ xh
-    if solver != 'pcg':
+    if not (solver == 'cg' and use_jacobi_pc):
         bc = A @ A @ xc
 
     err = b - be
@@ -213,7 +212,7 @@ def test_solver_tridiagonal(n, p, dtype, solver, use_jacobi_pc, verbose=False):
     errh = bh - beh
     errh_norm = np.linalg.norm( errh.toarray() )
 
-    if solver != 'pcg': 
+    if not (solver == 'cg' and use_jacobi_pc):
         errc = bc - be2
         errc_norm = np.linalg.norm( errc.toarray() )
 
@@ -248,7 +247,7 @@ def test_solver_tridiagonal(n, p, dtype, solver, use_jacobi_pc, verbose=False):
         assert err4_norm < tol
         assert errt_norm < tol
         assert errh_norm < tol
-        assert solver == 'pcg' or errc_norm < tol
+        assert (solver == 'cg' and use_jacobi_pc) or errc_norm < tol
 
 #===============================================================================
 def test_LST_preconditioner(comm=None):
