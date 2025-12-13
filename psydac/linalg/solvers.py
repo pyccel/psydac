@@ -7,9 +7,6 @@
 This module provides iterative solvers and preconditioners.
 
 """
-from math           import sqrt
-import numpy as np
-
 from math import sqrt
 
 import numpy as np
