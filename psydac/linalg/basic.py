@@ -1076,7 +1076,7 @@ class PowerLinearOperator(LinearOperator):
 class InverseLinearOperator(LinearOperator):
     """
     Abstract base class for the (approximate) inverse $A^{-1}$ of a
-    square matrix $A$. The result of A_inv.dot(b) is the (approximate) solution x
+    'forward' linear operator $A$. The result of A_inv.dot(b) is the (approximate) solution x
     of the linear system A x = b, where x and b belong to the same vector space V.
 
     We assume that the linear system is solved by an iterative method, which
@@ -1088,7 +1088,7 @@ class InverseLinearOperator(LinearOperator):
     Parameters
     ----------
     A : psydac.linalg.basic.LinearOperator
-        Left-hand-side matrix A of linear system.
+        The forward linear operator
         
     x0 : psydac.linalg.basic.Vector
         First guess of solution for iterative solver (optional).
@@ -1133,9 +1133,9 @@ class InverseLinearOperator(LinearOperator):
         return None
 
     @property
-    def linop(self):
+    def fwd_linop(self):
         """
-        The linear operator $A$ of which this object is the inverse $A^{-1}$.
+        The forward linear operator $A$, of which this object is the inverse $A^{-1}$.
 
         The linear operator $A$ can be modified in place, or replaced entirely
         through the setter. A substitution should only be made in cases where
@@ -1146,8 +1146,8 @@ class InverseLinearOperator(LinearOperator):
         """
         return self._A
     
-    @linop.setter
-    def linop(self, a):
+    @fwd_linop.setter
+    def fwd_linop(self, a):
         """ Set the linear operator $A$ of which this object is the inverse $A^{-1}$. """
         assert isinstance(a, LinearOperator)
         assert a.domain is self.domain
@@ -1209,7 +1209,7 @@ class InverseLinearOperator(LinearOperator):
 
     def transpose(self, conjugate=False):
         cls     = type(self)
-        At      = self.linop.transpose(conjugate=conjugate)
+        At      = self.fwd_linop.transpose(conjugate=conjugate)
         options = self._options
         return cls(At, **options)
 

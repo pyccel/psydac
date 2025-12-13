@@ -87,7 +87,7 @@ def inverse(A, solver, **kwargs):
     elif isinstance(A, ScaledLinearOperator):
         return ScaledLinearOperator(domain=A.codomain, codomain=A.domain, c=1/A.scalar, A=inverse(A.operator, solver, **kwargs))
     elif isinstance(A, InverseLinearOperator):
-        return A.linop
+        return A.fwd_linop
 
     # Instantiate object of correct solver class
     cls = solvers_dict[solver]
