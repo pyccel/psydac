@@ -38,8 +38,7 @@ jobs:
         cache: 'pip'
         cache-dependency-path: |
           pyproject.toml
-          requirements.txt
-          requirements_extra.txt
+          docs/requirements.txt
 
     - name: Install non-Python dependencies on Ubuntu
       uses: awalsh128/cache-apt-pkgs-action@latest
