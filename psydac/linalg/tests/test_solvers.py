@@ -84,34 +84,33 @@ def define_data(n, p, matrix_data, dtype=float):
  )
 def test_solver_tridiagonal(n, p, dtype, solver, use_jacobi_pc, verbose=False):
 
+    # Quickly skip tests that are not relevant
+    if solver == 'BiCGSTAB' and use_jacobi_pc and dtype == complex:
+        pytest.skip("Preconditioned BiCGSTAB only works for real matrices")
+    elif solver == 'MINRES' and dtype == complex:
+        pytest.skip("MINRES only works for real matrices")
+
     #---------------------------------------------------------------------------
     # PARAMETERS
     #---------------------------------------------------------------------------
-    solver = solver.lower()
 
-    if solver in ['bicg', 'bicgstab', 'lsmr']:
-        if dtype==complex:
-            diagonals = [1-10j,6+9j,3+5j]
-        else:
-            diagonals = [1,6,3]
-            
-        if solver == 'bicgstab' and use_jacobi_pc and dtype == complex:
-            # preconditioned bicgstab only works for real matrices
-            return
+    #... Define data for the test
+    if solver in ['CG', 'MINRES']:
+        # CG and MINRES require symmetric(hermitian) positive definite matrices
+        hermitian = True
+        diagonals = None
+    elif solver in ['BiCG', 'BiCGSTAB', 'LSMR']:
+        hermitian = False
+        diagonals = [1-10j, 6+9j, 3+5j] if dtype==complex else [1, 6, 3]
+    elif solver == 'GMRES':
+        hermitian = False
+        diagonals = [-7-2j, -6-2j, -1-10j] if dtype==complex else [-7, -6, -1]
 
-    elif solver == 'gmres':
-        if dtype==complex:
-            diagonals = [-7-2j,-6-2j,-1-10j]
-        else:
-            diagonals = [-7,-1,-3]
-
-    if solver in ['cg', 'minres']:
+    if hermitian:
         V, A, xe = define_data_hermitian(n, p, dtype=dtype)
-        if solver == 'minres' and dtype == complex:
-            # minres only works for real matrices
-            return
     else:
         V, A, xe = define_data(n, p, diagonals, dtype=dtype)
+    #...
 
     # Tolerance for success: 2-norm of error in solution
     tol = 1e-8
@@ -182,7 +181,7 @@ def test_solver_tridiagonal(n, p, dtype, solver, use_jacobi_pc, verbose=False):
     assert np.array_equal(xh.toarray(), solvh_x0.toarray())
     assert xh is not solvh_x0
 
-    if not (solver == 'cg' and use_jacobi_pc):
+    if not (solver == 'CG' and use_jacobi_pc):
         # PCG only works with operators with diagonal
         xc = solv2 @ be2
         solv2_x0 = solv2._options["x0"]
@@ -196,7 +195,7 @@ def test_solver_tridiagonal(n, p, dtype, solver, use_jacobi_pc, verbose=False):
     b4 = A @ x4
     bt = A.T @ xt
     bh = A.H @ xh
-    if not (solver == 'cg' and use_jacobi_pc):
+    if not (solver == 'CG' and use_jacobi_pc):
         bc = A @ A @ xc
 
     err = b - be
@@ -212,7 +211,7 @@ def test_solver_tridiagonal(n, p, dtype, solver, use_jacobi_pc, verbose=False):
     errh = bh - beh
     errh_norm = np.linalg.norm( errh.toarray() )
 
-    if not (solver == 'cg' and use_jacobi_pc):
+    if not (solver == 'CG' and use_jacobi_pc):
         errc = bc - be2
         errc_norm = np.linalg.norm( errc.toarray() )
 
@@ -239,15 +238,15 @@ def test_solver_tridiagonal(n, p, dtype, solver, use_jacobi_pc, verbose=False):
     #---------------------------------------------------------------------------
     # PYTEST
     #---------------------------------------------------------------------------
-    # The lsmr solver does not consistently produce outputs x whose error ||Ax - b|| is less than tol.
-    if solver != 'lsmr':
+    # The LSMR solver does not consistently produce outputs x whose error ||Ax - b|| is less than tol.
+    if solver != 'LSMR':
         assert err_norm < tol
         assert err2_norm < tol
-        assert (solver == 'bicg' and dtype == complex) or err3_norm < tol
+        assert (solver == 'BiCG' and dtype == complex) or err3_norm < tol
         assert err4_norm < tol
         assert errt_norm < tol
         assert errh_norm < tol
-        assert (solver == 'cg' and use_jacobi_pc) or errc_norm < tol
+        assert (solver == 'CG' and use_jacobi_pc) or errc_norm < tol
 
 #===============================================================================
 def test_LST_preconditioner(comm=None):
