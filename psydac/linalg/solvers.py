@@ -8,8 +8,9 @@ This module provides iterative solvers and preconditioners.
 
 """
 from math import sqrt
-
 import numpy as np
+
+import warnings
 
 from psydac.utilities.utils  import is_real
 from psydac.linalg.utilities import _sym_ortho
