@@ -372,7 +372,7 @@ def test_LST_preconditioner(comm=None):
 
             if cg:
                 M_inv_cg = inverse(M, 'cg',          maxiter=maxiter, tol=tol)
-            M_inv_pcg = inverse(M, 'pcg', pc=Mpc, maxiter=maxiter, tol=tol)
+            M_inv_pcg = inverse(M, 'cg', pc=Mpc, maxiter=maxiter, tol=tol)
 
             y = M.codomain.zeros()
             if isinstance(M.codomain, BlockVectorSpace):
