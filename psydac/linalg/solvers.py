@@ -88,7 +88,8 @@ def inverse(A, solver, **kwargs):
 
     # see failing tests in test_solvers.py
     if A.dtype == complex and solver in ['lsmr', 'bicg']:
-        raise Warning(f"Solver '{solver}' currently not tested with complex operators.")
+        msg = f"Solver '{solver}' currently not tested with complex operators."
+        warnings.warn(msg, Warning)
 
     if isinstance(A, IdentityOperator):
         return A
