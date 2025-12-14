@@ -149,6 +149,7 @@ class DiscreteBilinearForm:
         self._domain = domain_h.domain
         self._spaces = spaces
         self._matrix = matrix
+        self._func   = None    # The assembly function will be generated later
 
         domain = self.domain
         target = self.target
