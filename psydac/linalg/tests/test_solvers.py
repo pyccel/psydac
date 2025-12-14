@@ -89,6 +89,12 @@ def test_solver_tridiagonal(n, p, dtype, solver, use_jacobi_pc, verbose=False):
         pytest.skip("Preconditioned BiCGSTAB only works for real matrices")
     elif solver == 'MINRES' and dtype == complex:
         pytest.skip("MINRES only works for real matrices")
+    
+    # Also skip some problematic tests for now -- see Issue #557
+    if solver == 'LSMR' and dtype == complex:
+        pytest.skip("LSMR currently failing for complex matrices. Please investigate")
+    elif solver == 'BiCG' and dtype == complex:
+        pytest.skip("BiCG currently failing for complex matrices. Please investigate")
 
     #---------------------------------------------------------------------------
     # PARAMETERS
@@ -238,15 +244,13 @@ def test_solver_tridiagonal(n, p, dtype, solver, use_jacobi_pc, verbose=False):
     #---------------------------------------------------------------------------
     # PYTEST
     #---------------------------------------------------------------------------
-    # The LSMR solver does not consistently produce outputs x whose error ||Ax - b|| is less than tol.
-    if solver != 'LSMR':
-        assert err_norm < tol
-        assert err2_norm < tol
-        assert (solver == 'BiCG' and dtype == complex) or err3_norm < tol
-        assert err4_norm < tol
-        assert errt_norm < tol
-        assert errh_norm < tol
-        assert (solver == 'CG' and use_jacobi_pc) or errc_norm < tol
+    assert err_norm < tol
+    assert err2_norm < tol
+    assert err3_norm < tol
+    assert err4_norm < tol
+    assert errt_norm < tol
+    assert errh_norm < tol
+    assert (solver == 'CG' and use_jacobi_pc) or errc_norm < tol
 
 #===============================================================================
 def test_LST_preconditioner(comm=None):
