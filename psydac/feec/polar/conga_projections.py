@@ -377,7 +377,7 @@ class C0PolarProjection_V1_11(LinearOperator):
         if rank_at_polar_edge:
             y[0, s2:e2 + 1] = 0
             y[1, s2:e2 + 1] = 0
-            y[2:, s2:e2 + 1] = x[2:, s2:e2 + 1]  # Identity block
+            y[2:e1 + 1, s2:e2 + 1] = x[2:e1 + 1, s2:e2 + 1]  # Identity block
         else:
             y[s1:e1 + 1, s2:e2 + 1] = x[s1:e1 + 1, s2:e2 + 1]
 
