@@ -752,16 +752,7 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         P1.dot(e.copy(), out=e)
         P2.dot(b.copy(), out=b)
 
-
-        V1x, V1y = V1.spaces #call them s, theta
         #test_P1(V1, P1)
-
-        # Ex_field = FemField(V1x, coeffs=e[0])
-        # Ey_field = FemField(V1y, coeffs=e[1])
-        # B_field = FemField(V2, coeffs=b)
-        # V1x.export_fields('Ex.h5', Ex_field=Ex_field)
-        # V1y.export_fields('Ey.h5', Ey_field=Ey_field)
-        # V2.export_fields('B.h5', B_field=B_field)
         # compare_serial_parallel()
 
         V1x, V1y = V1.spaces #call them s, theta
@@ -883,7 +874,6 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
             derham_h_serial = discretize(derham, domain_h_serial, degree=degree)
             V0_s, V1_s, V2_s = derham_h_serial.spaces
             V1_sx, V1_sy = V1_s.spaces
-            print(V1_sx.coeff_space.parallel)
             Ex_serial, = V1_sx.import_fields('Ex.h5', 'Ex_field')
             Ey_serial, = V1_sy.import_fields('Ey.h5', 'Ey_field')
             B_serial, = V2_s.import_fields('B.h5', 'B_field')
@@ -901,8 +891,6 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
             x1, x2 = np.meshgrid(x1, x2, indexing='ij')
             x = np.empty_like(x1)
             y = np.empty_like(x1)
-            print(x1.shape)
-            print(x2.shape)
 
             for i in range(x1.shape[0]):
                 for j in range(x1.shape[1]):
@@ -1115,16 +1103,11 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
     V1x.export_fields('Ex_final.h5', Ex_field=Ex_field)
     V1y.export_fields('Ey_final.h5', Ey_field=Ey_field)
     V2.export_fields('B_final.h5', B_field=B_field)
-    print("exported fields at final time")
 
     if mpi_rank == 0:
         Ex_serial, = V1_sx.import_fields('Ex_final.h5', 'Ex_field')
         Ey_serial, = V1_sy.import_fields('Ey_final.h5', 'Ey_field')
         B_serial, = V2_s.import_fields('B_final.h5', 'B_field')
-        print("imported fields at final time")
-
-        print("Serial coeff after import:")
-        print(Ey_serial.coeffs)
 
         for i, x1i in enumerate(x1[:, 0]):
             for j, x2j in enumerate(x2[0, :]):
@@ -1142,8 +1125,6 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
                 Bz_ex_values[i, j] = Bz_ex_t(t, xij, yij)
 
         # ...
-        print("AFTER PUSH_2D_HCURL")
-        print(Ey_values[0])
 
         # Error at final time
         error_Ex = abs(Ex_ex_values - Ex_values).max()
