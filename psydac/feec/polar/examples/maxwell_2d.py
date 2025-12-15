@@ -301,28 +301,24 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
 
     # ==================== SPLINE SPACE FOR SPLINE MAPPINGS =======================#
 
-    if use_spline_mapping:
+    # Number of elements and spline degree
+    ne1, ne2 = ncells
+    p1, p2 = degree
 
-        # Number of elements and spline degree
-        ne1, ne2 = ncells
-        p1, p2 = degree
+    # Create uniform grid
+    grid_1 = np.linspace(*logical_bounds[0], num=ne1 + 1)
+    grid_2 = np.linspace(*logical_bounds[1], num=ne2 + 1)
 
-        # Create uniform grid
-        grid_1 = np.linspace(*logical_bounds[0], num=ne1 + 1)
-        grid_2 = np.linspace(*logical_bounds[1], num=ne2 + 1)
+    # Create 1D finite element spaces
+    V1 = SplineSpace(p1, grid=grid_1, periodic=False)
+    V2 = SplineSpace(p2, grid=grid_2, periodic=True)
 
-        # Create 1D finite element spaces
-        V1 = SplineSpace(p1, grid=grid_1, periodic=False)
-        V2 = SplineSpace(p2, grid=grid_2, periodic=True)
-
-        # Create 2D tensor product finite element space
-        domain_decomposition = DomainDecomposition(ncells, [False, True], comm = mpi_comm)
-        V = TensorFemSpace(domain_decomposition, V1, V2)
-
-        s1, s2 = V.coeff_space.starts
-        e1, e2 = V.coeff_space.ends
+    # Create 2D tensor product finite element space
+    domain_decomposition = DomainDecomposition(ncells, [False, True], comm = mpi_comm)
+    V = TensorFemSpace(domain_decomposition, V1, V2)
 
         # ==================== MAPPING & PHYSICAL DOMAIN ==============================#
+    if use_spline_mapping:
 
         # Create spline mapping by interpolation of analytical mapping
         map_analytic = mapping.get_callable_mapping()
@@ -871,6 +867,10 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
                 geometry = Geometry(filename='geo.h5')
                 domain_h_serial = discretize(domain, filename='geo.h5')
                 F_serial = [*domain_h_serial.mappings.values()].pop()
+            else:
+                domain_h_serial = discretize(domain, ncells=ncells, periodic=[False, True])
+                F_serial = F
+
             derham_h_serial = discretize(derham, domain_h_serial, degree=degree)
             V0_s, V1_s, V2_s = derham_h_serial.spaces
             V1_sx, V1_sy = V1_s.spaces
