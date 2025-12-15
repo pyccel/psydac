@@ -271,10 +271,11 @@ class C0PolarProjection_V1_10(LinearOperator):
 
         if self.transposed:
             if rank_at_polar_edge:
-                y[0, s2:e2 + 1] = np.subtract(np.roll(x[1, s2:e2 + 1], 1), x[1, s2:e2 + 1])
+                y[0, s2:e2 + 1] = x[1, s2 - 1:e2] - x[1, s2:e2 + 1]
         else:
             if rank_at_polar_edge:
-                y[1, s2:e2 + 1] = np.subtract(np.roll(x[0, s2:e2 + 1], -1), x[0, s2:e2 + 1])
+                # the cells are periodic in angular dim, so we use ghost regions
+                y[1, s2:e2 + 1] = x[0, s2 + 1:e2 + 2] - x[0, s2:e2 + 1]
 
         y.update_ghost_regions()
         return y
@@ -381,7 +382,7 @@ class C0PolarProjection_V1_11(LinearOperator):
             y[s1:e1 + 1, s2:e2 + 1] = x[s1:e1 + 1, s2:e2 + 1]
 
         if self.hbc and rank_at_outer_edge:
-                y[e1, :] = 0.
+            y[e1, :] = 0.
 
         y.update_ghost_regions()
         return y
