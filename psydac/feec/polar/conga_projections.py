@@ -1,6 +1,7 @@
 import numpy as np
+from numpy import pi
 
-from scipy.linalg import toeplitz
+from scipy.linalg import toeplitz, matmul_toeplitz
 from scipy.sparse import coo_matrix, lil_matrix, spmatrix, eye as sp_eye
 from scipy.sparse.linalg import inv as sp_inv
 
@@ -514,13 +515,15 @@ class C0PolarProjection_V2(LinearOperator):
             if rank_at_polar_edge:
                 y[0, s2:e2 + 1] = x[1, s2:e2 + 1]
                 y[1, s2:e2 + 1] = x[1, s2:e2 + 1]
-            y[2:, s2:e2 + 1] = x[2:, s2:e2 + 1]
+                y[2:e1 + 1, s2:e2 + 1] = x[2:e1 + 1, s2:e2 + 1]
+            else:
+                y[s1:e1 + 1, s2:e2 + 1] = x[s1:e1 + 1, s2:e2 + 1]
 
         else:
             if rank_at_polar_edge:
                 y[0, s2:e2 + 1] = 0
                 y[1, s2:e2 + 1] = x[0, s2:e2 + 1] + x[1, s2:e2 + 1]
-                y[2:, s2:e2 + 1] = x[2:, s2:e2 + 1]
+                y[2:e1 + 1, s2:e2 + 1] = x[2:e1 + 1, s2:e2 + 1]
             else:
                 y[s1:e1 + 1, s2:e2 + 1] = x[s1:e1 + 1, s2:e2 + 1]
 
@@ -642,5 +645,620 @@ class SparseCurlAsOperator(LinearOperator):
         y1 = array_to_psydac(Cx_arr, self.codomain)
         y1.copy(out=y)
         return y
+
+
+# =============================================================================#
+#                        C1 POLAR SPLINE COMPLEX (C1P)                        #
+# =============================================================================#
+
+# --------- 0-FORMS CONGA PROJECTOR P0 ----------#
+class C1CongaProjector0(LinearOperator):
+    """
+    CONGA Projector P0 from the full spline space S^{p1, p2} on logical domain
+    to U0 the pre-polar 0-forms splines. The associate matrix is square as in
+    the CONGA approach we keep using the tensor B-spline basis, instead of the
+    polar basis of Toshniwal. P0 enforces coefficient relations to be in U0.
+
+    Parameters:
+    -----------
+
+    W0 : TensorFemSpace
+         The full tensor product spline space S^{p1,p2}
+
+    gamma : float
+         free parameter in the entries of P0. Any values provides a valid CONGA
+         prjector in U0. However, in order to have the commuting property
+                             grad P0 u = P1 grad u
+         for u in Im(Pi0) and Pi0 the geometric projector on W0, we should set
+         gamma = 1 (default)
+
+    transposed : Boolean
+         switch between P0 and P0 transposed (defalut is False)
+
+    hbc : Boolean
+         switch on and off the imposition of homogeneous Dirichlet boundary
+         conditions (default is False)
+    """
+
+    def __init__(self, W0, *, gamma=1, transposed=False, hbc=False):
+        assert isinstance(W0, TensorFemSpace)
+
+        self.gamma = gamma
+        self.W0 = W0
+        self.transposed = transposed
+        self.hbc = hbc
+
+    @property
+    def domain(self):
+        return self.W0.coeff_space
+
+    @property
+    def codomain(self):
+        return self.W0.coeff_space
+
+    @property
+    def dtype(self):
+        return float
+
+    def dot(self, x, out=None):
+        assert isinstance(x, StencilVector)
+
+        if not x.ghost_regions_in_sync:
+            x.update_ghost_regions()
+
+        [s1, s2] = self.W0.coeff_space.starts
+        [e1, e2] = self.W0.coeff_space.ends
+        [n1, n2] = self.W0.coeff_space.npts
+        theta = np.linspace(0, 2 * pi, n2, endpoint=False)  # Warning parallel case
+
+        if out is None:
+            y = self.W0.coeff_space.zeros()
+        else:
+            assert isinstance(out, StencilVector)
+            assert out.space is self.W0.coeff_space
+            y = out
+
+        if self.transposed:
+            x0 = np.average(x[0, s2:e2 + 1])
+            x1 = np.average(x[1, s2:e2 + 1])
+            y[0, s2:e2 + 1] = self.gamma * x0 + self.gamma * x1
+            y[1, s2:e2 + 1] = (1 - self.gamma) * x0 + (1 - self.gamma) * x1 + \
+                              (2 / n2) * matmul_toeplitz(np.cos(theta[s2:e2 + 1] - theta[0]), x[1, s2:e2 + 1])
+        else:
+            x0 = np.average(x[0, s2:e2 + 1])
+            x1 = np.average(x[1, s2:e2 + 1])
+            y[0, s2:e2 + 1] = self.gamma * x0 + (1 - self.gamma) * x1
+            y[1, s2:e2 + 1] = self.gamma * x0 + (1 - self.gamma) * x1 + \
+                              (2 / n2) * matmul_toeplitz(np.cos(theta[s2:e2 + 1] - theta[0]), x[1, s2:e2 + 1])
+
+        y[2:, s2:e2 + 1] = x[2:, s2:e2 + 1]
+
+        if self.hbc:
+            if e1 == n1 - 1:
+                y[e1, :] = 0.
+
+        y.update_ghost_regions()
+        return y
+
+    def transpose(self):
+        return C1CongaProjector0(self.W0, gamma=self.gamma, transposed=not self.transposed, hbc=self.hbc)
+
+    @property
+    def T(self):
+        return self.transpose()
+
+    def tosparse(self):
+
+        [n1, n2] = self.W0.coeff_space.npts
+        theta = np.linspace(0, 2 * pi, n2, endpoint=False)  # Warning parallel case
+
+        d_block1 = (self.gamma / n2) * np.ones(n2)
+        d_block2 = (1 - self.gamma) / n2 * np.ones(n2)
+
+        data = np.concatenate((d_block1, d_block2))
+        data = np.tile(data, n2)
+
+        d_block1 = (self.gamma / n2) * np.ones((n2, n2))
+        d_block2 = (1 - self.gamma) / n2 * np.ones((n2, n2)) + \
+                   2 / n2 * toeplitz(np.cos(theta - theta[0]))
+        d_block = np.vstack([d_block1, d_block2]).ravel('F')
+
+        cols = np.tile(np.arange(2 * n2), (2 * n2, 1))
+        rows = cols.T
+        cols = cols.flatten()
+        rows = rows.flatten()
+
+        if self.hbc:
+            data = np.concatenate((data, d_block, np.ones(n2 * (n1 - 3))))
+            cols = np.concatenate((cols, np.arange(2 * n2, (n1 - 1) * n2)))
+            rows = np.concatenate((rows, np.arange(2 * n2, (n1 - 1) * n2)))
+        else:
+            data = np.concatenate((data, d_block, np.ones(n2 * (n1 - 2))))
+            cols = np.concatenate((cols, np.arange(2 * n2, n1 * n2)))
+            rows = np.concatenate((rows, np.arange(2 * n2, n1 * n2)))
+
+        P = coo_matrix((data, (rows, cols)), shape=[n1 * n2, n1 * n2], dtype=self.W0.coeff_space.dtype)
+        P.eliminate_zeros()
+        print(P)
+
+        return P.T if self.transposed else P
+
+    def toarray(self):
+        return self.tosparse().toarray()
+
+
+# --------- 1-FORMS CONGA PROJECTOR P1 ----------#
+# It is a BlockLinearOperator with 4 blocks Upper-Left (0, 0), Upper-Right (0, 1)
+# Lower-Left (1, 0) and Lower-Right (1, 1).
+#
+#                ______________________
+#               |           |          |
+#               |   (0,0)   |   (1,0)  |
+#               |___________|__________|
+#               |           |          |
+#               |   (1,0)   |   (1,1)  |
+#               |___________|__________|
+
+class C1CongaProjector1_00(LinearOperator):
+    """
+    Upper Left block of P1.
+
+    Parameters:
+    ----------
+
+    W1 : VectorFemSpace (former ProductFemSpace)
+         Full tensor product spline space of the 1-forms S^{p1-1, p2} x S^{p1, p2-1}
+
+    transposed : Boolean
+         Switch between P1 and P1 transposed (default is False)
+    """
+
+    def __init__(self, W1, transposed=False):
+        # assert isinstance(W1, ProductFemSpace)
+        assert isinstance(W1, VectorFemSpace)
+
+        self.W1 = W1
+        self.transposed = transposed
+
+    @property
+    def domain(self):
+        return self.W1.coeff_space[0]
+
+    @property
+    def codomain(self):
+        return self.W1.coeff_space[0]
+
+    @property
+    def dtype(self):
+        return float
+
+    # Warning: this dot method has to be revised for mpi!
+    # the toeplitz multiplication requires all processes along the theta-dir to communicate.
+    def dot(self, x, out=None):
+        assert isinstance(x, StencilVector)
+
+        [s1, s2] = self.domain.starts
+        [e1, e2] = self.domain.ends
+        [n1, n2] = self.domain.npts
+        theta = np.linspace(0, 2 * pi, n2, endpoint=False)  # Warning not mpi
+
+        if out is None:
+            y = self.codomain.zeros()
+        else:
+            assert isinstance(out, StencilVector)
+            assert out.space is self.codomain
+            y = out
+
+        if self.transposed:
+            y[0, s2:e2 + 1] = matmul_toeplitz((2 / n2) * np.cos(theta[s2:e2 + 1] - theta[0]), x[0, s2:e2 + 1]) + \
+                              x[1, s2:e2 + 1] - matmul_toeplitz((2 / n2) * np.cos(theta[s2:e2 + 1] - theta[0]),
+                                                                x[1, s2:e2 + 1])
+            y[1, s2:e2 + 1] = x[1, s2:e2 + 1]
+        else:
+            y[0, s2:e2 + 1] = matmul_toeplitz((2 / n2) * np.cos(theta[s2:e2 + 1] - theta[0]), x[0, s2:e2 + 1])
+            y[1, s2:e2 + 1] = x[0, s2:e2 + 1] + x[1, s2:e2 + 1] - y[0, s2:e2 + 1]
+
+        y[2:, s2:e2 + 1] = x[2:, s2:e2 + 1]
+
+        y.update_ghost_regions()
+        return y
+
+    def transpose(self, conjugate=False):
+        return C1CongaProjector1_00(self.W1, transposed=not self.transposed)
+
+    @property
+    def T(self):
+        return self.transpose()
+
+    def tosparse(self):
+
+        [n01, n02] = self.domain.npts
+        theta = np.linspace(0, 2 * pi, n02, endpoint=False)  # Warning not mpi!
+
+        ntot = n01 * n02
+        dtype = self.domain.dtype
+        P = lil_matrix((ntot, ntot), dtype=dtype)
+
+        # c = (2/n02) * (np.cos(np.roll(theta, -1) - theta[0]) - np.cos(theta - theta[0]))
+        # r = (2/n02) * (np.cos(theta[1] - theta) - np.cos(theta[0] - theta))
+        # p_block = 2/n02 * toeplitz(np.cos(theta - theta[0]))
+
+        c = (2 / n02) * np.cos(theta - theta[0])  # first column
+        r = (2 / n02) * np.cos(theta[0] - theta)  # first row
+
+        p_block = toeplitz(c, r)
+
+        P[:n02, :n02] = p_block
+        P[n02:2 * n02, :n02] += sp_eye(n02)  # - p_block
+        P[n02:2 * n02, :n02] -= p_block
+        P[n02:, n02:] = sp_eye(ntot - n02)
+
+        # p2 = p_block @ p_block
+        # print(f'p-p2 = {p_block - p2}')
+        # Imp = sp_eye(n02) - p_block
+
+        # imp_b = P[n02:2*n02, :n02]
+        # print(f'check 2 = {Imp - imp_b}')
+
+        # prod_b = Imp @ p_block + p_block @ Imp
+        # print(f'check 3 = {Imp - prod_b}')
+
+        # print( f" ---- PU1_00 -> to sparse:  {self.transposed} ---- ")
+
+        # exit()
+
+        return P.T if self.transposed else P
+
+    def toarray(self):
+        return self.tosparse().toarray()
+
+
+class C1CongaProjector1_10(LinearOperator):
+    """
+    Lower left block of P1.
+
+    Parameters:
+    -----------
+
+    W1 : VectorFemSpace (former ProductFemSpace)
+         Full tensor product spline space of the 1-forms S^{p1-1, p2} x S^{p1, p2-1}
+
+    transposed : Boolean
+         Switch between P1 and P1 transposed (default is False)
+    """
+
+    def __init__(self, W1, transposed=False):
+        # assert isinstance(W1, ProductFemSpace)
+        assert isinstance(W1, VectorFemSpace)
+
+        self.W1 = W1
+        self.transposed = transposed
+
+    @property
+    def domain(self):
+        if self.transposed:
+            return self.W1.coeff_space[1]
+        return self.W1.coeff_space[0]
+
+    @property
+    def codomain(self):
+        if self.transposed:
+            return self.W1.coeff_space[0]
+        return self.W1.coeff_space[1]
+
+    @property
+    def dtype(self):
+        return float
+
+    # Warning: this dot method has to be revised for mpi!
+    # the toeplitz multiplication requires all processes along the theta-dir to communicate.
+    # We also use np.roll which should be changed with the use of ghost regions
+    def dot(self, x, out=None):
+        assert isinstance(x, StencilVector)
+
+        # The number of radial basis functions is one less than
+        # the number on the angular basis functions
+        [s1, s2] = self.domain.starts
+        [e1, e2] = self.domain.ends
+        [n1, n2] = self.domain.npts
+        theta = np.linspace(0, 2 * pi, n2, endpoint=False)
+
+        if out is None:
+            y = self.codomain.zeros()
+        else:
+            assert isinstance(out, StencilVector)
+            assert out.space is self.codomain
+            y = out
+
+        if self.transposed:
+            y[0, s2:e2 + 1] = np.subtract(np.roll(x[1, s2:e2 + 1], 1), x[1, s2:e2 + 1])
+            y[0, s2:e2 + 1] = matmul_toeplitz((2 / n2) * np.cos(theta[s2:e2 + 1] - theta[0]), y[0, s2:e2 + 1])
+            y[1:, s2:e2 + 1] = 0
+        else:
+            y[0, s2:e2 + 1] = 0
+            y[1, s2:e2 + 1] = matmul_toeplitz((2 / n2) * np.cos(theta[s2:e2 + 1] - theta[0]), x[0, s2:e2 + 1])
+            y[1, s2:e2 + 1] = np.subtract(np.roll(y[1, s2:e2 + 1], -1), y[1, s2:e2 + 1])
+            y[2:, s2:e2 + 1] = 0
+
+        y.update_ghost_regions()
+        return y
+
+    def transpose(self, conjugate=False):
+        return C1CongaProjector1_10(self.W1, transposed=not self.transposed)
+
+    @property
+    def T(self):
+        return self.transpose()
+
+    def tosparse(self):
+
+        if self.transposed:
+            domain_P1_10 = self.codomain
+            codomain_P1_10 = self.domain
+        else:
+            domain_P1_10 = self.domain
+            codomain_P1_10 = self.codomain
+
+        [n01, n02] = domain_P1_10.npts  # radial grid
+        [n11, n12] = codomain_P1_10.npts  # angular grid
+
+        theta = np.linspace(0, 2 * pi, n02, endpoint=False)  # Warning not mpi!
+
+        dtype = domain_P1_10.dtype
+        P = lil_matrix((n11 * n12, n01 * n02), dtype=dtype)
+
+        c = (2 / n02) * (np.cos(np.roll(theta, -1) - theta[0]) - np.cos(theta - theta[0]))  # correct ?
+        # c = (2/n02) * (np.cos(np.roll(theta, 1) - theta[0]) - np.cos(theta - theta[0]))
+        r = (2 / n02) * (np.cos(theta[1] - theta) - np.cos(theta[0] - theta))
+
+        q_block = toeplitz(c, r)
+        # print(f'domain V1_s:       [n01, n02] = {[n01, n02]}')
+        # print(f'codomain V1_theta: [n11, n12] = {[n11, n12]}')
+
+        # print(f'n01 * n02 + n12:n01 * n02 + 2 * n12 = {n01 * n02 + n12}:{n01 * n02 + 2 * n12}')
+        # print(f'P.shape = {P.shape}')
+        # print(f'q_block.shape = {q_block.shape}')
+        # print(f'P[n01 * n02 + n12:n01 * n02 + 2 * n12, :n12].shape = {P[n01 * n02 + n12:n01 * n02 + 2 * n12, :n12].shape}')
+        # P[n01 * n02 + n12:n01 * n02 + 2 * n12, :n12] = q_block  # seems wrong
+        P[n12:2 * n12, :n02] = q_block
+
+        return P.T if self.transposed else P
+
+    def toarray(self):
+        return self.tosparse().toarray()
+
+
+class C1CongaProjector1_11(LinearOperator):
+    """
+    Lower right block of P1.
+
+    Parameters:
+    -----------
+
+    W1 : VectorFemSpace (former ProductFemSpace)
+         Full tensor product spline space of the 1-forms S^{p1-1, p2} x S^{p1, p2-1}
+
+    transposed : Boolean
+         Switch between P1 and P1 transposed (default is False)
+
+    hbc : Boolean
+         Switch on and off the imposition of homogeneous Dirichlet boundary
+         conditions on the tangential (angular) direction (default is False)
+    """
+
+    def __init__(self, W1, transposed=False, hbc=False):
+        # assert isinstance(W1, ProductFemSpace)
+        assert isinstance(W1, VectorFemSpace)
+
+        self.W1 = W1
+        self.transposed = transposed
+        self.hbc = hbc
+
+    @property
+    def domain(self):
+        return self.W1.coeff_space[1]
+
+    @property
+    def codomain(self):
+        return self.W1.coeff_space[1]
+
+    @property
+    def dtype(self):
+        return float
+
+    # Warning: this dot method has to be revised for mpi!
+    # the toeplitz multiplication requires all processes along the theta-dir to communicate.
+    def dot(self, x, out=None):
+        assert isinstance(x, StencilVector)
+
+        [s1, s2] = self.domain.starts
+        [e1, e2] = self.domain.ends
+        [n1, n2] = self.domain.npts
+
+        if out is None:
+            y = self.codomain.zeros()
+        else:
+            assert isinstance(out, StencilVector)
+            assert out.space is self.codomain
+            y = out
+
+        # Both for P1 and P1 transposed
+        y[0, s2:e2 + 1] = 0
+        y[1, s2:e2 + 1] = 0
+        y[2:, s2:e2 + 1] = x[2:, s2:e2 + 1]
+
+        if self.hbc:
+            if e1 == n1 - 1:
+                y[e1, :] = 0.
+
+        y.update_ghost_regions()
+        return y
+
+    def transpose(self, conjugate=False):
+        return C1CongaProjector1_11(self.W1, transposed=not self.transposed, hbc=self.hbc)
+
+    @property
+    def T(self):
+        return self.transpose()
+
+    def tosparse(self):
+
+        [n01, n02] = self.domain.npts
+        [n11, n12] = self.codomain.npts
+        dtype = self.domain.dtype
+
+        P = lil_matrix((n11 * n12, n01 * n02), dtype=dtype)
+        P[2 * n12:, 2 * n02:] = sp_eye((n11 - 2) * n12)
+        if self.hbc:
+            P[-n12:, -n02:] = 0
+        return P.T if self.transposed else P
+
+    def toarray(self):
+        return self.tosparse().toarray()
+
+
+def new_C1CongaProjector1(W1, hbc=False):
+    assert isinstance(W1, VectorFemSpace)
+    assert W1.symbolic_space.kind.name == 'hcurl'
+
+    T1 = W1.coeff_space
+    P1 = BlockLinearOperator(T1, T1)
+    P1[0, 0] = C1CongaProjector1_00(W1)
+    P1[1, 0] = C1CongaProjector1_10(W1)
+    P1[1, 1] = C1CongaProjector1_11(W1, hbc=hbc)
+
+    return P1
+
+
+class C1CongaProjector1(BlockLinearOperator):
+    """
+    CONGA Projector P1 from the full spline space S^{p1-1, p2} x S^{p1, p2-1}
+    on logical domain to U1 the pre-polar 1-forms splines. The associate matrix
+    is square as in the CONGA approach we keep using the tensor B-spline basis,
+    instead of the polar basis of Toshniwal. P1 enforces coefficient relations
+    to be in U1.
+
+    Parameters:
+    -----------
+
+    W1 : VectorFemSpace (ProductFemSpace)
+         Full tensor product spline space of the 1-forms S^{p1-1, p2} x S^{p1, p2-1}
+
+    transposed : Boolean
+         Switch between P1 and P1 transposed (default is False)
+
+    hbc : Boolean
+         Switch on and off the imposition of homogeneous Dirichlet boundary
+         conditions on the tangential (angular) direction (default is False)
+    """
+
+    def __init__(self, W1, transposed=False, hbc=False):
+        assert isinstance(W1, VectorFemSpace)
+        assert W1.symbolic_space.kind.name == 'hcurl'
+
+        T1 = W1.coeff_space
+
+        super().__init__(T1, T1)
+
+        self[0, 0] = C1CongaProjector1_00(W1, transposed=transposed)
+        self[1, 0] = C1CongaProjector1_10(W1, transposed=transposed)
+        # self[0, 1] = C1CongaProjector1_01(W1, transposed = transposed)
+        self[1, 1] = C1CongaProjector1_11(W1, transposed=transposed, hbc=hbc)
+
+        self.W1 = W1
+        self.transposed = transposed
+        self.hbc = hbc
+
+
+# -------------- 2-FORMS CONGA PROJECTOR P2 ----------------#
+class C1CongaProjector2(LinearOperator):
+    """
+    CONGA Projector P2 from the full spline space S^{p1-1, p2-1} on logical
+    domain to U2, the pre-polar 2-forms splines. The associate matrix
+    is square, as in the CONGA approach we keep using the tensor B-spline basis,
+    instead of the polar basis of Toshniwal. P2 enforces coefficient relations
+    to be in U2.
+
+    Parameters:
+    -----------
+
+    W2 : TensorFemSpace
+         Full tensor product spline space of the 2-forms S^{p1-1, p2-1}
+
+    transposed : Boolean
+         Switch between P2 and P2 transposed (default is False)
+    """
+
+    def __init__(self, W2, transposed=False):
+        assert isinstance(W2, TensorFemSpace)
+
+        self.W2 = W2
+        self.transposed = transposed
+
+    @property
+    def domain(self):
+        return self.W2.coeff_space
+
+    @property
+    def codomain(self):
+        return self.W2.coeff_space
+
+    @property
+    def dtype(self):
+        return float
+
+    def dot(self, x, out=None):
+        assert isinstance(x, StencilVector)
+
+        if not x.ghost_regions_in_sync:
+            x.update_ghost_regions()
+
+        [s1, s2] = self.W2.coeff_space.starts
+        [e1, e2] = self.W2.coeff_space.ends
+        [n1, n2] = self.W2.coeff_space.npts
+
+        if out is None:
+            y = self.W2.coeff_space.zeros()
+        else:
+            assert isinstance(out, StencilVector)
+            assert out.space is self.W2.coeff_space
+            y = out
+
+        if self.transposed:
+            y[0, s2:e2 + 1] = x[1, s2:e2 + 1]
+            y[1, s2:e2 + 1] = x[1, s2:e2 + 1]
+        else:
+            y[0, s2:e2 + 1] = 0
+            y[1, s2:e2 + 1] = x[0, s2:e2 + 1] + x[1, s2:e2 + 1]
+
+        y[2:, s2:e2 + 1] = x[2:, s2:e2 + 1]
+
+        y.update_ghost_regions()
+        return y
+
+    def transpose(self):
+        return C1CongaProjector2(self.W2, transposed=not self.transposed)
+
+    @property
+    def T(self):
+        return self.transpose()
+
+    def tosparse(self):
+
+        [n1, n2] = self.W2.coeff_space.npts
+
+        data = np.ones(n1 * n2)
+        cols = np.arange(n1 * n2)
+        rows = np.tile(np.arange(n2, 2 * n2), 2)
+        rows = np.concatenate((rows, np.arange(2 * n2, n1 * n2)))
+
+        P = coo_matrix((data, (rows, cols)), shape=(n1 * n2, n1 * n2), dtype=self.W2.coeff_space.dtype)
+        P.eliminate_zeros()
+
+        return P.T if self.transposed else P
+
+    def toarray(self):
+        return self.tosparse().toarray()
+
 
 

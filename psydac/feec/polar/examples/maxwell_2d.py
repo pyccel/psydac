@@ -489,7 +489,9 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         print(Ey._data)
         Ey[0, 0] = 1
 
-        # e.update_ghost_regions()
+        e.update_ghost_regions()
+        print(Ex._data)
+
         Ex_field = FemField(V1x, coeffs=Ex)
         Ey_field = FemField(V1y, coeffs=Ey)
         V1x.export_fields('Ex.h5', Ex_field=Ex_field)
@@ -505,7 +507,7 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         V1x.export_fields('ExP.h5', Ex_field=Ex_field)
         V1y.export_fields('EyP.h5', Ey_field=Ey_field)
 
-        P1.dot(eP, out=eP)
+        P1.dot(eP.copy(), out=eP)
         ExP, EyP = eP[0], eP[1]
         ExP.update_ghost_regions()
         EyP.update_ghost_regions()
@@ -748,7 +750,6 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         P1.dot(e.copy(), out=e)
         P2.dot(b.copy(), out=b)
 
-        #test_P1(V1, P1)
         # compare_serial_parallel()
 
         V1x, V1y = V1.spaces #call them s, theta
@@ -758,6 +759,7 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         V1x.export_fields('Ex.h5', Ex_field=Ex_field)
         V1y.export_fields('Ey.h5', Ey_field=Ey_field)
         V2.export_fields('B.h5', B_field=B_field)
+        #test_P1(V1, P1)
 
 
         if use_scipy:
