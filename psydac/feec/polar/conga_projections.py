@@ -652,7 +652,7 @@ class SparseCurlAsOperator(LinearOperator):
 # =============================================================================#
 
 # --------- 0-FORMS CONGA PROJECTOR P0 ----------#
-class C1CongaProjector0(LinearOperator):
+class C1PolarProjection_V0(LinearOperator):
     """
     CONGA Projector P0 from the full spline space S^{p1, p2} on logical domain
     to U0 the pre-polar 0-forms splines. The associate matrix is square as in
@@ -741,7 +741,7 @@ class C1CongaProjector0(LinearOperator):
         return y
 
     def transpose(self):
-        return C1CongaProjector0(self.W0, gamma=self.gamma, transposed=not self.transposed, hbc=self.hbc)
+        return C1PolarProjection_V0(self.W0, gamma=self.gamma, transposed=not self.transposed, hbc=self.hbc)
 
     @property
     def T(self):
@@ -799,7 +799,7 @@ class C1CongaProjector0(LinearOperator):
 #               |   (1,0)   |   (1,1)  |
 #               |___________|__________|
 
-class C1CongaProjector1_00(LinearOperator):
+class C1PolarProjection_V1_00(LinearOperator):
     """
     Upper Left block of P1.
 
@@ -864,7 +864,7 @@ class C1CongaProjector1_00(LinearOperator):
         return y
 
     def transpose(self, conjugate=False):
-        return C1CongaProjector1_00(self.W1, transposed=not self.transposed)
+        return C1PolarProjection_V1_00(self.W1, transposed=not self.transposed)
 
     @property
     def T(self):
@@ -913,7 +913,7 @@ class C1CongaProjector1_00(LinearOperator):
         return self.tosparse().toarray()
 
 
-class C1CongaProjector1_10(LinearOperator):
+class C1PolarProjection_V1_10(LinearOperator):
     """
     Lower left block of P1.
 
@@ -984,7 +984,7 @@ class C1CongaProjector1_10(LinearOperator):
         return y
 
     def transpose(self, conjugate=False):
-        return C1CongaProjector1_10(self.W1, transposed=not self.transposed)
+        return C1PolarProjection_V1_10(self.W1, transposed=not self.transposed)
 
     @property
     def T(self):
@@ -1028,7 +1028,7 @@ class C1CongaProjector1_10(LinearOperator):
         return self.tosparse().toarray()
 
 
-class C1CongaProjector1_11(LinearOperator):
+class C1PolarProjection_V1_11(LinearOperator):
     """
     Lower right block of P1.
 
@@ -1095,7 +1095,7 @@ class C1CongaProjector1_11(LinearOperator):
         return y
 
     def transpose(self, conjugate=False):
-        return C1CongaProjector1_11(self.W1, transposed=not self.transposed, hbc=self.hbc)
+        return C1PolarProjection_V1_11(self.W1, transposed=not self.transposed, hbc=self.hbc)
 
     @property
     def T(self):
@@ -1117,20 +1117,8 @@ class C1CongaProjector1_11(LinearOperator):
         return self.tosparse().toarray()
 
 
-def new_C1CongaProjector1(W1, hbc=False):
-    assert isinstance(W1, VectorFemSpace)
-    assert W1.symbolic_space.kind.name == 'hcurl'
 
-    T1 = W1.coeff_space
-    P1 = BlockLinearOperator(T1, T1)
-    P1[0, 0] = C1CongaProjector1_00(W1)
-    P1[1, 0] = C1CongaProjector1_10(W1)
-    P1[1, 1] = C1CongaProjector1_11(W1, hbc=hbc)
-
-    return P1
-
-
-class C1CongaProjector1(BlockLinearOperator):
+class C1PolarProjection_V1(BlockLinearOperator):
     """
     CONGA Projector P1 from the full spline space S^{p1-1, p2} x S^{p1, p2-1}
     on logical domain to U1 the pre-polar 1-forms splines. The associate matrix
@@ -1160,10 +1148,10 @@ class C1CongaProjector1(BlockLinearOperator):
 
         super().__init__(T1, T1)
 
-        self[0, 0] = C1CongaProjector1_00(W1, transposed=transposed)
-        self[1, 0] = C1CongaProjector1_10(W1, transposed=transposed)
+        self[0, 0] = C1PolarProjection_V1_00(W1, transposed=transposed)
+        self[1, 0] = C1PolarProjection_V1_10(W1, transposed=transposed)
         # self[0, 1] = C1CongaProjector1_01(W1, transposed = transposed)
-        self[1, 1] = C1CongaProjector1_11(W1, transposed=transposed, hbc=hbc)
+        self[1, 1] = C1PolarProjection_V1_11(W1, transposed=transposed, hbc=hbc)
 
         self.W1 = W1
         self.transposed = transposed
@@ -1171,7 +1159,7 @@ class C1CongaProjector1(BlockLinearOperator):
 
 
 # -------------- 2-FORMS CONGA PROJECTOR P2 ----------------#
-class C1CongaProjector2(LinearOperator):
+class C1PolarProjection_V2(LinearOperator):
     """
     CONGA Projector P2 from the full spline space S^{p1-1, p2-1} on logical
     domain to U2, the pre-polar 2-forms splines. The associate matrix
@@ -1237,7 +1225,7 @@ class C1CongaProjector2(LinearOperator):
         return y
 
     def transpose(self):
-        return C1CongaProjector2(self.W2, transposed=not self.transposed)
+        return C1PolarProjection_V2(self.W2, transposed=not self.transposed)
 
     @property
     def T(self):

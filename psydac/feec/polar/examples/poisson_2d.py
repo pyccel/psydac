@@ -33,7 +33,7 @@ from psydac.polar.c1_projections import C1Projector
 
 from psydac.api.settings import PSYDAC_BACKENDS
 
-from psydac.feec.polar.conga_projections import C0PolarProjection_V0
+from psydac.feec.polar.conga_projections import C0PolarProjection_V0, C1PolarProjection_V0
 
 # backend = PSYDAC_BACKENDS['numba']
 backend = PSYDAC_BACKENDS['python']
@@ -245,7 +245,7 @@ class CongaLaplacian(LinearOperator):
     def __init__(self, S, M, P, alpha):
         assert isinstance(S, StencilMatrix)
         assert isinstance(M, StencilMatrix)
-        assert isinstance(P, (C0PolarProjection_V0, ))
+        assert isinstance(P, (C0PolarProjection_V0, C1PolarProjection_V0))
 
         W0 = P.W0.coeff_space
 
@@ -518,13 +518,12 @@ def run_poisson_2d(*, test_case, ncells, degree,
         bp = proj.change_rhs_basis(b)
         alpha = 'None'
     elif smooth_method == 'C1conga':
-        raise ValueError("Only C0conga is implemented for now!")
-        # gamma = 1.0  # any value would be ok.
-        # alpha = alphaCONGA
-        # P0 = C1CongaProjector0(V0_h, gamma=gamma, hbc=True)  # hbc imposes the boundary conditions
-        # Sc = CongaLaplacian(S, M, P0, alpha)
-        # A = Sc.tosparse()
-        # bc = P0.T.dot(b)
+        gamma = 1.0  # any value would be ok.
+        alpha = alphaCONGA
+        P0 = C1PolarProjection_V0(V0_h, gamma=gamma, hbc=True)  # hbc imposes the boundary conditions
+        Sc = CongaLaplacian(S, M, P0, alpha)
+        A = Sc.tosparse()
+        bc = P0.T.dot(b)
     elif smooth_method == 'C0conga':
         alpha = alphaCONGA
         P0 = C0PolarProjection_V0(V0_h, hbc=True)  # hbc imposes the boundary conditions
