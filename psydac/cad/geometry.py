@@ -16,6 +16,7 @@ import yaml
 import os
 import string
 import random
+import warnings
 
 import numpy as np
 import h5py
@@ -182,6 +183,11 @@ class Geometry:
 
         if periodic is None:
             periodic = [False]*domain.dim
+        else:
+            if len(interior) > 1 and True in periodic:
+                msg = "Discretizing a multipatch domain with a periodic flag is not advised -- continue at your own risk."
+                warnings.warn(msg, Warning)
+
 
         if isinstance(periodic, (list, tuple)):
             periodic = {itr.name:periodic for itr in interior}
