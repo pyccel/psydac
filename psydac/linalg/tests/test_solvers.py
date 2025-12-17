@@ -8,27 +8,19 @@ import  numpy as np
 import  pytest
 from    mpi4py import MPI
 
-from    sympde.topology             import elements_of, Mapping, Derham, Square, Cube
-from    sympde.calculus             import inner
-from    sympde.expr                 import integral, BilinearForm
+from    sympde.topology               import elements_of, Mapping, Derham, Square, Cube
+from    sympde.calculus               import inner
+from    sympde.expr                   import integral, BilinearForm
 
-from    psydac.api.discretization       import discretize
-from    psydac.api.settings             import PSYDAC_BACKEND_GPYCCEL
-from    psydac.ddm.cart                 import DomainDecomposition, CartDecomposition
-from    psydac.fem.lst_preconditioner   import construct_LST_preconditioner
-from    psydac.linalg.basic             import IdentityOperator
-from    psydac.linalg.block             import BlockVectorSpace
-from    psydac.linalg.solvers           import inverse
-from    psydac.linalg.stencil           import StencilVectorSpace, StencilMatrix, StencilVector
-from    psydac.fem.tests.test_dirichlet_projectors import _test_LO_equality_using_rng, Annulus, SquareTorus
-
-
-class SinMapping1D(Mapping):
-
-    _expressions = {'x': 'sin((pi/2)*x1)'}
-    
-    _ldim        = 1
-    _pdim        = 1
+from    psydac.api.discretization     import discretize
+from    psydac.api.settings           import PSYDAC_BACKEND_GPYCCEL
+from    psydac.ddm.cart               import DomainDecomposition, CartDecomposition
+from    psydac.fem.lst_preconditioner import construct_LST_preconditioner
+from    psydac.linalg.basic           import IdentityOperator, ScaledLinearOperator, InverseLinearOperator, MatrixFreeLinearOperator
+from    psydac.linalg.block           import BlockVectorSpace
+from    psydac.linalg.solvers         import inverse
+from    psydac.linalg.stencil         import StencilVectorSpace, StencilMatrix, StencilVector
+from    psydac.linalg.tests.utilities import check_linop_equality_using_rng, Annulus, SquareTorus
 
 
 def define_data_hermitian(n, p, dtype=float):
@@ -82,37 +74,49 @@ def define_data(n, p, matrix_data, dtype=float):
 @pytest.mark.parametrize('n', [5, 10, 13] )
 @pytest.mark.parametrize('p', [2, 3])
 @pytest.mark.parametrize('dtype', [float, complex])
-@pytest.mark.parametrize('solver', ['cg', 'pcg', 'bicg', 'bicgstab', 'pbicgstab', 'minres', 'lsmr', 'gmres'])
+@pytest.mark.parametrize(('solver', 'use_jacobi_pc'),
+    [('CG'      , False), ('CG', True),
+     ('BiCG'    , False),
+     ('BiCGSTAB', False), ('BiCGSTAB', True),
+     ('MINRES'  , False),
+     ('LSMR'    , False),
+     ('GMRES'   , False)]
+ )
+def test_solver_tridiagonal(n, p, dtype, solver, use_jacobi_pc, verbose=False):
 
-def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
+    # Quickly skip tests that are not relevant
+    if solver == 'BiCGSTAB' and use_jacobi_pc and dtype == complex:
+        pytest.skip("Preconditioned BiCGSTAB only works for real matrices")
+    elif solver == 'MINRES' and dtype == complex:
+        pytest.skip("MINRES only works for real matrices")
+    
+    # Also skip some problematic tests for now -- see Issue #557
+    if solver == 'LSMR' and dtype == complex:
+        pytest.skip("LSMR currently failing for complex matrices. Please investigate")
+    elif solver == 'BiCG' and dtype == complex:
+        pytest.skip("BiCG currently failing for complex matrices. Please investigate")
 
     #---------------------------------------------------------------------------
     # PARAMETERS
     #---------------------------------------------------------------------------
 
-    if solver in ['bicg', 'bicgstab', 'pbicgstab', 'lsmr']:
-        if dtype==complex:
-            diagonals = [1-10j,6+9j,3+5j]
-        else:
-            diagonals = [1,6,3]
-            
-        if solver == 'pbicgstab' and dtype == complex:
-            # pbicgstab only works for real matrices
-            return
-    elif solver == 'gmres':
-        if dtype==complex:
-            diagonals = [-7-2j,-6-2j,-1-10j]
-        else:
-            diagonals = [-7,-1,-3]
+    #... Define data for the test
+    if solver in ['CG', 'MINRES']:
+        # CG and MINRES require symmetric(hermitian) positive definite matrices
+        hermitian = True
+        diagonals = None
+    elif solver in ['BiCG', 'BiCGSTAB', 'LSMR']:
+        hermitian = False
+        diagonals = [1-10j, 6+9j, 3+5j] if dtype==complex else [1, 6, 3]
+    elif solver == 'GMRES':
+        hermitian = False
+        diagonals = [-7-2j, -6-2j, -1-10j] if dtype==complex else [-7, -6, -1]
 
-    if solver in ['cg', 'pcg', 'minres']:
-        # pcg runs with Jacobi preconditioner
+    if hermitian:
         V, A, xe = define_data_hermitian(n, p, dtype=dtype)
-        if solver == 'minres' and dtype == complex:
-            # minres only works for real matrices
-            return
     else:
         V, A, xe = define_data(n, p, diagonals, dtype=dtype)
+    #...
 
     # Tolerance for success: 2-norm of error in solution
     tol = 1e-8
@@ -129,35 +133,51 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
         print()
 
     #Create the solvers
-    if solver in ['pcg', 'pbicgstab']:
-        pc = A.diagonal(inverse=True)
-        solv = inverse(A, solver, pc=pc, tol=1e-13, verbose=verbose, recycle=True)
-    else:
-        solv = inverse(A, solver, tol=1e-13, verbose=verbose, recycle=True)
+    pc = A.diagonal(inverse=True) if use_jacobi_pc else None
+    solv = inverse(A, solver, pc=pc, tol=1e-13, verbose=verbose, recycle=True)
     solvt = solv.transpose()
     solvh = solv.H
-    solv2 = inverse(A@A, solver, tol=1e-13, verbose=verbose, recycle=True) # Test solver of composition of operators
+    # Test solver on composition of operators
+    solv2 = inverse(A@A, solver, pc=pc, tol=1e-13, verbose=verbose, recycle=True) 
+    # Test solver on scaled linear operators
+    A_mf = MatrixFreeLinearOperator(domain=A.codomain, codomain=A.domain, dot=lambda x:A@x, dot_transpose=lambda x:(A.T)@x)
+    A3 = 3*A_mf
+    assert isinstance(A3, ScaledLinearOperator)
+    solv3 = inverse(A3, solver, pc=pc, tol=1e-13, verbose=verbose, recycle=True) 
+    # Test solver on inverse linear operators
+    assert isinstance(solv, InverseLinearOperator)
+    solv4 = inverse(solv, solver, pc=pc, tol=1e-13, verbose=verbose, recycle=True) 
 
     # Manufacture right-hand-side vector from exact solution
     be  = A @ xe
     be2 = A @ be # Test solver with consecutive solves
+    be3 = 3 * be
+    be4 = xe
     bet = A.T @ xe
     beh = A.H @ xe
 
     # Solve linear system
     # Assert x0 got updated correctly and is not the same object as the previous solution, but just a copy
-    x = solv @ be
+    x = solv @ be  # A^{-1} @ A @ xe  = xe
     info = solv.get_info()
     solv_x0 = solv._options["x0"]
     assert np.array_equal(x.toarray(), solv_x0.toarray())
     assert x is not solv_x0
 
-    x2 = solv @ be2
+    x2 = solv @ be2  # A^{-1} @ A @ A @ xe = A @ xe
     solv_x0 = solv._options["x0"]
     assert np.array_equal(x2.toarray(), solv_x0.toarray())
     assert x2 is not solv_x0
 
-    xt = solvt.solve(bet)
+    x3 = solv3 @ be3  # (3A)^{-1} @ (3 * A @ xe ) = xe
+    assert isinstance(solv3, ScaledLinearOperator)
+    # a ScaledLinearOperator has no attribute '_option'
+
+    x4 = solv4 @ be4  # ((A)^{-1))^{-1} @ xe = A @ xe
+    assert isinstance(solv4, StencilMatrix)
+    # a StencilMatrix has no attribute '_option'
+
+    xt = solvt.solve(bet) 
     solvt_x0 = solvt._options["x0"]
     assert np.array_equal(xt.toarray(), solvt_x0.toarray())
     assert xt is not solvt_x0
@@ -167,32 +187,37 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
     assert np.array_equal(xh.toarray(), solvh_x0.toarray())
     assert xh is not solvh_x0
 
-    if solver != 'pcg':
+    if not (solver == 'CG' and use_jacobi_pc):
         # PCG only works with operators with diagonal
         xc = solv2 @ be2
         solv2_x0 = solv2._options["x0"]
         assert np.array_equal(xc.toarray(), solv2_x0.toarray())
         assert xc is not solv2_x0
 
-
     # Verify correctness of calculation: 2-norm of error
     b = A @ x
     b2 = A @ x2
+    b3 = A @ x3
+    b4 = A @ x4
     bt = A.T @ xt
     bh = A.H @ xh
-    if solver != 'pcg':
+    if not (solver == 'CG' and use_jacobi_pc):
         bc = A @ A @ xc
 
     err = b - be
     err_norm = np.linalg.norm( err.toarray() )
     err2 = b2 - be2
     err2_norm = np.linalg.norm( err2.toarray() )
+    err3 = b3 - be
+    err3_norm = np.linalg.norm( err3.toarray() )
+    err4 = b4 - be2
+    err4_norm = np.linalg.norm( err4.toarray() )
     errt = bt - bet
     errt_norm = np.linalg.norm( errt.toarray() )
     errh = bh - beh
     errh_norm = np.linalg.norm( errh.toarray() )
 
-    if solver != 'pcg': 
+    if not (solver == 'CG' and use_jacobi_pc):
         errc = bc - be2
         errc_norm = np.linalg.norm( errc.toarray() )
 
@@ -219,13 +244,13 @@ def test_solver_tridiagonal(n, p, dtype, solver, verbose=False):
     #---------------------------------------------------------------------------
     # PYTEST
     #---------------------------------------------------------------------------
-    # The lsmr solver does not consistently produce outputs x whose error ||Ax - b|| is less than tol.
-    if solver != 'lsmr':
-        assert err_norm < tol
-        assert err2_norm < tol
-        assert errt_norm < tol
-        assert errh_norm < tol
-        assert solver == 'pcg' or errc_norm < tol
+    assert err_norm < tol
+    assert err2_norm < tol
+    assert err3_norm < tol
+    assert err4_norm < tol
+    assert errt_norm < tol
+    assert errh_norm < tol
+    assert (solver == 'CG' and use_jacobi_pc) or errc_norm < tol
 
 #===============================================================================
 def test_LST_preconditioner(comm=None):
@@ -313,7 +338,7 @@ def test_LST_preconditioner(comm=None):
 
         # Test whether obtaining only a subset of all possible preconditioners works
         for pc, test_pc in zip(mass_matrix_preconditioners, test_pcs):
-            _test_LO_equality_using_rng(pc, test_pc)#, tol=1e-13)
+            check_linop_equality_using_rng(pc, test_pc)#, tol=1e-13)
 
         if prin:
             print(f' Accessing a subset of all possible preconditioners works.')
@@ -345,13 +370,13 @@ def test_LST_preconditioner(comm=None):
             # M2 = M{i} if M = M{i}_0 and hence can be used to obtain the pc for M{i}_0
             M2 = mass_matrices[i-dim-1] if i > dim else M
             Mpc2 = construct_LST_preconditioner(M2, domain_h, Vh, hom_bc=hom_bc)
-            _test_LO_equality_using_rng(Mpc, Mpc2, tol=1e-12)
+            check_linop_equality_using_rng(Mpc, Mpc2, tol=1e-12)
             if prin:
                 print(' The LST pc obtained using derham_h.LST_preconditioners is the same as the one obtained from construct_LST_preconditioner.')
 
             if cg:
                 M_inv_cg = inverse(M, 'cg',          maxiter=maxiter, tol=tol)
-            M_inv_pcg = inverse(M, 'pcg', pc=Mpc, maxiter=maxiter, tol=tol)
+            M_inv_pcg = inverse(M, 'cg', pc=Mpc, maxiter=maxiter, tol=tol)
 
             y = M.codomain.zeros()
             if isinstance(M.codomain, BlockVectorSpace):

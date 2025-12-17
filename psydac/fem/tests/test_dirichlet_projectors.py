@@ -6,82 +6,20 @@
 import  numpy as np
 import  pytest
 from    mpi4py import MPI
-
 from    sympy import sin, pi, sqrt, Tuple
 
-from    sympde.calculus             import inner, cross
-from    sympde.expr                 import integral, LinearForm, BilinearForm
-from    sympde.topology             import elements_of, Derham, Mapping, Line, Square, Cube, Union, NormalVector, ScalarFunctionSpace, VectorFunctionSpace
-from    sympde.topology.datatype    import H1Space, HcurlSpace
+from    sympde.calculus               import inner, cross
+from    sympde.expr                   import integral, LinearForm, BilinearForm
+from    sympde.topology               import elements_of, Derham, Mapping, Line, Square, Cube, Union, NormalVector, ScalarFunctionSpace, VectorFunctionSpace
+from    sympde.topology.datatype      import H1Space, HcurlSpace
 
-from    psydac.api.discretization   import discretize
-from    psydac.api.settings         import PSYDAC_BACKEND_GPYCCEL
-from    psydac.fem.projectors       import DirichletProjector
-from    psydac.linalg.basic         import LinearOperator, IdentityOperator
-from    psydac.linalg.block         import BlockVectorSpace
-from    psydac.linalg.solvers       import inverse
-
-class SquareTorus(Mapping):
-
-    _expressions = {'x': 'x1 * cos(x2)',
-                    'y': 'x1 * sin(x2)',
-                    'z': 'x3'}
-    
-    _ldim        = 3
-    _pdim        = 3
-
-class Annulus(Mapping):
-
-    _expressions = {'x': 'x1 * cos(x2)',
-                    'y': 'x1 * sin(x2)'}
-    
-    _ldim        = 2
-    _pdim        = 2
-
-class SinMapping1D(Mapping):
-
-    _expressions = {'x': 'sin((pi/2)*x1)'}
-    
-    _ldim        = 1
-    _pdim        = 1
-
-def _test_LO_equality_using_rng(A, B, tol=1e-15):
-    """
-    A simple tool to check with almost certainty that two linear operators are identical, 
-    by applying them repeatedly to random vectors.
-    
-    """
-
-    assert isinstance(A, LinearOperator)
-    assert isinstance(B, LinearOperator)
-    assert A.domain is B.domain
-    assert A.codomain is B.codomain
-
-    rng = np.random.default_rng(42)
-
-    x   = A.domain.zeros()
-    y1  = A.codomain.zeros()
-    y2  = y1.copy()
-
-    n   = 10
-
-    for _ in range(n):
-
-        x *= 0.
-
-        if isinstance(A.domain, BlockVectorSpace):
-            for block in x.blocks:
-                rng.random(size=block._data.shape, dtype="float64", out=block._data)
-        else:
-            rng.random(size=x._data.shape, dtype="float64", out=x._data)
-
-        A.dot(x, out=y1)
-        B.dot(x, out=y2)
-
-        diff            = y1 - y2
-        scaled_err_sqr  = diff.inner(diff) / diff.space.dimension**2
-        
-        assert scaled_err_sqr < tol**2
+from    psydac.api.discretization     import discretize
+from    psydac.api.settings           import PSYDAC_BACKEND_GPYCCEL
+from    psydac.fem.projectors         import DirichletProjector
+from    psydac.linalg.basic           import LinearOperator, IdentityOperator
+from    psydac.linalg.block           import BlockVectorSpace
+from    psydac.linalg.solvers         import inverse
+from    psydac.linalg.tests.utilities import check_linop_equality_using_rng, SinMapping1D, Annulus, SquareTorus
 
 #===============================================================================
 @pytest.mark.parametrize('dim', [1, 2])
@@ -369,7 +307,7 @@ def test_discrete_derham_boundary_projector(dim):
 
         if dim == 2: 
             CP = conf_projectors[i]
-            _test_LO_equality_using_rng(DP, CP)
+            check_linop_equality_using_rng(DP, CP)
 
         M   = ah.assemble()
         M_0 = DP @ M @ DP + (I - DP)
