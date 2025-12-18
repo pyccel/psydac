@@ -688,6 +688,13 @@ class C1PolarProjection_V0(LinearOperator):
         self.transposed = transposed
         self.hbc = hbc
 
+        # Radial and angle sub-communicators (1D)
+        self._cart = W0.coeff_space.cart
+        if self._cart.is_parallel:
+            self._radial_comm = self._cart.subcomm[0]
+            self._angle_comm = self._cart.subcomm[1]
+
+
     @property
     def domain(self):
         return self.W0.coeff_space
@@ -710,6 +717,8 @@ class C1PolarProjection_V0(LinearOperator):
         [e1, e2] = self.W0.coeff_space.ends
         [n1, n2] = self.W0.coeff_space.npts
         theta = np.linspace(0, 2 * pi, n2, endpoint=False)  # Warning parallel case
+        rank_at_polar_edge = (s1 == 0)
+        rank_at_outer_edge = (e1 == n1 - 1)
 
         if out is None:
             y = self.W0.coeff_space.zeros()
@@ -718,24 +727,38 @@ class C1PolarProjection_V0(LinearOperator):
             assert out.space is self.W0.coeff_space
             y = out
 
-        if self.transposed:
-            x0 = np.average(x[0, s2:e2 + 1])
-            x1 = np.average(x[1, s2:e2 + 1])
-            y[0, s2:e2 + 1] = self.gamma * x0 + self.gamma * x1
-            y[1, s2:e2 + 1] = (1 - self.gamma) * x0 + (1 - self.gamma) * x1 + \
-                              (2 / n2) * matmul_toeplitz(np.cos(theta[s2:e2 + 1] - theta[0]), x[1, s2:e2 + 1])
+        if rank_at_polar_edge:
+            # compute sum of points with s = 0, 1 for the process
+            local_sum0 = np.sum(x[0, s2:e2 + 1])
+            local_sum1 = np.sum(x[1, s2:e2 + 1])
+            sum_cos = (2 / n2) * np.dot(np.cos(theta[s2:e2 + 1]), x[1, s2:e2 + 1])
+            sum_sin = (2 / n2) * np.dot(np.sin(theta[s2:e2 + 1]), x[1, s2:e2 + 1])
+
+            if self._cart.is_parallel:
+                from mpi4py import MPI
+                local_sum0 = self._angle_comm.allreduce(local_sum0, op=MPI.SUM)
+                local_sum1 = self._angle_comm.allreduce(local_sum1, op=MPI.SUM)
+                sum_cos = self._angle_comm.allreduce(sum_cos, op=MPI.SUM)
+                sum_sin = self._angle_comm.allreduce(sum_sin, op=MPI.SUM)
+
+            #compute average of all points with s = 0, 1
+            x0 = local_sum0 / n2
+            x1 = local_sum1 / n2
+
+            if self.transposed:
+                y[0, s2:e2 + 1] = self.gamma * x0 + self.gamma * x1
+                y[1, s2:e2 + 1] = (1 - self.gamma) * x0 + (1 - self.gamma) * x1 + \
+                        np.cos(theta[s2:e2 + 1]) * sum_cos + np.sin(theta[s2:e2 + 1]) * sum_sin
+            else:
+                y[0, s2:e2 + 1] = self.gamma * x0 + (1 - self.gamma) * x1
+                y[1, s2:e2 + 1] = self.gamma * x0 + (1 - self.gamma) * x1 + \
+                        np.cos(theta[s2:e2 + 1]) * sum_cos + np.sin(theta[s2:e2 + 1]) * sum_sin
+            y[2:e1 + 1, s2:e2 + 1] = x[2:e1 + 1, s2:e2 + 1]
         else:
-            x0 = np.average(x[0, s2:e2 + 1])
-            x1 = np.average(x[1, s2:e2 + 1])
-            y[0, s2:e2 + 1] = self.gamma * x0 + (1 - self.gamma) * x1
-            y[1, s2:e2 + 1] = self.gamma * x0 + (1 - self.gamma) * x1 + \
-                              (2 / n2) * matmul_toeplitz(np.cos(theta[s2:e2 + 1] - theta[0]), x[1, s2:e2 + 1])
+            y[s1:e1 + 1, s2:e2 + 1] = x[s1:e1 + 1, s2:e2 + 1]
 
-        y[2:, s2:e2 + 1] = x[2:, s2:e2 + 1]
-
-        if self.hbc:
-            if e1 == n1 - 1:
-                y[e1, :] = 0.
+        if self.hbc and rank_at_outer_edge:
+            y[e1, :] = 0.
 
         y.update_ghost_regions()
         return y
