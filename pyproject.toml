@@ -30,7 +30,7 @@ dependencies = [
     'pyevtk',
 
     # Our packages from PyPi
-    'sympde == 0.19.2',
+    'sympde @ https://github.com/pyccel/sympde/archive/refs/heads/iterable_empty_unions.zip',
     'pyccel >= 2.0.1',
     'gelato == 0.12',
 
