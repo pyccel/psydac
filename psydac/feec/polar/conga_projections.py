@@ -557,99 +557,28 @@ class C0PolarProjection_V2(LinearOperator):
         return self.tosparse().toarray()
 
 
-# ------------ strong and weak curl -----------------
-
-from scipy.sparse.linalg import spilu, cg
-from scipy.sparse.linalg import LinearOperator as SparseLinearOperator
-
-
-class SparseCurlAsOperator(LinearOperator):
-
-    def __init__(self, W1, W2, strong_curl_sp, M1=None, M2=None, strong=False, store_M1inv=False):
-        assert isinstance(W1, VectorFemSpace)
-        assert isinstance(W2, TensorFemSpace)
-        assert isinstance(strong_curl_sp, spmatrix)
-
-        self.W1 = W1
-        self.W2 = W2
-
-        self.strong = strong
-        self._store_M1inv = store_M1inv
-
-        if strong:
-            self.curl_sp = strong_curl_sp
-
-        else:
-            self.curl_sp = strong_curl_sp.T  # dual curl (in the dual bases)
-            assert isinstance(M1, LinearOperator)
-            assert isinstance(M2, LinearOperator)
-            self.M1_sp = M1.tosparse()
-            self.M2_sp = M2.tosparse()
-            if store_M1inv:
-                self._M1inv_sp = sp_inv(self.M1_sp)
-            else:
-                self._M1_spilu = spilu(self.M1_sp)
-                self._precond_M = SparseLinearOperator(self.M1_sp.shape, self._M1_spilu.solve)
-
-    @property
-    def domain(self):
-        if self.strong:
-            return self.W1.coeff_space
-        else:
-            return self.W2.coeff_space
-
-    @property
-    def codomain(self):
-        if self.strong:
-            return self.W2.coeff_space
-        else:
-            return self.W1.coeff_space
-
-    @property
-    def dtype(self):
-        return float
-
-    def toarray(self):
-        # return self
-        raise NotImplementedError('toarray() is not defined for this class.')
-
-    def tosparse(self):
-        # return self
-        raise NotImplementedError('tosparse() is not defined for this class.')
-
-    def transpose(self, conjugate=False):
-        raise NotImplementedError('transpose() is not defined for this class.')
-
-    # Warning: this dot method has to be revised for mpi!
-    # the toeplitz multiplication requires all processes along the theta-dir to communicate.
-    def dot(self, x, out=None):
-        assert isinstance(x, Vector)
-        if self.strong:
-            Cx_arr = self.curl_sp @ x.toarray()
-        else:
-            tx_arr = self.M2_sp @ x.toarray()
-            tCx_arr = self.curl_sp @ tx_arr
-            if self._store_M1inv:
-                Cx_arr = self._M1inv_sp.dot(tCx_arr)
-            else:
-                # Cx_arr = spsolve(self.M1_sp, tCx_arr)
-                Cx_arr, exit_code = cg(self.M1_sp, tCx_arr, M=self._precond_M, rtol=1e-7)
-                # Cx_arr = self._M1_spilu.solve(tCx_arr)
-        if out is None:
-            y = self.codomain.zeros()
-        else:
-            assert isinstance(out, Vector)
-            assert out.space is self.codomain
-            y = out
-
-        y1 = array_to_psydac(Cx_arr, self.codomain)
-        y1.copy(out=y)
-        return y
 
 
 # =============================================================================#
 #                        C1 POLAR SPLINE COMPLEX (C1P)                        #
 # =============================================================================#
+
+def cos_sin_avg(theta, x, angle_comm, s2, e2, n2, i):
+    """
+    Compute weighted averages  in parallel:
+    sum (2/n2) * cos(theta_k) * x_ik
+    sum (2/n2) * sin(theta_k) * x_ik
+    over all k belonging to the process, for fixed i (0 or 1)
+    then sum over all processes
+    """
+    from mpi4py import MPI
+    sum_cos = (2 / n2) * np.dot(np.cos(theta), x[i, s2:e2 + 1])
+    sum_sin = (2 / n2) * np.dot(np.sin(theta), x[i, s2:e2 + 1])
+    if angle_comm is not None:
+        sum_cos = angle_comm.allreduce(sum_cos, op=MPI.SUM)
+        sum_sin = angle_comm.allreduce(sum_sin, op=MPI.SUM)
+    return sum_cos, sum_sin
+
 
 # --------- 0-FORMS CONGA PROJECTOR P0 ----------#
 class C1PolarProjection_V0(LinearOperator):
@@ -688,13 +617,6 @@ class C1PolarProjection_V0(LinearOperator):
         self.transposed = transposed
         self.hbc = hbc
 
-        # Radial and angle sub-communicators (1D)
-        self._cart = W0.coeff_space.cart
-        if self._cart.is_parallel:
-            self._radial_comm = self._cart.subcomm[0]
-            self._angle_comm = self._cart.subcomm[1]
-
-
     @property
     def domain(self):
         return self.W0.coeff_space
@@ -716,7 +638,7 @@ class C1PolarProjection_V0(LinearOperator):
         [s1, s2] = self.W0.coeff_space.starts
         [e1, e2] = self.W0.coeff_space.ends
         [n1, n2] = self.W0.coeff_space.npts
-        theta = np.linspace(0, 2 * pi, n2, endpoint=False)  # Warning parallel case
+        theta_local = np.linspace(s2 * 2 * pi / n2, e2 * 2 * pi / n2, e2  - s2 + 1)
         rank_at_polar_edge = (s1 == 0)
         rank_at_outer_edge = (e1 == n1 - 1)
 
@@ -728,31 +650,28 @@ class C1PolarProjection_V0(LinearOperator):
             y = out
 
         if rank_at_polar_edge:
-            # compute sum of points with s = 0, 1 for the process
-            local_sum0 = np.sum(x[0, s2:e2 + 1])
-            local_sum1 = np.sum(x[1, s2:e2 + 1])
-            sum_cos = (2 / n2) * np.dot(np.cos(theta[s2:e2 + 1]), x[1, s2:e2 + 1])
-            sum_sin = (2 / n2) * np.dot(np.sin(theta[s2:e2 + 1]), x[1, s2:e2 + 1])
+            # compute sums of points with s = 0, 1 for the process
+            x0 = np.sum(x[0, s2:e2 + 1]) / n2
+            x1 = np.sum(x[1, s2:e2 + 1]) / n2
 
-            if self._cart.is_parallel:
+            angle_comm = x.space.cart.subcomm[1] if x.space.parallel else None
+            sum_cos, sum_sin = cos_sin_avg(theta_local, x, angle_comm, s2, e2, n2, 1)
+
+            if x.space.parallel:
+
                 from mpi4py import MPI
-                local_sum0 = self._angle_comm.allreduce(local_sum0, op=MPI.SUM)
-                local_sum1 = self._angle_comm.allreduce(local_sum1, op=MPI.SUM)
-                sum_cos = self._angle_comm.allreduce(sum_cos, op=MPI.SUM)
-                sum_sin = self._angle_comm.allreduce(sum_sin, op=MPI.SUM)
-
-            #compute average of all points with s = 0, 1
-            x0 = local_sum0 / n2
-            x1 = local_sum1 / n2
+                # global averages
+                x0 = angle_comm.allreduce(x0, op=MPI.SUM)
+                x1 = angle_comm.allreduce(x1, op=MPI.SUM)
 
             if self.transposed:
                 y[0, s2:e2 + 1] = self.gamma * x0 + self.gamma * x1
                 y[1, s2:e2 + 1] = (1 - self.gamma) * x0 + (1 - self.gamma) * x1 + \
-                        np.cos(theta[s2:e2 + 1]) * sum_cos + np.sin(theta[s2:e2 + 1]) * sum_sin
+                        np.cos(theta_local) * sum_cos + np.sin(theta_local) * sum_sin
             else:
                 y[0, s2:e2 + 1] = self.gamma * x0 + (1 - self.gamma) * x1
                 y[1, s2:e2 + 1] = self.gamma * x0 + (1 - self.gamma) * x1 + \
-                        np.cos(theta[s2:e2 + 1]) * sum_cos + np.sin(theta[s2:e2 + 1]) * sum_sin
+                        np.cos(theta_local) * sum_cos + np.sin(theta_local) * sum_sin
             y[2:e1 + 1, s2:e2 + 1] = x[2:e1 + 1, s2:e2 + 1]
         else:
             y[s1:e1 + 1, s2:e2 + 1] = x[s1:e1 + 1, s2:e2 + 1]
