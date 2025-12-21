@@ -756,7 +756,6 @@ class C1PolarProjection_V1_00(LinearOperator):
     """
 
     def __init__(self, W1, transposed=False):
-        # assert isinstance(W1, ProductFemSpace)
         assert isinstance(W1, VectorFemSpace)
 
         self.W1 = W1
@@ -782,7 +781,8 @@ class C1PolarProjection_V1_00(LinearOperator):
         [s1, s2] = self.domain.starts
         [e1, e2] = self.domain.ends
         [n1, n2] = self.domain.npts
-        theta = np.linspace(0, 2 * pi, n2, endpoint=False)  # Warning not mpi
+        theta_local = np.linspace(s2 * 2 * pi / n2, e2 * 2 * pi / n2, e2  - s2 + 1)
+        rank_at_polar_edge = (s1 == 0)
 
         if out is None:
             y = self.codomain.zeros()
@@ -791,16 +791,22 @@ class C1PolarProjection_V1_00(LinearOperator):
             assert out.space is self.codomain
             y = out
 
-        if self.transposed:
-            y[0, s2:e2 + 1] = matmul_toeplitz((2 / n2) * np.cos(theta[s2:e2 + 1] - theta[0]), x[0, s2:e2 + 1]) + \
-                              x[1, s2:e2 + 1] - matmul_toeplitz((2 / n2) * np.cos(theta[s2:e2 + 1] - theta[0]),
-                                                                x[1, s2:e2 + 1])
-            y[1, s2:e2 + 1] = x[1, s2:e2 + 1]
-        else:
-            y[0, s2:e2 + 1] = matmul_toeplitz((2 / n2) * np.cos(theta[s2:e2 + 1] - theta[0]), x[0, s2:e2 + 1])
-            y[1, s2:e2 + 1] = x[0, s2:e2 + 1] + x[1, s2:e2 + 1] - y[0, s2:e2 + 1]
+        if rank_at_polar_edge:
+            angle_comm = x.space.cart.subcomm[1] if x.space.parallel else None
+            sum_cos0, sum_sin0 = cos_sin_avg(theta_local, x, angle_comm, s2, e2, n2, 0)
 
-        y[2:, s2:e2 + 1] = x[2:, s2:e2 + 1]
+            if self.transposed:
+                sum_cos1, sum_sin1 = cos_sin_avg(theta_local, x, angle_comm, s2, e2, n2, 1)
+                y[0, s2:e2 + 1] = sum_cos0 * np.cos(theta_local) + sum_sin0 * np.sin(theta_local) +\
+                    x[1, s2:e2 + 1] - sum_cos1 * np.cos(theta_local) - sum_sin1 * np.sin(theta_local)
+                y[1, s2:e2 + 1] = x[1, s2:e2 + 1]
+            else:
+                y[0, s2:e2 + 1] = sum_cos0 * np.cos(theta_local) + sum_sin0 * np.sin(theta_local)
+                y[1, s2:e2 + 1] = x[0, s2:e2 + 1] + x[1, s2:e2 + 1] - y[0, s2:e2 + 1]
+
+            y[2:e1 + 1, s2:e2 + 1] = x[2:e1 + 1, s2:e2 + 1]
+        else:
+            y[s1:e1 + 1, s2:e2 + 1] = x[s1:e1 + 1, s2:e2 + 1]
 
         y.update_ghost_regions()
         return y
@@ -897,13 +903,16 @@ class C1PolarProjection_V1_10(LinearOperator):
     # We also use np.roll which should be changed with the use of ghost regions
     def dot(self, x, out=None):
         assert isinstance(x, StencilVector)
+        if not x.ghost_regions_in_sync:
+            x.update_ghost_regions()
 
         # The number of radial basis functions is one less than
         # the number on the angular basis functions
         [s1, s2] = self.domain.starts
         [e1, e2] = self.domain.ends
         [n1, n2] = self.domain.npts
-        theta = np.linspace(0, 2 * pi, n2, endpoint=False)
+        theta_local = np.linspace(s2 * 2 * pi / n2, e2 * 2 * pi / n2, e2  - s2 + 1)
+        rank_at_polar_edge = (s1 == 0)
 
         if out is None:
             y = self.codomain.zeros()
@@ -912,15 +921,24 @@ class C1PolarProjection_V1_10(LinearOperator):
             assert out.space is self.codomain
             y = out
 
-        if self.transposed:
-            y[0, s2:e2 + 1] = np.subtract(np.roll(x[1, s2:e2 + 1], 1), x[1, s2:e2 + 1])
-            y[0, s2:e2 + 1] = matmul_toeplitz((2 / n2) * np.cos(theta[s2:e2 + 1] - theta[0]), y[0, s2:e2 + 1])
-            y[1:, s2:e2 + 1] = 0
+        if rank_at_polar_edge:
+            angle_comm = x.space.cart.subcomm[1] if x.space.parallel else None
+
+            if self.transposed:
+                y[0, s2:e2 + 1] = x[1, s2 - 1:e2] - x[1, s2:e2 + 1]
+                sum_cos, sum_sin = cos_sin_avg(theta_local, y, angle_comm, s2, e2, n2, 0)
+                y[0, s2:e2 + 1] = np.cos(theta_local) * sum_cos + np.sin(theta_local) * sum_sin
+                y[1:e1 + 1, s2:e2 + 1] = 0
+            else:
+                y[0, s2:e2 + 1] = 0
+                sum_cos, sum_sin = cos_sin_avg(theta_local, x, angle_comm, s2, e2, n2, 0)
+                y[1, s2:e2 + 1] = np.cos(theta_local) * sum_cos + np.sin(theta_local) * sum_sin
+                y.update_ghost_regions()
+                y[1, s2:e2 + 1] = y[1, s2 + 1:e2 + 2] - y[1, s2:e2 + 1]
+                y[2:e1 + 1, s2:e2 + 1] = 0
         else:
-            y[0, s2:e2 + 1] = 0
-            y[1, s2:e2 + 1] = matmul_toeplitz((2 / n2) * np.cos(theta[s2:e2 + 1] - theta[0]), x[0, s2:e2 + 1])
-            y[1, s2:e2 + 1] = np.subtract(np.roll(y[1, s2:e2 + 1], -1), y[1, s2:e2 + 1])
-            y[2:, s2:e2 + 1] = 0
+            y[s1:e1 + 1, s2:e2 + 1] = 0
+
 
         y.update_ghost_regions()
         return y
@@ -970,95 +988,6 @@ class C1PolarProjection_V1_10(LinearOperator):
         return self.tosparse().toarray()
 
 
-class C1PolarProjection_V1_11(LinearOperator):
-    """
-    Lower right block of P1.
-
-    Parameters:
-    -----------
-
-    W1 : VectorFemSpace (former ProductFemSpace)
-         Full tensor product spline space of the 1-forms S^{p1-1, p2} x S^{p1, p2-1}
-
-    transposed : Boolean
-         Switch between P1 and P1 transposed (default is False)
-
-    hbc : Boolean
-         Switch on and off the imposition of homogeneous Dirichlet boundary
-         conditions on the tangential (angular) direction (default is False)
-    """
-
-    def __init__(self, W1, transposed=False, hbc=False):
-        # assert isinstance(W1, ProductFemSpace)
-        assert isinstance(W1, VectorFemSpace)
-
-        self.W1 = W1
-        self.transposed = transposed
-        self.hbc = hbc
-
-    @property
-    def domain(self):
-        return self.W1.coeff_space[1]
-
-    @property
-    def codomain(self):
-        return self.W1.coeff_space[1]
-
-    @property
-    def dtype(self):
-        return float
-
-    # Warning: this dot method has to be revised for mpi!
-    # the toeplitz multiplication requires all processes along the theta-dir to communicate.
-    def dot(self, x, out=None):
-        assert isinstance(x, StencilVector)
-
-        [s1, s2] = self.domain.starts
-        [e1, e2] = self.domain.ends
-        [n1, n2] = self.domain.npts
-
-        if out is None:
-            y = self.codomain.zeros()
-        else:
-            assert isinstance(out, StencilVector)
-            assert out.space is self.codomain
-            y = out
-
-        # Both for P1 and P1 transposed
-        y[0, s2:e2 + 1] = 0
-        y[1, s2:e2 + 1] = 0
-        y[2:, s2:e2 + 1] = x[2:, s2:e2 + 1]
-
-        if self.hbc:
-            if e1 == n1 - 1:
-                y[e1, :] = 0.
-
-        y.update_ghost_regions()
-        return y
-
-    def transpose(self, conjugate=False):
-        return C1PolarProjection_V1_11(self.W1, transposed=not self.transposed, hbc=self.hbc)
-
-    @property
-    def T(self):
-        return self.transpose()
-
-    def tosparse(self):
-
-        [n01, n02] = self.domain.npts
-        [n11, n12] = self.codomain.npts
-        dtype = self.domain.dtype
-
-        P = lil_matrix((n11 * n12, n01 * n02), dtype=dtype)
-        P[2 * n12:, 2 * n02:] = sp_eye((n11 - 2) * n12)
-        if self.hbc:
-            P[-n12:, -n02:] = 0
-        return P.T if self.transposed else P
-
-    def toarray(self):
-        return self.tosparse().toarray()
-
-
 
 class C1PolarProjection_V1(BlockLinearOperator):
     """
@@ -1092,8 +1021,9 @@ class C1PolarProjection_V1(BlockLinearOperator):
 
         self[0, 0] = C1PolarProjection_V1_00(W1, transposed=transposed)
         self[1, 0] = C1PolarProjection_V1_10(W1, transposed=transposed)
-        # self[0, 1] = C1CongaProjector1_01(W1, transposed = transposed)
-        self[1, 1] = C1PolarProjection_V1_11(W1, transposed=transposed, hbc=hbc)
+        # self[0, 1] is 0 block
+        # The lower right block is the same for C0 and C1 projections
+        self[1, 1] = C0PolarProjection_V1_11(W1, transposed=transposed, hbc=hbc)
 
         self.W1 = W1
         self.transposed = transposed
@@ -1101,94 +1031,96 @@ class C1PolarProjection_V1(BlockLinearOperator):
 
 
 # -------------- 2-FORMS CONGA PROJECTOR P2 ----------------#
-class C1PolarProjection_V2(LinearOperator):
-    """
-    CONGA Projector P2 from the full spline space S^{p1-1, p2-1} on logical
-    domain to U2, the pre-polar 2-forms splines. The associate matrix
-    is square, as in the CONGA approach we keep using the tensor B-spline basis,
-    instead of the polar basis of Toshniwal. P2 enforces coefficient relations
-    to be in U2.
+# Equals C0PolarProjection_V2
 
-    Parameters:
-    -----------
+# ------------ strong and weak curl -----------------
 
-    W2 : TensorFemSpace
-         Full tensor product spline space of the 2-forms S^{p1-1, p2-1}
+from scipy.sparse.linalg import spilu, cg
+from scipy.sparse.linalg import LinearOperator as SparseLinearOperator
 
-    transposed : Boolean
-         Switch between P2 and P2 transposed (default is False)
-    """
 
-    def __init__(self, W2, transposed=False):
+class SparseCurlAsOperator(LinearOperator):
+
+    def __init__(self, W1, W2, strong_curl_sp, M1=None, M2=None, strong=False, store_M1inv=False):
+        assert isinstance(W1, VectorFemSpace)
         assert isinstance(W2, TensorFemSpace)
+        assert isinstance(strong_curl_sp, spmatrix)
 
+        self.W1 = W1
         self.W2 = W2
-        self.transposed = transposed
+
+        self.strong = strong
+        self._store_M1inv = store_M1inv
+
+        if strong:
+            self.curl_sp = strong_curl_sp
+
+        else:
+            self.curl_sp = strong_curl_sp.T  # dual curl (in the dual bases)
+            assert isinstance(M1, LinearOperator)
+            assert isinstance(M2, LinearOperator)
+            self.M1_sp = M1.tosparse()
+            self.M2_sp = M2.tosparse()
+            if store_M1inv:
+                self._M1inv_sp = sp_inv(self.M1_sp)
+            else:
+                self._M1_spilu = spilu(self.M1_sp)
+                self._precond_M = SparseLinearOperator(self.M1_sp.shape, self._M1_spilu.solve)
 
     @property
     def domain(self):
-        return self.W2.coeff_space
+        if self.strong:
+            return self.W1.coeff_space
+        else:
+            return self.W2.coeff_space
 
     @property
     def codomain(self):
-        return self.W2.coeff_space
+        if self.strong:
+            return self.W2.coeff_space
+        else:
+            return self.W1.coeff_space
 
     @property
     def dtype(self):
         return float
 
-    def dot(self, x, out=None):
-        assert isinstance(x, StencilVector)
-
-        if not x.ghost_regions_in_sync:
-            x.update_ghost_regions()
-
-        [s1, s2] = self.W2.coeff_space.starts
-        [e1, e2] = self.W2.coeff_space.ends
-        [n1, n2] = self.W2.coeff_space.npts
-
-        if out is None:
-            y = self.W2.coeff_space.zeros()
-        else:
-            assert isinstance(out, StencilVector)
-            assert out.space is self.W2.coeff_space
-            y = out
-
-        if self.transposed:
-            y[0, s2:e2 + 1] = x[1, s2:e2 + 1]
-            y[1, s2:e2 + 1] = x[1, s2:e2 + 1]
-        else:
-            y[0, s2:e2 + 1] = 0
-            y[1, s2:e2 + 1] = x[0, s2:e2 + 1] + x[1, s2:e2 + 1]
-
-        y[2:, s2:e2 + 1] = x[2:, s2:e2 + 1]
-
-        y.update_ghost_regions()
-        return y
-
-    def transpose(self):
-        return C1PolarProjection_V2(self.W2, transposed=not self.transposed)
-
-    @property
-    def T(self):
-        return self.transpose()
+    def toarray(self):
+        # return self
+        raise NotImplementedError('toarray() is not defined for this class.')
 
     def tosparse(self):
+        # return self
+        raise NotImplementedError('tosparse() is not defined for this class.')
 
-        [n1, n2] = self.W2.coeff_space.npts
+    def transpose(self, conjugate=False):
+        raise NotImplementedError('transpose() is not defined for this class.')
 
-        data = np.ones(n1 * n2)
-        cols = np.arange(n1 * n2)
-        rows = np.tile(np.arange(n2, 2 * n2), 2)
-        rows = np.concatenate((rows, np.arange(2 * n2, n1 * n2)))
+    # Warning: this dot method has to be revised for mpi!
+    # the toeplitz multiplication requires all processes along the theta-dir to communicate.
+    def dot(self, x, out=None):
+        assert isinstance(x, Vector)
+        if self.strong:
+            Cx_arr = self.curl_sp @ x.toarray()
+        else:
+            tx_arr = self.M2_sp @ x.toarray()
+            tCx_arr = self.curl_sp @ tx_arr
+            if self._store_M1inv:
+                Cx_arr = self._M1inv_sp.dot(tCx_arr)
+            else:
+                # Cx_arr = spsolve(self.M1_sp, tCx_arr)
+                Cx_arr, exit_code = cg(self.M1_sp, tCx_arr, M=self._precond_M, rtol=1e-7)
+                # Cx_arr = self._M1_spilu.solve(tCx_arr)
+        if out is None:
+            y = self.codomain.zeros()
+        else:
+            assert isinstance(out, Vector)
+            assert out.space is self.codomain
+            y = out
 
-        P = coo_matrix((data, (rows, cols)), shape=(n1 * n2, n1 * n2), dtype=self.W2.coeff_space.dtype)
-        P.eliminate_zeros()
-
-        return P.T if self.transposed else P
-
-    def toarray(self):
-        return self.tosparse().toarray()
+        y1 = array_to_psydac(Cx_arr, self.codomain)
+        y1.copy(out=y)
+        return y
 
 
 

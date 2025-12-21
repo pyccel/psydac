@@ -235,7 +235,7 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
 
     assert splitting_order in [2, 4]
 
-    from psydac.feec.polar.conga_projections import C0PolarProjection_V1, C0PolarProjection_V2, SparseCurlAsOperator
+    from psydac.feec.polar.conga_projections import C0PolarProjection_V1, C0PolarProjection_V2, C1PolarProjection_V1, SparseCurlAsOperator
 
     from analyticalTE import CircularCavitySolution  # , constant_field
     from waveTE import GaussianSolution
@@ -672,12 +672,10 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
     # Conga projectors
     if smooth == 0:
         P1 = C0PolarProjection_V1(V1, hbc=True)
-        print("P1:")
-        print(P1)
         P2 = C0PolarProjection_V2(V2)
-    #else: TODO
-        #P1 = C1PolarProjection_V1(V1, hbc=True)
-        #P2 = C1PolarProjection_V1(V2)
+    else:
+        P1 = C1PolarProjection_V1(V1, hbc=True)
+        P2 = C0PolarProjection_V2(V2)
     P1_T = P1.T
     P2_T = P2.T
 
