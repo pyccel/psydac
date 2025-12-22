@@ -111,9 +111,10 @@ class DiscreteEquation(BasicDiscrete):
         self._lhs = discretize(expr.lhs, domain, trial_test, **kwargs)
         # ...
         # sum_factorization (sum factorization algorithm) is currently not supported for LinearForms (the rhs)
+        kwargs_rhs = kwargs.copy()
         if 'sum_factorization' in kwargs:
-            kwargs.pop('sum_factorization')
-        self._rhs = discretize(expr.rhs, domain, test_space, **kwargs)
+            kwargs_rhs.pop('sum_factorization')
+        self._rhs = discretize(expr.rhs, domain, test_space, **kwargs_rhs)
         # ...
 
         # ...

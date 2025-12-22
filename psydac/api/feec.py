@@ -30,6 +30,7 @@ from psydac.feec.pull_push                      import pull_3d_h1, pull_3d_hcurl
 from psydac.feec.pull_push                      import pull_3d_hdiv, pull_3d_l2, pull_3d_h1vec
 
 from psydac.fem.basic                           import FemSpace, FemLinearOperator
+from psydac.fem.lst_preconditioner              import construct_LST_preconditioner
 from psydac.fem.vector                          import VectorFemSpace
 from psydac.fem.projectors                      import DirichletProjector, MultipatchDirichletProjector
 
@@ -332,6 +333,62 @@ class DiscreteDeRham(BasicDiscrete):
             return self._dirichlet_proj
         elif kind == 'linop':
             return tuple(femlinop.linop for femlinop in self._dirichlet_proj)
+    
+    #--------------------------------------------------------------------------
+    def LST_preconditioners(self, *, M0=None, M1=None, M2=None, M3=None, hom_bc=False):
+        """
+        LST (Loli, Sangalli, Tani) preconditioners [1] are mass matrix preconditioners of the form
+        pc = D_inv_sqrt @ D_log_sqrt @ M_log_kron_solver @ D_log_sqrt @ D_inv_sqrt, where
+
+        D_inv_sqrt          is the diagonal matrix of the square roots of the inverse diagonal entries of the mass matrix M,
+        D_log_sqrt          is the diagonal matrix of the square roots of the diagonal entries of the mass matrix on the logical domain,
+        M_log_kron_solver   is the Kronecker Solver of the mass matrix on the logical domain.
+
+        These preconditioners work very well even on complex domains as numerical experiments have shown.
+
+        Upon choosing hom_bc=True, preconditioners for the modified mass matrices M{i}_0 are being returned.
+        The preconditioner for the last mass matrix of the sequence remains identical as there are no BCs to take care of.
+        M{i}_0 is a mass matrix of the form
+        M{i}_0 = DP @ M{i} @ DP + (I - DP)
+        where DP and I are the corresponding DirichletProjector and IdentityOperator.
+        See examples/vector_potential_3d.
+
+        Parameters
+        ----------
+        M0, M1, M2, M3 : psydac.linalg.stencil.StencilMatrix | psydac.linalg.block.BlockLinearOperator | None
+            H1, Hcurl/Hdiv, L2 (2D) or H1, Hcurl, Hdiv, L2 mass matrices or None. 
+            Returns only preconditioners for passed mass matrices.
+
+        hom_bc : bool
+            If True, return LST preconditioners for modified M{i}_0 = DP @ M{i} @ DP + (I - DP) mass matrices (i=0,1 (2D), i=0,1,2 (3D)).
+            The arguments M{i} in that case remain the same (M{i}, not M{i}_0). DP and I are DirichletProjector and IdentityOperator.
+            Default: False.
+
+        Returns
+        -------
+        tuple
+            tuple of psydac.linalg.stencil.StencilMatrix and/or psydac.linalg.block.BlockLinearOperator
+            LST preconditioner(s) for the passed mass matrices.
+
+        References
+        ----------
+        [1] Gabriele Loli, Giancarlo Sangalli, Mattia Tani. “Easy and efficient preconditioning of the isogeometric mass 
+            matrix”. In: Computers & Mathematics with Applications 116 (2022), pp. 245–264
+        
+        """
+
+        domain_h    = self.domain_h
+        Ms          = (M0, M1, M2, M3)
+
+        M_pc_arr    = []
+
+        for M, Vh in zip(Ms, self.spaces):
+            if M is not None:
+
+                M_pc = construct_LST_preconditioner(M, domain_h, Vh, hom_bc=hom_bc)
+                M_pc_arr.append(M_pc)
+        
+        return tuple(M_pc_arr)
 
     #--------------------------------------------------------------------------
     def conforming_projectors(self, kind='femlinop', mom_pres=False, p_moments=-1, hom_bc=False):

@@ -3,25 +3,26 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-from    functools import reduce
+from   functools import reduce
 
-import  pytest
-import  numpy                   as np
-from    mpi4py                  import MPI
-from    scipy.sparse            import kron
+import pytest
+import numpy as np
+from   mpi4py          import MPI
+from   scipy.sparse    import kron
 
-from    sympde.calculus         import inner
-from    sympde.expr             import integral, BilinearForm
-from    sympde.topology         import elements_of, Square, Line, Derham
+from   sympde.calculus import inner
+from   sympde.expr     import integral, BilinearForm
+from   sympde.topology import elements_of, Square, Line, Derham
 
-from    psydac.api.discretization import discretize
-from    psydac.api.settings     import PSYDAC_BACKEND_GPYCCEL
-from    psydac.ddm.cart         import DomainDecomposition, CartDecomposition
-from    psydac.linalg.kron      import KroneckerStencilMatrix
-from    psydac.linalg.block     import BlockLinearOperator
-from    psydac.linalg.stencil   import StencilVectorSpace
-from    psydac.linalg.stencil   import StencilVector
-from    psydac.linalg.stencil   import StencilMatrix
+from   psydac.api.discretization     import discretize
+from   psydac.api.settings           import PSYDAC_BACKEND_GPYCCEL
+from   psydac.ddm.cart               import DomainDecomposition, CartDecomposition
+from   psydac.linalg.kron            import KroneckerStencilMatrix
+from   psydac.linalg.block           import BlockLinearOperator
+from   psydac.linalg.stencil         import StencilVectorSpace
+from   psydac.linalg.stencil         import StencilVector
+from   psydac.linalg.stencil         import StencilMatrix
+from   psydac.linalg.tests.utilities import check_linop_equality_using_rng
 
 #===============================================================================
 def compute_global_starts_ends(domain_decomposition, npts):
@@ -211,8 +212,7 @@ def test_KroneckerStencilMatrix_diagonal(comm=None):
                 M_diag = M.diagonal(inverse=inverse, sqrt=sqrt)
                 M_kron_diag = M_kron.diagonal(inverse=inverse, sqrt=sqrt)
 
-                from psydac.fem.tests.test_dirichlet_projectors import _test_LO_equality_using_rng
-                _test_LO_equality_using_rng(M_diag, M_kron_diag, tol=1e-13)
+                check_linop_equality_using_rng(M_diag, M_kron_diag, tol=1e-13)
 
 #==============================================================================
 @pytest.mark.parallel
