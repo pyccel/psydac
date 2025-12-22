@@ -89,11 +89,13 @@ jobs:
         shell: bash
 
       - name: Initialize test directory
+        if: steps.duplicate_check.outputs.should_skip != 'true'
         run: |
           mkdir pytest
           cp mpi_tester.py pytest
 
       - name: Run single-process tests with Pytest
+        if: steps.duplicate_check.outputs.should_skip != 'true'
         working-directory: ./pytest
         run: |
           pytest -n auto --pyargs psydac -m "not parallel and not petsc"
