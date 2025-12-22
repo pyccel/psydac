@@ -549,7 +549,7 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
     construct_reduced_interface_spaces(g_spaces, new_g_spaces, interiors, connectivity)
     spaces = list(new_g_spaces.values())
 
-    if connectivity:
+    if len(interiors) > 1:
         assert all((isinstance(Wh, FemSpace) and not Wh.is_multipatch) for Wh in spaces)
         Vh = MultipatchFemSpace(*spaces, connectivity=connectivity)
     else:
