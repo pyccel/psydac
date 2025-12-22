@@ -41,12 +41,6 @@ class C0PolarProjection_V0(LinearOperator):
         self.transposed = transposed
         self.hbc = hbc
 
-        # Radial and angle sub-communicators (1D)
-        self._cart = W0.coeff_space.cart
-        if self._cart.is_parallel:
-            self._radial_comm = self._cart.subcomm[0]
-            self._angle_comm = self._cart.subcomm[1]
-
     @property
     def domain(self):
         return self.W0.coeff_space
@@ -81,9 +75,10 @@ class C0PolarProjection_V0(LinearOperator):
             # compute sum of points with s = 0 for the process
             local_sum = np.sum(x[0, s2:e2 + 1])
 
-            if self._cart.is_parallel:
+            if x.space.is_parallel:
                 from mpi4py import MPI
-                local_sum = self._angle_comm.allreduce(local_sum, op=MPI.SUM)
+                angle_comm = x.space.cart.subcomm[1]
+                local_sum = angle_comm.allreduce(local_sum, op=MPI.SUM)
             #compute average of all points with s = 0
             y[0, s2:e2 + 1] = local_sum / n2
             y[1:e1 + 1, s2:e2 + 1] = x[1:e1 + 1, s2:e2 + 1]
@@ -574,10 +569,11 @@ def cos_sin_avg(theta, x, angle_comm, s2, e2, n2, i):
     from mpi4py import MPI
     sum_cos = (2 / n2) * np.dot(np.cos(theta), x[i, s2:e2 + 1])
     sum_sin = (2 / n2) * np.dot(np.sin(theta), x[i, s2:e2 + 1])
+    buf = np.array([sum_cos, sum_sin])
+
     if angle_comm is not None:
-        sum_cos = angle_comm.allreduce(sum_cos, op=MPI.SUM)
-        sum_sin = angle_comm.allreduce(sum_sin, op=MPI.SUM)
-    return sum_cos, sum_sin
+        buf = angle_comm.allreduce(buf, op=MPI.SUM)
+    return buf
 
 
 # --------- 0-FORMS CONGA PROJECTOR P0 ----------#
