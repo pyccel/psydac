@@ -138,11 +138,6 @@ jobs:
       run: |
         python -m pip install -r docs/requirements.txt
 
-    - name: Copy Notebooks
-      run: |
-        mkdir docs/source/examples
-        cp -r examples/notebooks/* docs/source/examples/
-
     - name: Make the sphinx doc
       run: |
         rm -rf docs/source/modules/STUBDIR
