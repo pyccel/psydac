@@ -62,7 +62,7 @@ Here `<HDF5-PATH>` is the path to the HDF5 root folder, such that `<HDF5-PATH>/l
 For an editable install, the last command above should be replaced with:
 ```bash
 pip install meson-python "pyccel>=2.1.0"
-pip install --no-build-isolation --editable ./psdyac
+pip install --no-build-isolation --editable ./psydac
 ```
 
 Again, for more details we refer to our [documentation](https://github.com/pyccel/psydac/blob/devel/docs/installation.md).
