@@ -9,7 +9,6 @@ on:
     paths:
       - 'psydac/**'
       - 'pyproject.toml'
-      - 'setup.py'
       - 'pytest.ini'
       - 'mpi_tester.py'
 
@@ -23,7 +22,6 @@ on:
     paths:
       - 'psydac/**'
       - 'pyproject.toml'
-      - 'setup.py'
       - 'pytest.ini'
       - 'mpi_tester.py'
 
