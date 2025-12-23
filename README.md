@@ -59,7 +59,11 @@ pip install h5py --no-cache-dir --no-binary h5py
 pip install ./psydac
 ```
 Here `<HDF5-PATH>` is the path to the HDF5 root folder, such that `<HDF5-PATH>/lib/` contains the HDF5 dynamic libraries with MPI support.
-For an editable install, the `-e/--editable` flag should be provided to the last command above.
+For an editable install, the last command above should be replaced with:
+```bash
+pip install meson-python "pyccel>=2.1.0"
+pip install --no-build-isolation --editable ./psydac
+```
 
 Again, for more details we refer to our [documentation](https://github.com/pyccel/psydac/blob/devel/docs/installation.md).
 
@@ -94,7 +98,8 @@ python <PSYDAC-PATH>/mpi_tester.py --pyargs psydac -m "parallel and petsc"
 
 Many of PSYDAC's low-level Python functions can be translated to a compiled language using the [Pyccel](https://github.com/pyccel/pyccel) transpiler. Currently, all of those functions are collected in modules which follow the name pattern `[module]_kernels.py`.
 
-The classical installation translates all kernel files to Fortran without user intervention. This does not happen in the case of an editable install, but the command `psydac-accelerate` is made available to the user instead. This command applies Pyccel to all the kernel files in the source directory. The default language is currently Fortran, C should also be supported in a near future.
+For both classical and editable installations, all kernel files are translated to Fortran without user intervention. If the user adds or edits a kernel file within an editable install, they should use the command `psydac-accelerate` in order to be able to see the changes at runtime.
+This command applies Pyccel to all the kernel files in the source directory. The default language is Fortran, and C is also available.
 
 -   **Only in development mode**:
     ```bash

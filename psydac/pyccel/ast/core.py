@@ -3412,7 +3412,7 @@ class FunctionDef(Basic):
 
         # arguments
 
-        # Removed by JO in 06/23 in PR #303: This TypeError was raised upon Sphinx trying to import several of Psydac's modules.
+        # Removed by JO in 06/23 in PR #303: This TypeError was raised upon Sphinx trying to import several of PSYDAC's modules.
         #if not iterable(arguments):
         #    raise TypeError('arguments must be an iterable')
 

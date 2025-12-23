@@ -59,7 +59,7 @@ class DiscreteBilinearForm:
     """
     Discrete bilinear form ready to be assembled into a matrix.
 
-    This class represents the concept of a discrete bilinear form in Psydac.
+    This class represents the concept of a discrete bilinear form in PSYDAC.
     Instances of this class generate an appropriate matrix assembly kernel,
     allocate the matrix if not provided, and prepare a list of arguments for
     the kernel.
@@ -2140,10 +2140,10 @@ class DiscreteBilinearForm:
                     *list(coupling_terms.values()))
         
         # This part is a bit shady.
-        # There has been a case, where my code wasn't running, because one instance of deep-(Psydac/Sympde/Sympy)-code
+        # There has been a case, where my code wasn't running, because one instance of deep-(PSYDAC/Sympde/Sympy)-code
         # correctly understood that a possibly complicated expression (corresponding to a block) in fact evaluates to 0,
         # and hence no StencilMatrix for that particular block ever needs to be created - but a different part of
-        # deep-(Psydac/Sympde/Sympy)-code did not get that simplification right (yet?), and decided that the assembly code
+        # deep-(PSYDAC/SymPDE/SymPy)-code did not get that simplification right (yet?), and decided that the assembly code
         # needs a StencilMatrix as input for this particular block.
         # See readBilinearForm for additional information.
         # This part of the code filters out unnecessary StencilMatrices, such that only the relevant StencilMatrices

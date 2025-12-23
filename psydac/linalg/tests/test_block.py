@@ -1410,7 +1410,7 @@ def test_block_linear_operator_1d_parallel_topetsc( dtype, n1, p1, P1):
     y_petsc = Lp.createVecLeft()
     # Compute dot product
     Lp.mult(x.topetsc(), y_petsc)
-    # Cast result back to Psydac BlockVector format
+    # Cast result back to PSYDAC BlockVector format
     y_p = petsc_to_psydac(y_petsc, V)
     
     assert np.allclose(y_p.toarray(), y.toarray(), rtol=1e-12, atol=1e-12)
@@ -1490,7 +1490,7 @@ def test_block_linear_operator_2d_parallel_topetsc( dtype, n1, n2, p1, p2, P1, P
     y_petsc = Lp.createVecLeft()
     # Compute dot product
     Lp.mult(x.topetsc(), y_petsc)
-    # Cast result back to Psydac BlockVector format
+    # Cast result back to PSYDAC BlockVector format
     y_p = petsc_to_psydac(y_petsc, L.codomain)
     
     assert np.allclose(y_p.toarray(), y.toarray(), rtol=1e-12, atol=1e-12)

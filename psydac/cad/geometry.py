@@ -514,7 +514,7 @@ class Geometry:
 def export_nurbs_to_hdf5(filename, nurbs, periodic=None, comm=None ):
 
     """
-    Export a single-patch igakit NURBS object to a Psydac geometry file in HDF5 format
+    Export a single-patch igakit NURBS object to a PSYDAC geometry file in HDF5 format
 
     Parameters
     ----------

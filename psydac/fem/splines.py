@@ -265,7 +265,7 @@ class SplineSpace( FemSpace ):
         """ Assume identity mapping for now.
         """
         # [YG, 28.03.2025]: not clear why there should be no mapping here...
-        # Clearly this property is never used in Psydac.
+        # Clearly this property is never used in PSYDAC.
         return None
 
     @property

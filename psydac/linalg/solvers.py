@@ -1007,7 +1007,7 @@ class MinimumResidual(InverseLinearOperator):
 
     Notes
     -----
-    This is an adaptation of the MINRES Solver in Scipy, where the method is modified to accept Psydac data structures,
+    This is an adaptation of the MINRES Solver in Scipy, where the method is modified to accept PSYDAC data structures,
     https://github.com/scipy/scipy/blob/v1.7.1/scipy/sparse/linalg/isolve/minres.py
 
     References
@@ -1059,7 +1059,7 @@ class MinimumResidual(InverseLinearOperator):
 
         Notes
         -----
-        This is an adaptation of the MINRES Solver in Scipy, where the method is modified to accept Psydac data structures,
+        This is an adaptation of the MINRES Solver in Scipy, where the method is modified to accept PSYDAC data structures,
         https://github.com/scipy/scipy/blob/v1.7.1/scipy/sparse/linalg/isolve/minres.py
         References
         ----------
@@ -1306,7 +1306,7 @@ class LSMR(InverseLinearOperator):
 
     Notes
     -----
-    This is an adaptation of the LSMR Solver in Scipy, where the method is modified to accept Psydac data structures,
+    This is an adaptation of the LSMR Solver in Scipy, where the method is modified to accept PSYDAC data structures,
     https://github.com/scipy/scipy/blob/v1.7.1/scipy/sparse/linalg/isolve/lsmr.py
 
     References
@@ -1372,7 +1372,7 @@ class LSMR(InverseLinearOperator):
 
         Notes
         -----
-        This is an adaptation of the LSMR Solver in Scipy, where the method is modified to accept Psydac data structures,
+        This is an adaptation of the LSMR Solver in Scipy, where the method is modified to accept PSYDAC data structures,
         https://github.com/scipy/scipy/blob/v1.7.1/scipy/sparse/linalg/isolve/lsmr.py
 
         References

@@ -47,7 +47,7 @@ def test_field_and_constant(backend):
 
     equation = find(u, forall=v, lhs=a(u, v), rhs=l(v), bc=bc)
 
-    # Discretization and solution with Psydac
+    # Discretization and solution with PSYDAC
     ncells = (5, 5)
     degree = (3, 3)
     domain_h = discretize(domain, ncells=ncells)

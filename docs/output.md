@@ -1,6 +1,6 @@
-# Psydac's outputs
+# PSYDAC's outputs
 ## Structure
-Psydac has a class meant to take care of outputing simulation results. This class, named `OuputManager` is located in `psydac/api/postprocessing.py`.
+PSYDAC has a class meant to take care of outputing simulation results. This class, named `OuputManager` is located in `psydac/api/postprocessing.py`.
 It writes `FemSpace` related information in the Yaml syntax. The file looks like this:
 ```yaml
 ndim: 2
@@ -102,7 +102,7 @@ file.h5
     ...
     snapshot_n/
 ```
-In addition to that, Psydac also features the `PostProcessManager` class to read those files, recreate all the `FemSpace` and `FemField` objects and export them to `VTK`.
+In addition to that, PSYDAC also features the `PostProcessManager` class to read those files, recreate all the `FemSpace` and `FemField` objects and export them to `VTK`.
 
 ## Usage of class `OutputManager`
 

@@ -3,18 +3,19 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-#The purpose of this file is to be launched after an editable installation of Psydac, to pyccelise all the Psydac kernels.
+
+#The purpose of this file is to be launched after an editable installation of PSYDAC, to pyccelise all the PSYDAC kernels.
 #This file is useless during a classic installation because the kernels are already pyccelised in the construction folder.
 
 def main():
     """
-    console command to pyccelise all the Psydac kernels.
+    console command to pyccelise all the PSYDAC kernels.
     """
     import argparse
 
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        description="Accelerate all computational kernels in Psydac using Pyccel (editable install only)"
+        description="Accelerate all computational kernels in PSYDAC using Pyccel (editable install only)"
     )
 
     # Add Argument --language at the pyccel command
@@ -47,7 +48,7 @@ def main():
     # get the absolute path to the psydac directory
     psydac_path = os.path.abspath(psydac.__path__[0])
 
-    print("\nNOTE: This script should only be used if Psydac was installed in editable mode.\n")
+    print("\nNOTE: This script should only be used if PSYDAC was installed in editable mode.\n")
 
     # Define all the parameters of the command in the parameters array
     parameters = ['--language', args.language]
@@ -61,5 +62,5 @@ def main():
         for name in files:
             if name.endswith('_kernels.py'):
                 print('  Pyccelize file: ' + os.path.join(path, name))
-                sub_run([shutil.which('pyccel'), os.path.join(path, name), *parameters], shell=False)
+                sub_run([shutil.which('pyccel'), 'compile', os.path.join(path, name), *parameters], shell=False)
     print()
