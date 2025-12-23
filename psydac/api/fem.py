@@ -52,7 +52,7 @@ class DiscreteBilinearForm(BasicDiscrete):
     """
     Discrete bilinear form ready to be assembled into a matrix.
 
-    This class represents the concept of a discrete bilinear form in Psydac.
+    This class represents the concept of a discrete bilinear form in PSYDAC.
     Instances of this class generate an appropriate matrix assembly kernel,
     allocate the matrix if not provided, and prepare a list of arguments for
     the kernel.
@@ -852,7 +852,7 @@ class DiscreteLinearForm(BasicDiscrete):
     """
     Discrete linear form ready to be assembled into a vector.
 
-    This class represents the concept of a discrete linear form in Psydac.
+    This class represents the concept of a discrete linear form in PSYDAC.
     Instances of this class generate an appropriate vector assembly kernel,
     allocate the vector if not provided, and prepare a list of arguments for
     the kernel.
@@ -1268,7 +1268,7 @@ class DiscreteFunctional(BasicDiscrete):
     """
     Discrete functional ready to be assembled into a scalar (real or complex).
 
-    This class represents the concept of a discrete functional in Psydac.
+    This class represents the concept of a discrete functional in PSYDAC.
     Instances of this class generate an appropriate functional assembly kernel,
     and prepare a list of arguments for the kernel.
 

@@ -131,7 +131,7 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
     # ...
 
     #--------------------------------------------------------------------------
-    # Discrete objects: Psydac
+    # Discrete objects: PSYDAC
     #--------------------------------------------------------------------------
 
     # Discrete physical domain and discrete DeRham sequence

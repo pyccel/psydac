@@ -1,4 +1,4 @@
-New Matrix Assembly for Psydac
+New Matrix Assembly for PSYDAC
 ------------------------------
 
 Here we keep track on the performance of the new assembly algorithm (sum factorization).

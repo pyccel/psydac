@@ -2317,7 +2317,7 @@ class PostProcessManager:
             elif mapping is None:
                 pass
             else:
-                raise TypeError(f'mapping need to be SymPDE Mapping or Psydac SplineMapping and not {type(mapping)}')
+                raise TypeError(f'mapping should be SymPDE Mapping or PSYDAC SplineMapping, not {type(mapping)}')
         conn, off, typ, i_mpi_dd = self._compute_unstructured_mesh_info(
             local_domain,
             npts_per_cell=npts_per_cell,
