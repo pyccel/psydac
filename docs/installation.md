@@ -8,7 +8,7 @@
 
 ## Requirements
 
-Psydac requires a certain number of components to be installed on the machine:
+PSYDAC requires a certain number of components to be installed on the machine:
 
 -   Fortran and C compilers with OpenMP support
 -   OpenMP library
@@ -81,7 +81,7 @@ It is good practice to keep `pip` up to date with
 pip install --upgrade pip
 ```
 
-One can clone the Psydac repository at any location `<ROOT-PATH>` in the filesystem which does not require administrator privileges, using either
+One can clone the PSYDAC repository at any location `<ROOT-PATH>` in the filesystem which does not require administrator privileges, using either
 ```sh
 git clone https://github.com/pyccel/psydac.git
 ```
@@ -93,7 +93,7 @@ The latter command requires a GitHub account.
 
 ## Installing the library
 
-Psydac depends on several Python packages, which should be installed in the newly created virtual environment.
+PSYDAC depends on several Python packages, which should be installed in the newly created virtual environment.
 Almost all of these dependencies will be automatically installed by `pip` at the time of installing the `psydac` package later on.
 
 The single exception is the `h5py` package, which needs to be installed in parallel mode.
@@ -146,7 +146,7 @@ export HDF5_MPI="ON"
 pip install h5py --no-cache-dir --no-binary h5py
 ```
 
-At this point the Psydac library may be installed from the cloned directory `<ROOT-PATH>/psydac` in **standard mode**, which copies the relevant files to the correct locations of the virtual environment, or in **development mode**, which only installs symbolic links to the Psydac directory. The latter mode allows one to affect the behavior of Psydac by modifying the source files.
+At this point the PSYDAC library may be installed from the cloned directory `<ROOT-PATH>/psydac` in **standard mode**, which copies the relevant files to the correct locations of the virtual environment, or in **development mode**, which only installs symbolic links to the PSYDAC directory. The latter mode allows one to affect the behavior of PSYDAC by modifying the source files.
 
 -   **Standard mode**:
     ```bash
@@ -161,8 +161,8 @@ At this point the Psydac library may be installed from the cloned directory `<RO
 
 ## Optional PETSc installation
 
-Although Psydac provides several iterative linear solvers which work with our native matrices and vectors, it is often useful to access a dedicated library like [PETSc](https://petsc.org). To this end, our matrices and vectors have the method `topetsc()`, which converts them to the corresponding `petsc4py` objects.
-(`petsc4py` is a Python package which provides Python bindings to PETSc.) After solving the linear system with a PETSc solver, the function `petsc_to_psydac` allows converting the solution vector back to the Psydac format.
+Although PSYDAC provides several iterative linear solvers which work with our native matrices and vectors, it is often useful to access a dedicated library like [PETSc](https://petsc.org). To this end, our matrices and vectors have the method `topetsc()`, which converts them to the corresponding `petsc4py` objects.
+(`petsc4py` is a Python package which provides Python bindings to PETSc.) After solving the linear system with a PETSc solver, the function `petsc_to_psydac` allows converting the solution vector back to the PSYDAC format.
 
 In order to use these additional feature, PETSc and petsc4py must be installed as follows.
 First, we download the latest release of PETSc from its [official Git repository](https://gitlab.com/petsc/petsc):
