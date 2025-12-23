@@ -592,8 +592,8 @@ def discretize(a, *args, **kwargs):
         domain  = domain_h.domain
         dim     = domain.dim
 
-        # The current implementation of the sum factorization algorithm does not support openMP parallelization
-        # It is not properly tested, whether this way of excluding openMP parallelized code from using the sum factorization algorithm works.
+        # The current implementation of the sum factorization algorithm does not support OpenMP parallelization
+        # It is not properly tested, whether this way of excluding OpenMP parallelized code from using the sum factorization algorithm works.
         backend = kwargs.get('backend')# or None
         assembly_backend = kwargs.get('assembly_backend')# or None
         assembly_backend = backend or assembly_backend
@@ -657,7 +657,11 @@ def discretize(a, *args, **kwargs):
     #     return DiscreteSesquilinearForm(a, kernel_expr, *args, **kwargs)
 
     if isinstance(a, sym_BilinearForm):
-        if kwargs.pop('sum_factorization'):
+        # Currently sum factorization can only be used for interior domains
+        from sympde.expr.evaluation import DomainExpression
+        is_interior_expr = isinstance(kernel_expr, DomainExpression)
+
+        if kwargs.pop('sum_factorization') and is_interior_expr:
             return DiscreteBilinearForm_SF(a, kernel_expr, *args, **kwargs)
         else:
             return DiscreteBilinearForm(a, kernel_expr, *args, **kwargs)
