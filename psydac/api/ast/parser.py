@@ -107,16 +107,16 @@ def is_scalar_array(var):
 #==============================================================================
 def parse(expr, settings, backend=None):
     """
-    A function which takes a Psydac AST and transforms it to a Pyccel AST.
+    A function which takes a PSYDAC AST and transforms it to a Pyccel AST.
 
-    This function takes a Psydac abstract syntax tree (AST) and returns a
+    This function takes a PSYDAC abstract syntax tree (AST) and returns a
     Pyccel AST. In turn, this can be translated to Python code through a call
     to the function `pycode` from `psydac.pyccel.codegen.printing.pycode`.
 
     Parameters
     ----------
     expr : Any
-        Psydac AST, of any type supported by the Parser class.
+        PSYDAC AST, of any type supported by the Parser class.
 
     settings : dict
         Dictionary that contains number of dimension, mappings and target if provided
@@ -133,9 +133,9 @@ def parse(expr, settings, backend=None):
 #==============================================================================
 class Parser(object):
     """
-    A Parser which takes a Psydac AST and transforms it to a Pyccel AST.
+    A Parser which takes a PSYDAC AST and transforms it to a Pyccel AST.
 
-    This class takes a Psydac AST and transforms it to the AST of an old and
+    This class takes a PSYDAC AST and transforms it to the AST of an old and
     reduced version of Pyccel, which is shipped as `psydac.pyccel`. This
     "mini-Pyccel" is then used for printing the Python code.
 

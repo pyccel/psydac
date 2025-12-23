@@ -2777,7 +2777,7 @@ def test_stencil_matrix_2d_parallel_topetsc(dtype, n1, n2, p1, p2, sh1, sh2, P1,
     y_petsc = Mp.createVecLeft()
     # Compute dot product
     Mp.mult(x.topetsc(), y_petsc)
-    # Cast result back to Psydac StencilVector format
+    # Cast result back to PSYDAC StencilVector format
     y_p = petsc_to_psydac(y_petsc, V)
 
     assert np.allclose(y_p.toarray(), y.toarray(), rtol=1e-12, atol=1e-12)
@@ -2851,7 +2851,7 @@ def test_stencil_matrix_1d_parallel_topetsc(dtype, n1, p1, sh1, P1):
     y_petsc = Mp.createVecLeft()
     # Compute dot product
     Mp.mult(x.topetsc(), y_petsc)
-    # Cast result back to Psydac StencilVector format
+    # Cast result back to PSYDAC StencilVector format
     y_p = petsc_to_psydac(y_petsc, V)
 
     assert np.allclose(y_p.toarray(), y.toarray(), rtol=1e-12, atol=1e-12)
@@ -2906,7 +2906,7 @@ def test_mass_matrix_2d_parallel_topetsc(n1, n2, p1, p2, P1, P2):
     y_petsc = Mp.createVecLeft()
     # Compute dot product
     Mp.mult(x.topetsc(), y_petsc)
-    # Cast result back to Psydac StencilVector format
+    # Cast result back to PSYDAC StencilVector format
     y_p = petsc_to_psydac(y_petsc, Vh.coeff_space)
 
     assert np.allclose(y_p.toarray(), y.toarray(), rtol=1e-12, atol=1e-12)
@@ -2965,7 +2965,7 @@ def test_mass_matrix_3d_parallel_topetsc(n1, n2, n3, p1, p2, p3, P1, P2, P3):
     y_petsc = Mp.createVecLeft()
     # Compute dot product
     Mp.mult(x.topetsc(), y_petsc)
-    # Cast result back to Psydac StencilVector format
+    # Cast result back to PSYDAC StencilVector format
     y_p = petsc_to_psydac(y_petsc, Vh.coeff_space)
 
     assert np.allclose(y_p.toarray(), y.toarray(), rtol=1e-12, atol=1e-12)
@@ -3019,7 +3019,7 @@ def test_mass_matrix_1d_parallel_topetsc(n1, p1, P1):
     x_petsc = x.topetsc()
     # Compute dot product
     Mp.mult(x_petsc, y_petsc)
-    # Cast result back to Psydac StencilVector format
+    # Cast result back to PSYDAC StencilVector format
     y_p = petsc_to_psydac(y_petsc, Vh.coeff_space)
 
     assert np.allclose(y_p.toarray(), y.toarray(), rtol=1e-12, atol=1e-12)

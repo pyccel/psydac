@@ -112,7 +112,7 @@ def run_maxwell_3d_scipy(logical_domain, mapping, e_ex, b_ex, ncells, degree, pe
     F = mapping.get_callable_mapping()
 
     #------------------------------------------------------------------------------
-    # Discrete objects: Psydac
+    # Discrete objects: PSYDAC
     #------------------------------------------------------------------------------
 
     # Select backend for acceleration of the generated assembly code
@@ -215,7 +215,7 @@ def run_maxwell_3d_stencil(logical_domain, mapping, e_ex, b_ex, ncells, degree, 
     F = mapping.get_callable_mapping()
 
     #------------------------------------------------------------------------------
-    # Discrete objects: Psydac
+    # Discrete objects: PSYDAC
     #------------------------------------------------------------------------------
 
     # Select backend for acceleration of the generated assembly code

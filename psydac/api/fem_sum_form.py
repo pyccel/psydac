@@ -59,6 +59,11 @@ class DiscreteSumForm(BasicDiscrete):
         self._kernel_expr = kernel_expr
         operator = None
         for e in kernel_expr:
+
+            # Currently sum factorization can only be used for interior domains
+            from sympde.expr.evaluation import DomainExpression
+            is_interior_expr = isinstance(e, DomainExpression)
+
             if isinstance(a, sym_LinearForm):
                 kwargs['update_ghost_regions'] = False
                 ah = DiscreteLinearForm(a, e, *args, backend=backend, **kwargs)
@@ -74,7 +79,7 @@ class DiscreteSumForm(BasicDiscrete):
 
             elif isinstance(a, sym_BilinearForm):
                 kwargs['update_ghost_regions'] = False
-                if sum_factorization:
+                if sum_factorization and is_interior_expr:
                     ah = DiscreteBilinearForm_SF(a, e, *args, assembly_backend=backend, **kwargs)
                 else:
                     ah = DiscreteBilinearForm(a, e, *args, assembly_backend=backend, **kwargs)

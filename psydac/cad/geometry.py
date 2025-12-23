@@ -16,6 +16,7 @@ import yaml
 import os
 import string
 import random
+import warnings
 
 import numpy as np
 import h5py
@@ -182,6 +183,13 @@ class Geometry:
 
         if periodic is None:
             periodic = [False]*domain.dim
+        else:
+            if len(interior) > 1 and True in periodic:
+                msg = "Discretizing a multipatch domain with a periodic flag is not advised -- continue at your own risk."
+                # [MCP 18.12.2025] the following line may be causing a strange error in the CI (MPI tests for macos-14/Python 3.10)
+                # warnings.warn(msg, Warning)  
+                warnings.warn(msg, UserWarning)
+
 
         if isinstance(periodic, (list, tuple)):
             periodic = {itr.name:periodic for itr in interior}
@@ -506,7 +514,7 @@ class Geometry:
 def export_nurbs_to_hdf5(filename, nurbs, periodic=None, comm=None ):
 
     """
-    Export a single-patch igakit NURBS object to a Psydac geometry file in HDF5 format
+    Export a single-patch igakit NURBS object to a PSYDAC geometry file in HDF5 format
 
     Parameters
     ----------
