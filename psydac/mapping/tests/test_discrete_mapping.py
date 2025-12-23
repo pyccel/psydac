@@ -288,7 +288,7 @@ def test_nurbs_circle():
     control = disk.points
     d = disk.degree
 
-    # Psydac
+    # PSYDAC
     spaces = [SplineSpace(degree, knot) for degree, knot in zip(d, k)]
 
     ncells = [len(space.breaks)-1 for space in spaces]

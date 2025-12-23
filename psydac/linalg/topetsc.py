@@ -95,12 +95,12 @@ def petsc_local_to_psydac(
     V : VectorSpace,
     petsc_index : int):
     """
-    Convert the PETSc local index (starting from 0 in each process) to a Psydac local index (natural multi-index, as grid coordinates).
+    Convert the PETSc local index (starting from 0 in each process) to a PSYDAC local index (natural multi-index, as grid coordinates).
 
     Parameters
     -----------
     V : VectorSpace
-        The vector space to which the Psydac vector belongs.
+        The vector space to which the PSYDAC vector belongs.
         This defines the number of blocks, the size of each block,
         and how each block is distributed across MPI processes.
 
@@ -110,9 +110,9 @@ def petsc_local_to_psydac(
     Returns
     --------
     block: tuple
-        The block where the Psydac multi-index belongs to.
+        The block where the PSYDAC multi-index belongs to.
     psydac_index : tuple
-        The Psydac local multi-index. This index is local the block.
+        The PSYDAC local multi-index. This index is local the block.
     """
 
     # Get the number of points for each block and each dimension local to the current process:
@@ -168,12 +168,12 @@ def psydac_to_petsc_global(
         block_indices, 
         ndarray_indices) -> int:
     """
-    Convert the Psydac local index (natural multi-index, as grid coordinates) to a PETSc global index. Performs a search to find the process owning the multi-index.
+    Convert the PSYDAC local index (natural multi-index, as grid coordinates) to a PETSc global index. Performs a search to find the process owning the multi-index.
 
     Parameters
     -----------
     V : VectorSpace
-        The vector space to which the Psydac vector belongs.
+        The vector space to which the PSYDAC vector belongs.
         This defines the number of blocks, the size of each block,
         and how each block is distributed across MPI processes.
 
@@ -277,7 +277,7 @@ def get_npts_local(V : VectorSpace) -> list:
     Parameter
     ---------
     V : VectorSpace
-        The distributed Psydac vector space.
+        The distributed PSYDAC vector space.
 
     Returns
     --------
@@ -310,7 +310,7 @@ def get_npts_per_block(V : VectorSpace) -> list:
     Parameter
     ---------
     V : VectorSpace
-        The distributed Psydac vector space.
+        The distributed PSYDAC vector space.
 
     Returns
     --------
@@ -338,12 +338,12 @@ def get_npts_per_block(V : VectorSpace) -> list:
 
 
 def vec_topetsc(vec):
-    """ Convert vector from Psydac format to a PETSc.Vec object.
+    """ Convert vector from PSYDAC format to a PETSc.Vec object.
 
     Parameters
     ----------
     vec : psydac.linalg.stencil.StencilVector | psydac.linalg.block.BlockVector
-      Psydac StencilVector or BlockVector. In the case of a BlockVector, only the case where the blocks are StencilVector is implemented.
+      PSYDAC StencilVector or BlockVector. In the case of a BlockVector, only the case where the blocks are StencilVector is implemented.
 
     Returns
     -------
@@ -438,12 +438,12 @@ def vec_topetsc(vec):
 
 
 def mat_topetsc(mat):
-    """ Convert operator from Psydac format to a PETSc.Mat object.
+    """ Convert operator from PSYDAC format to a PETSc.Mat object.
 
     Parameters
     ----------
     mat : psydac.linalg.stencil.StencilMatrix | psydac.linalg.block.BlockLinearOperator
-      Psydac operator. In the case of a BlockLinearOperator, only the case where the blocks are StencilMatrix is implemented.
+      PSYDAC operator. In the case of a BlockLinearOperator, only the case where the blocks are StencilMatrix is implemented.
 
     Returns
     -------
