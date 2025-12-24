@@ -261,7 +261,7 @@ class ConjugateGradient(InverseLinearOperator):
             print( "+---------+---------------------+")
 
         # Convergence information
-        self._info = {'niter': m, 'success': am < tol_sqr, 'res_norm': sqrt(am) }
+        self._info = {'niter': m, 'success': bool(am < tol_sqr), 'res_norm': sqrt(am) }
 
         if recycle:
             x.copy(out=self._options["x0"])
@@ -370,7 +370,9 @@ class ConjugateGradient(InverseLinearOperator):
             print( "+---------+---------------------+")
 
         # Convergence information
-        self._info = {'niter': k, 'success': nrmr_sqr < tol_sqr, 'res_norm': sqrt(nrmr_sqr) }
+        self._info = {'niter': k,
+                      'success': bool(nrmr_sqr < tol_sqr),
+                      'res_norm': sqrt(nrmr_sqr)}
 
         if recycle:
             x.copy(out=self._options["x0"])
@@ -560,7 +562,9 @@ class BiConjugateGradient(InverseLinearOperator):
             print( "+---------+---------------------+")
 
         # Convergence information
-        self._info = {'niter': m, 'success': res_sqr < tol_sqr, 'res_norm': sqrt(res_sqr)}
+        self._info = {'niter': m,
+                      'success': bool(res_sqr < tol_sqr),
+                      'res_norm': sqrt(res_sqr)}
 
         if recycle:
             x.copy(out=self._options["x0"])
@@ -773,7 +777,9 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
             print("+---------+---------------------+")
 
         # Convergence information
-        self._info = {'niter': m, 'success': res_sqr < tol_sqr, 'res_norm': sqrt(res_sqr)}
+        self._info = {'niter': m,
+                      'success': bool(res_sqr < tol_sqr),
+                      'res_norm': sqrt(res_sqr)}
 
         if recycle:
             x.copy(out=self._options["x0"])
@@ -959,8 +965,9 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
             print("+---------+---------------------+")
 
         # convergence information
-        self._info = {'niter': niter, 'success': res_sqr <
-                tol_sqr, 'res_norm': sqrt(res_sqr)}
+        self._info = {'niter': niter,
+                      'success': bool(res_sqr < tol_sqr),
+                      'res_norm': sqrt(res_sqr)}
 
         # Recycle solution as next initial guess, if enabled
         if recycle:
@@ -1248,7 +1255,9 @@ class MinimumResidual(InverseLinearOperator):
             print( "+---------+---------------------+")
 
         # Convergence information
-        self._info = {'niter': itn, 'success': rnorm<tol, 'res_norm': rnorm }
+        self._info = {'niter': itn,
+                      'success': bool(rnorm < tol),
+                      'res_norm': rnorm}
 
         if recycle:
             x.copy(out=self._options["x0"])
@@ -1620,7 +1629,7 @@ class LSMR(InverseLinearOperator):
             print( "+---------+---------------------+")
 
         # Convergence information
-        self._info = {'niter': itn, 'success': istop in [1,2,3], 'res_norm': normr }
+        self._info = {'niter': itn, 'success': istop in [1,2,3], 'res_norm': normr}
         # Seems necessary, as algorithm might terminate even though rnorm > tol.
         self._successful = istop in [1,2,3]
 
@@ -1747,7 +1756,7 @@ class GMRES(InverseLinearOperator):
 
         am = sqrt(r.inner(r).real)
         if am < tol:
-            self._info = {'niter': 1, 'success': am < tol, 'res_norm': am }
+            self._info = {'niter': 1, 'success': bool(am < tol), 'res_norm': am }
             return x
 
         beta.append(am)
@@ -1794,7 +1803,7 @@ class GMRES(InverseLinearOperator):
             x.mul_iadd(y[i], self._Q[i])
 
         # Convergence information
-        self._info = {'niter': k+1, 'success': am < tol, 'res_norm': am }
+        self._info = {'niter': k+1, 'success': bool(am < tol), 'res_norm': am}
         
         if recycle:
             x.copy(out=self._options["x0"])
