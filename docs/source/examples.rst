@@ -18,6 +18,7 @@ but are also generated as part of the documentation and can be accessed here:
    :maxdepth: 1
    :caption: Notebooks:
 
+   examples/poisson_2d_square
    examples/Poisson_non_periodic
    examples/Helmholtz_non_periodic
    examples/fem_L2_projection
