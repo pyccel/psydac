@@ -32,7 +32,7 @@ FEEC Examples
 -------------
 
 In the `FEEC examples directory <https://github.com/pyccel/psydac/tree/devel/examples/feec>`_, 
-you will find several examples of how to use Psydac to solve problems arising within the Finite Element Exterior Calculus (FEEC) framework.
+you will find several examples of how to use PSYDAC to solve problems arising within the Finite Element Exterior Calculus (FEEC) framework.
 These examples include:
 
 
