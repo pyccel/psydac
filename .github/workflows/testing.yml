@@ -157,7 +157,7 @@ jobs:
       - name: Initialize test directory
         run: |
           mkdir pytest
-          cp mpi_tester.py pytest
+          cp scripts/mpi_tester.py pytest
 
       - name: Run coverage tests on macOS
         if: matrix.os == 'macos-14'
@@ -202,6 +202,11 @@ jobs:
         working-directory: ./pytest
         run: |
           python mpi_tester.py --mpirun="mpiexec -n 4 ${MPI_OPTS}" --pyargs psydac -m "parallel and petsc"
+
+      - name: Run single-process example tests with Pytest on Ubuntu
+        if: matrix.os == 'ubuntu-24.04'
+        run: |
+          python -m pytest examples/feec
 
       - name: Remove test directory
         if: always()

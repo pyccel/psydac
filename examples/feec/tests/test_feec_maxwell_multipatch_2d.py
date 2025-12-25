@@ -4,12 +4,11 @@
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
 import numpy as np
-import pytest
 
-from psydac.feec.multipatch.examples.hcurl_source_pbms_conga_2d import solve_hcurl_source_pbm
-from psydac.feec.multipatch.examples.hcurl_eigen_pbms_conga_2d import hcurl_solve_eigen_pbm
-from psydac.feec.multipatch.examples.hcurl_eigen_pbms_dg_2d import hcurl_solve_eigen_pbm_dg
-from psydac.feec.multipatch.examples.timedomain_maxwell import solve_td_maxwell_pbm
+from examples.feec.hcurl_source_pbms_conga_2d   import solve_hcurl_source_pbm
+from examples.feec.hcurl_eigen_pbms_conga_2d    import hcurl_solve_eigen_pbm
+from examples.feec.hcurl_eigen_pbms_dg_2d       import hcurl_solve_eigen_pbm_dg
+from examples.feec.timedomain_maxwell           import solve_td_maxwell_pbm
 
 def test_time_harmonic_maxwell_pretzel_f():
     nc = 4
@@ -17,22 +16,20 @@ def test_time_harmonic_maxwell_pretzel_f():
 
     source_type = 'manu_maxwell_inhom'
     domain_name = 'pretzel_f'
-    source_proj = 'tilde_Pi'
 
     omega = np.pi
     eta = -omega**2  # source
 
-    diags = solve_hcurl_source_pbm(
+    err = solve_hcurl_source_pbm(
         nc=nc, deg=deg,
         eta=eta,
         nu=0,
         mu=1,
         domain_name=domain_name,
         source_type=source_type,
-        source_proj=source_proj,
         backend_language='pyccel-gcc')
 
-    assert abs(diags["err"] - 0.0072015081402929445) < 1e-10
+    assert abs(err - 0.0072015081402929445) < 1e-10
 
 def test_time_harmonic_maxwell_pretzel_f_nc():
     deg = 2
@@ -41,22 +38,20 @@ def test_time_harmonic_maxwell_pretzel_f_nc():
 
     source_type = 'manu_maxwell_inhom'
     domain_name = 'pretzel_f'
-    source_proj = 'tilde_Pi'
 
     omega = np.pi
     eta = -omega**2  # source
 
-    diags = solve_hcurl_source_pbm(
+    err = solve_hcurl_source_pbm(
         nc=nc, deg=deg,
         eta=eta,
         nu=0,
         mu=1,
         domain_name=domain_name,
         source_type=source_type,
-        source_proj=source_proj,
         backend_language='pyccel-gcc')
 
-    assert abs(diags["err"] - 0.004849225522124346) < 5e-7
+    assert abs(err - 0.004849225522124346) < 5e-7
 
 def test_maxwell_eigen_curved_L_shape():
     domain_name = 'curved_L_shape'
@@ -77,7 +72,7 @@ def test_maxwell_eigen_curved_L_shape():
     nb_eigs_plot = 7
     skip_eigs_threshold = 1e-7
 
-    diags, eigenvalues = hcurl_solve_eigen_pbm(
+    eigenvalues = hcurl_solve_eigen_pbm(
         ncells=ncells, degree=degree,
         gamma_h=0,
         generalized_pbm=True,
@@ -120,7 +115,7 @@ def test_maxwell_eigen_curved_L_shape_nc():
     nb_eigs_plot = 7
     skip_eigs_threshold = 1e-7
 
-    diags, eigenvalues = hcurl_solve_eigen_pbm(
+    eigenvalues = hcurl_solve_eigen_pbm(
         ncells=ncells, degree=degree,
         gamma_h=0,
         generalized_pbm=True,
@@ -163,7 +158,7 @@ def test_maxwell_eigen_curved_L_shape_dg():
     nb_eigs_plot = 7
     skip_eigs_threshold = 1e-7
 
-    diags, eigenvalues = hcurl_solve_eigen_pbm_dg(
+    eigenvalues = hcurl_solve_eigen_pbm_dg(
         ncells=ncells, degree=degree,
         nu=0,
         mu=1,

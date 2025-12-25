@@ -23,18 +23,19 @@ import numpy as np
 from sympde.topology import Derham
 
 from psydac.api.discretization import discretize
+from psydac.api.postprocessing import OutputManager, PostProcessManager
+
 from psydac.linalg.basic       import IdentityOperator
 from psydac.linalg.solvers     import inverse
 
-from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
-from psydac.feec.multipatch.examples.ppc_test_cases     import get_source_and_solution_h1
+from psydac.feec.multipatch_domain_utilities import build_multipatch_domain
 
-from psydac.fem.projectors import get_dual_dofs
+from psydac.fem.projectors  import get_dual_dofs
+from psydac.fem.basic       import FemField
 
-from psydac.fem.basic          import FemField
-from psydac.api.postprocessing import OutputManager, PostProcessManager
-
-
+#==============================================================================
+# Solver for H1 source problems
+#==============================================================================
 def solve_h1_source_pbm(
         nc=4, deg=4, domain_name='pretzel_f', backend_language=None, source_type='manu_poisson_elliptic',
         eta=-10., mu=1., gamma_h=10., plot_dir=None,
@@ -132,9 +133,10 @@ def solve_h1_source_pbm(
     # useful for the boundary condition (if present)
     pre_A = cP0.T @ (eta * H0 - mu * DG) 
     
+    # System matrix
     A = pre_A @ cP0 + gamma_h * JP0
 
-  
+    # source and exact solution
     f_scal, u_bc, u_ex = get_source_and_solution_h1(source_type=source_type, eta=eta, mu=mu, domain=domain, domain_name=domain_name,)
 
     df = get_dual_dofs(Vh=V0h, f=f_scal, domain_h=domain_h, backend_language=backend_language)
@@ -234,19 +236,103 @@ def solve_h1_source_pbm(
     if u_ex:
         err = u - u_ex
         rel_err = np.sqrt(H0.dot_inner(err, err) / H0.dot_inner(u_ex, u_ex))
+        print('relative L2 error = {:.6e}'.format(rel_err))
 
         return rel_err
 
+#==============================================================================
+# Test sources and exact solutions
+#==============================================================================
+def get_source_and_solution_h1(source_type=None, eta=0, mu=0,
+                               domain=None, domain_name=None):
+    """
+    provide source, and exact solutions when available, for:
+
+    Find u in H^1, such that
+
+      A u = f             on \\Omega
+        u = u_bc          on \\partial \\Omega
+
+    with
+
+      A u := eta * u  -  mu * div grad u
+
+    see solve_h1_source_pbm()
+    """
+    from sympy import pi, cos, sin, Tuple, exp
+
+    # exact solutions (if available)
+    u_ex = None
+
+    # bc solution: describe the bc on boundary. Inside domain, values should
+    # not matter. Homogeneous bc will be used if None
+    u_bc = None
+
+    # source terms
+    f_scal = None
+
+    # auxiliary term (for more diagnostics)
+    grad_phi = None
+    phi = None
+
+    x, y = domain.coordinates
+
+    if source_type in ['manu_poisson_elliptic']:
+        x0 = 1.5
+        y0 = 1.5
+        s = (x - x0) - (y - y0)
+        t = (x - x0) + (y - y0)
+        a = (1 / 1.9)**2
+        b = (1 / 1.2)**2
+        sigma2 = 0.0121
+        tau = a * s**2 + b * t**2 - 1
+        phi = exp(-tau**2 / (2 * sigma2))
+        dx_tau = 2 * (a * s + b * t)
+        dy_tau = 2 * (-a * s + b * t)
+        dxx_tau = 2 * (a + b)
+        dyy_tau = 2 * (a + b)
+
+        dx_phi = (-tau * dx_tau / sigma2) * phi
+        dy_phi = (-tau * dy_tau / sigma2) * phi
+        grad_phi = Tuple(dx_phi, dy_phi)
+
+        f_scal = -((tau * dx_tau / sigma2)**2 - (tau * dxx_tau + dx_tau**2) / sigma2
+                   + (tau * dy_tau / sigma2)**2 - (tau * dyy_tau + dy_tau**2) / sigma2) * phi
+
+        # exact solution of  -p'' = f  with hom. bc's on pretzel domain
+        if mu == 1 and eta == 0:
+            u_ex = phi
+        else:
+            print('WARNING (54375385643): exact solution not available in this case!')
+
+        if not domain_name in ['pretzel', 'pretzel_f']:
+            # we may have non-hom bc's
+            u_bc = u_ex
+
+    elif source_type == 'manu_poisson_2':
+        f_scal = -4
+        if mu == 1 and eta == 0:
+            u_ex = x**2 + y**2
+        else:
+            raise NotImplementedError
+        u_bc = u_ex
+
+    elif source_type == 'manu_poisson_sincos':
+        u_ex = sin(pi * x) * cos(pi * y)
+        f_scal = (eta + 2 * mu * pi**2) * u_ex
+        u_bc = u_ex
+
+    else:
+        raise ValueError(source_type)
+
+    return f_scal, u_bc, u_ex
 
 if __name__ == '__main__':
-
-    omega = np.sqrt(170)  # source
-    eta = -omega**2 
-    mu=0
+    eta = 0
+    mu=1
     gamma_h = 10
 
-    source_type = 'manu_poisson_elliptic'
-
+    source_type = 'manu_poisson_2'
     domain_name = 'pretzel_f'
 
     nc = 4
@@ -256,9 +342,8 @@ if __name__ == '__main__':
     solve_h1_source_pbm(
         nc=nc, deg=deg,
         eta=eta,
-        mu=mu,  # 1,
+        mu=mu,
         domain_name=domain_name,
         source_type=source_type,
         backend_language='pyccel-gcc',
-        plot_dir='./plots/h1_source_pbms_conga_2d/' + run_dir,
     )

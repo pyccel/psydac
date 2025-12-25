@@ -5,7 +5,7 @@
 #---------------------------------------------------------------------------#
 import numpy as np
 
-from psydac.feec.multipatch.examples.h1_source_pbms_conga_2d import solve_h1_source_pbm
+from examples.feec.h1_source_pbms_conga_2d import solve_h1_source_pbm
 
 def test_poisson_pretzel_f():
 

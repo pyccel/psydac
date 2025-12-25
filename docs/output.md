@@ -159,9 +159,4 @@ post.export_to_vtk('filename_vtk', grid=grid, npts_per_cell=npts_per_cell, snaps
 ```
 
 ## Further Examples
-Further examples are present in the following files:
-
-*   `examples/poisson_3d_target_torus.py`
-*   `examples/sample_multipatch_parallel.py`
-*   `examples/notebooks/Poisson_non_periodic.ipynb`
-*   `psydac/api/tests/test_postprocessing.py`
+Further examples are present in the [example notebooks](https://pyccel.github.io/psydac/examples.html).

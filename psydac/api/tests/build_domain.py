@@ -12,7 +12,7 @@ from sympde.topology import Square, Domain
 from sympde.topology import IdentityMapping, PolarMapping, AffineMapping, Mapping
 
 # remove after sympde PR #155 is merged and call Domain.join instead
-from psydac.feec.multipatch.multipatch_domain_utilities import sympde_Domain_join
+from psydac.feec.multipatch_domain_utilities import sympde_Domain_join
 
 #==============================================================================
 # small extension to SymPDE:

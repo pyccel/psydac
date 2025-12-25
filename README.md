@@ -1,5 +1,5 @@
 <h1 align="center">
-<img src="https://raw.githubusercontent.com/pyccel/psydac/devel/docs/source/logo/psydac_banner.svg" width="600" alt="Shows the psydac logo.">
+<img src="https://raw.githubusercontent.com/pyccel/psydac/devel/docs/source/logo/psydac_banner.svg" width="600" alt="Shows the psydac logo." class="dark-light">
 </h1><br>
 
 [![devel_tests](https://github.com/pyccel/psydac/actions/workflows/testing.yml/badge.svg)](https://github.com/pyccel/psydac/actions/workflows/testing.yml) [![docs](https://github.com/pyccel/psydac/actions/workflows/documentation.yml/badge.svg)](https://github.com/pyccel/psydac/actions/workflows/documentation.yml)
@@ -38,7 +38,7 @@ PSYDAC requires a certain number of components to be installed on the machine:
 
 The installation instructions depend on the operating system and on the packaging manager used.
 It is particularly important to determine the **HDF5 root folder**, as this will be needed to install the [`h5py`](https://docs.h5py.org/en/latest/build.html#source-installation) package in parallel mode.
-Detailed instructions can be found in the [documentation](https://github.com/pyccel/psydac/blob/devel/docs/installation.md).
+Detailed instructions can be found in the [documentation](https://pyccel.github.io/psydac/installation.html).
 
 Once those components are installed, we recommend using [`venv`](https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/#creating-a-virtual-environment) to set up a fresh Python virtual environment at a location `<ENV-PATH>`:
 ```bash
@@ -65,12 +65,12 @@ pip install meson-python "pyccel>=2.1.0"
 pip install --no-build-isolation --editable ./psydac
 ```
 
-Again, for more details we refer to our [documentation](https://github.com/pyccel/psydac/blob/devel/docs/installation.md).
+Again, for more details we refer to our [documentation](https://pyccel.github.io/psydac/installation.html).
 
 > [!TIP]
 > PSYDAC provides the functionality to convert its MPI-parallel matrices and vectors to their [PETSc](https://petsc.org) equivalent, and back.
 > This gives the user access to a wide variety of linear solvers and other algorithms.
-> Instructions for installing [PETSc](https://petsc.org) and `petsc4py` can be found in our [documentation](https://github.com/pyccel/psydac/blob/devel/docs/installation.md#optional-petsc-installation).
+> Instructions for installing [PETSc](https://petsc.org) and `petsc4py` can be found in our [documentation](https://pyccel.github.io/psydac/installation.html#id9).
 
 ## Running Tests
 
@@ -108,14 +108,15 @@ This command applies Pyccel to all the kernel files in the source directory. The
 
 ## Examples and Tutorials
 
-A [tutorial](https://pyccel.github.io/IGA-Python/intro.html) on isogeometric analysis, with many example notebooks where various PDEs are solved with PSYDAC, is under construction in the [IGA-Python](https://github.com/pyccel/IGA-Python) repository.
+Our [documentation](https://pyccel.github.io/psydac/examples.html) provides Jupyter notebooks that present many aspects of this library. 
+Additional [tutorials](https://pyccel.github.io/IGA-Python/intro.html) on isogeometric analysis, with many example notebooks where various PDEs are solved with PSYDAC, is under construction in the [IGA-Python](https://github.com/pyccel/IGA-Python) repository.
 Some other examples can be found [here](https://github.com/pyccel/psydac/blob/devel/examples).
 
 ## Library Documentation
 
--   [Output formats](https://github.com/pyccel/psydac/blob/devel/docs/output.md)
--   [Mesh generation](https://github.com/pyccel/psydac/blob/devel/docs/psydac-mesh.md)
--   [Library reference](https://pyccel.github.io/psydac/)
+-   [Output formats](https://pyccel.github.io/psydac/output.html)
+-   [Mesh generation](https://pyccel.github.io/psydac/psydac-mesh.html)
+-   [Modules](https://pyccel.github.io/psydac/modules.html)
 
 ## Contributing
 

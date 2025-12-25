@@ -363,12 +363,23 @@ def plot_field_2d(
         else:
             raise ValueError(plot_type)
 
+        # If there is just one patch, also plot the grid
+        if not vh.space.is_multipatch:
+            ncells = min(vh.space.component_spaces[0].axis_spaces[i].ncells for i in [0, 1])
+            N = N_vis // ncells
+            gridlines_x1, gridlines_x2 = get_patch_knots_gridlines(vh.space, N, mappings, 0)
+        else:
+            gridlines_x1 = None
+            gridlines_x2 = None
+
         my_small_plot(
             title=title,
             vals=plot_vals_list,
             titles=subtitles,
             xx=xx,
             yy=yy,
+            gridlines_x1 = gridlines_x1,
+            gridlines_x2 = gridlines_x2,
             surface_plot=surface_plot,
             cb_min=cb_min,
             cb_max=cb_max,
@@ -472,8 +483,9 @@ def my_small_plot(
             ax=ax,
             pad=0.05)
         if gridlines_x1 is not None:
-            ax.plot(*gridlines_x1, color='k')
-            ax.plot(*gridlines_x2, color='k')
+            ax.plot(*gridlines_x1, color='k', linewidth=1)
+        if gridlines_x2 is not None:
+            ax.plot(*gridlines_x2, color='k', linewidth=1)
         if show_xylabel:
             ax.set_xlabel(r'$x$', rotation='horizontal')
             ax.set_ylabel(r'$y$', rotation='horizontal')

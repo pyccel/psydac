@@ -45,4 +45,3 @@ if __name__ == '__main__':
     add_header_to_python_files('../psydac'     , header, dry_run=dry_run)
     add_header_to_python_files('../examples'   , header, dry_run=dry_run)
     add_header_to_python_files('../mesh'       , header, dry_run=dry_run)
-    add_header_to_python_files('../performance', header, dry_run=dry_run)
