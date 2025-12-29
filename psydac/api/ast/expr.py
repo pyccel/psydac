@@ -1,48 +1,83 @@
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 from sympy import symbols, Symbol, IndexedBase
-from sympy import Mul, Tuple
+from sympy import Mul, Tuple, Range
 from sympy import Matrix, ImmutableDenseMatrix
 from sympy.core.numbers import ImaginaryUnit
 
-from pyccel.ast.core import IndexedVariable
-from pyccel.ast.core import For
-from pyccel.ast.core import Assign
-from pyccel.ast.core import AugAssign
-from pyccel.ast.core import Slice
-from pyccel.ast.core import Range
-from pyccel.ast.core import FunctionDef
-from pyccel.ast.core import FunctionCall
-from pyccel.ast      import Import
-from pyccel.ast      import Nil
-from pyccel.ast      import Len
-from pyccel.ast      import If, Is, Return
-from pyccel.ast.core import _atomic
+from psydac.pyccel.ast.core import IndexedVariable
+from psydac.pyccel.ast.core import For
+from psydac.pyccel.ast.core import Assign
+from psydac.pyccel.ast.core import AugAssign
+from psydac.pyccel.ast.core import Slice
+from psydac.pyccel.ast.core import FunctionDef
+from psydac.pyccel.ast.core import FunctionCall
+from psydac.pyccel.ast.core import Import
+from psydac.pyccel.ast.core import Nil
+from psydac.pyccel.ast.core import Len
+from psydac.pyccel.ast.core import If, Is, Return
+from psydac.pyccel.ast.core import _atomic
 
 from sympde.core                 import Constant
-from sympde.topology             import ScalarField, VectorField
-from sympde.topology             import IndexedVectorField
+from sympde.topology.space       import ScalarFunction
+from sympde.topology.space       import VectorFunction
+from sympde.topology.space       import IndexedVectorFunction
 from sympde.topology.derivatives import _partial_derivatives
 from sympde.topology.derivatives import _logical_partial_derivatives
-from sympde.topology.derivatives import get_max_partial_derivatives
 from sympde.topology.derivatives import get_atom_derivatives
 from sympde.topology.derivatives import get_index_derivatives
 from sympde.topology             import LogicalExpr
 from sympde.topology             import SymbolicExpr
-from sympde.topology             import SymbolicDeterminant
+from sympde.calculus.matrices    import SymbolicDeterminant
 
 from .basic      import SplBasic
 from .utilities  import random_string
 from .utilities  import build_pythran_types_header, variables
-from .utilities  import is_scalar_field, is_vector_field
+from .utilities  import build_pyccel_type_annotations
 from .utilities  import math_atoms_as_str
+from .utilities  import get_max_partial_derivatives
 
-from psydac.fem.vector import ProductFemSpace
+from psydac.fem.vector import MultipatchFemSpace
+from .nodes            import Zeros
+
+#==============================================================================
+def is_scalar_field(expr):
+
+    if isinstance(expr, _partial_derivatives):
+        return is_scalar_field(expr.args[0])
+
+    elif isinstance(expr, _logical_partial_derivatives):
+        return is_scalar_field(expr.args[0])
+
+    elif isinstance(expr, ScalarFunction):
+        return True
+
+    return False
+
+#==============================================================================
+def is_vector_field(expr):
+
+    if isinstance(expr, _partial_derivatives):
+        return is_vector_field(expr.args[0])
+
+    elif isinstance(expr, _logical_partial_derivatives):
+        return is_vector_field(expr.args[0])
+
+    elif isinstance(expr, (VectorFunction, IndexedVectorFunction)):
+        return True
+
+    return False
 
 #==============================================================================
 def compute_atoms_expr(atom, basis, indices, loc_indices, dim):
 
     cls = (_partial_derivatives,
-           ScalarField, VectorField,
-           IndexedVectorField)
+           ScalarFunction,
+           VectorFunction,
+           IndexedVectorFunction)
 
     if not isinstance(atom, cls):
         raise TypeError('atom must be of type {}'.format(str(cls)))
@@ -56,13 +91,13 @@ def compute_atoms_expr(atom, basis, indices, loc_indices, dim):
         orders[atom.grad_index] = p_indices[atom.coordinate]
         
 
-    if isinstance(a, IndexedVectorField):
+    if isinstance(a, IndexedVectorFunction):
         ind = a.indices[0]
     args = []
     for i in range(dim):
-        if isinstance(a, IndexedVectorField):
+        if isinstance(a, IndexedVectorFunction):
             args.append(basis[ind+i*dim][loc_indices[i],orders[i],indices[i]])
-        elif isinstance(a, ScalarField):
+        elif isinstance(a, ScalarFunction):
             args.append(basis[i][loc_indices[i],orders[i],indices[i]])
         else:
             raise NotImplementedError('TODO')
@@ -166,8 +201,8 @@ class ExprKernel(SplBasic):
         Vh   = self.space
         expr = self.expr
         dim  = Vh.ldim
-        if isinstance(Vh, ProductFemSpace):
-            size = Vh.shape
+        if isinstance(Vh, MultipatchFemSpace):
+            size = len(Vh.spaces)
         else:
             size = 1
         
@@ -178,7 +213,7 @@ class ExprKernel(SplBasic):
         n_elements = Vh.ncells
         degrees    = Vh.degree
         # TODO improve
-        if isinstance(Vh, ProductFemSpace):
+        if isinstance(Vh, MultipatchFemSpace):
             degrees = degrees[0]
         # ...
 
@@ -216,7 +251,7 @@ class ExprKernel(SplBasic):
             for j in range(0, n_cols):
                 is_complex = False
                 mat = IndexedBase('val_{i}{j}'.format(i=i,j=j))
-                d_vals[i,j] = mat
+                d_vals[i, j] = mat
         # ...
 
         xs = [Symbol(x) for x in ['x', 'y', 'z'][:dim]]
@@ -227,8 +262,8 @@ class ExprKernel(SplBasic):
         # ...
         atoms_types = (_partial_derivatives,
                        _logical_partial_derivatives,
-                       ScalarField,
-                       VectorField, IndexedVectorField,
+                       ScalarFunction,
+                       VectorFunction, IndexedVectorFunction,
                        SymbolicDeterminant,
                        Symbol)
 
@@ -236,15 +271,12 @@ class ExprKernel(SplBasic):
         self._constants = _atomic(expr, cls=Constant)
         self._coordinates = tuple(xis)
         # ...
-
-        atomic_scalar_field = _atomic(expr, cls=ScalarField)
-        atomic_vector_field = _atomic(expr, cls=VectorField)
         
         atomic_expr_field        = [atom for atom in atoms if is_scalar_field(atom)]
         atomic_expr_vector_field = [atom for atom in atoms if is_vector_field(atom)]
 
-        self._fields = tuple(expr.atoms(ScalarField))
-        self._vector_fields = tuple(expr.atoms(VectorField))
+        self._fields = tuple(expr.atoms(ScalarFunction))
+        self._vector_fields = tuple(expr.atoms(VectorFunction))
         # ...
         fields_str        = tuple(SymbolicExpr(f).name for f in atomic_expr_field)
         vector_fields_str = tuple(SymbolicExpr(f).name for f in atomic_expr_vector_field)
@@ -252,22 +284,25 @@ class ExprKernel(SplBasic):
         fields = symbols(fields_str)
         vector_fields = symbols(vector_fields_str)
         
-        fields_coeff = ()
-        vector_fields_coeff = ()
         if fields:
-            fields_coeff    = variables(['F_coeff',],
-                                          dtype='real', rank=dim, cls=IndexedVariable)
+            fields_coeff = variables(['F_coeff',],
+                    dtype='real', rank=dim, cls=IndexedVariable)
+        else:
+            field_coeff = ()
+
         if vector_fields:                              
-            vector_fields_coeff    = variables(['F_{}_coeff'.format(str(i)) for i in range(size)],
-                                          dtype='real', rank=dim, cls=IndexedVariable)
+            vector_fields_coeff = variables(['F_{}_coeff'.format(str(i)) for i in range(size)],
+                    dtype='real', rank=dim, cls=IndexedVariable)
+        else:
+            vector_fields_coeff = ()
                                           
-        self._fields_coeff = fields_coeff
+        self._fields_coeff        = fields_coeff
         self._vector_fields_coeff = vector_fields_coeff 
                                           
         if fields or vector_fields_str:
             basis  = variables( 'basis1:%s(1:%s)'%(dim+1,size+1),
                                 dtype = 'real',
-                                rank = 4,
+                                rank = 3,
                                 cls = IndexedVariable )
 
             spans  = variables( 'spans1:%s(1:%s)'%(dim+1,size+1),
@@ -276,15 +311,19 @@ class ExprKernel(SplBasic):
                                 cls = IndexedVariable )
 
         # ... TODO add it as a method to basic class
-        nderiv = 1
+        nderiv = 0
+
         if isinstance(expr, Matrix):
             n_rows, n_cols = expr.shape
             for i_row in range(0, n_rows):
                 for i_col in range(0, n_cols):
-                    d = get_max_partial_derivatives(expr[i_row,i_col])
+                    d_atoms  = _atomic(expr[i_row,i_col], cls=atoms_types)
+                    Fs = [get_atom_derivatives(a) for a in d_atoms]
+                    d = get_max_partial_derivatives(expr[i_row,i_col], logical=False, F=Fs)
                     nderiv = max(nderiv, max(d.values()))
         else:
-            d = get_max_partial_derivatives(expr)
+            Fs = [get_atom_derivatives(a) for a in atoms]
+            d = get_max_partial_derivatives(expr, logical=False, F=Fs)
             nderiv = max(nderiv, max(d.values()))
 
         self._max_nderiv = nderiv
@@ -309,7 +348,7 @@ class ExprKernel(SplBasic):
             body.append(Assign(fields[i],0))
             atom      = atomic_expr_field[i]
             atoms,ind = compute_atoms_expr(atom, basis, indices, loc_indices, dim)
-            slices = tuple(sp[id]-p+j for sp,p,j,id in zip(spans,degrees,loc_indices,indices))
+            slices = tuple(sp[id]-p+j for sp,p,j,id in zip(spans, degrees, loc_indices, indices))
             args   = args + (fields_coeff[0][slices],)
             for_body = [AugAssign(fields[i],'+',Mul(*args))]
             loc_ranges = [Range(j) for j in degrees]
@@ -321,8 +360,8 @@ class ExprKernel(SplBasic):
         for i in range(len(vector_fields)):
             body.append(Assign(vector_fields[i],0))
             atom = atomic_expr_vector_field[i]
-            atoms,ind = compute_atoms_expr(atom, basis, indices, loc_indices, dim)
-            slices = tuple(sp[id]-p+j for sp,p,j,id in zip(spans[ind::size],degrees[ind::size],loc_indices,indices))
+            atoms, ind = compute_atoms_expr(atom, basis, indices, loc_indices, dim)
+            slices = tuple(sp[id]-p+j for sp,p,j,id in zip(spans[ind::size], degrees[ind::size], loc_indices,indices))
             atoms   = atoms + (vector_fields_coeff[ind][slices],)
             for_body = [AugAssign(vector_fields[i],'+',Mul(*atoms))]
             loc_ranges = [Range(j) for j in degrees[ind::size]]
@@ -340,14 +379,14 @@ class ExprKernel(SplBasic):
                 val = val[indices]
 
                 if isinstance(expr, (Matrix, ImmutableDenseMatrix)):
-                    rhs   = SymbolicExpr(expr[i_row,i_col])
+                    rhs   = SymbolicExpr(expr[i_row, i_col])
                     body += [Assign(val, rhs)]
 
                 else:
                     rhs   = SymbolicExpr(expr)
                     body += [Assign(val, rhs)]
 
-        for i in range(dim-1,-1,-1):
+        for i in range(dim-1, -1, -1):
             x = indices[i]
             rx = ranges[i]
 
@@ -362,21 +401,21 @@ class ExprKernel(SplBasic):
         # ...
 
         # ... get math functions and constants
-        math_elements = math_atoms_as_str(expr, 'numpy')
-        math_imports  = [Import(e, 'numpy') for e in math_elements]
+        math_elements = math_atoms_as_str(expr, 'math')
+        math_imports  = [Import('math', e) for e in math_elements]
 
         imports += math_imports
         # ...
 
         # ...
-        self._basic_args = arr_xis + fields_coeff + vector_fields_coeff + degrees +basis + spans
+        self._basic_args = arr_xis + fields_coeff + vector_fields_coeff + degrees + basis + spans
         # ...
 
         # ...
         mats = []
         for i in range(0, n_rows):
             for j in range(0, n_cols):
-                mats.append(d_vals[i,j])
+                mats.append(d_vals[i, j])
         mats = tuple(mats)
         self._global_mats = mats
         # ...
@@ -385,7 +424,7 @@ class ExprKernel(SplBasic):
             for i in range(0, n_rows):
                 for j in range(0, n_cols):
                     dtype = 'float'
-                    if expr[i,j].atoms(ImaginaryUnit):
+                    if expr[i, j].atoms(ImaginaryUnit):
                         dtype = 'complex'
                     mats_types.append(dtype)
 
@@ -405,15 +444,14 @@ class ExprKernel(SplBasic):
         func_args = self.build_arguments(mats)
         decorators = {}
         header = None
+
         if self.backend['name'] == 'pyccel':
-            decorators = {'types': build_types_decorator(func_args)}
-        elif self.backend['name'] == 'numba':
-            decorators = {'jit':[]}
+            func_args = build_pyccel_type_annotations(func_args)
         elif self.backend['name'] == 'pythran':
             header = build_pythran_types_header(self.name, func_args)
 
         return FunctionDef(self.name, list(func_args), [], body,
-                           decorators=decorators,header=header)
+                           decorators=decorators, header=header)
 
 
 class ExprInterface(SplBasic):
@@ -500,7 +538,7 @@ class ExprInterface(SplBasic):
         body = []
 
         # ...
-        imports += [Import('zeros', 'numpy')]
+        imports += [Import('numpy',('zeros',))]
         # ...
 
         # ...
@@ -516,11 +554,11 @@ class ExprInterface(SplBasic):
         for M,dtype in zip(global_mats, global_mats_types):
             if_cond = Is(M, Nil())
 
-            _args = list(lengths) + ['dtype={}'.format(dtype)]
-            if_body = [Assign(M, FunctionCall('zeros', _args))]
+            _args = list(lengths) + ['{}'.format(dtype)]
+            if_body = [Assign(M, Zeros(*_args))]
 
             stmt = If((if_cond, if_body))
-            body += [Import('zeros', 'numpy'), stmt]
+            body += [Import('numpy',('zeros',)), stmt]
         # ...
 
         # ...

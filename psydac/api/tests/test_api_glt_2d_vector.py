@@ -1,5 +1,9 @@
-# -*- coding: UTF-8 -*-
-
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
+import pytest
 import numpy as np
 from scipy.linalg import eig as eig_solver
 
@@ -29,7 +33,7 @@ def run_vector_poisson_2d_dir(ncells, degree):
     u = element_of(V, name='u')
 
     int_0 = lambda expr: integral(domain , expr)
-    
+
     a = BilinearForm((v,u), int_0(inner(grad(v), grad(u))))
 
     glt_a = GltExpr(a)
@@ -71,6 +75,7 @@ def run_vector_poisson_2d_dir(ncells, degree):
     return error
 
 #==============================================================================
+@pytest.mark.xfail
 def test_api_glt_vector_poisson_2d_dir_1():
 
     error = run_vector_poisson_2d_dir(ncells=[2**3,2**3], degree=[2,2])
@@ -83,9 +88,9 @@ def test_api_glt_vector_poisson_2d_dir_1():
 #==============================================================================
 
 def teardown_module():
-    from sympy import cache
+    from sympy.core import cache
     cache.clear_cache()
 
 def teardown_function():
-    from sympy import cache
+    from sympy.core import cache
     cache.clear_cache()

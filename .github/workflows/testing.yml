@@ -1,0 +1,214 @@
+# This workflow will install Python dependencies and run tests with a variety of Python versions
+# For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
+
+name: Unit tests
+
+on:
+  push:
+    branches: [ devel ]
+    paths:
+      - 'psydac/**'
+      - 'pyproject.toml'
+      - 'pytest.ini'
+      - 'mpi_tester.py'
+
+  pull_request:
+    branches: [ devel ]
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+    paths:
+      - 'psydac/**'
+      - 'pyproject.toml'
+      - 'pytest.ini'
+      - 'mpi_tester.py'
+
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-24.04, macos-14 ]
+        python-version: [ '3.10', '3.11', '3.12', '3.13', '3.14' ]
+        isMerge:
+          - ${{ github.event_name == 'push' && github.ref == 'refs/heads/devel' }}
+        exclude:
+          - { isMerge: false, python-version: '3.10', os:     macos-14 }
+          - { isMerge: false, python-version: '3.11', os: ubuntu-24.04 }
+          - { isMerge: false, python-version: '3.12', os:     macos-14 }
+          - { isMerge: false, python-version: '3.13', os: ubuntu-24.04 }
+          - { isMerge: false, python-version: '3.14', os:     macos-14 }
+
+    name: ${{ matrix.os }} / Python ${{ matrix.python-version }}
+
+    env:
+      PSYDAC_MESH_DIR: ${{ github.workspace }}/mesh
+      OMP_NUM_THREADS: 2
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+          cache-dependency-path: |
+            pyproject.toml
+
+      - name: Install non-Python dependencies on Ubuntu
+        if: matrix.os == 'ubuntu-24.04'
+        uses: ./.github/actions/ubuntu_install
+
+      - name: Install non-Python dependencies on macOS
+        if: matrix.os == 'macos-14'
+        uses: ./.github/actions/macos_install
+
+      - name: Print information on MPI and HDF5 libraries
+        run: |
+          ompi_info
+          h5pcc -showconfig -echo || true
+
+      - name: Upgrade pip, setuptools, and wheel
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+
+      - name: Determine directory of parallel HDF5 library
+        run: |
+          if [[ "${{ matrix.os }}" == "ubuntu-24.04" ]]; then
+            HDF5_DIR=$(dpkg -L libhdf5-openmpi-dev | grep libhdf5.so | xargs dirname)
+          elif [[ "${{ matrix.os }}" == "macos-14" ]]; then
+            HDF5_DIR=$(brew list hdf5-mpi | grep "libhdf5.dylib" | xargs dirname | xargs dirname)
+          fi
+          echo $HDF5_DIR
+          echo "HDF5_DIR=$HDF5_DIR" >> $GITHUB_ENV
+
+      - name: Cache PETSc
+        uses: actions/cache@v4
+        id: cache-petsc
+        env:
+          cache-name: cache-PETSc
+        with:
+          path: "./petsc"
+          key: petsc-${{ matrix.os }}-${{ matrix.python-version }}
+
+      - if: steps.cache-petsc.outputs.cache-hit != 'true'
+        name: Download a specific release of PETSc
+        run: |
+          git clone --depth 1 --branch v3.24.2 https://gitlab.com/petsc/petsc.git
+
+      - if: steps.cache-petsc.outputs.cache-hit != 'true'
+        name: Install PETSc with complex support
+        working-directory: ./petsc
+        run: |
+          export PETSC_DIR=$(pwd)
+          export PETSC_ARCH=petsc-cmplx
+          ./configure --with-scalar-type=complex --with-fortran-bindings=0 --have-numpy=1         
+          make all
+          echo "PETSC_DIR=$PETSC_DIR" > petsc.env
+          echo "PETSC_ARCH=$PETSC_ARCH" >> petsc.env
+
+      # This step is not really necessary and could be combined with PETSc install
+      # step; however it's good to verify if the cached PETSc installation really works!
+      - name: Test PETSc installation
+        working-directory: ./petsc
+        run: |
+          source petsc.env
+          make check
+          echo "PETSC_DIR=$PETSC_DIR" >> $GITHUB_ENV
+          echo "PETSC_ARCH=$PETSC_ARCH" >> $GITHUB_ENV
+
+      - name: Install petsc4py
+        working-directory: ./petsc
+        run: | 
+          python -m pip install wheel Cython numpy
+          python -m pip install src/binding/petsc4py
+
+      - name: Install h5py in parallel mode
+        run: |
+          export CC="mpicc"
+          export HDF5_MPI="ON"
+          python -m pip install h5py --no-cache-dir --no-binary h5py
+          python -m pip list
+
+      - name: Check parallel h5py installation
+        run: |
+            python -c "
+            from mpi4py import MPI
+            import h5py
+            # This particular instantiation of h5py.File will fail if parallel h5py isn't installed
+            f = h5py.File('parallel_test.hdf5', 'w', driver='mpio', comm=MPI.COMM_WORLD)
+            print(f)"
+
+      - name: Install project
+        run: |
+          python -m pip install .[test]
+          python -m pip freeze
+
+      - name: Test Pyccel optimization flags
+        run: |
+          pytest --pyargs psydac -m pyccel --capture=no
+
+      - name: Initialize test directory
+        run: |
+          mkdir pytest
+          cp scripts/mpi_tester.py pytest
+
+      - name: Run coverage tests on macOS
+        if: matrix.os == 'macos-14'
+        working-directory: ./pytest
+        run: >-
+          python -m pytest -n auto
+          --cov psydac
+          --cov-config $GITHUB_WORKSPACE/pyproject.toml
+          --cov-report xml
+          --pyargs psydac -m "not parallel and not petsc"
+
+      - name: Run single-process tests with Pytest on Ubuntu
+        if: matrix.os == 'ubuntu-24.04'
+        working-directory: ./pytest
+        run: |
+          python -m pytest -n auto --pyargs psydac -m "not parallel and not petsc"
+
+      - name: Upload coverage report to Codacy
+        if: matrix.os == 'macos-14'
+        uses: codacy/codacy-coverage-reporter-action@v1.3.0
+        with:
+          project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
+          coverage-reports: ./pytest/coverage.xml
+
+      - name: Print detailed coverage results on macOS
+        if: matrix.os == 'macos-14'
+        working-directory: ./pytest
+        run: |
+          coverage report --ignore-errors --show-missing --sort=cover
+
+      - name: Run MPI tests with Pytest
+        working-directory: ./pytest
+        run: |
+          python mpi_tester.py --mpirun="mpiexec -n 4 ${MPI_OPTS}" --pyargs psydac -m "parallel and not petsc"
+
+      - name: Run single-process PETSc tests with Pytest
+        working-directory: ./pytest
+        run: |
+          python -m pytest -n auto --pyargs psydac -m "not parallel and petsc"
+
+      - name: Run MPI PETSc tests with Pytest
+        working-directory: ./pytest
+        run: |
+          python mpi_tester.py --mpirun="mpiexec -n 4 ${MPI_OPTS}" --pyargs psydac -m "parallel and petsc"
+
+      - name: Run single-process example tests with Pytest on Ubuntu
+        if: matrix.os == 'ubuntu-24.04'
+        run: |
+          python -m pytest examples/feec
+
+      - name: Remove test directory
+        if: always()
+        run: |
+          rm -rf pytest

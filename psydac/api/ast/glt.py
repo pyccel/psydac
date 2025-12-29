@@ -1,55 +1,69 @@
-from collections import OrderedDict
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 from itertools import groupby
 
 from sympy import symbols, Symbol, IndexedBase
 from sympy import Tuple
 from sympy import Matrix, ImmutableDenseMatrix
 from sympy import simplify, expand
+from sympy import Range
 from sympy.core.numbers import ImaginaryUnit
 
-from pyccel.ast.core import IndexedVariable
-from pyccel.ast.core import For
-from pyccel.ast.core import Assign
-from pyccel.ast.core import Slice
-from pyccel.ast.core import Range
-from pyccel.ast.core import FunctionDef
-from pyccel.ast.core import FunctionCall
-from pyccel.ast      import Zeros
-from pyccel.ast      import Import
-from pyccel.ast      import DottedName
-from pyccel.ast      import Nil
-from pyccel.ast      import Len
-from pyccel.ast      import If, Is, Return
-from pyccel.ast.core import _atomic
+from psydac.pyccel.ast.core import IndexedVariable
+from psydac.pyccel.ast.core import For
+from psydac.pyccel.ast.core import Assign
+from psydac.pyccel.ast.core import Slice
+from psydac.pyccel.ast.core import FunctionDef
+from psydac.pyccel.ast.core import FunctionCall
+from psydac.pyccel.ast.core import Import
+from psydac.pyccel.ast.core import DottedName
+from psydac.pyccel.ast.core import Nil
+from psydac.pyccel.ast.core import Len
+from psydac.pyccel.ast.core import If, Is, Return
+from psydac.pyccel.ast.core import _atomic
 
-from sympde.topology             import ScalarField, VectorField
-from sympde.topology             import IndexedVectorField
+from psydac.pyccel.ast.numpyext import Zeros
+
+from sympde.topology.space       import ScalarFunction
+from sympde.topology.space       import VectorFunction
+from sympde.topology.space       import IndexedVectorFunction
 from sympde.topology.derivatives import _partial_derivatives
-from sympde.topology.derivatives import _logical_partial_derivatives
-from sympde.topology.derivatives import get_max_partial_derivatives
+from sympde.topology.derivatives import _logical_partial_derivatives, get_atom_derivatives
 from sympde.topology             import LogicalExpr
 from sympde.topology             import SymbolicExpr
-from sympde.topology             import SymbolicDeterminant
+from sympde.calculus.matrices    import SymbolicDeterminant
+from sympde.topology             import IdentityMapping
+
+from sympde.expr.evaluation import TerminalExpr
 
 from gelato.expr import gelatize
 
 from .basic      import SplBasic
 from .utilities  import random_string
 from .utilities  import build_pythran_types_header, variables
-from .utilities  import is_scalar_field, is_vector_field, is_mapping
+from .utilities  import build_pyccel_type_annotations
+from .utilities  import is_mapping
 from .utilities  import math_atoms_as_str
+from .utilities  import get_max_partial_derivatives
 from .evaluation import EvalArrayMapping, EvalArrayField
 
-from psydac.fem.vector  import ProductFemSpace
+from psydac.fem.vector  import MultipatchFemSpace
+from .nodes             import Zeros
 
 #==============================================================================
 class GltKernel(SplBasic):
 
-    def __new__(cls, expr, spaces, name=None, mapping=None, is_rational_mapping=None, backend=None):
+    def __new__(cls, expr, spaces, name=None, domain=None, mapping=None, is_rational_mapping=None, backend=None, **kwargs):
+
+        if isinstance(mapping, IdentityMapping):
+            mapping = None
 
         tag = random_string( 8 )
         obj = SplBasic.__new__(cls, tag, name=name,
-                               prefix='kernel', mapping=mapping,
+                               prefix='kernel', domain=domain,mapping=mapping,
                                is_rational_mapping=is_rational_mapping)
 
         obj._expr = expr
@@ -59,7 +73,7 @@ class GltKernel(SplBasic):
         obj._user_functions = []
         obj._backend = backend
 
-        obj._func = obj._initialize()
+        obj._func = obj._initialize(**kwargs)
 
         return obj
 
@@ -154,24 +168,30 @@ class GltKernel(SplBasic):
 
         return self.basic_args + other
 
-    def _initialize(self):
+    def _initialize(self, **kwargs):
         form    = self.form
         dim     = self.expr.ldim
+        domain  = self.domain
         mapping = self.mapping
+
 
         # ... discrete values
         Vh, Wh = self.spaces
 
+        domain  = Vh.symbolic_space.domain
+
         n_elements = Vh.ncells
         degrees    = Vh.degree
         # TODO improve
-        if isinstance(Vh, ProductFemSpace):
+        if isinstance(Vh, MultipatchFemSpace):
             degrees = degrees[0]
         # ...
 
+        expand_expr = kwargs.pop('expand', False)
         # recompute the symbol
         expr = gelatize(form, degrees=degrees, n_elements=n_elements,
-                        mapping=mapping, evaluate=True, human=True)
+                        domain=domain, evaluate=True, human=True, expand=expand_expr)
+
 
         fields = form.fields
         fields = sorted(fields, key=lambda x: str(x.name))
@@ -227,7 +247,6 @@ class GltKernel(SplBasic):
                                 dtype = 'int',
                                 rank = 1,
                                 cls = IndexedVariable )
-
         # ...
         self._coordinates = tuple()
         if fields or mapping or self.expr.space_variables:
@@ -248,19 +267,21 @@ class GltKernel(SplBasic):
 
         # ... replace tx/ty/tz by t1/t2/t3
         txs = [Symbol(tx) for tx in ['tx', 'ty', 'tz'][:dim]]
-        for ti, tx in zip(tis, txs):
+        for tx, ti in zip(txs, tis):
             expr = expr.subs(tx, ti)
 
         xs = [Symbol(x) for x in ['x', 'y', 'z'][:dim]]
-        for xi, x in zip(xis, xs):
+        for x, xi in zip(xs, xis):
             expr = expr.subs(x, xi)
         # ...
 
         # ...
+
         atoms_types = (_partial_derivatives,
                        _logical_partial_derivatives,
-                       ScalarField,
-                       VectorField, IndexedVectorField,
+                       ScalarFunction,
+                       VectorFunction,
+                       IndexedVectorFunction,
                        SymbolicDeterminant)
 
         atoms  = _atomic(expr, cls=atoms_types)
@@ -268,8 +289,8 @@ class GltKernel(SplBasic):
 
         # ...
 #        atomic_expr_mapping      = [atom for atom in atoms if is_mapping(atom)]
-        atomic_expr_field        = [atom for atom in atoms if is_scalar_field(atom)]
-        atomic_expr_vector_field = [atom for atom in atoms if is_vector_field(atom)]
+        atomic_expr_field        = [atom for atom in atoms if atom.atoms(ScalarFunction)]
+        atomic_expr_vector_field = [atom for atom in atoms if atom.atoms(VectorFunction)]
         # ...
 
         # ...
@@ -283,12 +304,12 @@ class GltKernel(SplBasic):
         atomic_expr_field_logical = tuple(f.subs(d_subs) for f in atomic_expr_field)
         fields_str         = tuple(sorted(SymbolicExpr(f).name for f in atomic_expr_field))
         fields_logical_str = tuple(sorted(SymbolicExpr(f).name for f in atomic_expr_field_logical))
-        field_atoms        = tuple(expr.atoms(ScalarField))
+        field_atoms        = tuple(expr.atoms(ScalarFunction))
         # ...
 
         # ... create EvalArrayField
         self._eval_fields = []
-        self._map_stmts_fields = OrderedDict()
+        self._map_stmts_fields = {}
         if atomic_expr_field:
             keyfunc = lambda F: F.space.name
             data = sorted(field_atoms, key=keyfunc)
@@ -296,7 +317,7 @@ class GltKernel(SplBasic):
                 g_names = set([f.name for f in group])
                 fields_expressions = []
                 for e in atomic_expr_field:
-                    fs = e.atoms(ScalarField)
+                    fs = e.atoms(ScalarFunction)
                     f_names = set([f.name for f in fs])
                     if f_names & g_names:
                         fields_expressions += [e]
@@ -308,21 +329,24 @@ class GltKernel(SplBasic):
                 self._eval_fields.append(eval_field)
                 for k,v in eval_field.map_stmts.items():
                     self._map_stmts_fields[k] = v
-
         # update dependencies
         self._dependencies += self.eval_fields
         # ...
 
         # ... TODO add it as a method to basic class
-        nderiv = 1
+        nderiv = 0
+
         if isinstance(expr, Matrix):
             n_rows, n_cols = expr.shape
             for i_row in range(0, n_rows):
                 for i_col in range(0, n_cols):
-                    d = get_max_partial_derivatives(expr[i_row,i_col])
+                    d_atoms = _atomic(expr[i_row,i_col], cls=atoms_types)
+                    Fs = [get_atom_derivatives(a) for a in d_atoms]
+                    d = get_max_partial_derivatives(expr[i_row,i_col], logical=False, F=Fs)
                     nderiv = max(nderiv, max(d.values()))
         else:
-            d = get_max_partial_derivatives(expr)
+            Fs = [get_atom_derivatives(a) for a in atoms]
+            d = get_max_partial_derivatives(expr, logical=False, F=Fs)
             nderiv = max(nderiv, max(d.values()))
 
         self._max_nderiv = nderiv
@@ -415,10 +439,10 @@ class GltKernel(SplBasic):
             for value, array in zip(mapping_elements, mapping_values):
                 body.append(Assign(value, array[indices]))
 
-            jac = mapping.det_jacobian
+            jac = TerminalExpr(mapping.det_jacobian, domain.logical_domain)
             jac = SymbolicExpr(jac)
 
-            det_jac = SymbolicExpr(SymbolicDeterminant(mapping))
+            det_jac = SymbolicExpr(SymbolicDeterminant(domain.mapping))
 
             body += [Assign(det_jac, jac)]
         # ...
@@ -453,8 +477,8 @@ class GltKernel(SplBasic):
         # ...
 
         # call eval field
-        for eval_field in self.eval_fields:
-            args = degrees + spans + basis + fields_coeffs + fields_val
+        for i, eval_field in enumerate(self.eval_fields):
+            args = (*degrees, *spans, *basis, fields_coeffs[i], fields_val[i])
             args = eval_field.build_arguments(args)
             body = [FunctionCall(eval_field.func, args)] + body
 
@@ -472,7 +496,7 @@ class GltKernel(SplBasic):
 
 
         if fields:
-            imports += [Import('zeros', 'numpy')]
+            imports += [Import('numpy', 'zeros')]
             for F_value in fields_val:
                 prelude += [Assign(F_value, Zeros(lengths))]
 
@@ -481,7 +505,7 @@ class GltKernel(SplBasic):
 #                prelude += [Assign(F_value, Zeros(lengths))]
 
         if mapping:
-            imports += [Import('zeros', 'numpy')]
+            imports += [Import('numpy', 'zeros')]
             for M_value in mapping_values:
                 prelude += [Assign(M_value, Zeros(lengths))]
 
@@ -490,8 +514,8 @@ class GltKernel(SplBasic):
         # ...
 
         # ... get math functions and constants
-        math_elements = math_atoms_as_str(expr, 'numpy')
-        math_imports  = [Import(e, 'numpy') for e in math_elements]
+        math_elements = math_atoms_as_str(expr, 'math')
+        math_imports  = [Import('math', e) for e in math_elements]
 
         imports += math_imports
         # ...
@@ -546,9 +570,7 @@ class GltKernel(SplBasic):
         decorators = {}
         header = None
         if self.backend['name'] == 'pyccel':
-            decorators = {'types': build_types_decorator(func_args)}
-        elif self.backend['name'] == 'numba':
-            decorators = {'jit':[]}
+            func_args = build_pyccel_type_annotations(func_args)
         elif self.backend['name'] == 'pythran':
             header = build_pythran_types_header(self.name, func_args)
 
@@ -558,13 +580,16 @@ class GltKernel(SplBasic):
 
 class GltInterface(SplBasic):
 
-    def __new__(cls, kernel, name=None, mapping=None, is_rational_mapping=None, backend=None):
+    def __new__(cls, kernel, name=None, domain=None, mapping=None, is_rational_mapping=None, backend=None, **kwargs):
 
         if not isinstance(kernel, GltKernel):
             raise TypeError('> Expecting an GltKernel')
 
+        if isinstance(mapping, IdentityMapping):
+            mapping = None
+
         obj = SplBasic.__new__(cls, kernel.tag, name=name,
-                               prefix='interface', mapping=mapping,
+                               prefix='interface', domain=domain, mapping=mapping,
                                is_rational_mapping=is_rational_mapping)
 
         obj._kernel = kernel
@@ -712,7 +737,7 @@ class GltInterface(SplBasic):
         # ...
 
         # ...
-        imports += [Import('zeros', 'numpy')]
+        imports += [Import('numpy', 'zeros')]
         # ...
 
         # ...
@@ -728,8 +753,8 @@ class GltInterface(SplBasic):
         for M,dtype in zip(global_mats, global_mats_types):
             if_cond = Is(M, Nil())
 
-            _args = list(lengths) + ['dtype={}'.format(dtype)]
-            if_body = [Assign(M, FunctionCall('zeros', _args))]
+            _args = list(lengths) + ['{}'.format(dtype)]
+            if_body = [Assign(M, Zeros(*_args))]
 
             stmt = If((if_cond, if_body))
             body += [stmt]

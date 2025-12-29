@@ -1,5 +1,8 @@
-# -*- coding: UTF-8 -*-
-
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 from mpi4py import MPI
 from sympy import pi, cos, sin
 import pytest
@@ -11,10 +14,9 @@ from sympde.topology import NormalVector
 from sympde.topology import Cube
 from sympde.topology import Union
 from sympde.expr     import BilinearForm, LinearForm, integral
-from sympde.expr     import Norm
+from sympde.expr     import Norm, SemiNorm
 from sympde.expr     import find, EssentialBC
 
-from psydac.fem.basic          import FemField
 from psydac.api.discretization import discretize
 
 #==============================================================================
@@ -27,8 +29,6 @@ def run_poisson_3d_dir(solution, f, ncells, degree, comm=None):
 
     x,y,z = domain.coordinates
 
-    F = element_of(V, name='F')
-
     v = element_of(V, name='v')
     u = element_of(V, name='u')
 
@@ -40,9 +40,9 @@ def run_poisson_3d_dir(solution, f, ncells, degree, comm=None):
     expr = f*v
     l = LinearForm(v, int_0(expr))
 
-    error = F - solution
-    l2norm = Norm(error, domain, kind='l2')
-    h1norm = Norm(error, domain, kind='h1')
+    error  = u - solution
+    l2norm =     Norm(error, domain, kind='l2')
+    h1norm = SemiNorm(error, domain, kind='h1')
 
     bc = EssentialBC(u, 0, domain.boundary)
     equation = find(u, forall=v, lhs=a(u,v), rhs=l(v), bc=bc)
@@ -66,16 +66,12 @@ def run_poisson_3d_dir(solution, f, ncells, degree, comm=None):
     # ...
 
     # ... solve the discrete equation
-    x = equation_h.solve()
-    # ...
-
-    # ...
-    phi = FemField( Vh, x )
+    uh = equation_h.solve()
     # ...
 
     # ... compute norms
-    l2_error = l2norm_h.assemble(F=phi)
-    h1_error = h1norm_h.assemble(F=phi)
+    l2_error = l2norm_h.assemble(u = uh)
+    h1_error = h1norm_h.assemble(u = uh)
     # ...
 
     return l2_error, h1_error
@@ -99,8 +95,6 @@ def run_poisson_3d_dirneu(solution, f, boundary, ncells, degree, comm=None):
 
     x,y,z = domain.coordinates
 
-    F = element_of(V, name='F')
-
     v = element_of(V, name='v')
     u = element_of(V, name='u')
 
@@ -121,9 +115,9 @@ def run_poisson_3d_dirneu(solution, f, boundary, ncells, degree, comm=None):
     expr = l0(v) + l_B_neumann(v)
     l = LinearForm(v, expr)
 
-    error = F-solution
-    l2norm = Norm(error, domain, kind='l2')
-    h1norm = Norm(error, domain, kind='h1')
+    error  = u - solution
+    l2norm =     Norm(error, domain, kind='l2')
+    h1norm = SemiNorm(error, domain, kind='h1')
 
     B_dirichlet = domain.boundary.complement(B_neumann)
     bc = EssentialBC(u, 0, B_dirichlet)
@@ -149,16 +143,12 @@ def run_poisson_3d_dirneu(solution, f, boundary, ncells, degree, comm=None):
     # ...
 
     # ... solve the discrete equation
-    x = equation_h.solve()
-    # ...
-
-    # ...
-    phi = FemField( Vh, x )
+    uh = equation_h.solve()
     # ...
 
     # ... compute norms
-    l2_error = l2norm_h.assemble(F=phi)
-    h1_error = h1norm_h.assemble(F=phi)
+    l2_error = l2norm_h.assemble(u = uh)
+    h1_error = h1norm_h.assemble(u = uh)
     # ...
 
     return l2_error, h1_error
@@ -171,10 +161,11 @@ def run_poisson_3d_dirneu(solution, f, boundary, ncells, degree, comm=None):
 #==============================================================================
 def test_api_poisson_3d_dir_1():
 
-    from sympy.abc import x,y,z
+    from sympy import symbols
+    x1, x2, x3 = symbols('x1, x2, x3', real=True)
 
-    solution = sin(pi*x)*sin(pi*y)*sin(pi*z)
-    f        = 3*pi**2*sin(pi*x)*sin(pi*y)*sin(pi*z)
+    solution = sin(pi*x1)*sin(pi*x2)*sin(pi*x3)
+    f        = 3*pi**2*sin(pi*x1)*sin(pi*x2)*sin(pi*x3)
 
     l2_error, h1_error = run_poisson_3d_dir(solution, f,
                                             ncells=[2**2,2**2,2**2], degree=[2,2,2])
@@ -205,9 +196,10 @@ def test_api_poisson_3d_dir_1():
 #==============================================================================
 def test_api_poisson_3d_dirneu_2():
 
-    from sympy.abc import x,y,z
+    from sympy import symbols
+    x1, x2, x3 = symbols('x1, x2, x3', real=True)
 
-    solution = sin(0.5*pi*x)*sin(pi*y)*sin(pi*z)
+    solution = sin(0.5*pi*x1)*sin(pi*x2)*sin(pi*x3)
     f        = (9./4.)*pi**2*solution
 
     l2_error, h1_error = run_poisson_3d_dirneu(solution, f, [{'axis': 0, 'ext': 1}],
@@ -222,9 +214,10 @@ def test_api_poisson_3d_dirneu_2():
 #==============================================================================
 def test_api_poisson_3d_dirneu_13():
 
-    from sympy.abc import x,y,z
+    from sympy import symbols
+    x1, x2, x3 = symbols('x1, x2, x3', real=True)
 
-    solution = cos(0.5*pi*x)*cos(0.5*pi*y)*sin(pi*z)
+    solution = cos(0.5*pi*x1)*cos(0.5*pi*x2)*sin(pi*x3)
     f        = (3./2.)*pi**2*solution
 
     l2_error, h1_error = run_poisson_3d_dirneu(solution, f,
@@ -241,9 +234,10 @@ def test_api_poisson_3d_dirneu_13():
 #==============================================================================
 def test_api_poisson_3d_dirneu_24():
 
-    from sympy.abc import x,y,z
+    from sympy import symbols
+    x1, x2, x3 = symbols('x1, x2, x3', real=True)
 
-    solution = sin(0.5*pi*x)*sin(0.5*pi*y)*sin(pi*z)
+    solution = sin(0.5*pi*x1)*sin(0.5*pi*x2)*sin(pi*x3)
     f        = (3./2.)*pi**2*solution
 
     l2_error, h1_error = run_poisson_3d_dirneu(solution, f,
@@ -308,10 +302,11 @@ def test_api_poisson_3d_dirneu_24():
 @pytest.mark.parallel
 def test_api_poisson_3d_dir_1_parallel():
 
-    from sympy.abc import x,y,z
+    from sympy import symbols
+    x1, x2, x3 = symbols('x1, x2, x3', real=True)
 
-    solution = sin(pi*x)*sin(pi*y)*sin(pi*z)
-    f        = 3*pi**2*sin(pi*x)*sin(pi*y)*sin(pi*z)
+    solution = sin(pi*x1)*sin(pi*x2)*sin(pi*x3)
+    f        = 3*pi**2*sin(pi*x1)*sin(pi*x2)*sin(pi*x3)
 
     l2_error, h1_error = run_poisson_3d_dir(solution, f,
                                             ncells=[2**2,2**2,2**2], degree=[2,2,2],
@@ -329,9 +324,9 @@ def test_api_poisson_3d_dir_1_parallel():
 #==============================================================================
 
 def teardown_module():
-    from sympy import cache
+    from sympy.core import cache
     cache.clear_cache()
 
 def teardown_function():
-    from sympy import cache
+    from sympy.core import cache
     cache.clear_cache()

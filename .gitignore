@@ -2,6 +2,10 @@
 *.pyo
 .ipynb_checkpoints/
 *.so
+*.lock
+__psydac__/
+__*pyccel__/
+docs/source/modules/STUBDIR/*
 
 build
 *build*
@@ -17,7 +21,18 @@ doc/_static
 doc/_build
 doc/api-python
 
-
 psydac/core/bsp-f2py*
 psydac/core/bspmodule.c
-psydac/core/*.so
+.env
+
+# pytest directories
+__test__/
+
+# pycharm directory
+.idea
+
+# Visual Studio Code workspace files
+*.code-workspace
+
+# Meson lock files
+*/.wraplock

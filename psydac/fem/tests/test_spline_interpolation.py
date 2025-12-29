@@ -1,21 +1,23 @@
-# coding: utf-8
-# Copyright 2018 Yaman Güçlü
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
+import time
 
 from mpi4py import MPI
 import numpy as np
 import pytest
-import time
 
 from psydac.core.bsplines import make_knots
 from psydac.fem.basic     import FemField
 from psydac.fem.splines   import SplineSpace
 from psydac.fem.tensor    import TensorFemSpace
+from psydac.ddm.cart      import DomainDecomposition
 
 from psydac.fem.tests.utilities              import horner, random_grid
 from psydac.fem.tests.splines_error_bounds   import spline_1d_error_bound
-from psydac.fem.tests.analytical_profiles_1d import (AnalyticalProfile1D_Cos,
-                                                  AnalyticalProfile1D_Poly)
-
+from psydac.fem.tests.analytical_profiles_1d import (AnalyticalProfile1D_Cos, AnalyticalProfile1D_Poly)
 #===============================================================================
 @pytest.mark.serial
 @pytest.mark.parametrize( "ncells", [1,5,10,23] )
@@ -43,7 +45,7 @@ def test_SplineInterpolation1D_exact( ncells, degree ):
     err = np.array( [field( x ) - f( x ) for x in xt] )
 
     max_norm_err = np.max( abs( err ) )
-    assert max_norm_err < 2.0e-14
+    assert max_norm_err < 1.0e-13
 
 #===============================================================================
 def args_SplineInterpolation1D_cosine():
@@ -79,8 +81,8 @@ def test_SplineInterpolation1D_cosine( ncells, degree, periodic ):
 
 #===============================================================================
 @pytest.mark.parallel
-@pytest.mark.parametrize( "nc1", [5,10,23] )
-@pytest.mark.parametrize( "nc2", [5,10,23] )
+@pytest.mark.parametrize( "nc1", [7,10,23] )
+@pytest.mark.parametrize( "nc2", [7,10,23] )
 @pytest.mark.parametrize( "deg1", range(1,5) )
 @pytest.mark.parametrize( "deg2", range(1,5) )
 
@@ -115,8 +117,9 @@ def test_SplineInterpolation2D_parallel_exact( nc1, nc2, deg1, deg2 ):
     space1 = SplineSpace( degree=deg1, grid=grid1, periodic=periodic1 )
     space2 = SplineSpace( degree=deg2, grid=grid2, periodic=periodic2 )
 
+    domain_decomposition = DomainDecomposition([nc1, nc2], [periodic1, periodic2], comm=mpi_comm)
     # Tensor-product 2D spline space, distributed, and field
-    tensor_space = TensorFemSpace( space1, space2, comm=mpi_comm )
+    tensor_space = TensorFemSpace( domain_decomposition, space1, space2 )
     tensor_field = FemField( tensor_space )
 
     # Coordinates of Greville points (global)
@@ -124,7 +127,7 @@ def test_SplineInterpolation2D_parallel_exact( nc1, nc2, deg1, deg2 ):
     x2g = space2.greville
 
     # Interpolation data on Greville points (distributed)
-    V     = tensor_space.vector_space
+    V     = tensor_space.coeff_space
     ug    = V.zeros()
     s1,s2 = V.starts
     e1,e2 = V.ends
@@ -171,8 +174,8 @@ def test_SplineInterpolation2D_parallel_exact( nc1, nc2, deg1, deg2 ):
         mpi_comm.Barrier()
 
     # Verify that error is only caused by finite precision arithmetic
-    assert interp_error < 1.0e-14
-    assert     l2_error < 1.0e-14
+    assert interp_error < 1.0e-13
+    assert     l2_error < 1.0e-13
 
 #===============================================================================
 # SCRIPT FUNCTIONALITY

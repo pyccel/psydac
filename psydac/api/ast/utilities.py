@@ -1,20 +1,22 @@
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 import re
 import string
 import random
-import numpy as np
+from itertools import chain
 
-from sympy import Symbol, IndexedBase, Indexed
-from sympy import Mul, Tuple, Pow
-from sympy import Matrix
-from sympy import sqrt as sympy_sqrt
+from sympy import Symbol, IndexedBase, Indexed, Idx
+from sympy import Mul, Pow, Function, Tuple
+from sympy import sqrt as sympy_sqrt, Range
 from sympy.utilities.iterables import cartes
 
-from sympde.topology.space       import ScalarTestFunction
-from sympde.topology.space       import VectorTestFunction
-from sympde.topology.space       import IndexedTestTrial
+from sympde.topology.space       import ScalarFunction
+from sympde.topology.space       import VectorFunction
+from sympde.topology.space       import IndexedVectorFunction
 from sympde.topology.space       import element_of
-from sympde.topology             import ScalarField
-from sympde.topology             import VectorField, IndexedVectorField
 from sympde.topology             import Mapping
 from sympde.topology             import Boundary
 from sympde.topology.derivatives import _partial_derivatives
@@ -23,19 +25,94 @@ from sympde.topology.derivatives import get_atom_derivatives
 from sympde.topology.derivatives import get_index_derivatives
 from sympde.topology.derivatives import get_atom_logical_derivatives
 from sympde.topology.derivatives import get_index_logical_derivatives
+from sympde.topology.derivatives import get_index_derivatives_atom, get_index_logical_derivatives_atom
 from sympde.topology             import LogicalExpr
 from sympde.topology             import SymbolicExpr
-from sympde.core                 import Cross_3d
+from sympde.core                 import Constant
 
-from pyccel.ast.core import Variable, IndexedVariable
-from pyccel.ast.core import For
-from pyccel.ast.core import Assign
-from pyccel.ast.core import AugAssign
-from pyccel.ast.core import Range, Product
-from pyccel.ast.core import _atomic
-from pyccel.ast      import Comment
+from psydac.pyccel.ast.core import Variable, IndexedVariable
+from psydac.pyccel.ast.core import For
+from psydac.pyccel.ast.core import Assign
+from psydac.pyccel.ast.core import AugAssign
+from psydac.pyccel.ast.core import Product
+from psydac.pyccel.ast.core import _atomic
+from psydac.pyccel.ast.core import Comment
+from psydac.pyccel.ast.core import String
+from psydac.pyccel.ast.core import AnnotatedArgument
 
-from psydac.api.printing.pycode import pycode  # TODO: remove
+__all__ = (
+    'build_pyccel_type_annotations',
+    'build_pythran_types_header',
+    'compute_atoms_expr',
+    'compute_atoms_expr_field',
+    'compute_atoms_expr_mapping',
+    'compute_boundary_jacobian',
+    'compute_normal_vector',
+    'compute_tangent_vector',
+    'filter_loops',
+    'filter_product',
+    'fusion_loops',
+    'get_name',
+    'is_mapping',
+    'logical2physical',
+    'math_atoms_as_str',
+    'random_string',
+    'rationalize_eval_mapping',
+    'select_loops',
+    'variables',
+)
+
+#==============================================================================
+def get_max_partial_derivatives(expr, logical=False, F=None):
+    """
+    Compute the maximum order of partial derivatives for each coordinate in an expression.
+
+    TODO
+    ----
+    Move to SymPDE and combine the `get_index(_logical)_derivatives_atom` functions there.
+
+    Parameters
+    ----------
+    expr : sympy.Expr
+        The SymPDE expression to analyze for partial derivatives.
+
+    logical : bool, optional
+        If True, it considers logical coordinates (x1, x2, x3); otherwise, it considers physical coordinates (x, y, z).
+    
+    F : sympy.Atom | list[sympy.Atom], optional
+        If provided, it restricts the analysis to the specified atom(s). Otherwise,
+        it uses all atoms of default types that are contained in `expr`. The default
+        types represent elements of function spaces in SymPDE: `ScalarFunction`,
+        `VectorFunction`, and `IndexedVectorFunction`.
+
+    Returns
+    -------
+    d : dict[str, int]
+        A dictionary with keys ('x1', 'x2', 'x3') for logical or ('x', 'y', 'z') for physical coordinates and their corresponding maximum order of partial derivatives.
+    """
+
+    if logical:
+        d = {'x1': 0, 'x2': 0, 'x3': 0}
+        get_index = get_index_logical_derivatives_atom
+    else:
+        d = {'x': 0, 'y': 0, 'z': 0}
+        get_index = get_index_derivatives_atom
+
+    if F is None:
+        F = (list(expr.atoms(ScalarFunction)) +
+             list(expr.atoms(VectorFunction)) +
+             list(expr.atoms(IndexedVectorFunction)))
+    elif not hasattr(F, '__iter__'):
+        F = [F]
+
+    indices = chain.from_iterable(get_index(expr, Fi) for Fi in F)
+
+    for dd in indices:
+        for k, v in dd.items():
+            if v > d[k]:
+                d[k] = v
+
+    return d
 
 #==============================================================================
 def random_string( n ):
@@ -59,34 +136,6 @@ def is_mapping(expr):
     return False
 
 #==============================================================================
-def is_scalar_field(expr):
-
-    if isinstance(expr, _partial_derivatives):
-        return is_scalar_field(expr.args[0])
-
-    elif isinstance(expr, _logical_partial_derivatives):
-        return is_scalar_field(expr.args[0])
-
-    elif isinstance(expr, ScalarField):
-        return True
-
-    return False
-
-#==============================================================================
-def is_vector_field(expr):
-
-    if isinstance(expr, _partial_derivatives):
-        return is_vector_field(expr.args[0])
-
-    elif isinstance(expr, _logical_partial_derivatives):
-        return is_vector_field(expr.args[0])
-
-    elif isinstance(expr, (VectorField, IndexedVectorField)):
-        return True
-
-    return False
-
-#==============================================================================
 def logical2physical(expr):
 
     partial_der = dict(zip(_logical_partial_derivatives,_partial_derivatives))
@@ -97,16 +146,16 @@ def logical2physical(expr):
         return new_expr
     else:
         return expr
-
+#==============================================================================
 def _get_name(atom):
     atom_name = None
-    if isinstance( atom, ScalarTestFunction ):
+    if isinstance( atom, ScalarFunction ):
         atom_name = str(atom.name)
 
-    elif isinstance( atom, VectorTestFunction ):
+    elif isinstance( atom, VectorFunction ):
         atom_name = str(atom.name)
 
-    elif isinstance( atom, IndexedTestTrial ):
+    elif isinstance( atom, IndexedVectorFunction ):
         atom_name = str(atom.base.name)
 
     else:
@@ -165,9 +214,9 @@ def compute_atoms_expr(atomic_exprs, indices_quad, indices_test,
     """
 
     cls = (_partial_derivatives,
-           VectorTestFunction,
-           ScalarTestFunction,
-           IndexedTestTrial)
+           VectorFunction,
+           ScalarFunction,
+           IndexedVectorFunction)
     
     dim  = len(indices_test)
 
@@ -292,9 +341,9 @@ def compute_atoms_expr_field(atomic_exprs, indices_quad,
     map_stmts = []
 
     cls = (_partial_derivatives,
-           ScalarField,
-           IndexedVectorField,
-           VectorField)
+           ScalarFunction,
+           IndexedVectorFunction,
+           VectorFunction)
 
     # If there is a mapping, compute [dx(u), dy(u), dz(u)] as functions
     # of [dx1(u), dx2(u), dx3(u)], and store results into intermediate
@@ -346,12 +395,12 @@ def compute_atoms_expr_field(atomic_exprs, indices_quad,
     for atom in new_atoms:
 
         # Extract field, compute name of coefficient variable, and get base
-        if is_scalar_field(atom):
-            field      = atom.atoms(ScalarField).pop()
+        if atom.atoms(ScalarFunction):
+            field      = atom.atoms(ScalarFunction).pop()
             field_name = 'coeff_' + SymbolicExpr(field).name
             base       = field
-        elif is_vector_field(atom):
-            field      = atom.atoms(IndexedVectorField).pop()
+        elif atom.atoms(VectorFunction):
+            field      = atom.atoms(IndexedVectorFunction).pop()
             field_name = 'coeff_' + SymbolicExpr(field).name
             base       = field.base
         else:
@@ -364,14 +413,14 @@ def compute_atoms_expr_field(atomic_exprs, indices_quad,
         orders = [*get_index(atom).values()]
         args   = [b[i, d, q] for b, i, d, q in zip(basis, idxs, orders, indices_quad)]
         inits += [Assign(test_fun, Mul(*args))]
-        # ...
+        # ...
 
-        # ...
+        # ...
         args     = [IndexedBase(field_name)[idxs], test_fun]
         val_name = SymbolicExpr(atom).name + '_values'
         val      = IndexedBase(val_name)[indices_quad]
         updates += [AugAssign(val,'+',Mul(*args))]
-        # ...
+        # ...
 
     return inits, updates, map_stmts, new_atoms
 
@@ -387,6 +436,7 @@ def compute_atoms_expr_mapping(atomic_exprs, indices_quad,
 
     Parameters
     ----------
+
     atomic_exprs : <list>
         list of atoms
 
@@ -409,7 +459,6 @@ def compute_atoms_expr_mapping(atomic_exprs, indices_quad,
 
     updates : <list>
         list of augmented assignments which are updated in each loop iteration
-
     """
 
     inits   = []
@@ -419,23 +468,23 @@ def compute_atoms_expr_mapping(atomic_exprs, indices_quad,
         element = get_atom_logical_derivatives(atom)
         element_name = 'coeff_' + SymbolicExpr(element).name
 
-        # ...
+        # ...
         test_fun = atom.subs(element, test_function)
         test_fun = SymbolicExpr(test_fun)
-        # ...
+        # ...
 
-        # ...
+        # ...
         orders = [*get_index_logical_derivatives(atom).values()]
         args   = [b[i, d, q] for b, i, d, q in zip(basis, idxs, orders, indices_quad)]
         inits += [Assign(test_fun, Mul(*args))]
-        # ...
+        # ...
 
-        # ...
+        # ...
         val_name = SymbolicExpr(atom).name + '_values'
         val      = IndexedBase(val_name)[indices_quad]
         expr     = IndexedBase(element_name)[idxs] * test_fun
         updates += [AugAssign(val, '+', expr)]
-        # ...
+        # ...
 
     return inits, updates
 
@@ -743,6 +792,11 @@ def variables(names, dtype, **args):
             return Variable(dtype,  name, rank=rank, **args)
         elif issubclass(cls, IndexedVariable):
             return IndexedVariable(name, dtype=dtype, rank=rank, **args)
+        elif cls==Idx:
+            assert dtype == "int"
+            rank = args.pop('rank', 0)
+            assert rank == 0
+            return Idx(name)
         else:
             raise TypeError('only Variables and IndexedVariables are supported')
 
@@ -843,11 +897,48 @@ def variables(names, dtype, **args):
     else:
         raise TypeError('Expecting a string')
 
+#==============================================================================
+def build_pyccel_type_annotations(args, order=None):
 
+    new_args = []
 
+    for a in args:
+        if isinstance(a, Variable):
+            rank  = a.rank
+            dtype = a.dtype.name.lower()
+
+        elif isinstance(a, IndexedVariable):
+            rank  = a.rank
+            dtype = a.dtype.name.lower()
+
+        elif isinstance(a, Constant):
+            rank = 0
+            if a.is_integer:
+                dtype = 'int'
+            elif a.is_real:
+                dtype = 'float'
+            elif a.is_complex:
+                dtype = 'complex'
+            else:
+                raise TypeError(f"The Constant {a} don't have any information about the type of the variable.\n"
+                                f"Please create the Constant like this Constant('{a}', real=True), Constant('{a}', complex=True) or Constant('{a}', integer=True).")
+
+        else:
+            raise TypeError('unexpected type for {}'.format(a))
+
+        if rank > 0:
+            shape = ','.join(':' * rank)
+            dtype = '{dtype}[{shape}]'.format(dtype=dtype, shape=shape)
+            if order and rank > 1:
+                dtype = "{dtype}(order={ordering})".format(dtype=dtype, ordering=order)
+
+        dtype = String(dtype)
+        new_a = AnnotatedArgument(a, dtype)
+        new_args.append(new_a)
+
+    return new_args
 
 #==============================================================================
-
 def build_pythran_types_header(name, args, order=None):
     """
     builds a types decorator from a list of arguments (of FunctionDef)
@@ -880,14 +971,91 @@ pythran_dtypes = {'real':'float','int':'int'}
 #==============================================================================
 
 from sympy import preorder_traversal
-from sympy import Function
 from sympy import NumberSymbol
 from sympy import Pow, S
-from sympy.printing.pycode import _known_functions_math
-from sympy.printing.pycode import _known_constants_math
-from sympy.printing.pycode import _known_functions_mpmath
-from sympy.printing.pycode import _known_constants_mpmath
-from sympy.printing.pycode import _known_functions_numpy
+
+_known_functions_math = {
+    'acos': 'acos',
+    'acosh': 'acosh',
+    'asin': 'asin',
+    'asinh': 'asinh',
+    'atan': 'atan',
+    'atan2': 'atan2',
+    'atanh': 'atanh',
+    'ceiling': 'ceil',
+    'cos': 'cos',
+    'cosh': 'cosh',
+    'erf': 'erf',
+    'erfc': 'erfc',
+    'exp': 'exp',
+    'expm1': 'expm1',
+    'factorial': 'factorial',
+    'floor': 'floor',
+    'gamma': 'gamma',
+    'hypot': 'hypot',
+    'loggamma': 'lgamma',
+    'log': 'log',
+    'ln': 'log',
+    'log10': 'log10',
+    'log1p': 'log1p',
+    'log2': 'log2',
+    'sin': 'sin',
+    'sinh': 'sinh',
+    'Sqrt': 'sqrt',
+    'tan': 'tan',
+    'tanh': 'tanh'
+
+}  # Not used from ``math``: [copysign isclose isfinite isinf isnan ldexp frexp pow modf
+# radians trunc fmod fsum gcd degrees fabs]
+_known_constants_math = {
+    'Exp1': 'e',
+    'Pi': 'pi',
+    'E': 'e'
+    # Only in python >= 3.5:
+    # 'Infinity': 'inf',
+    # 'NaN': 'nan'
+}
+
+_not_in_mpmath = 'log1p log2'.split()
+_in_mpmath = [(k, v) for k, v in _known_functions_math.items() if k not in _not_in_mpmath]
+_known_functions_mpmath = dict(_in_mpmath, **{
+    'beta': 'beta',
+    'fresnelc': 'fresnelc',
+    'fresnels': 'fresnels',
+    'sign': 'sign',
+})
+_known_constants_mpmath = {
+    'Exp1': 'e',
+    'Pi': 'pi',
+    'GoldenRatio': 'phi',
+    'EulerGamma': 'euler',
+    'Catalan': 'catalan',
+    'NaN': 'nan',
+    'Infinity': 'inf',
+    'NegativeInfinity': 'ninf'
+}
+
+_not_in_numpy = 'erf erfc factorial gamma loggamma'.split()
+_in_numpy = [(k, v) for k, v in _known_functions_math.items() if k not in _not_in_numpy]
+_known_functions_numpy = dict(_in_numpy, **{
+    'acos': 'arccos',
+    'acosh': 'arccosh',
+    'asin': 'arcsin',
+    'asinh': 'arcsinh',
+    'atan': 'arctan',
+    'atan2': 'arctan2',
+    'atanh': 'arctanh',
+    'exp2': 'exp2',
+    'sign': 'sign',
+})
+_known_constants_numpy = {
+    'Exp1': 'e',
+    'Pi': 'pi',
+    'EulerGamma': 'euler_gamma',
+    'NaN': 'nan',
+    'Infinity': 'PINF',
+    'NegativeInfinity': 'NINF'
+}
 
 
 def math_atoms_as_str(expr, lib='math'):
@@ -921,7 +1089,7 @@ def math_atoms_as_str(expr, lib='math'):
         known_constants = _known_constants_mpmath
     elif lib == 'numpy':
         known_functions = _known_functions_numpy
-        known_constants = _known_constants_math   # numpy version missing
+        known_constants = _known_constants_numpy   # numpy version missing
     else:
         raise ValueError("Library {} not supported.".format(mod))
 
@@ -949,8 +1117,33 @@ def math_atoms_as_str(expr, lib='math'):
 
         # Search for square roots
         elif (not sqrt):
-            if isinstance(i, Pow) and (i.exp is S.Half):
+            if isinstance(i, Pow) and ((i.exp is S.Half) or (i.exp == -S.Half)):
                 math_functions.add('sqrt')
                 sqrt = True
 
     return set.union(math_functions, math_constants)
+
+def get_name(lhs):
+    """
+    Given a list of variable return the meaningful part of the name of the
+    first variable that has a _name attribute.
+
+    Was added to solve issue #327 caused by trying to access the name of a 
+    variable that has not such attribute.
+
+    Parameters
+    ----------
+    lhs : list
+        list from whom we need to extract a name.
+
+    Returns
+    -------
+    str
+        meaningful part of the name of the variable or "zero term" if no 
+        variable has a name.
+
+    """
+    for term in lhs:
+        if hasattr(term, '_name'):
+            return term._name[12:-8]
+    return "zero_term"

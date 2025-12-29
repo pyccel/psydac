@@ -1,109 +1,81 @@
-# coding: utf-8
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 
 # TODO: - init_fem is called whenever we call discretize. we should check that
-#         nderiv has not been changed. shall we add quad_order too?
+#         nderiv has not been changed. shall we add nquads too?
 
 # TODO: avoid using os.system and use subprocess.call
 
-from collections import OrderedDict
-from collections import namedtuple
-
-from pyccel.ast import Nil
-from pyccel.epyccel import get_source_function
-
-from sympde.topology import Domain, Boundary
-
-
-from psydac.api.ast.fem              import Kernel
-from psydac.api.ast.fem              import Assembly
-from psydac.api.ast.fem              import Interface
-from psydac.api.ast.glt              import GltKernel
-from psydac.api.ast.glt              import GltInterface
-
-from psydac.api.printing.pycode      import pycode
-from psydac.api.essential_bc         import apply_essential_bc
-from psydac.api.settings             import PSYDAC_BACKEND_PYTHON, PSYDAC_DEFAULT_FOLDER
-from psydac.linalg.stencil           import StencilVector, StencilMatrix
-from psydac.linalg.iterative_solvers import cg
-from psydac.fem.splines              import SplineSpace
-from psydac.fem.tensor               import TensorFemSpace
-from psydac.fem.vector               import ProductFemSpace
-from psydac.cad.geometry             import Geometry
-from psydac.mapping.discrete         import SplineMapping, NurbsMapping
-
-from sympde.expr.basic import BasicForm
-from sympde.topology.space import ScalarField, VectorField, IndexedVectorField
-from gelato.expr       import GltExpr
-from sympy import Add, Mul
-
-import inspect
 import sys
 import os
 import importlib
-import string
-import random
-import numpy as np
 from mpi4py import MPI
 
+from psydac.api.ast.fem         import AST
+from psydac.api.ast.parser      import parse
+from psydac.api.printing.pycode import pycode
+from psydac.api.settings        import PSYDAC_BACKENDS, PSYDAC_DEFAULT_FOLDER
+from psydac.api.utilities       import mkdir_p, touch_init_file, random_string, write_code
 
-#==============================================================================
-def mkdir_p(folder):
-    if os.path.isdir(folder):
-        return
-    os.makedirs(folder, exist_ok=True)
-
-#==============================================================================
-def touch_init_file(path):
-    mkdir_p(path)
-    path = os.path.join(path, '__init__.py')
-    with open(path, 'a'):
-        os.utime(path, None)
-
-#==============================================================================
-def random_string( n ):
-    # we remove uppercase letters because of f2py
-    chars    = string.ascii_lowercase + string.digits
-    selector = random.SystemRandom()
-    return ''.join( selector.choice( chars ) for _ in range( n ) )
-
-#==============================================================================
-def write_code(filename, code, folder=None):
-    if not folder:
-        folder = os.getcwd()
-
-    folder = os.path.abspath(folder)
-    if not os.path.isdir(folder):
-        raise ValueError('{} folder does not exist'.format(folder))
-
-    filename = os.path.basename( filename )
-    filename = os.path.join(folder, filename)
-
-    # TODO check if init exists
-    # add __init__.py for imports
-    touch_init_file(folder)
-
-    f = open(filename, 'w')
-    for line in code:
-        f.write(line)
-    f.close()
-
-    return filename
+__all__ = ('BasicCodeGen', 'BasicDiscrete')
 
 #==============================================================================
 # TODO have it as abstract class
-class BasicCodeGen(object):
-    """ Basic class for any discrete concept that needs code generation """
+class BasicCodeGen:
+    """ Basic class for any discrete concept that needs code generation.
 
-    def __init__(self, expr, **kwargs):
+    Parameters
+    ----------
 
-        namespace = kwargs.pop('namespace', globals())
-        backend   = kwargs.pop('backend', PSYDAC_BACKEND_PYTHON)
-        folder    = kwargs.pop('folder', None)
-        comm      = kwargs.pop('comm', None)
-        root      = kwargs.pop('root', None)
-        expr      = self.annotate(expr)
-        # ...
-        if not( comm is None):
+    folder: str
+        The output folder where we generate the code.
+
+    comm: MPI.Comm
+        The mpi communicator used in the parallel case.
+
+    root: int
+        The process that is responsible of generating the code.
+
+    discrete_space: FemSpace | list of FemSpace
+        The discrete fem spaces.
+
+    kernel_expr : sympde.expr.evaluation.KernelExpression
+        The atomic representation of the bi-linear form.
+
+    nquads: list of tuple
+        The number of quadrature points used in the assembly method.
+
+    is_rational_mapping : bool
+        takes the value of True if the mapping is rational.
+
+    mapping: Sympde.topology.Mapping
+        The symbolic mapping of the bi-linear form domain.
+
+    mapping_space: FemSpace
+       The discete space of the mapping.
+
+    num_threads: int
+       Number of threads used in the computing kernels.
+ 
+    backend: dict
+        The backend used to accelerate the computing kernels.
+        The content of the dictionary can be found in psydac/api/settings.py.
+
+    """
+    def __init__(self, expr, *, folder=None, comm=None, root=None, discrete_space=None,
+                       kernel_expr=None, nquads=None, is_rational_mapping=None, mapping=None,
+                       mapping_space=None, num_threads=None, backend=None):
+
+        # Get default backend from environment, or use 'python'.
+        default_backend = PSYDAC_BACKENDS.get(os.environ.get('PSYDAC_BACKEND'))\
+                       or PSYDAC_BACKENDS['python']
+
+        backend   = backend or default_backend
+        # ...
+        if not( comm is None) and comm.size>1:
             if root is None:
                 root = 0
 
@@ -112,110 +84,76 @@ class BasicCodeGen(object):
 
             if comm.rank == root:
                 tag = random_string( 8 )
-                ast = self._create_ast( expr, tag, comm=comm, backend=backend, **kwargs )
-                interface = ast['interface']
-                max_nderiv = interface.max_nderiv
-                in_arguments = [str(a) for a in interface.in_arguments]
-                inout_arguments = [str(a) for a in interface.inout_arguments]
-                user_functions = interface.user_functions
+                ast = self._create_ast( expr=expr, tag=tag, comm=comm, discrete_space=discrete_space,
+                           kernel_expr=kernel_expr, nquads=nquads, is_rational_mapping=is_rational_mapping,
+                           mapping=mapping, mapping_space=mapping_space, num_threads=num_threads, backend=backend )
+
+                max_nderiv = ast.nderiv
+                func_name = ast.expr.name
+                arguments = ast.expr.arguments.copy()
+                free_args = arguments.pop('fields', ()) +  arguments.pop('constants', ())
+                free_args = tuple(str(i) for i in free_args)
 
             else:
-                interface = None
                 tag = None
+                ast = None
                 max_nderiv = None
-                in_arguments = None
-                inout_arguments = None
-                user_functions = None
+                func_name  = None
+                free_args  = None
 
-            comm.Barrier()
-            tag = comm.bcast( tag, root=root )
-            max_nderiv = comm.bcast( max_nderiv, root=root )
-            in_arguments = comm.bcast( in_arguments, root=root )
-            inout_arguments = comm.bcast( inout_arguments, root=root )
-            user_functions = comm.bcast( user_functions, root=root )
-
+            tag        = comm.bcast(tag, root=root )
+            func_name  = comm.bcast(func_name, root=root)
+            max_nderiv = comm.bcast(max_nderiv, root=root )
+            free_args  = comm.bcast(free_args, root=root)
+            #user_functions = comm.bcast( user_functions, root=root )
         else:
             tag = random_string( 8 )
-            ast = self._create_ast( expr, tag, backend=backend, **kwargs )
-            interface = ast['interface']
-            max_nderiv = interface.max_nderiv
-            interface_name = interface.name
-            in_arguments = [str(a) for a in interface.in_arguments]
-            inout_arguments = [str(a) for a in interface.inout_arguments]
-            user_functions = interface.user_functions
-        # ...
+            ast = self._create_ast( expr=expr, tag=tag, discrete_space=discrete_space,
+                       kernel_expr=kernel_expr, nquads=nquads, is_rational_mapping=is_rational_mapping,
+                       mapping=mapping, mapping_space=mapping_space, num_threads=num_threads, backend=backend )
 
-        # ...
+            max_nderiv = ast.nderiv
+            func_name = ast.expr.name
+            arguments = ast.expr.arguments.copy()
+            free_args = arguments.pop('fields', ()) +  arguments.pop('constants', ())
+            free_args = tuple(str(i) for i in free_args)
+
+        user_functions = None
         self._expr = expr
         self._tag = tag
-        self._interface = interface
-        self._in_arguments = in_arguments
-        self._inout_arguments = inout_arguments
+        self._ast = ast
+        self._func_name = func_name
+        self._free_args = free_args
         self._user_functions = user_functions
         self._backend = backend
         self._folder = self._initialize_folder(folder)
         self._comm = comm
         self._root = root
         self._max_nderiv = max_nderiv
-
-        self._dependencies = None
-        self._dependencies_code = None
-        self._dependencies_fname = None
-        self._dependencies_modname = None
-
-        interface_name = 'interface_{}'.format(tag)
-        self._interface_name = interface_name
-        self._interface_code = None
-        self._interface_base_import_code = None
+        self._code = None
         self._func = None
+        self._dependencies_modname = 'dependencies_{}'.format(self.tag)
+        self._dependencies_fname   = '{}.py'.format(self._dependencies_modname)
         # ...
 
-        # ... when using user defined functions, there must be passed as
+        # ... when using user defined functions, there must be passed as
         #     arguments of discretize. here we create a dictionary where the key
         #     is the function name, and the value is a valid implementation.
-        if user_functions:
-            for f in user_functions:
-                if not hasattr(f, '_imp_'):
-                    # TODO raise appropriate error message
-                    raise ValueError('can not find {} implementation'.format(f))
-        # ...
+        # if user_functions:
+        #     for f in user_functions:
+        #         if not hasattr(f, '_imp_'):
+        #             # TODO raise appropriate error message
+        #             raise ValueError('can not find {} implementation'.format(f))
 
-        # generate python code as strings for dependencies
-        if not( interface is None ):
-            self._dependencies = interface.dependencies
-            self._dependencies_code = self._generate_code()
+        if ast:
+            python_code = self._generate_code()
+            self._save_code(python_code, backend=self.backend['name'])
 
-        if not( interface is None ):
-            # save dependencies code
-            self._save_code()
-
-            if self.backend['name'] == 'pyccel':
-                self._compile_pyccel(namespace)
-            elif self.backend['name'] == 'pythran':
-                self._compile_pythran(namespace)
-
-            # generate code for Python interface
-            self._generate_interface_code()
-
-            # compile code
-            self._compile(namespace)
-
-        if not( comm is None):
-            comm.Barrier()
-            if comm.rank != root:
-                if self.backend['name'] == 'pyccel':
-                    _folder = os.path.join(self.folder, self.backend['folder'])
-                    sys.path.append(_folder)
-
-                interface_module_name = interface_name
-                self._set_func(interface_module_name, interface_name)
-
-                if self.backend['name'] == 'pyccel':
-                    _folder = os.path.join(self.folder, self.backend['folder'])
-                    sys.path.remove(_folder)
-
+        if comm is not None and comm.size > 1:
             comm.Barrier()
 
+        # compile code
+        self._compile()
 
     @property
     def expr(self):
@@ -226,48 +164,20 @@ class BasicCodeGen(object):
         return self._tag
 
     @property
-    def in_arguments(self):
-        return self._in_arguments
-
-    @property
-    def inout_arguments(self):
-        return self._inout_arguments
-
-    @property
     def user_functions(self):
         return self._user_functions
 
     @property
-    def interface(self):
-        return self._interface
+    def free_args(self):
+        return self._free_args
 
     @property
-    def dependencies(self):
-        return self._dependencies
+    def ast(self):
+        return self._ast
 
     @property
-    def interface_name(self):
-        return self._interface_name
-
-    @property
-    def interface_code(self):
+    def code(self):
         return self._interface_code
-
-    @property
-    def interface_base_import_code(self):
-        return self._interface_base_import_code
-
-    @property
-    def dependencies_code(self):
-        return self._dependencies_code
-
-    @property
-    def dependencies_fname(self):
-        return self._dependencies_fname
-
-    @property
-    def dependencies_modname(self):
-        return self._dependencies_modname
 
     @property
     def func(self):
@@ -289,6 +199,14 @@ class BasicCodeGen(object):
     def folder(self):
         return self._folder
 
+    @property
+    def dependencies_fname(self):
+        return self._dependencies_fname
+
+    @property
+    def dependencies_modname(self):
+        return self._dependencies_modname
+
     def _create_ast(self, **kwargs):
         raise NotImplementedError('Must be implemented')
 
@@ -296,7 +214,7 @@ class BasicCodeGen(object):
         # ...
         if folder is None:
             basedir = os.getcwd()
-            folder = PSYDAC_DEFAULT_FOLDER
+            folder = PSYDAC_DEFAULT_FOLDER['name']
             folder = os.path.join( basedir, folder )
 
             # ... add __init__ to all directories to be able to
@@ -315,202 +233,63 @@ class BasicCodeGen(object):
         return folder
 
     def _generate_code(self):
-        # ... generate code that can be pyccelized
-        code = ''
+        """
+        Generate Python code which can be pyccelized.
+        """
+        psydac_ast = self.ast
 
-        if self.backend['name'] == 'pyccel':
+        parser_settings = {
+            'dim'    : psydac_ast.dim,
+            'nderiv' : psydac_ast.nderiv,
+            'mapping': psydac_ast.mapping,
+            'target' : psydac_ast.domain
+        }
 
-            code += '\nfrom pyccel.decorators import types'
-            code += '\nfrom pyccel.decorators import external, external_call'
+        pyccel_ast  = parse(psydac_ast.expr, settings=parser_settings, backend=self.backend)
+        python_code = pycode(pyccel_ast)
 
-        elif self.backend['name'] == 'numba':
-            code = 'from numba import jit'
+        return python_code
 
-        imports = '\n'.join(pycode(imp) for dep in self.dependencies for imp in dep.imports )
-
-        code = '{code}\n{imports}'.format(code=code, imports=imports)
-
-        # ... add user defined functions
-        if self.user_functions:
-            for func in self.user_functions:
-                func_code = get_source_function(func._imp_)
-                code = '{code}\n{func_code}'.format(code=code, func_code=func_code)
+    def _save_code(self, code, backend=None):
         # ...
+        write_code(self._dependencies_fname, code, folder = self.folder)
 
-        for dep in self.dependencies:
-            code = '{code}\n{dep}'.format(code=code, dep=pycode(dep))
-        # ...
-        return code
+    def _compile_pythran(self, mod):
+        raise NotImplementedError('Pythran is not available')
 
-    def _save_code(self):
-        # ...
-        code = self.dependencies_code
-        module_name = 'dependencies_{}'.format(self.tag)
-
-        self._dependencies_fname = '{}.py'.format(module_name)
-        write_code(self.dependencies_fname, code, folder = self.folder)
-        # ...
-
-        # TODO check this? since we are using relative paths now
-        self._dependencies_modname = module_name.replace('/', '.')
-
-    def _generate_interface_code(self):
-        imports = []
-        prefix = ''
-
-        module_name = self.dependencies_modname
-
-        # ...
-        if self.backend['name'] == 'pyccel':
-            imports += [self.interface_base_import_code]
-
-        else:
-            # ... generate imports from dependencies module
-            pattern = 'from {module} import {dep}'
-
-            for dep in self.dependencies:
-                txt = pattern.format(module=module_name, dep=dep.name)
-                imports.append(txt)
-            # ...
-        # ...
-
-        imports = '\n'.join(imports)
-
-        code = pycode(self.interface)
-
-        self._interface_code = '{imports}\n{code}'.format(imports=imports, code=code)
-
-    def _compile_pythran(self, namespace):
-
-        module_name = self.dependencies_modname
-
-        basedir = os.getcwd()
-        os.chdir(self.folder)
-        curdir = os.getcwd()
-        sys.path.append(self.folder)
-        os.system('pythran {}.py -O3'.format(module_name))
-        sys.path.remove(self.folder)
-
-        # ...
-    def _compile_pyccel(self, namespace, verbose=False):
-
-        module_name = self.dependencies_modname
-
-        # ...
-        from pyccel.epyccel import epyccel
+    def _compile_pyccel(self, mod, verbose=False):
 
         # ... convert python to fortran using pyccel
-        compiler       = self.backend['compiler']
-        fflags         = self.backend['flags']
-        accelerator    = self.backend['accelerator']
-        _PYCCEL_FOLDER = self.backend['folder']
-        # ...
+        compiler_family = self.backend['compiler_family']
+        flags           = self.backend['flags']
+        openmp          = self.backend["openmp"]
+        _PYCCEL_FOLDER  = self.backend['folder']
 
-        # ...
-        basedir = os.getcwd()
-        os.chdir(self.folder)
-        curdir = os.getcwd()
-        # ...
+        from pyccel import epyccel
+        fmod = epyccel(mod,
+                       openmp  = openmp,
+                       compiler_family = compiler_family,
+                       flags   = flags,
+                       comm    = self.comm,
+                       bcast   = True,
+                       folder  = _PYCCEL_FOLDER,
+                       verbose = verbose)
 
-        # ...
-        sys.path.append(self.folder)
-        package = importlib.import_module( module_name )
-        f2py_module = epyccel( package,
-                               compiler    = compiler,
-                               fflags      = fflags,
-                               accelerator = accelerator,
-                               comm        = self.comm,
-                               bcast       = False,
-                               folder      = _PYCCEL_FOLDER )
-        sys.path.remove(self.folder)
-        # ...
+        return fmod
 
-        # ... get list of all functions inside the f2py module
-        functions = []
-        for name, obj in inspect.getmembers(f2py_module):
-            if callable(obj) and not( name.startswith( 'f2py_' ) ):
-                functions.append(name)
-        # ...
-
-        # ...
-        # update module name for dependencies
-        # needed for interface when importing assembly
-        name = os.path.join(_PYCCEL_FOLDER, f2py_module.__name__)
-        name = name.replace('/', '.')
-        imports = []
-        for f in functions:
-            pattern = 'from {name} import {f}'
-            stmt = pattern.format( name = name, f = f )
-            imports.append(stmt)
-        imports = '\n'.join(i for i in imports)
-
-        self._interface_base_import_code = imports
-        # ...
-
-        os.chdir(basedir)
-
-    def _compile(self, namespace):
+    def _compile(self):
 
         module_name = self.dependencies_modname
-
-        # ... TODO move to save
-        code = self.interface_code
-        interface_module_name = 'interface_{}'.format(self.tag)
-        fname = '{}.py'.format(interface_module_name)
-        fname = write_code(fname, code, folder = self.folder)
-        # ...
-
-        self._set_func(interface_module_name, self.interface_name)
-
-    def _set_func(self, interface_module_name, interface_name):
-        # ...
         sys.path.append(self.folder)
-        package = importlib.import_module( interface_module_name )
+        package = importlib.import_module( module_name )
         sys.path.remove(self.folder)
-        # ...
 
-        self._func = getattr(package, interface_name)
+        if self.backend['name'] == 'pyccel':
+            package = self._compile_pyccel(package)
+        elif self.backend['name'] == 'pythran':
+            package = self._compile_pythran(package)
 
-    def _check_arguments(self, **kwargs):
-
-        # TODO do we need a method from Interface to map the dictionary of arguments
-        # that are passed for the call (in the same spirit of build_arguments)
-        # the idea is to be sure of their order, since they can be passed to
-        # Fortran
-
-        _kwargs = {}
-
-        # ... mandatory arguments
-        for key in self.in_arguments:
-            try:
-                _kwargs[key] = kwargs[key]
-            except:
-                raise KeyError('Unconsistent argument with interface')
-        # ...
-
-        # ... optional (inout) arguments
-        for key in self.inout_arguments:
-            try:
-                _kwargs[key] = kwargs[key]
-            except:
-                pass
-        # ...
-
-        return _kwargs
-
-    def annotate(self, expr):
-    
-        if isinstance(expr, BasicForm):   
-            if not expr.is_annotated:
-                expr = expr.annotate()
-                
-        elif isinstance(expr, GltExpr):
-            form = expr.form
-            form = form.annotate()
-            expr = GltExpr(form)
-        return expr
-        
-
+        self._func = getattr(package, self._func_name)
 
 #==============================================================================
 class BasicDiscrete(BasicCodeGen):
@@ -518,54 +297,16 @@ class BasicDiscrete(BasicCodeGen):
     kwargs is used to pass user defined functions for the moment.
     """
 
-    def __init__(self, expr, kernel_expr, **kwargs):
+    def __init__(self, expr, kernel_expr, *, folder=None, comm=None, root=None, discrete_space=None,
+                       nquads=None, is_rational_mapping=None, mapping=None,
+                       mapping_space=None, num_threads=None, backend=None):
 
-        # ...
-        target   = kwargs.pop('target', None)
-        boundary = kwargs.pop('boundary', None)
-        # ...
-
-        # ...
-        if not target:
-            if len(kernel_expr) > 1:
-                raise ValueError('> Expecting only one kernel')
-
-            target = kernel_expr[0].target
-        # ...
-
-        # ...
-        boundary_basis = False
-        if boundary:
-            if not isinstance(boundary, (tuple, list, Boundary)):
-                raise TypeError('> Expecting a tuple, list or Boundary')
-
-            if isinstance(boundary, Boundary):
-                if not( boundary is target ):
-                    raise ValueError('> Unconsistent boundary with symbolic model')
-
-            # boundary is now a list of boundaries
-            # TODO shall we keep it this way? since this is the simplest
-            # interface to be able to compute Functional on a curve in 3d
-        # ...
-
-        # ... put back optional args to kwargs
-        kwargs['target'] = target
-        kwargs['boundary'] = boundary
-        kwargs['boundary_basis'] = boundary_basis
-        # ...
-
-        # ...
-        kwargs['kernel_expr'] = kernel_expr
-        # ...
-
-        # ...
-        BasicCodeGen.__init__(self, expr, **kwargs)
-        # ...
-
-        # ...
+        BasicCodeGen.__init__(self, expr, folder=folder, comm=comm, root=root, discrete_space=discrete_space,
+                       kernel_expr=kernel_expr, nquads=nquads, is_rational_mapping=is_rational_mapping,
+                       mapping=mapping, mapping_space=mapping_space, num_threads=num_threads, backend=backend)
+        # ...
         self._kernel_expr = kernel_expr
-        self._target = target
-        # ...
+        # ...
 
     @property
     def kernel_expr(self):
@@ -587,46 +328,20 @@ class BasicDiscrete(BasicCodeGen):
     def max_nderiv(self):
         return self._max_nderiv
 
-    def _create_ast(self, expr, tag, **kwargs):
-        kernel_expr         = kwargs.pop('kernel_expr', None)
-        target              = kwargs.pop('target', None)
-        mapping             = kwargs.pop('mapping', None)
+    def _create_ast(self, **kwargs):
+
+        expr           = kwargs.pop('expr')
+        kernel_expr    = kwargs.pop('kernel_expr')
+        discrete_space = kwargs.pop('discrete_space')
+
+        mapping_space  = kwargs.pop('mapping_space', None)
+        tag            = kwargs.pop('tag', None)
+        nquads         = kwargs.pop('nquads', None)
+        mapping        = kwargs.pop('mapping', None)
+        num_threads    = kwargs.pop('num_threads', None)
+        backend        = kwargs.pop('backend', None)
         is_rational_mapping = kwargs.pop('is_rational_mapping', None)
-        boundary            = kwargs.pop('boundary', None)
-        boundary_basis      = kwargs.pop('boundary_basis', None)
-        backend             = kwargs.pop('backend', PSYDAC_BACKEND_PYTHON)
-        discrete_space      = kwargs.pop('discrete_space', None)
-        symbolic_space      = kwargs.pop('symbolic_space', None)
-        comm                = kwargs.pop('comm', None)
 
-        if kernel_expr is None:
-            raise ValueError('kernel_expr must be given')
-
-        kernel = Kernel( expr, kernel_expr,
-                         name                = 'kernel_{}'.format(tag),
-                         target              = target,
-                         mapping             = mapping,
-                         is_rational_mapping = is_rational_mapping,
-                         boundary            = boundary,
-                         boundary_basis      = boundary_basis,
-                         symbolic_space      = symbolic_space,
-                         backend = backend )
-
-        assembly = Assembly( kernel,
-                             name           = 'assembly_{}'.format(tag),
-                             mapping        = mapping,
-                             is_rational_mapping = is_rational_mapping,
-                             discrete_space = discrete_space,
-                             comm           = comm,
-                             backend = backend )
-
-        interface = Interface( assembly,
-                               name                = 'interface_{}'.format(tag),
-                               mapping             = mapping,
-                               is_rational_mapping = is_rational_mapping,
-                               backend             = backend,
-                               discrete_space      = discrete_space,
-                               comm                = comm )
-
-        ast = {'kernel': kernel, 'assembly': assembly, 'interface': interface}
-        return ast
+        return AST(expr, kernel_expr, discrete_space, mapping_space=mapping_space,
+                   tag=tag, nquads=nquads, mapping=mapping, is_rational_mapping=is_rational_mapping,
+                   backend=backend, num_threads=num_threads)

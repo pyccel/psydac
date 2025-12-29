@@ -1,26 +1,35 @@
-# -*- coding: UTF-8 -*-
-
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
+import pytest
 import numpy as np
-from sympy import pi, cos, sin, Matrix
-from scipy import linalg
+from sympy import pi, cos, sin, sqrt, Matrix, Tuple, lambdify
 from scipy.sparse.linalg import spsolve
+from scipy.sparse.linalg import gmres as sp_gmres
+from scipy.sparse.linalg import minres as sp_minres
+from scipy.sparse.linalg import cg as sp_cg
+from scipy.sparse.linalg import bicg as sp_bicg
+from scipy.sparse.linalg import bicgstab as sp_bicgstab
 
-from sympde.calculus import grad, dot, inner, div
+from sympde.calculus import grad, dot, inner, div, curl, cross
+from sympde.topology import NormalVector
 from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
 from sympde.topology import ProductSpace
-from sympde.topology import element_of
+from sympde.topology import element_of, elements_of
 from sympde.topology import Square
 from sympde.expr import BilinearForm, LinearForm, integral
 from sympde.expr import Norm
 from sympde.expr import find, EssentialBC
 
 from psydac.fem.basic          import FemField
-from psydac.fem.vector         import VectorFemField
 from psydac.api.discretization import discretize
+from psydac.linalg.utilities   import array_to_psydac
+from psydac.linalg.solvers     import inverse
 
 #==============================================================================
-
-def run_system_1_2d_dir(f0, sol, ncells, degree):
+def run_poisson_mixed_form_2d_dir(f0, sol, ncells, degree):
     # ... abstract model
     domain = Square()
 
@@ -58,141 +67,517 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
     Xh  = discretize(X , domain_h, degree=degree)
 
     # ... dsicretize the equation using Dirichlet bc
-    ah = discretize(equation, domain_h, [Xh, Xh], symbolic_space=[X, X])
+    ah = discretize(equation, domain_h, [Xh, Xh])
     # ...
-
     # ... discretize norms
-    l2norm_F_h = discretize(l2norm_F, domain_h, V2h)
+    l2norm_F_h = discretize(l2norm_F, domain_h, V2h, nquads=[d+1 for d in degree])
     # ...
 
     # ...
     ah.assemble()
     M   = ah.linear_system.lhs.tosparse().tocsc()
     rhs = ah.linear_system.rhs.toarray()
+
     x   = spsolve(M, rhs)
-    # ...
-    
-    # ... 
-    s31,s32 = V2h.vector_space.starts
-    e31,e32 = V2h.vector_space.ends
-    # ...
+    x   = array_to_psydac(x, Xh.coeff_space)
     
     # ...
     Fh = FemField( V2h )
-    Fh.coeffs[s31:e31+1, s32:e32+1] = x[-(e31-s31+1)*(e32-s32+1):].reshape((e31-s31+1, e32-s32+1))
+    Fh.coeffs[:, :] = x[2][:,:]
     # ...
 
     # ... compute norms
     l2_error = l2norm_F_h.assemble(F=Fh)
 
-
     return l2_error
-    
-def run_system_2_2d_dir(f1, f2,u1, u2, ncells, degree):
-    # ... abstract model
-    domain = Square()
 
+#==============================================================================
+def run_stokes_2d_dir(domain, f, ue, pe, *, homogeneous, ncells, degree, scipy=False):
+
+    # ... abstract model
     V1 = VectorFunctionSpace('V1', domain, kind='H1')
     V2 = ScalarFunctionSpace('V2', domain, kind='L2')
     X  = ProductSpace(V1, V2)
 
-    x,y = domain.coordinates
+    u, v = elements_of(V1, names='u, v')
+    p, q = elements_of(V2, names='p, q')
 
-    F = element_of(V1, name='F')
-
-    u,v = [element_of(V1, name=i) for i in ['u', 'v']]
-    p,q = [element_of(V2, name=i) for i in ['p', 'q']]
-
+    x, y  = domain.coordinates
     int_0 = lambda expr: integral(domain , expr)
 
-    
-    a  = BilinearForm(((u,p),(v,q)), int_0(inner(grad(u),grad(v)) + div(u)*q - p*div(v)) )
-    l  = LinearForm((v,q), int_0(f1*v[0]+f2*v[1]+q))
-    
-    bc = EssentialBC(u, 0, domain.boundary)
-    equation = find([u,p], forall=[v,q], lhs=a((u,p),(v,q)), rhs=l(v,q), bc=bc)
+    a  = BilinearForm(((u, p), (v, q)), int_0(inner(grad(u), grad(v)) - div(u)*q - p*div(v)) )
+    l  = LinearForm((v, q), int_0(dot(f, v)))
 
-    error = Matrix([F[0]-u1, F[1]-u2])
-    l2norm_F = Norm(error, domain, kind='l2')
+    # Dirichlet boundary conditions are given in the form u = g where g may be
+    # just 0 (hence homogeneous BCs are prescribed) or a symbolic expression
+    # g(x, y) that represents the boundary data. Here we use the exact solution
+    if homogeneous:
+        bc = EssentialBC(u, 0, domain.boundary)
+    else:
+        bc = EssentialBC(u, ue, domain.boundary)
+
+    equation = find((u, p), forall=(v, q), lhs=a((u, p), (v, q)), rhs=l(v, q), bc=bc)
 
     # ... create the computational domain from a topological domain
     domain_h = discretize(domain, ncells=ncells)
+
     # ... discrete spaces
     V1h = discretize(V1, domain_h, degree=degree)
-    V2h = discretize(V2, domain_h, degree=degree)
-    Xh  = discretize(X , domain_h, degree=degree)
-    
-    s11,s12 = V1h.spaces[0].vector_space.starts
-    e11,e12 = V1h.spaces[0].vector_space.ends
-    s21,s22 = V1h.spaces[1].vector_space.starts
-    e21,e22 = V1h.spaces[1].vector_space.ends
-    s31,s32 = V2h.vector_space.starts
-    e31,e32 = V2h.vector_space.ends
-    
-    # ... dsicretize the equation using Dirichlet bc
-    ah = discretize(equation, domain_h, [Xh, Xh], symbolic_space=[X, X])
+    V2h = discretize(V2, domain_h, degree=degree, basis='M')
+    Xh  = discretize(X , domain_h, degree=degree, basis='M')
 
-    # ... discretize norms
-    l2norm_F_h = discretize(l2norm_F, domain_h, V1h)
+    # ... discretize the equation using Dirichlet bc
+    equation_h = discretize(equation, domain_h, [Xh, Xh])
 
-    ah.assemble()
+    # ... solve linear system using scipy.sparse.linalg or psydac
+    if scipy:
 
-    M     = ah.linear_system.lhs
-    M[0,0][0,:,0,0] = 1.
-    M[0,0][:,0,0,0] = 1.
-    M[0,0][e11,:,0,0] = 1.
-    M[0,0][:,e12,0,0] = 1.
-    M[1,1][0,:,0,0] = 1.
-    M[1,1][:,0,0,0] = 1.
-    M[1,1][e21,:,0,0] = 1.
-    M[1,1][:,e22,0,0] = 1.
-    M = M.toarray()
-    
-    rhs   = ah.linear_system.rhs.toarray()
+        rtol = 1e-11
+        equation_h.assemble()
+        A0 = equation_h.linear_system.lhs.tosparse()
+        b0 = equation_h.linear_system.rhs.toarray()
 
-    M_1   = np.zeros((len(rhs)+1,len(rhs)+1))
-    rhs_1 = np.zeros(len(rhs)+1)
-    v2h_s = (e11+1)*(e12+1)+(e21+1)*(e22+1)
+        if not homogeneous:
+            a1 = BilinearForm(((u, p), (v, q)), integral(domain.boundary, dot(u, v)))
+            l1 = LinearForm((v, q), integral(domain.boundary, dot(ue, v)))
 
-    M_1[:-1,:-1] = M
-    M_1[-1,v2h_s:-1]  = rhs[v2h_s:]
-    M_1[v2h_s:-1,-1]  = rhs[v2h_s:]
-    rhs_1[:v2h_s]   = rhs[:v2h_s] 
+            a1_h = discretize(a1, domain_h, [Xh, Xh])
+            l1_h = discretize(l1, domain_h, Xh)
 
-    M_inv = linalg.inv(M_1)
-    x = M_inv.dot(rhs_1)
-    
-    phi1 = VectorFemField(V1h)
-    phi2 = FemField(V2h)
+            A1 = a1_h.assemble().tosparse()
+            b1 = l1_h.assemble().toarray()
 
-    
-    phi1.coeffs[0][s11:e11+1, s12:e12+1] = x[:(e11+1)*(e12+1)].reshape((e11+1-s11, e12+1-s12))
-    phi1.coeffs[1][s21:e21+1, s22:e22+1] = x[(e11+1)*(e12+1):v2h_s].reshape((e21+1-s21, e22+1-s22))
-    phi2.coeffs[s31:e31+1, s32:e32+1]    = x[v2h_s:-1].reshape((e31-s31+1, e32-s32+1))
-    
-        # ... compute norms
-    l2_error = l2norm_F_h.assemble(F=phi1)
+            x1, info = sp_minres(A1, b1, rtol=rtol)
+            print('Boundary solution with scipy.sparse: success = {}'.format(info == 0))
+
+            x0, info = sp_minres(A0, b0 - A0.dot(x1), rtol=rtol)
+            print('Interior solution with scipy.sparse: success = {}'.format(info == 0))
+
+            # Solution is sum of boundary and interior contributions
+            x = x0 + x1
+
+        else:
+            x, info = sp_minres(A0, b0, rtol=rtol)
+            print('Solution with scipy.sparse: success = {}'.format(info == 0))
+
+        # Convert to stencil format
+        x = array_to_psydac(x, Xh.coeff_space)
+
+    else:
+        equation_h.set_solver('cg', info=True)
+        phi_h, info = equation_h.solve()
+        x = phi_h.coeffs
+        print(info)
+
+    # Numerical solution: velocity field
+    # TODO: allow this: uh = FemField(V1h, coeffs=x[0:2]) or similar
+    uh = FemField(V1h)
+    uh.coeffs[0][:] = x[0][:]
+    uh.coeffs[1][:] = x[1][:]
+
+    # Numerical solution: pressure field
+    # TODO: allow this: uh = FemField(V2h, coeffs=x[2])
+    ph = FemField(V2h)
+    ph.coeffs[:] = x[2][:]
+
+    # Compute norms of exact solution
+    x1, x2 = domain.coordinates
+    ue_1 = lambdify([x1, x2], ue[0])
+    ue_2 = lambdify([x1, x2], ue[1])
+    pe_c = lambdify([x1, x2], pe   )
+    l2_norm_ue = np.sqrt(V1h.spaces[0].integral(lambda *x: ue_1(*x)**2 + ue_2(*x)**2))
+    l2_norm_pe = np.sqrt(V2h.integral(lambda *x: pe_c(*x)**2))
+
+    # Average value of the pressure (should be 0)
+    domain_area = V2h.integral(lambda x1, x2: 1.0)
+    p_avg = V2h.integral(ph) / domain_area
+
+    # L2 error norm of the velocity field
+    error_u   = [ue[0]-u[0], ue[1]-u[1]]
+    l2norm_u  = Norm(error_u, domain, kind='l2')
+    l2norm_uh = discretize(l2norm_u, domain_h, V1h)
+
+    # L2 error norm of the pressure, after removing the average value from the field
+    l2norm_p  = Norm(pe - (p - p_avg), domain, kind='l2')
+    l2norm_ph = discretize(l2norm_p, domain_h, V2h, nquads=[d+1 for d in degree])
+
+    # Compute error norms
+    l2_error_u = l2norm_uh.assemble(u = uh)
+    l2_error_p = l2norm_ph.assemble(p = ph)
+
+    print()
+    print('Relative l2_error(u) = {}'.format(l2_error_u / l2_norm_ue))
+    print('Relative l2_error(p) = {}'.format(l2_error_p / l2_norm_pe))
+    print('Average(p) = {}'.format(p_avg))
+
+    return locals()
+
+#==============================================================================
+def run_stokes_2d_dir_petsc(domain, f, ue, pe, *, homogeneous, ncells, degree):
+
+    from mpi4py   import MPI
+    from petsc4py import PETSc
+    from psydac.linalg.utilities import petsc_to_psydac
+
+    comm = MPI.COMM_WORLD
+
+    # ... abstract model
+    V1 = VectorFunctionSpace('V1', domain, kind='H1')
+    V2 = ScalarFunctionSpace('V2', domain, kind='L2')
+    X  = ProductSpace(V1, V2)
+
+    u, v = elements_of(V1, names='u, v')
+    p, q = elements_of(V2, names='p, q')
+
+    x, y  = domain.coordinates
+    int_0 = lambda expr: integral(domain , expr)
+
+    a  = BilinearForm(((u, p), (v, q)), int_0(inner(grad(u), grad(v)) - div(u)*q - p*div(v)) )
+    l  = LinearForm((v, q), int_0(dot(f, v)))
+
+    # Dirichlet boundary conditions are given in the form u = g where g may be
+    # just 0 (hence homogeneous BCs are prescribed) or a symbolic expression
+    # g(x, y) that represents the boundary data. Here we use the exact solution
+    if homogeneous:
+        bc = EssentialBC(u, 0, domain.boundary)
+    else:
+        bc = EssentialBC(u, ue, domain.boundary)
+
+    equation = find((u, p), forall=(v, q), lhs=a((u, p), (v, q)), rhs=l(v, q), bc=bc)
+
+    # ... create the computational domain from a topological domain
+    domain_h = discretize(domain, ncells=ncells, comm=comm)
+
+    # ... discrete spaces
+    V1h = discretize(V1, domain_h, degree=degree)
+    V2h = discretize(V2, domain_h, degree=degree, basis='M')
+    Xh  = discretize(X , domain_h, degree=degree, basis='M')
+
+    # ... discretize the equation using Dirichlet bc
+    equation_h = discretize(equation, domain_h, [Xh, Xh])
+
+    # ... solve linear system using petsc4py or psydac
+
+    ksp = PETSc.KSP()
+    ksp.create(domain_h.comm)
+    tol = 1e-11
+
+    opts = PETSc.Options()
+    opts["ksp_type"] = "minres"
+    opts["pc_type"] = "none"
+    opts["ksp_rtol"] = tol
+    opts["ksp_atol"] = tol
+    ksp.setFromOptions()
+
+    equation_h.assemble()
+    A0 = equation_h.linear_system.lhs.topetsc()
+    b0 = equation_h.linear_system.rhs.topetsc()
+
+    if not homogeneous:
+        a1 = BilinearForm(((u, p), (v, q)), integral(domain.boundary, dot(u, v)))
+        l1 = LinearForm((v, q), integral(domain.boundary, dot(ue, v)))
+
+        a1_h = discretize(a1, domain_h, [Xh, Xh])
+        l1_h = discretize(l1, domain_h, Xh)
+
+        A1 = a1_h.assemble().topetsc()
+        b1 = l1_h.assemble().topetsc()
+
+        ksp.setOperators(A1)
+        x1 = b1.duplicate()
+        ksp.solve(b1, x1)
+        print('Boundary solution with petsc4py: success = {}'.format(ksp.is_converged))
+
+        ksp.setOperators(A0)
+        b0 = b0 - A0*x1
+        x0 = b0.duplicate()
+        ksp.solve(b0, x0)
+        print('Interior solution with petsc4py: success = {}'.format(ksp.is_converged))
+
+        # Solution is sum of boundary and interior contributions
+        x = x0 + x1
+
+    else:
+        ksp.setOperators(A0)
+        x = b0.duplicate()
+        ksp.solve(b0, x)
+
+        print('Solution with petsc4py: success = {}'.format(ksp.is_converged))
+
+
+    x = petsc_to_psydac(x, Xh.coeff_space)
+    # Numerical solution: velocity field
+    # TODO: allow this: uh = FemField(V1h, coeffs=x[0:2]) or similar
+    uh = FemField(V1h)
+    uh.coeffs[0][:] = x[0][:]
+    uh.coeffs[1][:] = x[1][:]
+
+    # Numerical solution: pressure field
+    # TODO: allow this: uh = FemField(V2h, coeffs=x[2])
+    ph = FemField(V2h)
+    ph.coeffs[:] = x[2][:]
+
+    # Compute norms of exact solution
+    x1, x2 = domain.coordinates
+    ue_1 = lambdify([x1, x2], ue[0])
+    ue_2 = lambdify([x1, x2], ue[1])
+    pe_c = lambdify([x1, x2], pe   )
+    l2_norm_ue = np.sqrt(V1h.spaces[0].integral(lambda *x: ue_1(*x)**2 + ue_2(*x)**2))
+    l2_norm_pe = np.sqrt(V2h.integral(lambda *x: pe_c(*x)**2))
+
+    # Average value of the pressure (should be 0)
+    domain_area = V2h.integral(lambda x1, x2: 1.0)
+    p_avg = V2h.integral(ph) / domain_area
+
+    # L2 error norm of the velocity field
+    error_u   = [ue[0]-u[0], ue[1]-u[1]]
+    l2norm_u  = Norm(error_u, domain, kind='l2')
+    l2norm_uh = discretize(l2norm_u, domain_h, V1h)
+
+    # L2 error norm of the pressure, after removing the average value from the field
+    l2norm_p  = Norm(pe - (p - p_avg), domain, kind='l2')
+    l2norm_ph = discretize(l2norm_p, domain_h, V2h, nquads=[d+1 for d in degree])
+
+    # Compute error norms
+    l2_error_u = l2norm_uh.assemble(u = uh)
+    l2_error_p = l2norm_ph.assemble(p = ph)
+
+    print()
+    print('Relative l2_error(u) = {}'.format(l2_error_u / l2_norm_ue))
+    print('Relative l2_error(p) = {}'.format(l2_error_p / l2_norm_pe))
+    print('Average(p) = {}'.format(p_avg))
+
+    return locals()
+
+#==============================================================================
+def run_maxwell_time_harmonic_2d_dir(uex, f, alpha, ncells, degree):
+
+    # ... abstract model
+    domain = Square('A')
+    B_dirichlet_0 = domain.boundary
+
+    V  = VectorFunctionSpace('V', domain, kind='hcurl')
+
+    u  = element_of(V, name='u')
+    v  = element_of(V, name='v')
+    F  = element_of(V, name='F')
+
+    # Bilinear form a: V x V --> R
+    a   = BilinearForm((u, v), integral(domain, curl(u)*curl(v) + alpha*dot(u,v)))
+
+    nn   = NormalVector('nn')
+    a_bc = BilinearForm((u, v), integral(domain.boundary, 1e30 * cross(u, nn) * cross(v, nn)))
+
+
+    # Linear form l: V --> R
+    l = LinearForm(v, integral(domain, dot(f,v)))
+
+    # l2 error
+    error   = Matrix([F[0]-uex[0],F[1]-uex[1]])
+    l2norm  = Norm(error, domain, kind='l2')
+
+    #+++++++++++++++++++++++++++++++
+    # 2. Discretization
+    #+++++++++++++++++++++++++++++++
+
+    # Create computational domain from topological domain
+    domain_h = discretize(domain, ncells=ncells)
+
+    # Discrete spaces
+    Vh = discretize(V, domain_h, degree=degree)
+
+    # Discretize bi-linear and linear form
+    a_h    = discretize(a, domain_h, [Vh, Vh])
+    a_bc_h = discretize(a_bc, domain_h, [Vh, Vh])
+
+    l_h          = discretize(l, domain_h, Vh)
+    l2_norm_h    = discretize(l2norm, domain_h, Vh)
+
+    M = a_h.assemble() + a_bc_h.assemble()
+    b = l_h.assemble()
+
+    #+++++++++++++++++++++++++++++++
+    # 3. Solution
+    #+++++++++++++++++++++++++++++++
+
+    # Solve linear system
+    jacobi_pc = M.diagonal(inverse=True)
+    M_inv = inverse(M, 'cg', pc=jacobi_pc, tol=1e-8)
+    sol = M_inv @ b
+
+    uh       = FemField( Vh, sol )
+    l2_error = l2_norm_h.assemble(F=uh)
+
     return l2_error
 
 ###############################################################################
 #            SERIAL TESTS
 ###############################################################################
+def test_poisson_mixed_form_2d_dir_1():
+    from sympy import symbols
+    x1, x2 = symbols('x1, x2', real=True)
 
-def test_api_system_1_2d_dir_1():
-    from sympy.abc import x,y
+    f0 =  -2*x1*(1-x1) -2*x2*(1-x2)
+    u  = x1*(1-x1)*x2*(1-x2)
 
-    f0 =  -2*(2*pi)**2*sin(2*pi*x)*sin(2*pi*y)
-    u  = sin(2*pi*x)*sin(2*pi*y)
-    x = run_system_1_2d_dir(f0,u, ncells=[10,10], degree=[2,2])
+    l2_error = run_poisson_mixed_form_2d_dir(f0, u, ncells=[2**3, 2**3], degree=[2, 2])
+
+    expected_l2_error = 0.00030070020628128664
+    assert abs(l2_error-expected_l2_error)<1e-13
+
+#------------------------------------------------------------------------------
+@pytest.mark.parametrize('scipy', (True, False))
+def test_stokes_2d_dir_homogeneous(scipy):
+
+    # ... Exact solution
+    domain = Square()
+    x, y   = domain.coordinates
+ 
+    fx = -x**2*(x - 1)**2*(24*y - 12) - 4*y*(x**2 + 4*x*(x - 1) + (x - 1)**2)*(2*y**2 - 3*y + 1) - 2*pi*cos(2*pi*x)
+    fy = 4*x*(2*x**2 - 3*x + 1)*(y**2 + 4*y*(y - 1) + (y - 1)**2) + y**2*(24*x - 12)*(y - 1)**2 + 2*pi*cos(2*pi*y)
+    f  = Tuple(fx, fy)
+
+    ux = x**2*(-x + 1)**2*(4*y**3 - 6*y**2 + 2*y)
+    uy =-y**2*(-y + 1)**2*(4*x**3 - 6*x**2 + 2*x)
+    ue = Tuple(ux, uy)
+    pe = -sin(2*pi*x) + sin(2*pi*y)
+    # ...
+
+    # Verify that div(u) = 0
+    assert (ux.diff(x) + uy.diff(y)).simplify() == 0
+
+    # ... Check that exact solution is correct
+    from sympde.calculus import laplace, grad
+    from sympde.expr import TerminalExpr
+
+    a = TerminalExpr(-laplace(ue), domain)
+    b = TerminalExpr(    grad(pe), domain)
+    c = TerminalExpr(   Matrix(f), domain)
+    err = (a.T + b - c).simplify()
+
+    assert err[0] == 0
+    assert err[1] == 0
+    # ...
+
+    # Run test
+    namespace = run_stokes_2d_dir(domain, f, ue, pe,
+            homogeneous=True, ncells=[2**3, 2**3], degree=[2, 2], scipy=scipy)
+
+    # Check that expected absolute error on velocity and pressure fields
+    # is obtained with at least 7 digits of accuracy
+    assert abs(1 - namespace['l2_error_u'] / 1.860723830885487e-05) < 1e-7
+    assert abs(1 - namespace['l2_error_p'] / 0.024428172461038290 ) < 1e-7
+
+#------------------------------------------------------------------------------
+@pytest.mark.parametrize('scipy', (True, False))
+def test_stokes_2d_dir_non_homogeneous(scipy):
+
+    # ... Exact solution
+    domain = Square()
+    x, y   = domain.coordinates
+
+    ux =  sin(pi * x) * cos(pi * y)
+    uy = -cos(pi * x) * sin(pi * y)
+    ue = Tuple(ux, uy)
+    pe = cos(2*pi * (x + y)) * sin(2*pi * (x - y))
+    # ...
+
+    # Verify that div(u) = 0
+    assert (ux.diff(x) + uy.diff(y)).simplify() == 0
+
+    # ... Compute right-hand side
+    from sympde.calculus import laplace, grad
+    from sympde.expr import TerminalExpr
+
+    kwargs = dict(dim=2, logical=True)
+    a = TerminalExpr(-laplace(ue), domain)
+    b = TerminalExpr(    grad(pe), domain)
+    f = (a.T + b).simplify()
+
+    fx = -ux.diff(x, 2) - ux.diff(y, 2) + pe.diff(x)
+    fy = -uy.diff(x, 2) - uy.diff(y, 2) + pe.diff(y)
+    f  = Tuple(fx, fy)
+    # ...
+
+    # Run test
+    namespace = run_stokes_2d_dir(domain, f, ue, pe,
+            homogeneous=False, ncells=[10, 10], degree=[3, 3], scipy=scipy)
+
+    # Check that expected absolute error on velocity and pressure fields
+    # is obtained with at least 7 digits of accuracy
+    assert abs(1 - namespace['l2_error_u'] / 8.658427958128542e-06) < 1e-7
+    assert abs(1 - namespace['l2_error_p'] / 0.007600728271522273 ) < 1e-7
+
+#------------------------------------------------------------------------------
+def test_maxwell_time_harmonic_2d_dir_1():
+    from sympy import symbols
+    x,y,z    = symbols('x1, x2, x3', real=True)
+
+    alpha    = 1.
+    uex      = Tuple(sin(pi*y), sin(pi*x)*cos(pi*y))
+    f        = Tuple(alpha*sin(pi*y) - pi**2*sin(pi*y)*cos(pi*x) + pi**2*sin(pi*y),
+                     alpha*sin(pi*x)*cos(pi*y) + pi**2*sin(pi*x)*cos(pi*y))
+
+    l2_error = run_maxwell_time_harmonic_2d_dir(uex, f, alpha, ncells=[2**3,2**3], degree=[2,2])
+
+    expected_l2_error = 0.0029394893438220502
+
+    assert abs(l2_error-expected_l2_error)<1e-13
+
+
+###############################################################################
+#            PARALLEL TESTS
+###############################################################################
+
+@pytest.mark.parallel
+@pytest.mark.petsc
+def test_stokes_2d_dir_non_homogeneous_petsc():
+
+    # ... Exact solution
+    domain = Square()
+    x, y   = domain.coordinates
+
+    ux =  sin(pi * x) * cos(pi * y)
+    uy = -cos(pi * x) * sin(pi * y)
+    ue = Tuple(ux, uy)
+    pe = cos(2*pi * (x + y)) * sin(2*pi * (x - y))
+    # ...
+
+    # Verify that div(u) = 0
+    assert (ux.diff(x) + uy.diff(y)).simplify() == 0
+
+    # ... Compute right-hand side
+    from sympde.calculus import laplace, grad
+    from sympde.expr import TerminalExpr
+
+    kwargs = dict(dim=2, logical=True)
+    a = TerminalExpr(-laplace(ue), domain)
+    b = TerminalExpr(    grad(pe), domain)
+    f = (a.T + b).simplify()
+
+    fx = -ux.diff(x, 2) - ux.diff(y, 2) + pe.diff(x)
+    fy = -uy.diff(x, 2) - uy.diff(y, 2) + pe.diff(y)
+    f  = Tuple(fx, fy)
+    # ...
+
+    # Run test
+    namespace = run_stokes_2d_dir_petsc(domain, f, ue, pe,
+            homogeneous=False, ncells=[10, 10], degree=[3, 3])
+
+    # Check that expected absolute error on velocity and pressure fields
+    # is obtained with at least 7 digits of accuracy
+
+    assert abs(1 - namespace['l2_error_u'] / 8.658427958128542e-06) < 1e-7
+    assert abs(1 - namespace['l2_error_p'] / 0.007600728271522273 ) < 1e-7
 
 #==============================================================================
-def test_api_system_2_2d_dir_1():
-    from sympy.abc import x,y
+# CLEAN UP SYMPY NAMESPACE
+#==============================================================================
 
-    f1 = -x**2*(x - 1)**2*(24*y - 12) - 4*y*(x**2 + 4*x*(x - 1) + (x - 1)**2)*(2*y**2 - 3*y + 1) - 2*pi*cos(2*pi*x)
-    f2 = 4*x*(2*x**2 - 3*x + 1)*(y**2 + 4*y*(y - 1) + (y - 1)**2) + y**2*(24*x - 12)*(y - 1)**2 + 2*pi*cos(2*pi*y)
-    u1 = x**2*(-x + 1)**2*(4*y**3 - 6*y**2 + 2*y)
-    u2 =-y**2*(-y + 1)**2*(4*x**3 - 6*x**2 + 2*x)
-    p  = sin(2*pi*x) - sin(2*pi*y)
-    
-    x = run_system_2_2d_dir(f1, f2, u1, u2, ncells=[2**3,2**3], degree=[2,2])
+def teardown_module():
+    from sympy.core import cache
+    cache.clear_cache()
+
+def teardown_function():
+    from sympy.core import cache
+    cache.clear_cache()

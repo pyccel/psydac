@@ -1,11 +1,15 @@
-# -*- coding: UTF-8 -*-
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
+from numpy import linspace
 
 from psydac.fem.basic   import FemField
 from psydac.fem.splines import SplineSpace
 from psydac.fem.tensor  import TensorFemSpace
 from psydac.fem.vector  import VectorFemSpace
-
-from numpy import linspace
+from psydac.ddm.cart    import DomainDecomposition
 
 
 def test_1d_1():
@@ -33,7 +37,9 @@ def test_1d_3():
     grid = linspace(0., 1., 5)
     V1 = SplineSpace(p, grid=grid)
     V2 = SplineSpace(p+1, grid=grid)
-    V = VectorFemSpace(V1, V2)
+
+    domain_decomposition = DomainDecomposition([V1.ncells, V2.ncells], [False, False])
+    V = TensorFemSpace(domain_decomposition, V1, V2)
     print (V)
 
 def test_2d_1():
@@ -46,7 +52,8 @@ def test_2d_1():
     V1 = SplineSpace(p_1, knots=knots_1)
     V2 = SplineSpace(p_2, knots=knots_2)
 
-    V = TensorFemSpace(V1, V2)
+    domain_decomposition = DomainDecomposition([V1.ncells, V2.ncells], [False, False])
+    V = TensorFemSpace(domain_decomposition, V1, V2)
     print (V)
     F = FemField(V)
 
@@ -60,7 +67,8 @@ def test_2d_2():
     V1 = SplineSpace(p_1, grid=grid_1)
     V2 = SplineSpace(p_2, grid=grid_2)
 
-    V = TensorFemSpace(V1, V2)
+    domain_decomposition = DomainDecomposition([V1.ncells, V2.ncells], [False, False])
+    V = TensorFemSpace(domain_decomposition, V1, V2)
     print (V)
     F = FemField(V)
 
@@ -75,14 +83,16 @@ def test_2d_3():
     V1 = SplineSpace(p-1, grid=grid_1)
     V2 = SplineSpace(p, grid=grid_2)
 
-    Vx = TensorFemSpace(V1, V2)
+    domain_decomposition = DomainDecomposition([V1.ncells, V2.ncells], [False, False])
+    Vx = TensorFemSpace(domain_decomposition, V1, V2)
     # ...
 
     # ... second component
     V1 = SplineSpace(p, grid=grid_1)
     V2 = SplineSpace(p-1, grid=grid_2)
 
-    Vy = TensorFemSpace(V1, V2)
+
+    Vy = TensorFemSpace(domain_decomposition, V1, V2)
     # ...
 
     V = VectorFemSpace(Vx, Vy)
@@ -101,7 +111,8 @@ def test_3d_1():
     V2 = SplineSpace(p_2, knots=knots_2)
     V3 = SplineSpace(p_3, knots=knots_3)
 
-    V = TensorFemSpace(V1, V2, V3)
+    domain_decomposition = DomainDecomposition([V1.ncells, V2.ncells, V3.ncells], [False, False, False])
+    V = TensorFemSpace(domain_decomposition, V1, V2, V3)
     print (V)
     F = FemField(V)
 
@@ -118,7 +129,8 @@ def test_3d_2():
     V2 = SplineSpace(p_2, grid=grid_2)
     V3 = SplineSpace(p_3, grid=grid_3)
 
-    V = TensorFemSpace(V1, V2, V3)
+    domain_decomposition = DomainDecomposition([V1.ncells, V2.ncells, V3.ncells], [False, False, False])
+    V = TensorFemSpace(domain_decomposition, V1, V2, V3)
     print (V)
     F = FemField(V)
 
@@ -135,7 +147,8 @@ def test_3d_3():
     V2 = SplineSpace(p, grid=grid_2)
     V3 = SplineSpace(p, grid=grid_3)
 
-    Vx = TensorFemSpace(V1, V2, V3)
+    domain_decomposition = DomainDecomposition([V1.ncells, V2.ncells, V3.ncells], [False, False, False])
+    Vx = TensorFemSpace(domain_decomposition, V1, V2, V3)
     # ...
 
     # ... second component
@@ -143,7 +156,7 @@ def test_3d_3():
     V2 = SplineSpace(p-1, grid=grid_2)
     V3 = SplineSpace(p, grid=grid_3)
 
-    Vy = TensorFemSpace(V1, V2, V3)
+    Vy = TensorFemSpace(domain_decomposition, V1, V2, V3)
     # ...
 
     # ... third component
@@ -151,7 +164,7 @@ def test_3d_3():
     V2 = SplineSpace(p, grid=grid_2)
     V3 = SplineSpace(p-1, grid=grid_3)
 
-    Vz = TensorFemSpace(V1, V2, V3)
+    Vz = TensorFemSpace(domain_decomposition, V1, V2, V3)
     # ...
 
     V = VectorFemSpace(Vx, Vy, Vz)

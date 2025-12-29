@@ -1,136 +1,144 @@
-# coding: utf-8
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
+from functools import reduce
 
 import numpy as np
 
-from psydac.utilities.quadratures  import gauss_legendre
-from psydac.core.bsplines          import quadrature_grid
-from psydac.core.bsplines          import find_span
-from psydac.core.bsplines          import basis_funs_all_ders
-from psydac.core.bsplines          import basis_ders_on_quad_grid
-from psydac.fem.splines            import SplineSpace
-from psydac.fem.tensor             import TensorFemSpace
-from psydac.fem.vector             import ProductFemSpace
-from psydac.fem.grid               import FemAssemblyGrid
+from psydac.core.bsplines import find_span
+from psydac.core.bsplines import basis_funs_all_ders
+from psydac.fem.splines   import SplineSpace
+from psydac.fem.tensor    import TensorFemSpace
+from psydac.fem.vector    import MultipatchFemSpace, VectorFemSpace
+
+__all__ = (
+    'get_points_weights',
+    'create_collocation_basis',
+    'QuadratureGrid',
+    'BasisValues',
+    'CollocationBasisValues',
+)
 
 #==============================================================================
-def _compute_quadrature_SplineSpace( V, quad_order=None ):
-    """
-    returns quadrature points and weights over a grid, given a 1d Spline space
-    """
-    assert( isinstance( V, SplineSpace ) )
-
-    T    = V.knots       # knots sequence
-    p    = V.degree      # spline degree
-    n    = V.nbasis      # total number of control points
-    grid = V.breaks      # breakpoints
-    ne   = V.ncells      # number of cells in domain (ne=len(grid)-1)
-
-    # ...
-    if quad_order is None:
-        quad_order = p
-
-    elif not( isinstance( quad_order, int )):
-        raise TypeError('Expecting int value for quad_order')
-    # ...
-
-    u, w = gauss_legendre( quad_order )
-    u = u[::-1] # reorder quad points
-    w = w[::-1] # reorder quad weights
-    points, weights = quadrature_grid( grid, u, w )
-
-    return points, weights
-
-#==============================================================================
-def _compute_quadrature_TensorFemSpace( V, quad_order=None ):
-    """
-    returns quadrature points and weights for a tensor space
-    """
-    # ...
-    if quad_order is None:
-        quad_order = [None for d in range(V.ldim)]
-
-    elif isinstance( quad_order, int ):
-        quad_order = [quad_order for d in range(V.ldim)]
-
-    elif not isinstance( quad_order, (list, tuple) ):
-        raise TypeError('Expecting None, int or list/tuple of int')
-
-    else:
-        assert( len(quad_order) == V.ldim )
-    # ...
-
-    return [_compute_quadrature_SplineSpace( W, quad_order=order )
-            for (W, order) in zip(V.spaces, quad_order)]
-
-#==============================================================================
-def _compute_quadrature_ProductFemSpace( V, quad_order=None ):
-    """
-    returns quadrature points and weights for a product space
-    """
-    # ...
-    if quad_order is None:
-        quad_order = [None for d in range(V.ldim)]
-
-    elif isinstance( quad_order, int ):
-        quad_order = [quad_order for d in range(V.ldim)]
-
-    elif not isinstance( quad_order, (list, tuple) ):
-        raise TypeError('Expecting None, int or list/tuple of int')
-
-    else:
-        assert( len(quad_order) == V.ldim )
-    # ...
-
-    return compute_quadrature( V.spaces[0], quad_order=quad_order )
-
-#==============================================================================
-def compute_quadrature( V, quad_order=None ):
-    """
-    """
-    _avail_classes = [SplineSpace, TensorFemSpace, ProductFemSpace]
-
-    classes = type(V).__mro__
-    classes = set(classes) & set(_avail_classes)
-    classes = list(classes)
-    if not classes:
-        raise TypeError('> wrong argument type {}'.format(type(V)))
-
-    cls = classes[0]
-
-    pattern = '_compute_quadrature_{name}'
-    func = pattern.format( name = cls.__name__ )
-
-    func = eval(func)
-    pw = func(V, quad_order=quad_order)
-    if isinstance( V, SplineSpace ):
-        pw = [pw]
-
-    return pw
+def get_points_weights(spaces, axis, e, nquads):
+    for s in spaces:
+        assembly_grid_axis = s.get_assembly_grids(*nquads)[axis]
+        if e in assembly_grid_axis.indices:
+            i = np.where(assembly_grid_axis.indices==e)[0][0]
+            return assembly_grid_axis.points[i:i+1], assembly_grid_axis.weights[i:i+1]
 
 #==============================================================================
 class QuadratureGrid():
-    def __init__( self, V, quad_order=None ):
+    """
+    Quadrature points and weights local to the current MPI process.
 
-        if isinstance(V, ProductFemSpace):
-            quad_order = np.array([v.degree for v in V.spaces])
-            quad_order = tuple(quad_order.max(axis=0))
-            V = V.spaces[0] 
+    Local quadrature grid for assemblying functionals, linear forms,
+    and bilinear forms. A Gauss-Legendre quadrature grid is assumed.
 
-        quad_grid = create_fem_assembly_grid( V, quad_order=quad_order )
-        self._fem_grid            = quad_grid
-        self._n_elements          = [g.num_elements        for g in quad_grid]
-        self._local_element_start = [g.local_element_start for g in quad_grid]
-        self._local_element_end   = [g.local_element_end   for g in quad_grid]
-        self._points              = [g.points              for g in quad_grid]
-        self._weights             = [g.weights             for g in quad_grid]
+    Parameters
+    ----------
+    V : FemSpace
+        Finite element space from which we extract the breakpoints.
 
-    @property
-    def fem_grid(self):
-        return self._fem_grid
+    axis : int, optional
+        If given, the grid is constructed on the given boundary (axis, ext).
+
+    ext : {-1, +1}, optional
+        If given, the grid is constructed on the given boundary (axis, ext).
+
+    trial_space : FemSpace, optional
+        TBD.
+
+    nquads : list or tuple of int
+        Number of quadrature points along each direction.
+
+    """
+    def __init__(self, V, *, nquads, axis=None, ext=None, trial_space=None):
+
+        n_elements          = []
+        indices             = []
+        local_element_start = []
+        local_element_end   = []
+        points              = []
+        weights             = []
+
+        if isinstance(V, (MultipatchFemSpace, VectorFemSpace)):
+            V1 = V.spaces[0]
+            spaces = list(V.spaces)
+        else:
+            V1 = V
+            spaces = [V]
+
+        if trial_space and not isinstance(trial_space, (MultipatchFemSpace, VectorFemSpace)):
+            spaces.append(trial_space)
+        elif isinstance(trial_space, MultipatchFemSpace):
+            spaces = spaces + list(trial_space.spaces)
+
+        # calculate the union of the indices in quad_grids, and make sure that all the grids match for each space.
+        for i in range(len(V1.spaces)):
+
+            indices.append(reduce(np.union1d, [s.get_assembly_grids(*nquads)[i].indices for s in spaces]))
+
+            assembly_grid_i = V1.get_assembly_grids(*nquads)[i]
+            local_element_start.append(assembly_grid_i.local_element_start)
+            local_element_end  .append(assembly_grid_i.local_element_end  )
+            points .append(assembly_grid_i.points )
+            weights.append(assembly_grid_i.weights)
+
+            for e in np.setdiff1d(indices[-1], assembly_grid_i.indices):
+                if e < quad_grid_i.indices[0]:
+                    local_element_start[-1] += 1
+                    local_element_end  [-1] += 1
+                    p, w = get_points_weights(spaces, i, e, nquads)
+                    points [-1] = np.concatenate((p, points [-1]))
+                    weights[-1] = np.concatenate((w, weights[-1]))
+                elif e > quad_grid_i.indices[-1]:
+                    p, w = get_points_weights(spaces, i, e, nquads)
+                    points [-1] = np.concatenate((points [-1], p))
+                    weights[-1] = np.concatenate((weights[-1], w))
+                else:
+                    raise ValueError("Could not construct indices")
+
+        self._n_elements          = [p.shape[0] for p in points]
+        self._indices             = indices
+        self._local_element_start = local_element_start
+        self._local_element_end   = local_element_end
+        self._points              = points
+        self._weights             = weights
+        self._axis                = axis
+        self._ext                 = ext
+
+        if axis is not None:
+            assert ext is not None
+            points  = self.points
+            weights = self.weights
+
+            # ...
+            if V1.ldim == 1 and isinstance(V1, SplineSpace):
+                bounds = {-1: V1.domain[0],
+                           1: V1.domain[1]}
+            elif isinstance(V1, TensorFemSpace):
+                bounds = {-1: V1.spaces[axis].domain[0],
+                           1: V1.spaces[axis].domain[1]}
+            else:
+                raise ValueError('Incompatible type(V) = {} in {} dimensions'.format(
+                    type(V1), V1.ldim))
+
+            points [axis] = np.asarray([[bounds[ext]]])
+            weights[axis] = np.asarray([[1.]])
+            # ...
+            self._points  = points
+            self._weights = weights
 
     @property
     def n_elements(self):
         return self._n_elements
+
+    @property
+    def indices(self):
+        return self._indices
 
     @property
     def local_element_start( self ):
@@ -153,45 +161,8 @@ class QuadratureGrid():
         return self._weights
 
     @property
-    def quad_order(self):
+    def nquads(self):
         return [w.shape[1] for w in self.weights]
-
-#==============================================================================
-class BoundaryQuadratureGrid(QuadratureGrid):
-    def __init__( self, V, axis, ext, quad_order=None ):
-        assert( not( isinstance(V, ProductFemSpace) ) )
-
-        QuadratureGrid.__init__( self, V, quad_order=quad_order )
-
-        points  = self.points
-        weights = self.weights
-
-        # ...
-        if V.ldim == 1:
-            assert( isinstance( V, SplineSpace ) )
-
-            bounds = {}
-            bounds[-1] = V.domain[0]
-            bounds[1]  = V.domain[1]
-
-            points[axis]  = np.asarray([[bounds[ext]]])
-            weights[axis] = np.asarray([[1.]])
-
-        elif V.ldim in [2, 3]:
-            assert( isinstance( V, TensorFemSpace ) )
-
-            bounds = {}
-            bounds[-1] = V.spaces[axis].domain[0]
-            bounds[1]  = V.spaces[axis].domain[1]
-
-            points[axis]  = np.asarray([[bounds[ext]]])
-            weights[axis] = np.asarray([[1.]])
-        # ...
-
-        self._axis    = axis
-        self._ext     = ext
-        self._points  = points
-        self._weights = weights
 
     @property
     def axis(self):
@@ -202,72 +173,83 @@ class BoundaryQuadratureGrid(QuadratureGrid):
         return self._ext
 
 #==============================================================================
-def create_fem_assembly_grid(V, quad_order=None, nderiv=1):
-    if isinstance(V, ProductFemSpace):
-        quad_order = np.array([v.degree for v in V.spaces])
-        quad_order = tuple(quad_order.max(axis=0))
-        return [create_fem_assembly_grid(space,quad_order,nderiv) for space in V.spaces]
-    # ...
-    if not( quad_order is None ):
-        if isinstance( quad_order, int ):
-            quad_order = [quad_order for i in range(V.ldim)]
-
-        elif not isinstance( quad_order, (list, tuple) ):
-            raise TypeError('Expecting a tuple/list or int')
-
-    else:
-        quad_order = [None for i in range(V.ldim)]
-    # ...
-    if not( nderiv is None ):
-        if isinstance( nderiv, int ):
-            nderiv = [nderiv for i in range(V.ldim)]
-
-        elif not isinstance( nderiv, (list, tuple) ):
-            raise TypeError('Expecting a tuple/list or int')
-
-    else:
-        nderiv = [1 for i in range(V.ldim)]
-    # ...
-
-    return [FemAssemblyGrid(W, s, e, normalize=W.normalize, quad_order=n, nderiv=d )
-            for W,s,e,n,d in zip( V.spaces,
-                                  V.vector_space.starts, V.vector_space.ends,
-                                  quad_order, nderiv ) ]
-
-
-#==============================================================================
 class BasisValues():
-    def __init__( self, V, grid, nderiv ):
-        assert( isinstance( grid, QuadratureGrid ) )
+    """
+    Basis values and spans for a given FEM space over a quadrature grid.
 
-        # TODO quad_order in FemAssemblyGrid must be be the order and not the
-        # degree
-        quad_order = [q-1 for q in grid.quad_order]
-        global_quad_grid = create_fem_assembly_grid( V,
-                                              quad_order=quad_order,
-                                              nderiv=nderiv )
+    Parameters
+    ----------
+    V : FemSpace
+        The space that contains the basis values and the spans.
 
-        if isinstance(V, ProductFemSpace):
-            self._spans = [[g.spans for g in quad_grid] for quad_grid in global_quad_grid]
-            self._basis = [[g.basis for g in quad_grid] for quad_grid in global_quad_grid]
+    nderiv : int
+        The maximum number of derivatives needed for the basis values.
+
+    trial : bool, optional
+        The trial parameter indicates if the FemSpace represents the trial space or the test space.
+
+    grid : QuadratureGrid, optional
+        Needed for the basis values on the boundary to indicate the boundary over an axis.
+
+    nquads : list or tuple of int
+        Number of quadrature points along each direction.
+
+    Attributes
+    ----------
+    basis : list
+        The basis values.
+    spans : list
+        The spans of the basis functions.
+
+    """
+    def __init__(self, V, *, nderiv, nquads, trial=False, grid=None):
+
+        self._space = V
+        assert grid is not None
+        if isinstance(V, (MultipatchFemSpace, VectorFemSpace)):
+            starts = V.coeff_space.starts
+            V      = V.spaces
         else:
-            self._spans = [g.spans for g in global_quad_grid]
-            self._basis = [g.basis for g in global_quad_grid]
+            starts = [V.coeff_space.starts]
+            V      = [V]
 
-        # Modify data for boundary grid
-        if isinstance(grid, BoundaryQuadratureGrid):
+        spans = []
+        basis = []
+
+        weights = grid.weights
+
+        for si, Vi in zip(starts, V):
+            assembly_grids = Vi.get_assembly_grids(*nquads)
+            spans_i = []
+            basis_i = []
+
+            for sij, g, w, p, vij in zip(si, assembly_grids, weights, Vi.coeff_space.pads, Vi.spaces):
+                sp = g.spans - sij
+                bs = g.basis[:, :, :nderiv+1, :].copy()
+                if not trial:
+                    bs  = bs.copy()
+                    bs *= w[:, None, None, :]
+                spans_i.append(sp)
+                basis_i.append(bs)
+
+            spans.append(spans_i)
+            basis.append(basis_i)
+
+        self._spans = spans
+        self._basis = basis
+
+        if grid and grid.axis is not None:
             axis = grid.axis
-            if isinstance(V, ProductFemSpace):
-                for i in range(len(V.spaces)):
-                    sp_space = V.spaces[i].spaces[axis]
-                    points = grid.points[axis]
-                    boundary_basis = basis_ders_on_quad_grid(sp_space.knots, sp_space.degree, points, nderiv)
-                    self._basis[i][axis][0:1, :, :, 0:1] = boundary_basis
-            else:
-                sp_space = V.spaces[axis]
+            for i, Vi in enumerate(V):
+                space  = Vi.spaces[axis]
                 points = grid.points[axis]
-                boundary_basis = basis_ders_on_quad_grid(sp_space.knots, sp_space.degree, points, nderiv)
-                self._basis[axis][0:1, :, :, 0:1] = boundary_basis
+                local_span = find_span(space.knots, space.degree, points[0, 0])
+                boundary_basis = basis_funs_all_ders(space.knots, space.degree,
+                                                     points[0, 0], local_span, nderiv, space.basis)
+
+                self._basis[i][axis] = np.transpose(boundary_basis)[None, :, :, None].copy()
+                index = 0 if grid.ext == -1 else -1
+                self._spans[i][axis] = np.array([self._spans[i][axis][index]])
 
     @property
     def basis(self):
@@ -276,6 +258,10 @@ class BasisValues():
     @property
     def spans(self):
         return self._spans
+
+    @property
+    def space(self):
+        return self._space
 
 #==============================================================================
 # TODO have a parallel version of this function, as done for fem
