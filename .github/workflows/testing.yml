@@ -10,7 +10,7 @@ on:
       - 'psydac/**'
       - 'pyproject.toml'
       - 'pytest.ini'
-      - 'mpi_tester.py'
+      - 'scripts/mpi_tester.py'
 
   pull_request:
     branches: [ devel ]
@@ -23,7 +23,7 @@ on:
       - 'psydac/**'
       - 'pyproject.toml'
       - 'pytest.ini'
-      - 'mpi_tester.py'
+      - 'scripts/mpi_tester.py'
 
   workflow_dispatch:
 
