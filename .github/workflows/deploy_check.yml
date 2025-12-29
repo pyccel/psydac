@@ -18,7 +18,7 @@ jobs:
         uses: fkirc/skip-duplicate-actions@v5
         with:
           skip_after_successful_duplicate: 'true'
-          paths: '["psydac/**", "pyproject.toml", "setup.py", ".github/workflows/deploy_check.yml", ".github/actions/**"]'
+          paths: '["psydac/**", "pyproject.toml", "pytest.ini", "scripts/mpi_tester.py", ".github/workflows/deploy_check.yml", ".github/actions/**"]'
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
@@ -92,7 +92,7 @@ jobs:
         if: steps.duplicate_check.outputs.should_skip != 'true'
         run: |
           mkdir pytest
-          cp mpi_tester.py pytest
+          cp scripts/mpi_tester.py pytest
 
       - name: Run single-process tests with Pytest
         if: steps.duplicate_check.outputs.should_skip != 'true'
