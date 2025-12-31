@@ -588,6 +588,9 @@ def export_nurbs_to_hdf5(filename, nurbs, periodic=None, comm=None ):
         bounds3 = (float(nurbs.breaks(2)[0]), float(nurbs.breaks(2)[-1]))
         domain  = Cube(patch_name, bounds1=bounds1, bounds2=bounds2, bounds3=bounds3)
 
+    else:
+        raise NotImplementedError('> nurbs.dim > 3 not implemented')
+
     mapping = Mapping(mapping_id, dim=nurbs.dim)
     domain  = mapping(domain)
     topo_yml = domain.todict()
@@ -802,8 +805,9 @@ def _read_header(line):
     for c in chars:
         try:
             data.append(int(c))
-        except:
-            pass
+        except ValueError:
+            msg = f"WARNING: Cannot convert str '{c}' to int. Moving to next line..."
+            print(msg)
     return data
 
 def _extract_patch_line(lines, i_patch):
