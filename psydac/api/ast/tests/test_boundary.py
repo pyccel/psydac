@@ -3,6 +3,8 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
+import os
+
 from sympy import symbols
 from sympy import Tuple
 
@@ -15,25 +17,27 @@ from sympde.expr     import integral
 from sympde.expr     import LinearForm
 from sympde.expr     import BilinearForm
 from sympde.topology import NormalVector
-
 from sympde.expr.evaluation import TerminalExpr
+
 from psydac.api.ast.fem          import AST
 from psydac.api.ast.parser       import parse
 from psydac.api.discretization   import discretize
 from psydac.api.printing.pycode  import pycode
+from psydac.api.settings         import PSYDAC_BACKENDS
 
-import os
-# ...
-
+#==============================================================================
 try:
     mesh_dir = os.environ['PSYDAC_MESH_DIR']
-
 except KeyError:
     base_dir = os.path.dirname(os.path.realpath(__file__))
     base_dir = os.path.join(base_dir, '..', '..', '..','..')
     mesh_dir = os.path.join(base_dir, 'mesh')
-    filename = os.path.join(mesh_dir, 'identity_2d.h5')
+filename = os.path.join(mesh_dir, 'identity_2d.h5')
 
+# Choose backend
+backend = PSYDAC_BACKENDS['python']
+
+#==============================================================================
 def test_codegen():
     kappa = 10**15
     domain  = Square()
@@ -55,14 +59,18 @@ def test_codegen():
     domain_h = discretize(domain, ncells=[2**2,2**2])
 
     # Discrete spaces
-    Vh = discretize(V, domain_h, degree=[1,1], mapping=mapping)
-    print(TerminalExpr(b)[0])
-    ast_b = AST(b, TerminalExpr(b)[0], [Vh, Vh])
-    ast_b = parse(ast_b.expr, settings={'dim':2,'nderiv':1,'mapping':Vh.symbolic_mapping, 'target':B})
+    Vh = discretize(V, domain_h, degree=[1,1])
+    print(TerminalExpr(b, domain)[0])
+
+    ast_b = AST(b, TerminalExpr(b, domain)[0], [Vh, Vh], nquads=(2, 2), backend=backend)
+    ast_b = parse(ast_b.expr, settings={'dim':2,'nderiv':1,'mapping':mapping, 'target':B}, backend=backend)
     print(pycode(ast_b))
 
     print('==============================================================================================================')
-    ast_l = AST(l, TerminalExpr(l)[0], Vh)
-    ast_l = parse(ast_l.expr, settings={'dim':2,'nderiv':1,'mapping':Vh.symbolic_mapping,'target':B})
+    ast_l = AST(l, TerminalExpr(l, domain)[0], Vh, nquads=(2, 2), backend=backend)
+    ast_l = parse(ast_l.expr, settings={'dim':2,'nderiv':1,'mapping':mapping,'target':B}, backend=backend)
     print(pycode(ast_l))
 
+#==============================================================================
+if __name__ == '__main__':
+    test_codegen()
