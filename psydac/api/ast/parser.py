@@ -2147,6 +2147,9 @@ class Parser(object):
     def _visit_NoneType(self, expr, **kwargs):
         return expr
 
+    def _visit_int(self, expr, **kwargs):
+        return expr
+
     def _visit_float(self, expr, **kwargs):
         return expr
 
