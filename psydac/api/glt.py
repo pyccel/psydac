@@ -322,7 +322,7 @@ class GltBasicCodeGen(object):
 
         os.chdir(self.folder)
         sys.path.append(self.folder)
-        subprocess.run(['pythran', f'{module_name}.py', '-O3'])
+        subprocess.run(['pythran', f'{module_name}.py', '-O3']) # nosec B607
         sys.path.remove(self.folder)
 
         # ...
