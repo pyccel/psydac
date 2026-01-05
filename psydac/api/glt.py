@@ -10,6 +10,7 @@ import inspect
 import sys
 import os
 import importlib
+import subprocess
 
 import numpy as np
 from mpi4py import MPI
@@ -321,7 +322,7 @@ class GltBasicCodeGen(object):
 
         os.chdir(self.folder)
         sys.path.append(self.folder)
-        os.system('pythran {}.py -O3'.format(module_name))
+        subprocess.run(['pythran', f'{module_name}.py', '-O3'])
         sys.path.remove(self.folder)
 
         # ...
