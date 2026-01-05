@@ -56,7 +56,6 @@ __all__ = (
     'is_mapping',
     'logical2physical',
     'math_atoms_as_str',
-    'random_string',
     'rationalize_eval_mapping',
     'select_loops',
     'variables',
@@ -113,13 +112,6 @@ def get_max_partial_derivatives(expr, logical=False, F=None):
                 d[k] = v
 
     return d
-
-#==============================================================================
-def random_string( n ):
-    chars    = string.ascii_lowercase + string.digits
-    selector = random.SystemRandom()
-    return ''.join( selector.choice( chars ) for _ in range( n ) )
-
 
 #==============================================================================
 def is_mapping(expr):
