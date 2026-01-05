@@ -12,8 +12,6 @@ from numpy import pi
 
 import pyccel.decorators as pyccel_decorators
 
-from ..symbolic.lambdify import lambdify
-
 from .core     import AsName
 from .core     import Import
 from .core     import Product
@@ -169,9 +167,6 @@ def builtin_function(expr, args=None):
         func = Function(str(expr.args[0].name))
         args = [func]+list(args[1:])
         return Map(*args)
-
-    if name == 'lambdify':
-        return lambdify(expr, args)
 
     return None
 
