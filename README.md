@@ -1,4 +1,6 @@
-# Welcome to PSYDAC
+<h1 align="center">
+<img src="https://raw.githubusercontent.com/pyccel/psydac/devel/docs/source/logo/psydac_banner.svg" width="600" alt="Shows the psydac logo." class="dark-light">
+</h1><br>
 
 [![devel_tests](https://github.com/pyccel/psydac/actions/workflows/testing.yml/badge.svg)](https://github.com/pyccel/psydac/actions/workflows/testing.yml) [![docs](https://github.com/pyccel/psydac/actions/workflows/documentation.yml/badge.svg)](https://github.com/pyccel/psydac/actions/workflows/documentation.yml)
 
@@ -12,13 +14,17 @@ PSYDAC automatically generates Python code for the assembly of user-defined func
 This Python code is then accelerated to C/Fortran speed using [Pyccel](https://github.com/pyccel/pyccel).
 The library also enables large parallel computations on distributed-memory supercomputers using [MPI](https://en.wikipedia.org/wiki/Message_Passing_Interface) and [OpenMP](https://en.wikipedia.org/wiki/OpenMP).
 
+> [!NOTE]
+> The name PSYDAC stands for "Python Spline librarY for Differential equations with Automatic Code generation".
+> It is pronounced like the famous Pokémon character, from which the developers draw inspiration for its psychic powers.
+
 ## Citing
 
 If PSYDAC has been significant in your research, and you would like to acknowledge the project in your academic publication, we would ask that you cite the following paper:
 
 Güçlü, Y., S. Hadjout, and A. Ratnani. “PSYDAC: A High-Performance IGA Library in Python.” In 8th European Congress on Computational Methods in Applied Sciences and Engineering. CIMNE, 2022. https://doi.org/10.23967/eccomas.2022.227.
 
-The associated BibTeX file can be found [here](./CITATION.bib).
+The associated BibTeX file can be found [here](https://github.com/pyccel/psydac/blob/devel/CITATION.bib).
 
 ## Installation
 
@@ -32,7 +38,7 @@ PSYDAC requires a certain number of components to be installed on the machine:
 
 The installation instructions depend on the operating system and on the packaging manager used.
 It is particularly important to determine the **HDF5 root folder**, as this will be needed to install the [`h5py`](https://docs.h5py.org/en/latest/build.html#source-installation) package in parallel mode.
-Detailed instructions can be found in the [documentation](./docs/installation.md).
+Detailed instructions can be found in the [documentation](https://pyccel.github.io/psydac/installation.html).
 
 Once those components are installed, we recommend using [`venv`](https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/#creating-a-virtual-environment) to set up a fresh Python virtual environment at a location `<ENV-PATH>`:
 ```bash
@@ -53,14 +59,18 @@ pip install h5py --no-cache-dir --no-binary h5py
 pip install ./psydac
 ```
 Here `<HDF5-PATH>` is the path to the HDF5 root folder, such that `<HDF5-PATH>/lib/` contains the HDF5 dynamic libraries with MPI support.
-For an editable install, the `-e/--editable` flag should be provided to the last command above.
+For an editable install, the last command above should be replaced with:
+```bash
+pip install meson-python "pyccel>=2.1.0"
+pip install --no-build-isolation --editable ./psydac
+```
 
-Again, for more details we refer to our [documentation](./docs/installation.md).
+Again, for more details we refer to our [documentation](https://pyccel.github.io/psydac/installation.html).
 
 > [!TIP]
 > PSYDAC provides the functionality to convert its MPI-parallel matrices and vectors to their [PETSc](https://petsc.org) equivalent, and back.
 > This gives the user access to a wide variety of linear solvers and other algorithms.
-> Instructions for installing [PETSc](https://petsc.org) and `petsc4py` can be found in our [documentation](.docs/installation.md#optional-petsc-installation).
+> Instructions for installing [PETSc](https://petsc.org) and `petsc4py` can be found in our [documentation](https://pyccel.github.io/psydac/installation.html#id9).
 
 ## Running Tests
 
@@ -88,23 +98,25 @@ python <PSYDAC-PATH>/mpi_tester.py --pyargs psydac -m "parallel and petsc"
 
 Many of PSYDAC's low-level Python functions can be translated to a compiled language using the [Pyccel](https://github.com/pyccel/pyccel) transpiler. Currently, all of those functions are collected in modules which follow the name pattern `[module]_kernels.py`.
 
-The classical installation translates all kernel files to Fortran without user intervention. This does not happen in the case of an editable install, but the command `psydac-accelerate` is made available to the user instead. This command applies Pyccel to all the kernel files in the source directory. The default language is currently Fortran, C should also be supported in a near future.
+For both classical and editable installations, all kernel files are translated to Fortran without user intervention. If the user adds or edits a kernel file within an editable install, they should use the command `psydac-accelerate` in order to be able to see the changes at runtime.
+This command applies Pyccel to all the kernel files in the source directory. The default language is Fortran, and C is also available.
 
 -   **Only in development mode**:
     ```bash
-    python /path/to/psydac/psydac_accelerate.py [--language LANGUAGE] [--openmp]
+    psydac-accelerate [--language LANGUAGE] [--openmp]
     ```
 
 ## Examples and Tutorials
 
-A [tutorial](https://pyccel.github.io/IGA-Python/intro.html) on isogeometric analysis, with many example notebooks where various PDEs are solved with PSYDAC, is under construction in the [IGA-Python](https://github.com/pyccel/IGA-Python) repository.
-Some other examples can be found [here](./examples/).
+Our [documentation](https://pyccel.github.io/psydac/examples.html) provides Jupyter notebooks that present many aspects of this library. 
+Additional [tutorials](https://pyccel.github.io/IGA-Python/intro.html) on isogeometric analysis, with many example notebooks where various PDEs are solved with PSYDAC, is under construction in the [IGA-Python](https://github.com/pyccel/IGA-Python) repository.
+Some other examples can be found [here](https://github.com/pyccel/psydac/blob/devel/examples).
 
 ## Library Documentation
 
--   [Output formats](./docs/output.md)
--   [Mesh generation](./docs/psydac-mesh.md)
--   [Library reference](https://pyccel.github.io/psydac/)
+-   [Output formats](https://pyccel.github.io/psydac/output.html)
+-   [Mesh generation](https://pyccel.github.io/psydac/psydac-mesh.html)
+-   [Modules](https://pyccel.github.io/psydac/modules.html)
 
 ## Contributing
 
@@ -115,5 +127,5 @@ If you want to fix an issue, improve our notebooks, or add a new example, please
 All PRs are reviewed by the project maintainers.
 During the PR review, GitHub workflows are triggered on various platforms.
 
-We keep an up-to-date list of maintainers and contributors in our [AUTHORS](./AUTHORS) file.
+We keep an up-to-date list of maintainers and contributors in our [AUTHORS](https://github.com/pyccel/psydac/blob/devel/AUTHORS) file.
 Thank you!

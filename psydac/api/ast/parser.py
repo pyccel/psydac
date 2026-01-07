@@ -1,31 +1,35 @@
-# coding: utf-8
-
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 import numpy as np
 
 from sympy import S
 from sympy import IndexedBase, Indexed
-from sympy import Mul, Matrix, Expr
+from sympy import Mul, Matrix
 from sympy import Add, And, StrictLessThan, Eq
-from sympy import Abs, Not, floor
-from sympy import Symbol, Idx
-from sympy import Basic, Function
+from sympy import Not
+from sympy import Symbol
+from sympy import Basic
 from sympy import MutableDenseNDimArray as MArray
 from sympy.simplify import cse_main
 from sympy.core.containers import Tuple
 
 from sympde.topology import (dx1, dx2, dx3)
 from sympde.topology import SymbolicExpr
-from sympde.topology import LogicalExpr, Jacobian
+from sympde.topology import LogicalExpr
 from sympde.expr.evaluation import _split_test_function
-from sympde.calculus.matrices import SymbolicDeterminant
-from sympde.topology import SymbolicWeightedVolume, InterfaceMapping
+from sympde.topology import SymbolicWeightedVolume
 from sympde.topology import Boundary, NormalVector, Interface
+from sympde.topology.basic import BasicDomain
+from sympde.topology.mapping import Mapping
 
 from sympde.topology.derivatives import get_index_logical_derivatives
 
-from psydac.pyccel.ast.core      import Assign, Product, AugAssign, For
+from psydac.pyccel.ast.core      import Assign, AugAssign, For
 from psydac.pyccel.ast.core      import Variable, IndexedVariable, IndexedElement
-from psydac.pyccel.ast.core      import Slice, String, ValuedArgument
+from psydac.pyccel.ast.core      import Slice
 from psydac.pyccel.ast.core      import EmptyNode, Import, While, Return, If
 from psydac.pyccel.ast.core      import CodeBlock, FunctionDef, Comment
 from psydac.pyccel.ast.builtins  import Range
@@ -37,7 +41,6 @@ from psydac.api.ast.utilities import build_pyccel_type_annotations
 
 from .nodes import AtomicNode
 from .nodes import BasisAtom
-from .nodes import PhysicalBasisValue
 from .nodes import LogicalBasisValue
 from .nodes import TensorQuadrature
 from .nodes import LocalTensorQuadratureBasis
@@ -46,7 +49,6 @@ from .nodes import LocalTensorQuadratureTrialBasis
 from .nodes import GlobalTensorQuadratureTestBasis
 from .nodes import GlobalTensorQuadratureTrialBasis
 from .nodes import GlobalTensorQuadratureBasis
-from .nodes import TensorQuadratureBasis
 from .nodes import SplitArray
 from .nodes import Reduction
 from .nodes import LogicalValueNode
@@ -72,12 +74,11 @@ from .nodes import Loop
 from .nodes import WeightedVolumeQuadrature
 from .nodes import LengthDofTest
 
-from .nodes import index_outer_dof_test
 from .nodes import index_dof_test, index_dof_trial
 from .nodes import index_deriv, Max, Min
 
 from .nodes import Zeros, ZerosLike, Array
-from .fem import expand, expand_hdiv_hcurl
+from .fem import expand
 
 #==============================================================================
 # TODO move it
@@ -106,23 +107,24 @@ def is_scalar_array(var):
 #==============================================================================
 def parse(expr, settings, backend=None):
     """
-    This function takes a Psydac Ast and returns a Pyccel Ast
+    A function which takes a PSYDAC AST and transforms it to a Pyccel AST.
+
+    This function takes a PSYDAC abstract syntax tree (AST) and returns a
+    Pyccel AST. In turn, this can be translated to Python code through a call
+    to the function `pycode` from `psydac.pyccel.codegen.printing.pycode`.
 
     Parameters
     ----------
+    expr : Any
+        PSYDAC AST, of any type supported by the Parser class.
 
-    expr: <Psydac Ast>
-        psydac ast node
-
-    settings : <dict>
-        dictionary that continas number of dimension, mappings and target if provided
+    settings : dict
+        Dictionary that contains number of dimension, mappings and target if provided
 
     Returns
     -------
-
-    ast : Pyccel Ast
-        pyccel abstract syntax tree that can be translated into a Python code
-
+    ast : psydac.pyccel.ast.basic.PyccelAstNode | psydac.pyccel.ast.core.FunctionDef
+        Pyccel abstract syntax tree that can be translated into a Python code.
     """
     psy_parser = Parser(settings, backend)
     ast = psy_parser.doit(expr)
@@ -131,37 +133,82 @@ def parse(expr, settings, backend=None):
 #==============================================================================
 class Parser(object):
     """
-    This class takes a Psyadac Ast and transforms it to a Pyccel Ast
-    by calling the Parser.doit method
+    A Parser which takes a PSYDAC AST and transforms it to a Pyccel AST.
 
+    This class takes a PSYDAC AST and transforms it to the AST of an old and
+    reduced version of Pyccel, which is shipped as `psydac.pyccel`. This
+    "mini-Pyccel" is then used for printing the Python code.
+
+    The parsing is performed by passing any object of a "supported type" to the
+    method `Parser.doit`. This in turn calls `Parser._visit` which starts a
+    recursive tree traversal through specialized `Parser._visit_<NODE_TYPE>`
+    methods. If successful, `Parser.doit` generally returns a `PyccelAstNode`
+    object (from `psydac.pyccel.ast.basic`). If the input object is a `DefNode`
+    (representing a function definition) it returns a `FunctionDef` object
+    (from `psydac.pyccel.ast.core`). The resulting Pyccel AST can be printed to
+    Python code using the function `pycode` from
+    `psydac.pyccel.codegen.printing.pycode`.
+
+    By "supported types" we mean any `<NODE_TYPE>` type for which a method
+    `Parser._visit_<NODE_TYPE>` is provided. The matching is done by name, and
+    it also checks any superclasses listed in `<NODE_TYPE>.__mro__` in the given
+    order.
+
+    Parameters
+    ----------
+    settings : dict[str, Any]
+        A dictionary with required integer arguments `dim` (number of dimensions)
+        and `nderiv` (maximum number of derivatives), required argument `target`
+        (symbolic domain of expression, of type `BasicDomain` from
+        `sympde.topology.basic`), and optional argument `mapping` (domain
+        `Mapping` from `sympde.topology.mapping`).
+
+    backend : dict[str, Any]
+        The backend dictionary as defined in `psydac.api.settings`.
     """
     def __init__(self, settings, backend=None):
 
+        # Copy settings, hence input dictionary is not modified
         settings = settings.copy()
 
+        # ... Pop values from settings and perform sanity checks
         dim = settings.pop('dim', None)
         if dim is None:
             raise ValueError('dim not provided')
+        else:
+            assert isinstance(dim, int)
 
-        self._dim = dim
-        # ...
-
+            assert dim > 0
         nderiv = settings.pop('nderiv', None)
         if nderiv is None:
             raise ValueError('nderiv not provided')
-
-        self._nderiv = nderiv
+        else:
+            assert isinstance(nderiv, int)
+            assert nderiv >= 0
 
         target = settings.pop('target', None)
         if target is None:
             raise ValueError('target not provided')
+        else:
+            assert isinstance(target, BasicDomain)
 
-        self._target = target
+        mapping = settings.pop('mapping', None)
+        if mapping is not None:
+            assert isinstance(mapping, Mapping)
+        # ...
 
-        self._mapping = settings.pop('mapping', None)
-
+        # Store extracted values and other settings
+        self._dim      = dim
+        self._nderiv   = nderiv
+        self._target   = target
+        self._mapping  = mapping
         self._settings = settings
-        self.backend   = backend
+
+        # Store backend dictionary
+        if backend is not None:
+            assert isinstance(backend, dict)
+            assert 'name' in backend.keys()
+        self.backend = backend
 
         # TODO improve
         self.indices          = {}
@@ -171,7 +218,6 @@ class Parser(object):
         self.arguments        = {}
         self.allocated        = {}
         self._math_functions  = ()
-        
 
     @property
     def settings(self):

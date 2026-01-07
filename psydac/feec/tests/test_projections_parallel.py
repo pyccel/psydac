@@ -1,3 +1,8 @@
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 import numpy as np
 import pytest
 from mpi4py import MPI
@@ -9,8 +14,12 @@ from psydac.fem.basic              import FemField
 from psydac.fem.splines            import SplineSpace
 from psydac.fem.tensor             import TensorFemSpace
 from psydac.fem.vector             import VectorFemSpace
-from psydac.feec.global_projectors import Projector_H1, Projector_L2, Projector_Hcurl, Projector_Hdiv
 from psydac.ddm.cart               import DomainDecomposition
+
+from psydac.feec.global_geometric_projectors import GlobalGeometricProjectorH1 
+from psydac.feec.global_geometric_projectors import GlobalGeometricProjectorL2
+from psydac.feec.global_geometric_projectors import GlobalGeometricProjectorHcurl
+from psydac.feec.global_geometric_projectors import GlobalGeometricProjectorHdiv
 
 
 def run_projection_comparison(domain, ncells, degree, periodic, funcs, reduce):
@@ -19,45 +28,45 @@ def run_projection_comparison(domain, ncells, degree, periodic, funcs, reduce):
     if len(domain) == 1:
         if reduce == 0:
             opV = lambda V0: V0
-            opP = Projector_H1
+            opP = GlobalGeometricProjectorH1
         else:
             opV = lambda V0: V0.reduce_degree(axes=[0], basis='M')
-            opP = Projector_L2
+            opP = GlobalGeometricProjectorL2
 
     elif len(domain) == 2:
         if reduce == 0:
             opV = lambda V0: V0
-            opP = Projector_H1
+            opP = GlobalGeometricProjectorH1
         elif reduce == 1:
             opV = lambda V0: VectorFemSpace(V0.reduce_degree(axes=[0], basis='M'),
                                         V0.reduce_degree(axes=[1], basis='M'))
-            opP = Projector_Hcurl
+            opP = GlobalGeometricProjectorHcurl
         elif reduce == 2:
             # (note: this would be more instructive, if the index was 1 as well...)
             opV = lambda V0: VectorFemSpace(V0.reduce_degree(axes=[1], basis='M'),
                                         V0.reduce_degree(axes=[0], basis='M'))
-            opP = Projector_Hdiv
+            opP = GlobalGeometricProjectorHdiv
         else:
             opV = lambda V0: V0.reduce_degree(axes=[0,1], basis='M')
-            opP = Projector_L2
+            opP = GlobalGeometricProjectorL2
 
     elif len(domain) == 3:
         if reduce == 0:
             opV = lambda V0: V0
-            opP = Projector_H1
+            opP = GlobalGeometricProjectorH1
         elif reduce == 1:
             opV = lambda V0: VectorFemSpace(V0.reduce_degree(axes=[0], basis='M'),
                                         V0.reduce_degree(axes=[1], basis='M'),
                                         V0.reduce_degree(axes=[2], basis='M'))
-            opP = Projector_Hcurl
+            opP = GlobalGeometricProjectorHcurl
         elif reduce == 2:
             opV = lambda V0: VectorFemSpace(V0.reduce_degree(axes=[1,2], basis='M'),
                                         V0.reduce_degree(axes=[0,2], basis='M'),
                                         V0.reduce_degree(axes=[0,1], basis='M'))
-            opP = Projector_Hdiv
+            opP = GlobalGeometricProjectorHdiv
         else:
             opV = lambda V0: V0.reduce_degree(axes=[0,1,2], basis='M')
-            opP = Projector_L2
+            opP = GlobalGeometricProjectorL2
 
     # Choose number of quadrature points
     nquads = None if reduce == 0 else [d + 1 for d in degree]

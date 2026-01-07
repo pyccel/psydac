@@ -1,11 +1,14 @@
-# coding: utf-8
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 
 # TODO: - init_fem is called whenever we call discretize. we should check that
 #         nderiv has not been changed. shall we add nquads too?
-import os
 
-from sympy import Expr as sym_Expr
 import numpy as np
+from sympy import Expr as sym_Expr
 
 from sympde.expr     import BasicForm as sym_BasicForm
 from sympde.expr     import BilinearForm as sym_BilinearForm
@@ -25,11 +28,12 @@ from sympde.topology import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceT
 
 from gelato.expr import GltExpr as sym_GltExpr
 
+from psydac.api.fem_bilinear_form import DiscreteBilinearForm as DiscreteBilinearForm_SF
+from psydac.api.fem_sum_form import DiscreteSumForm
 from psydac.api.fem          import DiscreteBilinearForm
 from psydac.api.fem          import DiscreteLinearForm
 from psydac.api.fem          import DiscreteFunctional
-from psydac.api.fem          import DiscreteSumForm
-from psydac.api.feec         import DiscreteDerham
+from psydac.api.feec         import DiscreteDeRham, MultipatchDiscreteDeRham
 from psydac.api.glt          import DiscreteGltExpr
 from psydac.api.expr         import DiscreteExpr
 from psydac.api.equation     import DiscreteEquation
@@ -40,13 +44,13 @@ from psydac.fem.tensor       import TensorFemSpace
 from psydac.fem.partitioning import create_cart, construct_connectivity, construct_interface_spaces, construct_reduced_interface_spaces
 from psydac.fem.vector       import MultipatchFemSpace, VectorFemSpace
 from psydac.cad.geometry     import Geometry
-from psydac.mapping.discrete import NurbsMapping
 from psydac.linalg.stencil   import StencilVectorSpace
 from psydac.linalg.block     import BlockVectorSpace
 
 __all__ = (
     'discretize',
     'discretize_derham',
+    'discretize_derham_multipatch',
     'reduce_space_degrees',
     'discretize_space',
     'discretize_domain'
@@ -147,10 +151,10 @@ def get_max_degree(*spaces):
 #==============================================================================           
 def discretize_derham(derham, domain_h, *, get_H1vec_space=False, **kwargs):
     """
-    Create a discrete De Rham sequence from a symbolic one.
+    Create a discrete de Rham sequence from a symbolic one.
     
     This function creates the discrete spaces from the symbolic ones, and then
-    creates a DiscreteDerham object from them.
+    creates a DiscreteDeRham object from them.
 
     Parameters
     ----------
@@ -168,18 +172,16 @@ def discretize_derham(derham, domain_h, *, get_H1vec_space=False, **kwargs):
 
     Returns
     -------
-    DiscreteDerham
-      The discrete De Rham sequence containing the discrete spaces, 
+    DiscreteDeRham
+      The discrete de Rham sequence containing the discrete spaces, 
       differential operators and projectors.
 
     See Also
     --------
     discretize_space
-
     """
 
     ldim    = derham.shape
-    mapping = domain_h.domain.mapping # NOTE: assuming single-patch domain!
     bases   = ['B'] + ldim * ['M']
     spaces  = [discretize_space(V, domain_h, basis=basis, **kwargs)
                for V, basis in zip(derham.spaces, bases)]
@@ -192,7 +194,48 @@ def discretize_derham(derham, domain_h, *, get_H1vec_space=False, **kwargs):
         #We still need to specify the symbolic space because of "_recursive_element_of" not implemented in sympde
         spaces.append(Xh)
 
-    return DiscreteDerham(mapping, *spaces)
+    return DiscreteDeRham(domain_h, *spaces)
+
+#==============================================================================
+def discretize_derham_multipatch(derham, domain_h, **kwargs):
+    """
+    Create a discrete multipatch de Rham sequence from a symbolic one.
+    
+    This function creates the broken discrete spaces from the symbolic ones, and then
+    creates a MultipatchDiscreteDeRham object from them.
+
+    Parameters
+    ----------
+    derham : sympde.topology.space.Derham
+        The symbolic Derham sequence.
+
+    domain_h : Geometry
+        Discrete domain where the spaces will be discretized.
+
+    **kwargs : dict
+        Optional parameters for the space discretization.
+
+    Returns
+    -------
+    MultipatchDiscreteDeRham
+      The discrete multipatch de Rham sequence containing the discrete spaces, 
+      differential operators and projectors.
+
+    See Also
+    --------
+    discretize_derham
+    discretize_space
+    """
+
+    ldim   = derham.shape
+    bases  = ['B'] + ldim * ['M']
+    spaces = [discretize_space(V, domain_h, basis=basis, **kwargs) \
+            for V, basis in zip(derham.spaces, bases)]
+
+    return MultipatchDiscreteDeRham(
+        domain_h = domain_h,
+        spaces   = spaces
+    )
 
 #==============================================================================
 def reduce_space_degrees(V, Vh, *, basis='B', sequence='DR'):
@@ -506,7 +549,7 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
     construct_reduced_interface_spaces(g_spaces, new_g_spaces, interiors, connectivity)
     spaces = list(new_g_spaces.values())
 
-    if connectivity:
+    if len(interiors) > 1:
         assert all((isinstance(Wh, FemSpace) and not Wh.is_multipatch) for Wh in spaces)
         Vh = MultipatchFemSpace(*spaces, connectivity=connectivity)
     else:
@@ -535,7 +578,7 @@ def discretize_domain(domain, *, filename=None, ncells=None, periodic=None, comm
         raise ValueError("Cannot provide both 'filename' and 'ncells'")
 
     elif filename:
-        return Geometry(filename=filename, comm=comm)
+        return Geometry(filename=filename, comm=comm, mpi_dims_mask=mpi_dims_mask)
 
     elif ncells:
         return Geometry.from_topological_domain(domain, ncells, periodic=periodic, comm=comm, mpi_dims_mask=mpi_dims_mask)
@@ -547,6 +590,27 @@ def discretize(a, *args, **kwargs):
         domain_h = args[0]
         assert isinstance(domain_h, Geometry)
         domain  = domain_h.domain
+        dim     = domain.dim
+
+        # The current implementation of the sum factorization algorithm does not support OpenMP parallelization
+        # It is not properly tested, whether this way of excluding OpenMP parallelized code from using the sum factorization algorithm works.
+        backend = kwargs.get('backend')# or None
+        assembly_backend = kwargs.get('assembly_backend')# or None
+        assembly_backend = backend or assembly_backend
+        openmp = False if assembly_backend is None else assembly_backend.get('openmp')
+
+        # Since all keyword arguments are hidden in kwargs, we cannot set the
+        # defaults in the function signature. Here we set the defaults for
+        # sum_factorization using dict.setdefault: we default to True for
+        # bilinear forms in 3D, and to False otherwise. If the user has chosen
+        # differently, we let the code run and see what happens!
+        #
+        # We also default to False if the code is to be parallelized w/ OpenMP.
+        # TODO [YG 21.07.2025]: Drop this restriction
+        if isinstance(a, sym_BilinearForm):
+            default = (dim == 3 and not openmp)
+            kwargs.setdefault('sum_factorization', default)
+
         mapping = domain_h.domain.mapping
         kwargs['symbolic_mapping'] = mapping
 
@@ -593,7 +657,14 @@ def discretize(a, *args, **kwargs):
     #     return DiscreteSesquilinearForm(a, kernel_expr, *args, **kwargs)
 
     if isinstance(a, sym_BilinearForm):
-        return DiscreteBilinearForm(a, kernel_expr, *args, **kwargs)
+        # Currently sum factorization can only be used for interior domains
+        from sympde.expr.evaluation import DomainExpression
+        is_interior_expr = isinstance(kernel_expr, DomainExpression)
+
+        if kwargs.pop('sum_factorization') and is_interior_expr:
+            return DiscreteBilinearForm_SF(a, kernel_expr, *args, **kwargs)
+        else:
+            return DiscreteBilinearForm(a, kernel_expr, *args, **kwargs)
 
     elif isinstance(a, sym_LinearForm):
         return DiscreteLinearForm(a, kernel_expr, *args, **kwargs)
@@ -607,8 +678,11 @@ def discretize(a, *args, **kwargs):
     elif isinstance(a, BasicFunctionSpace):
         return discretize_space(a, *args, **kwargs)
         
-    elif isinstance(a, Derham):
+    elif isinstance(a, Derham) and not a.V0.is_broken:
         return discretize_derham(a, *args, **kwargs)
+
+    elif isinstance(a, Derham) and a.V0.is_broken:
+        return discretize_derham_multipatch(a, *args, **kwargs)
 
     elif isinstance(a, Domain):
         return discretize_domain(a, *args, **kwargs)

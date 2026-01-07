@@ -1,6 +1,8 @@
-# coding: utf-8
-# Copyright 2021 Yaman Güçlü
-
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 """
     2D time-dependent Maxwell simulation using FEEC and time splitting with
     two operators. These integrate exactly one of the two equations,
@@ -288,7 +290,7 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
                integral(domain.boundary, 1e30 * cross(u1, nn) * cross(v1, nn)))
 
     #--------------------------------------------------------------------------
-    # Discrete objects: Psydac
+    # Discrete objects: PSYDAC
     #--------------------------------------------------------------------------
     if use_spline_mapping:
         domain_h = discretize(domain, filename=filename, comm=MPI.COMM_WORLD)
@@ -325,7 +327,7 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
     M2 = a2_h.assemble()
 
     # Differential operators (StencilMatrix or BlockLinearOperator objects)
-    D0, D1 = derham_h.derivatives_as_matrices
+    D0, D1 = derham_h.derivatives(kind='linop')
 
     # Discretize and assemble penalization matrix
     if not periodic:
@@ -523,7 +525,7 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
         step_ampere_2d = dt * (M1_inv @ D1_T @ M2)
     else:
         M1_M1_bc = M1 + M1_bc
-        M1_M1_bc_inv = inverse(M1_M1_bc, 'pcg', pc = M1_M1_bc.diagonal(inverse=True), **kwargs)
+        M1_M1_bc_inv = inverse(M1_M1_bc, 'cg', pc = M1_M1_bc.diagonal(inverse=True), **kwargs)
         step_ampere_2d = dt * (M1_M1_bc_inv @ D1_T @ M2)
 
     half_step_faraday_2d = (dt/2) * D1

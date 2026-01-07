@@ -35,7 +35,7 @@ with open('../../pyproject.toml', mode='rb') as pyproject:
     pkg_meta = tomli.load(pyproject)['project']
 
 project   = str(pkg_meta['name'])
-copyright = '2018-2023, Psydac Developers'
+copyright = '2018-2025, PSYDAC Developers'
 author    = str(pkg_meta['authors'][0]['name'])
 release   = str(pkg_meta['version'])
 
@@ -52,6 +52,8 @@ extensions = [
 'sphinx.ext.githubpages',
 'sphinx_math_dollar',
 'sphinx.ext.mathjax',
+'nbsphinx',
+'myst_parser',
 ]
 
 from docutils.nodes import FixedTextElement, literal,math
@@ -79,9 +81,24 @@ add_module_names = False
 html_theme = 'pydata_sphinx_theme'
 #html_static_path = ['_static']
 
+html_logo = "logo/psydac_square.svg"
+
 html_theme_options = {
+    "repository_branch": "devel",
     "show_toc_level": 2,
-}
+    "secondary_sidebar_items": ["page-toc"],
+    "icon_links": [
+        {
+            "name": "GitHub",
+            "url": "https://github.com/pyccel/psydac",
+            "icon": "fab fa-github",
+            "type": "fontawesome",
+        },
+    ],
+}   
+
+# -- Options for myst_parser -------------------------------------------------
+myst_heading_anchors = 3
 
 # -- Options for autodoc extension -------------------------------------------
 autodoc_member_order = 'bysource'

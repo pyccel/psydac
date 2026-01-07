@@ -1,3 +1,8 @@
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 import pytest
 import numpy as np
 from mpi4py import MPI
@@ -544,7 +549,7 @@ def test_assembly_no_synchr_args(backend):
     V1h = derham_h.V1
 
     #differential operator
-    div, = derham_h.derivatives_as_matrices
+    div, = derham_h.derivatives(kind='linop')
 
     rho  = element_of(V1h.symbolic_space, name='rho')
     g    = element_of(V1h.symbolic_space, name='g')

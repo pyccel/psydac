@@ -1,4 +1,8 @@
-# coding: utf-8
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 
 # TODO: - init_fem is called whenever we call discretize. we should check that
 #         nderiv has not been changed. shall we add nquads too?
@@ -8,7 +12,6 @@
 import sys
 import os
 import importlib
-import numpy as np
 from mpi4py import MPI
 
 from psydac.api.ast.fem         import AST
@@ -143,9 +146,12 @@ class BasicCodeGen:
         #             raise ValueError('can not find {} implementation'.format(f))
 
         if ast:
-            self._save_code(self._generate_code(), backend=self.backend['name'])
+            python_code = self._generate_code()
+            self._save_code(python_code, backend=self.backend['name'])
 
-        if comm is not None and comm.size>1: comm.Barrier()
+        if comm is not None and comm.size > 1:
+            comm.Barrier()
+
         # compile code
         self._compile()
 
@@ -259,7 +265,6 @@ class BasicCodeGen:
         openmp          = self.backend["openmp"]
         _PYCCEL_FOLDER  = self.backend['folder']
 
-        # from pyccel.epyccel import epyccel
         from pyccel import epyccel
         fmod = epyccel(mod,
                        openmp  = openmp,

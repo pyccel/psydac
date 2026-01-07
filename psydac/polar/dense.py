@@ -1,8 +1,10 @@
-# coding: utf-8
-#
-# Copyright 2018 Yaman Güçlü
-
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 import numpy as np
+from mpi4py import MPI
 from scipy.sparse import coo_matrix
 
 from psydac.linalg.basic import VectorSpace, Vector, LinearOperator
@@ -177,12 +179,15 @@ class DenseVectorSpace(VectorSpace):
         assert x.space is self
         assert y.space is self
 
+        # 1. Local dot product
         res = np.dot(x._data, y._data)
 
         V = self
         if V.parallel:
-            if V.radial_comm.rank == V.radial_root:
+            # 2. MPI_ALLREDUCE operation on the M-2 dimensional tensor subcomm.
+            if (V.tensor_comm != MPI.COMM_NULL) and (V.radial_comm.rank == V.radial_root):
                 res = V.tensor_comm.allreduce(res)
+            # 3. MPI_BCAST operation on the 1D radial subcommunicator
             res = V.radial_comm.bcast(res, root=V.radial_root)
 
         return res

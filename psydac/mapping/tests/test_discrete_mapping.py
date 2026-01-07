@@ -1,12 +1,17 @@
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 import os
-import pytest
 
+import pytest
 import numpy as np
 import h5py as h5
 
-from sympde.topology import Domain
-
 from igakit.cad import circle, ruled
+
+from sympde.topology import Domain
 
 from psydac.api.discretization import discretize
 from psydac.core.bsplines import cell_index
@@ -15,6 +20,7 @@ from psydac.fem.splines import SplineSpace
 from psydac.mapping.discrete import NurbsMapping
 from psydac.utilities.utils import refine_array_1d
 from psydac.ddm.cart        import DomainDecomposition
+
 
 try:
     mesh_dir = os.environ['PSYDAC_MESH_DIR']
@@ -282,7 +288,7 @@ def test_nurbs_circle():
     control = disk.points
     d = disk.degree
 
-    # Psydac
+    # PSYDAC
     spaces = [SplineSpace(degree, knot) for degree, knot in zip(d, k)]
 
     ncells = [len(space.breaks)-1 for space in spaces]

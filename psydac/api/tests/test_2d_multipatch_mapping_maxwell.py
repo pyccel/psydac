@@ -1,5 +1,8 @@
-# -*- coding: UTF-8 -*-
-
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 import os
 import pytest
 import numpy as np
@@ -100,7 +103,7 @@ def run_maxwell_2d(uex, f, alpha, domain, *, ncells=None, degree=None, filename=
     jacobi_pc = equation_h.linear_system.lhs.diagonal(inverse=True)
 
     # Choose a linear solver and pass any flags to it
-    equation_h.set_solver('pcg', pc=jacobi_pc, tol=1e-8)
+    equation_h.set_solver('cg', pc=jacobi_pc, tol=1e-8)
 
     # Solve the linear system and obtain the solution as a FEM field
     uh = equation_h.solve()

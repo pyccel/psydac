@@ -1,5 +1,9 @@
-# -*- coding: UTF-8 -*-
-#
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
+
 # A note on the mappings used in these tests:
 #
 #   - 'identity_2d.h5' is the identity mapping on the unit square [0, 1] X [0, 1]
@@ -32,10 +36,10 @@ from sympde.expr import BilinearForm, LinearForm, integral
 from sympde.expr import Norm
 from sympde.expr import find, EssentialBC
 
-from psydac.fem.basic              import FemField
-from psydac.api.discretization     import discretize
-from psydac.api.settings           import PSYDAC_BACKEND_GPYCCEL
-from psydac.feec.global_projectors import Projector_H1
+from psydac.fem.basic                           import FemField
+from psydac.api.discretization                  import discretize
+from psydac.api.settings                        import PSYDAC_BACKEND_GPYCCEL
+from psydac.feec.global_geometric_projectors    import GlobalGeometricProjectorH1
 
 # ... get the mesh directory
 try:
@@ -142,7 +146,7 @@ def run_boundary_field_test(domain, boundary, f, ncells):
 
     x,y = domain.coordinates
     f_lambda = lambdify([x,y], f, 'math')
-    Pi0 = Projector_H1(Vh)
+    Pi0 = GlobalGeometricProjectorH1(Vh)
     fh = Pi0(f_lambda)
     fh.coeffs.update_ghost_regions()
 

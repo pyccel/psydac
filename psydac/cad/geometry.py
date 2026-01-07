@@ -1,21 +1,25 @@
-# coding: utf-8
-#
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
+
 # a Geometry class contains the list of patches and additional information about
 # the topology i.e. connectivity, boundaries
 # For the moment, it is used as a container, that can be loaded from a file
 # (hdf5)
 from itertools import product
 from collections import abc
-import numpy as np
 import string
 import random
-import h5py
 import yaml
 import os
 import string
 import random
+import warnings
 
-
+import numpy as np
+import h5py
 from mpi4py import MPI
 
 from psydac.fem.splines        import SplineSpace
@@ -30,7 +34,7 @@ from sympde.topology       import Domain, Interface, Line, Square, Cube, NCubeIn
 from sympde.topology.basic import Union
 
 #==============================================================================
-class Geometry( object ):
+class Geometry:
     """
     Distributed discrete geometry that works for single and multiple patches.
     The Geometry object can be created in two ways:
@@ -75,7 +79,7 @@ class Geometry( object ):
 
         # ... read the geometry if the filename is given
         if filename is not None:
-            self.read(filename, comm=comm)
+            self.read(filename, comm=comm, mpi_dims_mask=mpi_dims_mask)
 
         elif domain is not None:
             assert isinstance(domain, Domain) 
@@ -122,7 +126,7 @@ class Geometry( object ):
     # Option [2]: from a discrete mapping
     #--------------------------------------------------------------------------
     @classmethod
-    def from_discrete_mapping(cls, mapping, comm=None, name=None):
+    def from_discrete_mapping(cls, mapping, *, comm=None, mpi_dims_mask=None, name=None):
         """Create a geometry from one discrete mapping.
 
         Parameters
@@ -132,7 +136,11 @@ class Geometry( object ):
 
         comm : MPI.Comm
             MPI intra-communicator.
-            
+    
+        mpi_dims_mask: list of bool
+            True if the dimension is to be used in the domain decomposition (=default for each dimension). 
+            If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
+    
         name : string
             Optional name for the Mapping that will be created. 
             Needed to avoid conflicts in case several mappings are created
@@ -150,7 +158,7 @@ class Geometry( object ):
         ncells   = {domain.name: mapping.space.domain_decomposition.ncells}
         periodic = {domain.name: mapping.space.domain_decomposition.periods}
 
-        return Geometry(domain=domain, ncells=ncells, periodic=periodic, mappings=mappings, comm=comm)
+        return Geometry(domain=domain, ncells=ncells, periodic=periodic, mappings=mappings, comm=comm, mpi_dims_mask=mpi_dims_mask)
 
 
     #--------------------------------------------------------------------------
@@ -175,6 +183,13 @@ class Geometry( object ):
 
         if periodic is None:
             periodic = [False]*domain.dim
+        else:
+            if len(interior) > 1 and True in periodic:
+                msg = "Discretizing a multipatch domain with a periodic flag is not advised -- continue at your own risk."
+                # [MCP 18.12.2025] the following line may be causing a strange error in the CI (MPI tests for macos-14/Python 3.10)
+                # warnings.warn(msg, Warning)  
+                warnings.warn(msg, UserWarning)
+
 
         if isinstance(periodic, (list, tuple)):
             periodic = {itr.name:periodic for itr in interior}
@@ -223,7 +238,7 @@ class Geometry( object ):
     def __len__(self):
         return len(self.domain)
 
-    def read( self, filename, comm=None ):
+    def read(self, filename, comm=None, mpi_dims_mask=None):
         # ... check extension of the file
         basename, ext = os.path.splitext(filename)
         if not(ext == '.h5'):
@@ -287,7 +302,7 @@ class Geometry( object ):
 
         self._cart = None
         if n_patches == 1:
-            self._ddm = DomainDecomposition(ncells[domain.name], periodic[domain.name], comm=comm)
+            self._ddm = DomainDecomposition(ncells[domain.name], periodic[domain.name], comm=comm, mpi_dims_mask=mpi_dims_mask)
             ddms      = [self._ddm]
         else:
             ncells_    = [ncells[itr.name] for itr in interiors]
@@ -499,7 +514,7 @@ class Geometry( object ):
 def export_nurbs_to_hdf5(filename, nurbs, periodic=None, comm=None ):
 
     """
-    Export a single-patch igakit NURBS object to a Psydac geometry file in HDF5 format
+    Export a single-patch igakit NURBS object to a PSYDAC geometry file in HDF5 format
 
     Parameters
     ----------

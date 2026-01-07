@@ -1,3 +1,8 @@
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 import numpy as np
 import pytest
 
@@ -8,11 +13,9 @@ from psydac.fem.tensor       import TensorFemSpace
 from psydac.fem.vector       import VectorFemSpace
 
 from psydac.feec.derivatives import DirectionalDerivativeOperator
-from psydac.feec.derivatives import Derivative_1D, Gradient_2D, Gradient_3D
-from psydac.feec.derivatives import ScalarCurl_2D, VectorCurl_2D, Curl_3D
-from psydac.feec.derivatives import Divergence_2D, Divergence_3D
-
-from psydac.feec.global_projectors import Projector_H1
+from psydac.feec.derivatives import Derivative1D, Gradient2D, Gradient3D
+from psydac.feec.derivatives import ScalarCurl2D, VectorCurl2D, Curl3D
+from psydac.feec.derivatives import Divergence2D, Divergence3D
 
 from psydac.ddm.cart         import DomainDecomposition
 from mpi4py                  import MPI
@@ -352,7 +355,7 @@ def test_directional_derivative_operator_3d_par(domain, ncells, degree, periodic
 @pytest.mark.parametrize('seed', [1,3])
 @pytest.mark.parametrize('multiplicity', [1,2])
 
-def test_Derivative_1D(domain, ncells, degree, periodic, seed, multiplicity):
+def test_Derivative1D(domain, ncells, degree, periodic, seed, multiplicity):
     # determinize tests
     np.random.seed(seed)
 
@@ -372,7 +375,7 @@ def test_Derivative_1D(domain, ncells, degree, periodic, seed, multiplicity):
     u0 = FemField(V0)
 
     # Linear operator: 1D derivative
-    grad = Derivative_1D(V0, V1)
+    grad = Derivative1D(V0, V1)
 
     # Create random field in V0
     s, = V0.coeff_space.starts
@@ -401,7 +404,7 @@ def test_Derivative_1D(domain, ncells, degree, periodic, seed, multiplicity):
 @pytest.mark.parametrize('seed', [1,3])
 @pytest.mark.parametrize('multiplicity', [(1, 1), (1, 2), (2, 2)])
 
-def test_Gradient_2D(domain, ncells, degree, periodic, seed, multiplicity):
+def test_Gradient2D(domain, ncells, degree, periodic, seed, multiplicity):
     # determinize tests
     np.random.seed(seed)
 
@@ -421,7 +424,7 @@ def test_Gradient_2D(domain, ncells, degree, periodic, seed, multiplicity):
     V1 = VectorFemSpace(DxNy, NxDy)
 
     # Linear operator: 2D gradient
-    grad = Gradient_2D(V0, V1)
+    grad = Gradient2D(V0, V1)
 
     # Create random field in V0
     u0 = FemField(V0)
@@ -463,7 +466,7 @@ def test_Gradient_2D(domain, ncells, degree, periodic, seed, multiplicity):
 @pytest.mark.parametrize('seed', [1,3])
 @pytest.mark.parametrize('multiplicity', [(1, 1, 1), (1, 2, 2), (2, 2, 2)])
 
-def test_Gradient_3D(domain, ncells, degree, periodic, seed, multiplicity):
+def test_Gradient3D(domain, ncells, degree, periodic, seed, multiplicity):
     if any([ncells[d] <= degree[d] and periodic[d] for d in range(3)]):
         return
     
@@ -489,7 +492,7 @@ def test_Gradient_3D(domain, ncells, degree, periodic, seed, multiplicity):
     V1 = VectorFemSpace(DxNyNz, NxDyNz, NxNyDz)
 
     # Linear operator: 3D gradient
-    grad = Gradient_3D(V0, V1)
+    grad = Gradient3D(V0, V1)
 
     # Create random field in V0
     u0 = FemField(V0)
@@ -530,7 +533,7 @@ def test_Gradient_3D(domain, ncells, degree, periodic, seed, multiplicity):
 @pytest.mark.parametrize('multiplicity', [(1, 1), (1, 2), (2, 2)])
 
 
-def test_ScalarCurl_2D(domain, ncells, degree, periodic, seed, multiplicity):
+def test_ScalarCurl2D(domain, ncells, degree, periodic, seed, multiplicity):
     # determinize tests
     np.random.seed(seed)
 
@@ -555,7 +558,7 @@ def test_ScalarCurl_2D(domain, ncells, degree, periodic, seed, multiplicity):
     V2 = DxDy
 
     # Linear operator: curl
-    curl = ScalarCurl_2D(V1, V2)
+    curl = ScalarCurl2D(V1, V2)
 
     # ...
     # Create random field in V1
@@ -605,7 +608,7 @@ def test_ScalarCurl_2D(domain, ncells, degree, periodic, seed, multiplicity):
 @pytest.mark.parametrize('seed', [1,3])
 @pytest.mark.parametrize('multiplicity', [(1, 1), (1, 2), (2, 2)])
 
-def test_VectorCurl_2D(domain, ncells, degree, periodic, seed, multiplicity):
+def test_VectorCurl2D(domain, ncells, degree, periodic, seed, multiplicity):
     # determinize tests
     np.random.seed(seed)
 
@@ -625,7 +628,7 @@ def test_VectorCurl_2D(domain, ncells, degree, periodic, seed, multiplicity):
     V1 = VectorFemSpace(NxDy, DxNy)
 
     # Linear operator: 2D vector curl
-    curl = VectorCurl_2D(V0, V1)
+    curl = VectorCurl2D(V0, V1)
 
     # Create random field in V0
     u0 = FemField(V0)
@@ -671,7 +674,7 @@ def test_VectorCurl_2D(domain, ncells, degree, periodic, seed, multiplicity):
 @pytest.mark.parametrize('seed', [1,3])
 @pytest.mark.parametrize('multiplicity', [(1, 1, 1), (1, 2, 2), (2, 2, 2)])
 
-def test_Curl_3D(domain, ncells, degree, periodic, seed, multiplicity):
+def test_Curl3D(domain, ncells, degree, periodic, seed, multiplicity):
     if any([ncells[d] <= degree[d] and periodic[d] for d in range(3)]):
         return
 
@@ -703,7 +706,7 @@ def test_Curl_3D(domain, ncells, degree, periodic, seed, multiplicity):
     V2 = VectorFemSpace(NxDyDz, DxNyDz, DxDyNz)
 
     # Linear operator: curl
-    curl = Curl_3D(V1, V2)
+    curl = Curl3D(V1, V2)
 
     # ...
     # Create random field in V1
@@ -763,7 +766,7 @@ def test_Curl_3D(domain, ncells, degree, periodic, seed, multiplicity):
 @pytest.mark.parametrize('seed', [1,3])
 @pytest.mark.parametrize('multiplicity', [(1, 1), (1, 2), (2, 2)])
 
-def test_Divergence_2D(domain, ncells, degree, periodic, seed, multiplicity):
+def test_Divergence2D(domain, ncells, degree, periodic, seed, multiplicity):
     # determinize tests
     np.random.seed(seed)
 
@@ -787,7 +790,7 @@ def test_Divergence_2D(domain, ncells, degree, periodic, seed, multiplicity):
     V2 = V0.reduce_degree(axes=[0, 1], basis='M')
 
     # Linear operator: divergence
-    div = Divergence_2D(V1, V2)
+    div = Divergence2D(V1, V2)
 
     # ...
     # Create random field in V1
@@ -839,7 +842,7 @@ def test_Divergence_2D(domain, ncells, degree, periodic, seed, multiplicity):
 @pytest.mark.parametrize('seed', [1,3])
 @pytest.mark.parametrize('multiplicity', [(1, 1, 1), (1, 2, 2), (2, 2, 2)])
 
-def test_Divergence_3D(domain, ncells, degree, periodic, seed, multiplicity):
+def test_Divergence3D(domain, ncells, degree, periodic, seed, multiplicity):
     # determinize tests
     np.random.seed(seed)
 
@@ -865,7 +868,7 @@ def test_Divergence_3D(domain, ncells, degree, periodic, seed, multiplicity):
     V3 = V0.reduce_degree(axes=[0, 1, 2], basis='M')
 
     # Linear operator: divergence
-    div = Divergence_3D(V2, V3)
+    div = Divergence3D(V2, V3)
 
     # ...
     # Create random field in V2
@@ -915,11 +918,11 @@ def test_Divergence_3D(domain, ncells, degree, periodic, seed, multiplicity):
 #==============================================================================
 if __name__ == '__main__':
     
-    test_Derivative_1D(domain=[0, 1], ncells=3, degree=3, periodic=False, seed=1, multiplicity=1)
-    test_Derivative_1D(domain=[0, 1], ncells=12, degree=3, periodic=True, seed=1, multiplicity=1)
+    test_Derivative1D(domain=[0, 1], ncells=3, degree=3, periodic=False, seed=1, multiplicity=1)
+    test_Derivative1D(domain=[0, 1], ncells=12, degree=3, periodic=True, seed=1, multiplicity=1)
 
 
-    test_Gradient_2D(
+    test_Gradient2D(
         domain   = ([0, 1], [0, 1]),
         ncells   = (10, 15),
         degree   = (3, 2),
@@ -927,7 +930,7 @@ if __name__ == '__main__':
         seed     = 1
     )
 
-    test_Gradient_3D(
+    test_Gradient3D(
         domain   = ([0, 1], [0, 1], [0, 1]),
         ncells   = (5, 8, 4),
         degree   = (3, 2, 3),
@@ -935,7 +938,7 @@ if __name__ == '__main__':
         seed     = 1
     )
 
-    test_ScalarCurl_2D(
+    test_ScalarCurl2D(
         domain   = ([0, 1], [0, 1]),
         ncells   = (10, 15),
         degree   = (3, 2),
@@ -943,7 +946,7 @@ if __name__ == '__main__':
         seed     = 1
     )
 
-    test_VectorCurl_2D(
+    test_VectorCurl2D(
         domain   = ([0, 1], [0, 1]),
         ncells   = (10, 15),
         degree   = (3, 2),
@@ -951,7 +954,7 @@ if __name__ == '__main__':
         seed     = 1
     )
 
-    test_Curl_3D(
+    test_Curl3D(
         domain   = ([0, 1], [0, 1], [0, 1]),
         ncells   = (5, 8, 4),
         degree   = (3, 2, 3),
@@ -959,7 +962,7 @@ if __name__ == '__main__':
         seed     = 1
     )
 
-    test_Divergence_2D(
+    test_Divergence2D(
         domain   = ([0, 1], [0, 1]),
         ncells   = (10, 15),
         degree   = (3, 2),
@@ -967,7 +970,7 @@ if __name__ == '__main__':
         seed     = 1
     )
 
-    test_Divergence_3D(
+    test_Divergence3D(
         domain   = ([0, 1], [0, 1], [0, 1]),
         ncells   = (5, 8, 4),
         degree   = (3, 2, 3),

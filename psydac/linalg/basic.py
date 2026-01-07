@@ -1,7 +1,8 @@
-# coding: utf-8
-#
-# Copyright 2018 Yaman Güçlü, Jalal Lakhlili
-# Copyright 2022 Yaman Güçlü, Said Hadjout, Julian Owezarek
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 """
 provides the fundamental classes for linear algebra operations.
 
@@ -435,15 +436,35 @@ class LinearOperator(ABC):
 
     def idot(self, v, out):
         """
-        Implements out += self @ v with a temporary.
-        Subclasses should provide an implementation without a temporary.
+        Implements `out += self @ v` without a temporary, using a work array.
+
+        This default implementation uses a local work array to store the result
+        of `self @ v`, and then sums it to the vector `out`. This doubles the
+        amount of read/write operations from/to local memory. If possible,
+        subclasses should provide a more efficient implementation which does
+        not use work arrays.
+
+        Parameters
+        ----------
+        v : Vector
+            The vector to which the linear operator `self` is applied. It must
+            belong to the domain of `self`.
+
+        out : Vector
+            The vector to be incremented by `self @ v`. It must belong to the
+            codomain of `self`.
 
         """
-        assert isinstance(v, Vector)
-        assert v.space == self.domain
+        assert isinstance(  v, Vector)
         assert isinstance(out, Vector)
-        assert out.space == self.codomain
-        out += self.dot(v)
+        assert   v.space is self.domain
+        assert out.space is self.codomain
+
+        if not hasattr(self, '_work'):
+            self._work = self.codomain.zeros()
+
+        self.dot(v, out=self._work)
+        out += self._work
 
     def dot_inner(self, v, w):
         """
@@ -656,10 +677,11 @@ class ScaledLinearOperator(LinearOperator):
         assert isinstance(domain, VectorSpace)
         assert isinstance(codomain, VectorSpace)
         assert np.isscalar(c)
-        assert not np.iscomplexobj(c) or codomain._dtype == complex
+        if np.iscomplexobj(c):
+            assert codomain._dtype == complex
         assert isinstance(A, LinearOperator)
-        assert domain   == A.domain
-        assert codomain == A.codomain
+        assert A.domain   is domain
+        assert A.codomain is codomain
 
         if isinstance(A, ScaledLinearOperator):
             scalar = A.scalar * c
@@ -695,12 +717,15 @@ class ScaledLinearOperator(LinearOperator):
     def dtype(self):
         return None
 
+    def set_scalar(self, c):
+        """ Modifies the scalar with which this LinearOperator is multiplied. E.g. for updating the stepsize."""
+        self._scalar = c
+
     def toarray(self):
-        return self._scalar*self._operator.toarray() 
+        return self._scalar * self._operator.toarray() 
 
     def tosparse(self):
-        from scipy.sparse import csr_matrix
-        return self._scalar*csr_matrix(self._operator.toarray())
+        return self._scalar * self._operator.tosparse().tocsr()
 
     def transpose(self, conjugate=False):
         return ScaledLinearOperator(domain=self.codomain, codomain=self.domain, c=self._scalar if not conjugate else np.conjugate(self._scalar), A=self._operator.transpose(conjugate=conjugate))
@@ -758,7 +783,11 @@ class SumLinearOperator(LinearOperator):
         self._domain = domain
         self._codomain = codomain
         self._addends = addends
+        self._out = codomain.zeros()
 
+    #-------------------------------------
+    # Abstract interface
+    #-------------------------------------
     @property
     def domain(self):
         """ The domain of the linear operator, element of class ``VectorSpace``. """
@@ -770,25 +799,37 @@ class SumLinearOperator(LinearOperator):
         return self._codomain
 
     @property
-    def addends(self):
-        """ A tuple containing the addends of the linear operator, elements of class ``LinearOperator``. """
-        return self._addends
-
-    @property
     def dtype(self):
         return None
 
+    def tosparse(self):
+        out = self.addends[0].tosparse().tocsr()
+        for a in self.addends[1:]:
+            out += a.tosparse().tocsr()
+        return out
+
     def toarray(self):
-        out = np.zeros(self.shape, dtype=self.dtype)
-        for a in self._addends:
+        out = self.addends[0].toarray()
+        for a in self.addends[1:]:
             out += a.toarray()
         return out
 
-    def tosparse(self):
-        from scipy.sparse import csr_matrix
-        out = csr_matrix(self.shape, dtype=self.dtype)
-        for a in self._addends:
-            out += a.tosparse()
+    def dot(self, v, out=None):
+        """ Evaluates SumLinearOperator object at a vector v element of domain. """
+
+        assert isinstance(v, Vector)
+        assert v.space is self.domain
+
+        if out is not None:
+            assert isinstance(out, Vector)
+            assert out.space is self.codomain
+            out *= 0
+        else:
+            out = self.codomain.zeros()
+
+        for A in self._addends:
+            A.idot(v, out)
+
         return out
 
     def transpose(self, conjugate=False):
@@ -796,6 +837,14 @@ class SumLinearOperator(LinearOperator):
         for a in self._addends:
             t_addends = (*t_addends, a.transpose(conjugate=conjugate))
         return SumLinearOperator(self.codomain, self.domain, *t_addends)
+
+    #--------------------------------------
+    # Other properties/methods
+    #--------------------------------------
+    @property
+    def addends(self):
+        """ A tuple containing the addends of the linear operator, elements of class ``LinearOperator``. """
+        return self._addends
 
     @staticmethod
     def simplify(addends):
@@ -818,23 +867,6 @@ class SumLinearOperator(LinearOperator):
                 else:
                     out = (*out, A)
         return out
-
-    def dot(self, v, out=None):
-        """ Evaluates SumLinearOperator object at a vector v element of domain. """
-        assert isinstance(v, Vector)
-        assert v.space == self.domain
-        if out is not None:
-            assert isinstance(out, Vector)
-            assert out.space == self.codomain
-            out *= 0
-            for a in self._addends:
-                a.idot(v, out)
-            return out
-        else:
-            out = self.codomain.zeros()
-            for a in self._addends:
-                a.idot(v, out=out)
-            return out
 
 #===============================================================================
 class ComposedLinearOperator(LinearOperator):
@@ -1044,7 +1076,7 @@ class PowerLinearOperator(LinearOperator):
 class InverseLinearOperator(LinearOperator):
     """
     Abstract base class for the (approximate) inverse $A^{-1}$ of a
-    square matrix $A$. The result of A_inv.dot(b) is the (approximate) solution x
+    'forward' linear operator $A$. The result of A_inv.dot(b) is the (approximate) solution x
     of the linear system A x = b, where x and b belong to the same vector space V.
 
     We assume that the linear system is solved by an iterative method, which
@@ -1056,7 +1088,7 @@ class InverseLinearOperator(LinearOperator):
     Parameters
     ----------
     A : psydac.linalg.basic.LinearOperator
-        Left-hand-side matrix A of linear system.
+        The forward linear operator
         
     x0 : psydac.linalg.basic.Vector
         First guess of solution for iterative solver (optional).
@@ -1101,9 +1133,9 @@ class InverseLinearOperator(LinearOperator):
         return None
 
     @property
-    def linop(self):
+    def fwd_linop(self):
         """
-        The linear operator $A$ of which this object is the inverse $A^{-1}$.
+        The forward linear operator $A$, of which this object is the inverse $A^{-1}$.
 
         The linear operator $A$ can be modified in place, or replaced entirely
         through the setter. A substitution should only be made in cases where
@@ -1114,8 +1146,8 @@ class InverseLinearOperator(LinearOperator):
         """
         return self._A
     
-    @linop.setter
-    def linop(self, a):
+    @fwd_linop.setter
+    def fwd_linop(self, a):
         """ Set the linear operator $A$ of which this object is the inverse $A^{-1}$. """
         assert isinstance(a, LinearOperator)
         assert a.domain is self.domain
@@ -1177,7 +1209,7 @@ class InverseLinearOperator(LinearOperator):
 
     def transpose(self, conjugate=False):
         cls     = type(self)
-        At      = self.linop.transpose(conjugate=conjugate)
+        At      = self.fwd_linop.transpose(conjugate=conjugate)
         options = self._options
         return cls(At, **options)
 
@@ -1294,7 +1326,7 @@ class MatrixFreeLinearOperator(LinearOperator):
             self._dot(v, out=out, **kwargs)
         else:
             # provided dot product does not take an out argument: we simply copy the result into out
-            self._dot(v).copy(out=out, **kwargs)
+            self._dot(v, **kwargs).copy(out=out)
                     
         return out
         

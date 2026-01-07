@@ -1,5 +1,8 @@
-# -*- coding: UTF-8 -*-
-
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 import numpy as np
 from itertools   import groupby, product
 
@@ -238,8 +241,12 @@ def get_degrees(funcs, space):
 #==============================================================================
 class AST(object):
     """
-    The Ast class transforms a terminal expression returned from sympde
-    into a DefNode
+    The AST class transforms a terminal expression returned from SymPDE
+    into a DefNode object, which it stores into the attribute `expr`.
+
+    A DefNode represents a function definition, and it contains the full
+    PSYDAC abstract syntax tree for the assembly function of a BilinearForm,
+    LinearForm, or Functional.
 
     """
     def __init__(self, expr, terminal_expr, spaces, *, nquads, mapping_space=None, tag=None, mapping=None, is_rational_mapping=None,
