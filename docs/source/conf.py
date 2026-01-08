@@ -27,6 +27,7 @@ AutosummaryRenderer.__init__ = fixed_init
 import pathlib
 import sys
 import tomli
+import psydac
 
 autodoc_mock_imports = [
     'gelato',
@@ -34,7 +35,7 @@ autodoc_mock_imports = [
     'matplotlib'
     'mpi4py',
     'numpy',
-    'psydac',
+#    'psydac',
     'pyccel',
     'pyevtk',
     'scipy',
@@ -42,7 +43,7 @@ autodoc_mock_imports = [
     'sympy',
     'yaml',
 ]
-sys.path.insert(0, pathlib.Path(__file__).parents[2].resolve().as_posix())
+#sys.path.insert(0, pathlib.Path(__file__).parents[2].resolve().as_posix())
 
 with open('../../pyproject.toml', mode='rb') as pyproject:
     pkg_meta = tomli.load(pyproject)['project']
