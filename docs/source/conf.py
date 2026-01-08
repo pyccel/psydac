@@ -98,7 +98,7 @@ html_theme = 'pydata_sphinx_theme'
 html_logo = "logo/psydac_square.svg"
 
 html_theme_options = {
-    "repository_branch": "devel",
+#    "repository_branch": "devel",
     "show_toc_level": 2,
     "secondary_sidebar_items": ["page-toc"],
     "icon_links": [
