@@ -1,8 +1,7 @@
-<h1 align="center">
-<img src="https://raw.githubusercontent.com/pyccel/psydac/devel/docs/source/logo/psydac_banner.svg" width="600" alt="Shows the psydac logo." class="dark-light">
-</h1><br>
+# <img src="https://raw.githubusercontent.com/pyccel/psydac/devel/docs/source/logo/psydac_banner.svg" width="600" style="display: block; margin: 0 auto" alt="PSYDAC logo." class="dark-light">
 
-[![devel_tests](https://github.com/pyccel/psydac/actions/workflows/testing.yml/badge.svg)](https://github.com/pyccel/psydac/actions/workflows/testing.yml) [![docs](https://github.com/pyccel/psydac/actions/workflows/documentation.yml/badge.svg)](https://github.com/pyccel/psydac/actions/workflows/documentation.yml)
+[![devel_tests](https://github.com/pyccel/psydac/actions/workflows/testing.yml/badge.svg)](https://github.com/pyccel/psydac/actions/workflows/testing.yml)
+[![docs](https://github.com/pyccel/psydac/actions/workflows/documentation.yml/badge.svg)](https://github.com/pyccel/psydac/actions/workflows/documentation.yml)
 
 PSYDAC is a Python 3 library for isogeometric analysis.
 It is an academic, open-source project created by numerical mathematicians at the [Max Planck Institute for Plasma Physics](https://www.ipp.mpg.de/en) ([NMPP](https://www.ipp.mpg.de/ippcms/eng/for/bereiche/numerik) division, [FEM](https://www.ipp.mpg.de/5150531/fem) group).
