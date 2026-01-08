@@ -35,7 +35,7 @@ sudo apt install libhdf5-openmpi-dev
 
 To install all the requirements on a macOS operating system we recommend using [Homebrew](https://brew.sh/):
 
-```eh
+```sh
 brew update
 brew install gcc
 brew install openblas
