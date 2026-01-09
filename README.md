@@ -47,19 +47,22 @@ source <ENV-PATH>/bin/activate
 
 PSYDAC and its Python dependencies can now be installed in the virtual environment using [`pip`](https://pip.pypa.io/en/stable/), the Python package manager:
 ```bash
-git clone https://github.com/pyccel/psydac.git
-
 export CC="mpicc"
 export HDF5_MPI="ON"
 export HDF5_DIR=<HDF5-PATH>
 
 pip install --upgrade pip
 pip install h5py --no-cache-dir --no-binary h5py
-pip install ./psydac
+pip install psydac
 ```
 Here `<HDF5-PATH>` is the path to the HDF5 root folder, such that `<HDF5-PATH>/lib/` contains the HDF5 dynamic libraries with MPI support.
-For an editable install, the last command above should be replaced with:
+
+The last command above installs the latest version of PSYDAC found on [PyPI](https://pypi.org), the Python Package Index.
+A developer wanting to modify the source code should skip that command, and instead clone the PSYDAC repository to perform an **editable install**:
+
 ```bash
+git clone --recurse-submodules https://github.com/pyccel/psydac.git
+
 pip install meson-python "pyccel>=2.1.0"
 pip install --no-build-isolation --editable ./psydac
 ```
