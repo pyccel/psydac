@@ -65,6 +65,8 @@ test = [
 Homepage      = "https://github.com/pyccel/psydac"
 Documentation = "https://pyccel.github.io/psydac"
 Repository    = "https://github.com/pyccel/psydac.git"
+Changelog     = "https://github.com/pyccel/psydac/blob/devel/CHANGELOG.md"
+Tracker       = "https://github.com/pyccel/psydac/issues"
 
 [project.scripts]
 psydac-mesh = "psydac.cmd.mesh:main"
