@@ -49,7 +49,7 @@ with open('../../pyproject.toml', mode='rb') as pyproject:
     pkg_meta = tomli.load(pyproject)['project']
 
 project   = str(pkg_meta['name'])
-copyright = '2018-2025, PSYDAC Developers'
+copyright = '2018-2026, PSYDAC Developers'
 author    = str(pkg_meta['authors'][0]['name'])
 release   = str(pkg_meta['version'])
 
