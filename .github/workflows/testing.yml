@@ -202,8 +202,9 @@ jobs:
 
       - name: Run single-process example tests with Pytest on Ubuntu
         if: matrix.os == 'ubuntu-24.04'
+        working-directory: ./pytest
         run: |
-          pytest examples/feec
+          pytest $GITHUB_WORKSPACE/examples/feec
 
       - name: Remove test directory
         if: always()
