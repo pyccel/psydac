@@ -97,9 +97,9 @@ jobs:
         if: steps.duplicate_check.outputs.should_skip != 'true'
         working-directory: ./pytest
         run: |
-          pytest -n auto --pyargs psydac -m "not petsc" -x -ra
+          pytest -n auto --pyargs psydac -m "not mpi and not petsc" -x -ra
 
       - name: Run MPI tests with Pytest
         working-directory: ./pytest
         run: |
-          mpirun -n 4 --oversubscribe pytest --with-mpi --pyargs psydac -m "not petsc" -x -ra
+          mpirun -n 4 --oversubscribe pytest --with-mpi --pyargs psydac -m "mpi and not petsc" -x -ra
