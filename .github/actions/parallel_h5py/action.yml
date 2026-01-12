@@ -5,6 +5,7 @@ runs:
   steps:
 
     - name: Determine directory of parallel HDF5 library
+      shell: bash
       run: |
         if [[ "$RUNNER_OS" == "Linux" ]]; then
           HDF5_DIR=$(dpkg -L libhdf5-openmpi-dev | grep libhdf5.so | xargs dirname)
@@ -15,6 +16,7 @@ runs:
         echo "HDF5_DIR=$HDF5_DIR" >> $GITHUB_ENV
 
     - name: Install h5py in parallel mode
+      shell: bash
       run: |
         export CC="mpicc"
         export HDF5_MPI="ON"
@@ -22,6 +24,7 @@ runs:
         pip list
 
     - name: Check parallel h5py installation
+      shell: bash
       run: |
           python -c "
           from mpi4py import MPI
