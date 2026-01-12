@@ -86,7 +86,6 @@ def build_2_cubes():
 ###############################################################################
 #                            Output Manager tests                             #
 ###############################################################################
-@pytest.mark.serial
 @pytest.mark.parametrize( 'dtype', ['float', 'complex'] )
 def test_add_spaces(dtype):
     domain = Square('D')
@@ -210,7 +209,7 @@ def test_add_spaces(dtype):
     # Remove file
     os.remove('test_add_spaces_single_patch.yml')
 
-@pytest.mark.serial
+
 @pytest.mark.parametrize( 'dtype', ['float', 'complex'] )
 def test_export_fields_serial(dtype):
     domain = Square('D')
@@ -291,6 +290,7 @@ def test_export_fields_serial(dtype):
     os.remove('test_export_fields_serial.yml')
     os.remove('test_export_fields_serial.h5')
 
+
 @pytest.mark.mpi
 def test_export_fields_parallel():
     comm = MPI.COMM_WORLD
@@ -333,7 +333,6 @@ def test_export_fields_parallel():
 ###############################################################################
 #                 Output Manager and PostProcess Manager tests                #
 ###############################################################################
-@pytest.mark.serial
 @pytest.mark.parametrize('domain', [Square(), Cube()])
 @pytest.mark.parametrize( 'dtype', ['float', 'complex'] )
 def test_reconstruct_spaces_topological_domain(domain, dtype):
@@ -403,7 +402,6 @@ def test_reconstruct_spaces_topological_domain(domain, dtype):
     os.remove("test_reconstruct_spaces_topological_domain_2.yml")
 
 
-@pytest.mark.serial
 @pytest.mark.parametrize('domain, seq', [(Square(), ['h1', 'hdiv', 'l2']), (Square(), ['h1', 'hcurl', 'l2']), (Cube(), None)])
 @pytest.mark.parametrize( 'dtype', ['float', 'complex'] )
 def test_reconstruct_DerhamSequence_topological_domain(domain, seq, dtype):
@@ -462,7 +460,6 @@ def test_reconstruct_DerhamSequence_topological_domain(domain, seq, dtype):
     os.remove('test_reconstruct_DerhamSequence_topological_domain.yml')
 
 
-@pytest.mark.serial
 @pytest.mark.parametrize('geometry, seq', [('identity_2d.h5', ['h1', 'hdiv', 'l2']),
                                            ('identity_2d.h5', ['h1', 'hcurl', 'l2']),
                                            ('identity_3d.h5', None),
@@ -608,7 +605,7 @@ def test_reconstruct_multipatch(dtype):
                     else:
                         assert value1 == value2
 
-@pytest.mark.serial
+
 def test_incorrect_arg_export_to_vtk():
     domain = Square()
     space = ScalarFunctionSpace('V', domain)

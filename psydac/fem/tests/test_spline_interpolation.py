@@ -19,10 +19,8 @@ from psydac.fem.tests.utilities              import horner, random_grid
 from psydac.fem.tests.splines_error_bounds   import spline_1d_error_bound
 from psydac.fem.tests.analytical_profiles_1d import (AnalyticalProfile1D_Cos, AnalyticalProfile1D_Poly)
 #===============================================================================
-@pytest.mark.serial
 @pytest.mark.parametrize( "ncells", [1,5,10,23] )
 @pytest.mark.parametrize( "degree", range(1,11) )
-
 def test_SplineInterpolation1D_exact( ncells, degree ):
 
     domain   = [-1.0, 1.0]
@@ -55,10 +53,9 @@ def args_SplineInterpolation1D_cosine():
             for degree in range(1,pmax+1):
                 yield (ncells, degree, periodic)
 
-@pytest.mark.serial
+
 @pytest.mark.parametrize( "ncells,degree,periodic",
     args_SplineInterpolation1D_cosine() )
-
 def test_SplineInterpolation1D_cosine( ncells, degree, periodic ):
 
     f = AnalyticalProfile1D_Cos()
@@ -85,7 +82,6 @@ def test_SplineInterpolation1D_cosine( ncells, degree, periodic ):
 @pytest.mark.parametrize( "nc2", [7,10,23] )
 @pytest.mark.parametrize( "deg1", range(1,5) )
 @pytest.mark.parametrize( "deg2", range(1,5) )
-
 def test_SplineInterpolation2D_parallel_exact( nc1, nc2, deg1, deg2 ):
 
     # Communicator, size, rank
