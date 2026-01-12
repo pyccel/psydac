@@ -190,7 +190,7 @@ def test_maxwell_2d_2_patch_dirichlet_2():
 ###############################################################################
 
 #==============================================================================
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_maxwell_2d_2_patch_dirichlet_parallel_0():
 
     bounds1   = (0.5, 1.)
@@ -223,7 +223,7 @@ def test_maxwell_2d_2_patch_dirichlet_parallel_0():
 
     assert abs(l2_error - expected_l2_error) < 1e-7
 
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_maxwell_2d_2_patch_dirichlet_parallel_1():
 
     filename = os.path.join(mesh_dir, 'multipatch/square_repeated_knots.h5')

@@ -498,7 +498,7 @@ def test_api_laplace_3d_neu_identity():
 ###############################################################################
 
 #==============================================================================
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_api_poisson_3d_dir_collela():
 
     filename = os.path.join(mesh_dir, 'collela_3d.h5')

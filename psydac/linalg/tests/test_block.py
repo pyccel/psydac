@@ -1079,7 +1079,7 @@ def test_block_linear_operator_dot_backend( dtype, n1, n2, p1, p2, P1, P2, backe
 @pytest.mark.parametrize( 'p2', [2] )
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True] )
-@pytest.mark.parallel
+@pytest.mark.mpi
 
 def test_block_linear_operator_parallel_dot( dtype, n1, n2, p1, p2, P1, P2 ):
     # Define a factor for the data
@@ -1219,7 +1219,7 @@ def test_block_linear_operator_parallel_dot( dtype, n1, n2, p1, p2, P1, P2 ):
 @pytest.mark.parametrize('s2', [1])
 @pytest.mark.parametrize('P1', [True, False])
 @pytest.mark.parametrize('P2', [True])
-@pytest.mark.parallel
+@pytest.mark.mpi
 
 def test_block_vector_2d_parallel_array_to_psydac(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
     npts = [n1, n2]   
@@ -1309,7 +1309,7 @@ def test_block_vector_2d_parallel_array_to_psydac(dtype, n1, n2, p1, p2, s1, s2,
 @pytest.mark.parametrize( 'p2', [1, 3] )
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True] )
-@pytest.mark.parallel
+@pytest.mark.mpi
 @pytest.mark.petsc
 
 def test_block_vector_2d_parallel_topetsc( dtype, n1, n2, p1, p2, P1, P2 ):
@@ -1364,7 +1364,7 @@ def test_block_vector_2d_parallel_topetsc( dtype, n1, n2, p1, p2, P1, P2 ):
 @pytest.mark.parametrize( 'n1', [8, 16] )
 @pytest.mark.parametrize( 'p1', [1, 2] )
 @pytest.mark.parametrize( 'P1', [True, False] )
-@pytest.mark.parallel
+@pytest.mark.mpi
 @pytest.mark.petsc
 
 def test_block_linear_operator_1d_parallel_topetsc( dtype, n1, p1, P1):
@@ -1440,7 +1440,7 @@ def test_block_linear_operator_1d_parallel_topetsc( dtype, n1, p1, P1):
 @pytest.mark.parametrize( 'p2', [1, 3] )
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True] )
-@pytest.mark.parallel
+@pytest.mark.mpi
 @pytest.mark.petsc
 
 def test_block_linear_operator_2d_parallel_topetsc( dtype, n1, n2, p1, p2, P1, P2):
@@ -1523,7 +1523,7 @@ def test_block_linear_operator_2d_parallel_topetsc( dtype, n1, n2, p1, p2, P1, P
 @pytest.mark.parametrize( 'p2', [2] )
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True] )
-@pytest.mark.parallel
+@pytest.mark.mpi
 
 def test_block_matrix_operator_parallel_dot_backend( dtype, n1, n2, p1, p2, P1, P2 ):
     # Define a factor for the data

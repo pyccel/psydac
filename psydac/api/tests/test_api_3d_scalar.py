@@ -299,7 +299,7 @@ def test_api_poisson_3d_dirneu_24():
 ###############################################################################
 
 #==============================================================================
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_api_poisson_3d_dir_1_parallel():
 
     from sympy import symbols

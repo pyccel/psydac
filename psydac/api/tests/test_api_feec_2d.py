@@ -858,7 +858,7 @@ def test_maxwell_2d_dirichlet_spline_mapping():
     assert abs(namespace['error_Bz'] - ref['error_Bz']) / ref['error_Bz'] <= TOL
 
 
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_maxwell_2d_periodic_par():
 
     namespace = run_maxwell_2d_TE(
@@ -886,7 +886,7 @@ def test_maxwell_2d_periodic_par():
     assert abs(namespace['error_l2_Ey'] - ref['error_l2_Ey']) / ref['error_l2_Ey'] <= TOL
     assert abs(namespace['error_l2_Bz'] - ref['error_l2_Bz']) / ref['error_l2_Bz'] <= TOL
 
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_maxwell_2d_dirichlet_par():
 
     namespace = run_maxwell_2d_TE(

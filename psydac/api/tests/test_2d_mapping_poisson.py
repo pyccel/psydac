@@ -813,7 +813,7 @@ def test_poisson_2d_pipe_dir_1234(backend):
 #            PARALLEL TESTS
 ###############################################################################
 
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_poisson_2d_identity_dir0_1234_parallel():
 
     filename = os.path.join(mesh_dir, 'identity_2d.h5')

@@ -484,7 +484,7 @@ def test_maxwell_2d_2_patch_dirichlet_2():
     assert abs(l2_error - expected_l2_error) < 1e-7
 
 
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_maxwell_2d_2_patch_dirichlet_parallel_0():
     # This test solve the maxwell problem with non-homogeneous dirichlet condition with penalization on the border of the exact solution
 

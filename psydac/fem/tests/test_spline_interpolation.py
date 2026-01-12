@@ -80,7 +80,7 @@ def test_SplineInterpolation1D_cosine( ncells, degree, periodic ):
     assert max_norm_err < err_bound
 
 #===============================================================================
-@pytest.mark.parallel
+@pytest.mark.mpi
 @pytest.mark.parametrize( "nc1", [7,10,23] )
 @pytest.mark.parametrize( "nc2", [7,10,23] )
 @pytest.mark.parametrize( "deg1", range(1,5) )

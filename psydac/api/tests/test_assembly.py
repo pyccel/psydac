@@ -324,7 +324,7 @@ def test_Norm_complex(backend):
     print("PASSED")
 
 #==============================================================================
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_assemble_complex_parallel(backend):
 
     # If 'backend' is specified, accelerate Python code by passing **kwargs

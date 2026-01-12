@@ -291,7 +291,7 @@ def test_export_fields_serial(dtype):
     os.remove('test_export_fields_serial.yml')
     os.remove('test_export_fields_serial.h5')
 
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_export_fields_parallel():
     comm = MPI.COMM_WORLD
     domain = Square('D')
@@ -653,7 +653,7 @@ def test_incorrect_arg_export_to_vtk():
     os.remove("test_incorrect_arg_export_to_vtk.h5")
 
 
-@pytest.mark.parallel
+@pytest.mark.mpi
 @pytest.mark.parametrize('geometry', ['identity_2d.h5',
                                       'identity_3d.h5',
                                     #   'pipe.h5',]) # Doesn't work, see issue #229
@@ -763,7 +763,7 @@ def test_parallel_export_discrete_domain(geometry, kind, space, dtype):
         os.remove("test_parallel_export_discrete_domain.h5")
 
 
-@pytest.mark.parallel
+@pytest.mark.mpi
 @pytest.mark.parametrize('domain', [
     Square(),
     Cube(),

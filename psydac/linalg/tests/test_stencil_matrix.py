@@ -2255,7 +2255,7 @@ def test_stencil_matrix_2d_serial_backend_switch(dtype, n1, n2, p1, p2, s1, s2, 
 @pytest.mark.parametrize('p1', [1, 2, 3])
 @pytest.mark.parametrize('sh1', [1, 2])
 @pytest.mark.parametrize('P1', [True, False])
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_stencil_matrix_1d_parallel_toarray(dtype, n1, p1, sh1, P1):
     # Select non-zero values based on diagonal index
     nonzero_values = dict()
@@ -2317,7 +2317,7 @@ def test_stencil_matrix_1d_parallel_toarray(dtype, n1, p1, sh1, P1):
 @pytest.mark.parametrize('p1', [1, 2, 3])
 @pytest.mark.parametrize('sh1', [1])
 @pytest.mark.parametrize('P1', [True, False])
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_stencil_matrix_1d_parallel_dot(dtype, n1, p1, sh1, P1):
     from mpi4py import MPI
 
@@ -2388,7 +2388,7 @@ def test_stencil_matrix_1d_parallel_dot(dtype, n1, p1, sh1, P1):
 @pytest.mark.parametrize('sh2', [1])
 @pytest.mark.parametrize('P1', [True, False])
 @pytest.mark.parametrize('P2', [True, False])
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_stencil_matrix_2d_parallel_dot(dtype, n1, n2, p1, p2, sh1, sh2, P1, P2):
     from mpi4py import MPI
 
@@ -2456,7 +2456,7 @@ def test_stencil_matrix_2d_parallel_dot(dtype, n1, n2, p1, p2, sh1, sh2, P1, P2)
 @pytest.mark.parametrize('p1', [1, 2, 3])
 @pytest.mark.parametrize('P1', [True, False])
 @pytest.mark.parametrize('sh1', [1])
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_stencil_matrix_1d_parallel_sync( n1, p1, sh1, P1):
     from mpi4py import MPI
     from psydac.ddm.cart import CartDecomposition
@@ -2536,7 +2536,7 @@ def test_stencil_matrix_1d_parallel_sync( n1, p1, sh1, P1):
 @pytest.mark.parametrize('sh2', [1])
 @pytest.mark.parametrize('P1', [True, False])
 @pytest.mark.parametrize('P2', [True, False])
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_stencil_matrix_2d_parallel_sync(n1, n2, p1, p2, sh1, sh2, P1, P2):
     from mpi4py import MPI
     from psydac.ddm.cart import CartDecomposition
@@ -2648,7 +2648,7 @@ def test_stencil_matrix_2d_parallel_sync(n1, n2, p1, p2, sh1, sh2, P1, P2):
 @pytest.mark.parametrize('p1', [1, 2, 3])
 @pytest.mark.parametrize('sh1', [1])
 @pytest.mark.parametrize('P1', [True, False])
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_stencil_matrix_1d_parallel_transpose(dtype, n1, p1, sh1, P1):
     from mpi4py import MPI
     from psydac.ddm.cart import CartDecomposition
@@ -2705,7 +2705,7 @@ def test_stencil_matrix_1d_parallel_transpose(dtype, n1, p1, sh1, P1):
 @pytest.mark.parametrize('sh2', [1])
 @pytest.mark.parametrize('P1', [True, False])
 @pytest.mark.parametrize('P2', [True, False])
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_stencil_matrix_2d_parallel_transpose(dtype, n1, n2, p1, p2, sh1, sh2, P1, P2):
     from mpi4py import MPI
     from psydac.ddm.cart import CartDecomposition
@@ -2776,7 +2776,7 @@ def test_stencil_matrix_2d_parallel_transpose(dtype, n1, n2, p1, p2, sh1, sh2, P
 @pytest.mark.parametrize('sh2', [1])
 @pytest.mark.parametrize('P1', [True, False])
 @pytest.mark.parametrize('P2', [True, False])
-@pytest.mark.parallel
+@pytest.mark.mpi
 @pytest.mark.petsc
 
 def test_stencil_matrix_2d_parallel_topetsc(dtype, n1, n2, p1, p2, sh1, sh2, P1, P2):
@@ -2857,7 +2857,7 @@ def test_stencil_matrix_2d_parallel_topetsc(dtype, n1, n2, p1, p2, sh1, sh2, P1,
 @pytest.mark.parametrize('p1', [1, 3])
 @pytest.mark.parametrize('sh1', [1])
 @pytest.mark.parametrize('P1', [True, False])
-@pytest.mark.parallel
+@pytest.mark.mpi
 @pytest.mark.petsc
 
 def test_stencil_matrix_1d_parallel_topetsc(dtype, n1, p1, sh1, P1):
@@ -2935,7 +2935,7 @@ def test_stencil_matrix_1d_parallel_topetsc(dtype, n1, p1, sh1, P1):
 @pytest.mark.parametrize('p2', [1])
 @pytest.mark.parametrize('P1', [True, False])
 @pytest.mark.parametrize('P2', [True, False])
-@pytest.mark.parallel
+@pytest.mark.mpi
 @pytest.mark.petsc
 
 def test_mass_matrix_2d_parallel_topetsc(n1, n2, p1, p2, P1, P2):
@@ -2996,7 +2996,7 @@ def test_mass_matrix_2d_parallel_topetsc(n1, n2, p1, p2, P1, P2):
 @pytest.mark.parametrize('P1', [False])
 @pytest.mark.parametrize('P2', [True])
 @pytest.mark.parametrize('P3', [True, False])
-@pytest.mark.parallel
+@pytest.mark.mpi
 @pytest.mark.petsc
 
 def test_mass_matrix_3d_parallel_topetsc(n1, n2, n3, p1, p2, p3, P1, P2, P3):
@@ -3052,7 +3052,7 @@ def test_mass_matrix_3d_parallel_topetsc(n1, n2, n3, p1, p2, p3, P1, P2, P3):
 @pytest.mark.parametrize('n1', [15,17])
 @pytest.mark.parametrize('p1', [2])
 @pytest.mark.parametrize('P1', [True])
-@pytest.mark.parallel
+@pytest.mark.mpi
 @pytest.mark.petsc
 
 def test_mass_matrix_1d_parallel_topetsc(n1, p1, P1):
@@ -3113,7 +3113,7 @@ def test_mass_matrix_1d_parallel_topetsc(n1, p1, P1):
 @pytest.mark.parametrize('sh1', [1])
 @pytest.mark.parametrize('P1', [True])
 @pytest.mark.parametrize('backend', [PSYDAC_BACKEND_GPYCCEL])
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_stencil_matrix_1d_parallel_backend_dot(dtype, n1, p1, sh1, P1, backend):
     from mpi4py import MPI
     from psydac.ddm.cart import CartDecomposition
@@ -3176,7 +3176,7 @@ def test_stencil_matrix_1d_parallel_backend_dot(dtype, n1, p1, sh1, P1, backend)
 @pytest.mark.parametrize('P1', [False])
 @pytest.mark.parametrize('P2', [True])
 @pytest.mark.parametrize('backend', [PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_stencil_matrix_2d_parallel_backend_dot(dtype, n1, n2, p1, p2, sh1, sh2, P1, P2, backend):
     from mpi4py import MPI
     from psydac.ddm.cart import CartDecomposition

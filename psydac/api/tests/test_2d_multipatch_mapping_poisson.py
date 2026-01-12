@@ -306,7 +306,7 @@ def test_poisson_2d_4_patch_dirichlet_0():
 ###############################################################################
 
 #==============================================================================
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_poisson_2d_2_patches_dirichlet_parallel_0():
 
     A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi/2))
@@ -336,7 +336,7 @@ def test_poisson_2d_2_patches_dirichlet_parallel_0():
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
 
 #------------------------------------------------------------------------------
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_poisson_2d_4_patches_dirichlet_parallel_0():
 
     filename = os.path.join(mesh_dir, 'multipatch/magnet.h5')
@@ -355,7 +355,7 @@ def test_poisson_2d_4_patches_dirichlet_parallel_0():
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
 
 #------------------------------------------------------------------------------
-@pytest.mark.parallel
+@pytest.mark.mpi
 @pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL])
 def test_poisson_2d_2_patches_dirichlet_parallel_1(backend):
 

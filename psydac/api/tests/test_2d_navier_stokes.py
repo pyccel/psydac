@@ -396,7 +396,7 @@ def test_navier_stokes_2d():
 ###############################################################################
 #            PARALLEL TESTS
 ###############################################################################
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_st_navier_stokes_2d_parallel():
 
     # ... Exact solution

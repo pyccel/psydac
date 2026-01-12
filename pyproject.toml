@@ -55,8 +55,9 @@ dependencies = [
 
 [project.optional-dependencies]
 test = [
-    "pytest-cov >= 5.0.0",
-    'pytest >= 4.5',
+    'pytest >= 7.0',
+    'pytest-cov >= 5.0.0',
+    'pytest-mpi',
     'pytest-xdist >= 1.16',
     'Pillow',  # Python Imaging Library (PIL) fork
 ]

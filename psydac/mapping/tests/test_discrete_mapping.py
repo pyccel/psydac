@@ -126,7 +126,7 @@ def test_build_mesh_i(geometry_file, npts_i):
             assert np.allclose(z_mesh, z_mesh_l, atol=ATOL, rtol=RTOL)
 
 
-@pytest.mark.parallel
+@pytest.mark.mpi
 @pytest.mark.parametrize('geometry',  ['collela_3d.h5', 'collela_2d.h5', 'bent_pipe.h5'])
 @pytest.mark.parametrize('npts_per_cell', [2, 3, 4, 6])
 def test_parallel_jacobians_regular(geometry, npts_per_cell):
@@ -199,7 +199,7 @@ def test_parallel_jacobians_regular(geometry, npts_per_cell):
         os.remove('result_parallel.h5')
 
 
-@pytest.mark.parallel
+@pytest.mark.mpi
 @pytest.mark.parametrize('geometry',  ['collela_3d.h5', 'collela_2d.h5', 'bent_pipe.h5'])
 @pytest.mark.parametrize('npts_irregular', [2, 5, 10, 25])
 def test_parallel_jacobians_irregular(geometry, npts_irregular):
