@@ -7,7 +7,7 @@ on:
       - reopened
       - synchronize
       - ready_for_review
-    branches: [main, devel] # TODO: should only run on main
+    branches: [main]
 
 jobs:
   deployTest:
@@ -18,7 +18,7 @@ jobs:
         uses: fkirc/skip-duplicate-actions@v5
         with:
           skip_after_successful_duplicate: 'true'
-          paths: '["psydac/**", "pyproject.toml", "pytest.ini", "scripts/mpi_tester.py", ".github/workflows/deploy_check.yml", ".github/actions/**"]'
+          paths: '["psydac/**", "pyproject.toml", ".github/workflows/deploy_check.yml", ".github/actions/**"]'
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
@@ -92,10 +92,14 @@ jobs:
         if: steps.duplicate_check.outputs.should_skip != 'true'
         run: |
           mkdir pytest
-          cp scripts/mpi_tester.py pytest
 
       - name: Run single-process tests with Pytest
         if: steps.duplicate_check.outputs.should_skip != 'true'
         working-directory: ./pytest
         run: |
-          pytest -n auto --pyargs psydac -m "not parallel and not petsc"
+          pytest -n auto --pyargs psydac -m "not petsc" -x -ra
+
+      - name: Run MPI tests with Pytest
+        working-directory: ./pytest
+        run: |
+          mpirun -n 4 ${MPI_OPTS} pytest --with-mpi --pyargs psydac -m "not petsc" -x -ra
