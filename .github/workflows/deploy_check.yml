@@ -63,6 +63,10 @@ jobs:
           TWINE_USERNAME: '__token__'
           TWINE_PASSWORD: ${{ secrets.TEST_PYPI_API_TOKEN }}
 
+      - name: Install h5py in parallel mode
+        if: steps.duplicate_check.outputs.should_skip != 'true'
+        uses: ./.github/actions/parallel_h5py
+
       - name: Download psydac package from TestPyPI and install it
         if: steps.duplicate_check.outputs.should_skip != 'true'
         timeout-minutes: 60
