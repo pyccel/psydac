@@ -19,6 +19,5 @@ runs:
           folder=$(dirname ${gfort_path})
           ln -s ${gfort_path} ${folder}/gfortran
         fi
-        echo "MPI_OPTS=--oversubscribe" >> $GITHUB_ENV
         echo "/opt/homebrew/opt/make/libexec/gnubin" >> $GITHUB_PATH
       shell: bash

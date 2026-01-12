@@ -102,4 +102,4 @@ jobs:
       - name: Run MPI tests with Pytest
         working-directory: ./pytest
         run: |
-          mpirun -n 4 ${MPI_OPTS} pytest --with-mpi --pyargs psydac -m "not petsc" -x -ra
+          mpirun -n 4 --oversubscribe pytest --with-mpi --pyargs psydac -m "not petsc" -x -ra
