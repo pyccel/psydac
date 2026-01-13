@@ -29,6 +29,7 @@ dependencies = [
     'pyyaml >= 5.1',
     'packaging',
     'pyevtk',
+    'termcolor',
 
     # Our packages from PyPi
     'sympde == 0.19.2',
@@ -70,7 +71,7 @@ Changelog     = "https://github.com/pyccel/psydac/blob/devel/CHANGELOG.md"
 Tracker       = "https://github.com/pyccel/psydac/issues"
 
 [project.scripts]
-psydac-mesh = "psydac.cmd.mesh:main"
+psydac = "psydac.cmd.main:psydac_command"
 psydac-accelerate = "psydac.cmd.accelerate:main"
 
 [tool.meson-python.args]
