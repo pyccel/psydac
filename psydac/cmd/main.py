@@ -7,6 +7,7 @@ import argparse
 import sys
 
 from psydac.cmd.psydac_mesh import setup_psydac_mesh_parser, psydac_mesh, PSYDAC_MESH_DESCR
+from psydac.cmd.psydac_compile import setup_psydac_compile_parser, psydac_compile, PSYDAC_COMPILE_DESCR
 from psydac.cmd.argparse_helpers import add_help_flag, add_version_flag
 
 #==============================================================================
@@ -28,16 +29,17 @@ def psydac_command() -> None:
     add_version_flag(group)
 
     sub_commands = {
-        'mesh': (setup_psydac_mesh_parser, psydac_mesh, PSYDAC_MESH_DESCR),
+        'mesh'   : (setup_psydac_mesh_parser   , psydac_mesh   , PSYDAC_MESH_DESCR   ),
+        'compile': (setup_psydac_compile_parser, psydac_compile, PSYDAC_COMPILE_DESCR),
     }
 
     subparsers = parser.add_subparsers(required=True, title='Subcommands', metavar='COMMAND')
     for key, (parser_setup, exe_func, descr) in sub_commands.items():
         sparser = subparsers.add_parser(key,
-                                        help=descr,
-                                        description=f"PSYDAC's CLI: {descr}",
-                                        formatter_class=argparse.RawDescriptionHelpFormatter,
-                                        add_help=False)
+                                        help = descr.splitlines()[0],
+                                        description = f"PSYDAC's CLI: {descr}",
+                                        formatter_class = argparse.RawDescriptionHelpFormatter,
+                                        add_help = False)
         parser_setup(sparser)
         sparser.set_defaults(func=exe_func)
 

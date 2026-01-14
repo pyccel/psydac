@@ -72,7 +72,6 @@ Tracker       = "https://github.com/pyccel/psydac/issues"
 
 [project.scripts]
 psydac = "psydac.cmd.main:psydac_command"
-psydac-accelerate = "psydac.cmd.accelerate:main"
 
 [tool.meson-python.args]
 setup=['-Ddefault_library=static']
