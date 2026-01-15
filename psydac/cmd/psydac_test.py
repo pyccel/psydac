@@ -44,16 +44,22 @@ def setup_psydac_test_parser(parser):
         help    = 'Only run tests using PETSc and petsc4py (default: run the other tests).',
     )
 
-    group = parser.add_argument_group('Other options')
+    group = parser.add_argument_group('Pytest options')
     group.add_argument('-v', '--verbose',
         action   = 'store_true',
         help     = 'Increase verbosity of Pytest output.'
     )
+    group.add_argument('-x', '--exitfirst',
+        action = 'store_true',
+        help   = 'Exit instantly on first error or failed test.'
+    )
+
+    group = parser.add_argument_group('Other options')
     add_help_flag(group)
     add_version_flag(group)
 
 #==============================================================================
-def psydac_test(*, mod, mpi, petsc, verbose):
+def psydac_test(*, mod, mpi, petsc, verbose, exitfirst):
     """
     Run the PSYDAC test suite.
     """
@@ -125,6 +131,8 @@ def psydac_test(*, mod, mpi, petsc, verbose):
     # Additional flags
     if verbose:
         flags.append('-v')
+    if exitfirst:
+        flags.append('-x')
 
     # Command to be executed
     cmd = [*mpi_exe, shutil.which('pytest'), *flags]
