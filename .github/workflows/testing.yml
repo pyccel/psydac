@@ -147,7 +147,7 @@ jobs:
         if: matrix.os == 'ubuntu-24.04'
         working-directory: ./pytest
         run: |
-          pytest -n auto --pyargs psydac -m "not mpi and not petsc" -ra
+          psydac test
 
       - name: Upload coverage report to Codacy
         if: matrix.os == 'macos-14'
@@ -165,17 +165,17 @@ jobs:
       - name: Run MPI tests with Pytest
         working-directory: ./pytest
         run: |
-          mpirun -n 4 --oversubscribe pytest --with-mpi --pyargs psydac -m "mpi and not petsc" -ra
+          psydac test --mpi
 
       - name: Run single-process PETSc tests with Pytest
         working-directory: ./pytest
         run: |
-          pytest -n auto --pyargs psydac -m "not mpi and petsc" -ra
+          psydac test --petsc
 
       - name: Run MPI PETSc tests with Pytest
         working-directory: ./pytest
         run: |
-          mpirun -n 4 --oversubscribe pytest --with-mpi --pyargs psydac -m "mpi and petsc" -ra
+          psydac test --mpi --petsc
 
       - name: Run single-process example tests with Pytest on Ubuntu
         if: matrix.os == 'ubuntu-24.04'
