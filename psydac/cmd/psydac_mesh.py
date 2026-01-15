@@ -5,9 +5,7 @@
 #---------------------------------------------------------------------------#
 import sys
 
-from termcolor import colored
-
-from psydac.cmd.argparse_helpers import add_help_flag, add_version_flag
+from psydac.cmd.argparse_helpers import add_help_flag, add_version_flag, exit_with_error_message
 from psydac.mapping.discrete_gallery import available_mappings_2d, available_mappings_3d
 
 __all__ = (
@@ -91,13 +89,9 @@ def psydac_mesh(*, map_2d, map_3d, ncells, degree, filename):
         error = len(degree) != 3 or len(ncells) != 3
 
     if error:
-        err = colored('ERROR', color='magenta', attrs=['bold'])
-        sep = colored(': ', color='magenta')
-        msg = colored(
-            f'ncells and degree must have length {ndim} for a {ndim}D mapping',
-            color='magenta')
-        print(f'{err}{sep}{msg}')
-        sys.exit(2)
+        exit_with_error_message(
+            f'ncells and degree must have length {ndim} for a {ndim}D mapping'
+        )
 
     map_name = map_2d or map_3d
     export_analytical_mapping(map_name, ncells, degree, filename)
