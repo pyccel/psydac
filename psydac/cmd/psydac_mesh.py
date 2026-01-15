@@ -7,8 +7,8 @@ import sys
 
 from termcolor import colored
 
-from psydac.mapping.discrete_gallery import available_mappings_2d, available_mappings_3d
 from psydac.cmd.argparse_helpers import add_help_flag, add_version_flag
+from psydac.mapping.discrete_gallery import available_mappings_2d, available_mappings_3d
 
 __all__ = (
     'setup_psydac_mesh_parser',
@@ -80,7 +80,9 @@ def setup_psydac_mesh_parser(parser):
 
 #==============================================================================
 def psydac_mesh(*, map_2d, map_3d, ncells, degree, filename):
-
+    """
+    Generate an HDF5 geometry file with a discrete mapping.
+    """
     if map_2d:
         ndim = 2
         error = len(degree) != 2 or len(ncells) != 2
