@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.0.0] - 2026-01-16
+## [1.0.0] - 2026-01-17
 
 The first official release on PyPI. A complete overhaul since version 0.1.
 
