@@ -4,6 +4,7 @@
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
 import os
+from pathlib import Path
 
 from sympy import pi, sin, Tuple, Matrix
 
@@ -25,12 +26,9 @@ from psydac.api.printing.pycode  import pycode
 from psydac.api.settings         import PSYDAC_BACKENDS
 
 #==============================================================================
-try:
-    mesh_dir = os.environ['PSYDAC_MESH_DIR']
-except KeyError:
-    base_dir = os.path.dirname(os.path.realpath(__file__))
-    base_dir = os.path.join(base_dir, '..', '..', '..','..')
-    mesh_dir = os.path.join(base_dir, 'mesh')
+# Get the mesh directory
+import psydac.cad.mesh as mesh_mod
+mesh_dir = Path(mesh_mod.__file__).parent
 filename = os.path.join(mesh_dir, 'identity_2d.h5')
 
 # Choose backend

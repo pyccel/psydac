@@ -3,10 +3,12 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
+import os
+from pathlib import Path
+
 from mpi4py import MPI
 from sympy import pi, cos, sin, symbols
 import pytest
-import os
 
 from sympde.calculus import grad, dot
 from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
@@ -20,15 +22,9 @@ from sympde.expr     import find, EssentialBC
 
 from psydac.api.discretization import discretize
 
-# ... get the mesh directory
-try:
-    mesh_dir = os.environ['PSYDAC_MESH_DIR']
-
-except:
-    base_dir = os.path.dirname(os.path.realpath(__file__))
-    base_dir = os.path.join(base_dir, '..', '..', '..')
-    mesh_dir = os.path.join(base_dir, 'mesh')
-# ...
+# Get the mesh directory
+import psydac.cad.mesh as mesh_mod
+mesh_dir = Path(mesh_mod.__file__).parent
 
 #==============================================================================
 def run_poisson_3d_dir(filename, solution, f, comm=None):

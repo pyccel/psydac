@@ -4,6 +4,8 @@
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
 import os
+from pathlib import Path
+
 import pytest
 import numpy as np
 from mpi4py import MPI
@@ -27,14 +29,9 @@ from psydac.fem.basic                import FemField
 from psydac.api.settings             import PSYDAC_BACKEND_GPYCCEL
 from psydac.feec.pull_push           import pull_2d_hcurl
 
-# ... get the mesh directory
-try:
-    mesh_dir = os.environ['PSYDAC_MESH_DIR']
-
-except:
-    base_dir = os.path.dirname(os.path.realpath(__file__))
-    base_dir = os.path.join(base_dir, '..', '..', '..')
-    mesh_dir = os.path.join(base_dir, 'mesh')
+# Get the mesh directory
+import psydac.cad.mesh as mesh_mod
+mesh_dir = Path(mesh_mod.__file__).parent
 
 #==============================================================================
 def run_maxwell_2d(uex, f, alpha, domain, *, ncells=None, degree=None, filename=None, k=None, kappa=None, comm=None):
