@@ -4,6 +4,7 @@
 -   [Python setup](#python-setup)
 -   [Installing the library](#installing-the-library)
 -   [Optional PETSc installation](#optional-petsc-installation)
+-   [Running tests and examples](#running-tests-and-examples)
 -   [Uninstall](#uninstall)
 
 ## Requirements
@@ -181,6 +182,11 @@ Finally, we install the Python package `petsc4py` which is included in the `PETS
 pip install wheel Cython numpy
 pip install petsc/src/binding/petsc4py
 ```
+
+## Running tests and examples
+
+After installing the library, the test suite may be run by following these [instructions](https://pyccel.github.io/psydac/index.html#running-tests).
+Users may also run complete examples, which can be found [here](https://pyccel.github.io/psydac/examples.html).
 
 ## Uninstall
 
