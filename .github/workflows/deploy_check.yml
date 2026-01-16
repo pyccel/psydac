@@ -104,6 +104,7 @@ jobs:
           psydac test -x
 
       - name: Run MPI tests with Pytest
+        if: steps.duplicate_check.outputs.should_skip != 'true'
         working-directory: ./pytest
         run: |
           psydac test --mpi -x
