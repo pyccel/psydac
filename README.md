@@ -98,14 +98,17 @@ psydac test --petsc --mpi
 
 ## Speeding up PSYDAC's core
 
-Many of PSYDAC's low-level Python functions can be translated to a compiled language using the [Pyccel](https://github.com/pyccel/pyccel) transpiler. Currently, all of those functions are collected in modules which follow the name pattern `[module]_kernels.py`.
+Many of PSYDAC's low-level Python functions can be translated to a compiled language using the [Pyccel](https://github.com/pyccel/pyccel) transpiler.
+Currently, all of those functions are collected in modules which follow the name pattern `[module]_kernels.py`.
 
-For both classical and editable installations, all kernel files are translated to Fortran without user intervention. If the user adds or edits a kernel file within an editable install, they should use the command `psydac-accelerate` in order to be able to see the changes at runtime.
-This command applies Pyccel to all the kernel files in the source directory. The default language is Fortran, and C is also available.
+For both classical and editable installations, *all kernel files are translated to Fortran __without user intervention__*.
+If the user adds or edits a kernel file within an editable install, they should use the command `psydac compile` in order to be able to see the changes at runtime.
+This command applies Pyccel to all the kernel files in the source directory.
+The default language is Fortran, and C is also available.
 
 -   **Only in development mode**:
     ```bash
-    psydac-accelerate [--language LANGUAGE] [--openmp]
+    psydac compile [--language {fortran, c}]
     ```
 
 ## Examples and Tutorials
