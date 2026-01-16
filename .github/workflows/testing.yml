@@ -45,7 +45,6 @@ jobs:
     name: ${{ matrix.os }} / Python ${{ matrix.python-version }}
 
     env:
-      PSYDAC_MESH_DIR: ${{ github.workspace }}/mesh
       OMP_NUM_THREADS: 2
 
     steps:

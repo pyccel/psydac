@@ -25,7 +25,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN}}
-      PSYDAC_MESH_DIR: ${{ github.workspace }}/mesh
       OMP_NUM_THREADS: 2
     steps:
     - name: Checkout
