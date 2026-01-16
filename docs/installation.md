@@ -140,15 +140,16 @@ At this point the PSYDAC library may be installed from PyPI in **standard mode**
 
 -   **Standard mode** from PyPI:
     ```bash
-    pip install psydac
+    pip install "psydac[test]"
     ```
 
 -   **Development mode** from GitHub:
     ```bash
     git clone --recurse-submodules https://github.com/pyccel/psydac.git
+    cd psydac
 
     pip install meson-python "pyccel>=2.1.0"
-    pip install --no-build-isolation --editable ./psydac
+    pip install --no-build-isolation --editable ".[test]"
     ```
     An equivalent repository address for the `clone` command is `git@github.com:pyccel/psydac.git`, which requires a GitHub account.
 
