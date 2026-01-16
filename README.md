@@ -81,11 +81,8 @@ We strongly advice users and developers to run the test suite of PSYDAC to verif
 All unit tests are based on [`pytest`](https://docs.pytest.org/en/stable/) and are installed together with the library.
 For convenience, PSYDAC provides the `psydac test` command as shown below.
 
-Let `<PSYDAC-PATH>` be the installation directory of PSYDAC.
 In order to run all serial and parallel tests which do not use PETSc, just type:
 ```bash
-export PSYDAC_MESH_DIR=<PSYDAC-PATH>/mesh/
-
 psydac test
 psydac test --mpi
 ```
