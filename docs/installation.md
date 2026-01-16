@@ -1,4 +1,4 @@
-# Installation
+# Installation details
 
 -   [Requirements](#requirements)
 -   [Python setup](#python-setup)
