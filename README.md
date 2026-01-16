@@ -77,24 +77,23 @@ Again, for more details we refer to our [documentation](https://pyccel.github.io
 
 ## Running Tests
 
-The test suite of PSYDAC is based on [`pytest`](https://docs.pytest.org/en/stable/), which should be installed in the same virtual environment:
-```bash
-source <ENV-PATH>/bin/activate
-pip install pytest
-```
+We strongly advice users and developers to run the test suite of PSYDAC to verify the correct installation on their machine (possibly a supercomputer).
+All unit tests are based on [`pytest`](https://docs.pytest.org/en/stable/) and are installed together with the library.
+For convenience, PSYDAC provides the `psydac test` command as shown below.
 
 Let `<PSYDAC-PATH>` be the installation directory of PSYDAC.
 In order to run all serial and parallel tests which do not use PETSc, just type:
 ```bash
 export PSYDAC_MESH_DIR=<PSYDAC-PATH>/mesh/
-pytest --pyargs psydac -m "not parallel and not petsc"
-python <PSYDAC-PATH>/mpi_tester.py --pyargs psydac -m "parallel and not petsc"
+
+psydac test
+psydac test --mpi
 ```
 
-If PETSc and petsc4py were installed, some additional tests can be run:
+If PETSc and petsc4py were installed, additional serial and parallel tests can be run:
 ```bash
-pytest --pyargs psydac -m "not parallel and petsc"
-python <PSYDAC-PATH>/mpi_tester.py --pyargs psydac -m "parallel and petsc"
+psydac test --petsc
+psydac test --petsc --mpi
 ```
 
 ## Speeding up PSYDAC's core
