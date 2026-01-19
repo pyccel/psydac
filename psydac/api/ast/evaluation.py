@@ -418,4 +418,3 @@ class EvalArrayMapping(SplBasic):
 
         return FunctionDef(self.name, list(func_args), [], body,
                            decorators=decorators,header=header)
-

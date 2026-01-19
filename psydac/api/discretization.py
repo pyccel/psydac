@@ -689,7 +689,6 @@ def discretize(a, *args, **kwargs):
 
     elif isinstance(a, sym_GltExpr):
         return DiscreteGltExpr(a, *args, **kwargs)
-
     elif isinstance(a, sym_Expr):
         return DiscreteExpr(a, *args, **kwargs)
 

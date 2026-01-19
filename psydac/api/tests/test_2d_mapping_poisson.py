@@ -19,6 +19,8 @@
 #      coordinates (r, theta), but with reversed order: hence x1=theta and x2=r
 
 import os
+from pathlib import Path
+
 from mpi4py import MPI
 from sympy import pi, cos, sin, symbols
 import pytest
@@ -38,14 +40,9 @@ from sympde.expr import find, EssentialBC
 from psydac.api.discretization import discretize
 from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL
 
-# ... get the mesh directory
-try:
-    mesh_dir = os.environ['PSYDAC_MESH_DIR']
-
-except:
-    base_dir = os.path.dirname(os.path.realpath(__file__))
-    base_dir = os.path.join(base_dir, '..', '..', '..')
-    mesh_dir = os.path.join(base_dir, 'mesh')
+# Get the mesh directory
+import psydac.cad.mesh as mesh_mod
+mesh_dir = Path(mesh_mod.__file__).parent
 
 x, y = symbols('x, y', real=True)
 
@@ -813,7 +810,7 @@ def test_poisson_2d_pipe_dir_1234(backend):
 #            PARALLEL TESTS
 ###############################################################################
 
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_poisson_2d_identity_dir0_1234_parallel():
 
     filename = os.path.join(mesh_dir, 'identity_2d.h5')

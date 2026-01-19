@@ -176,7 +176,7 @@ def test_geometry_2d_4():
     geo.export('circle.h5')
 
 #==============================================================================
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_geometry_with_mpi_dims_mask():
 
     comm = MPI.COMM_WORLD
@@ -221,7 +221,7 @@ def test_geometry_with_mpi_dims_mask():
 
 
 # ==============================================================================
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_from_discrete_mapping():
 
     comm = MPI.COMM_WORLD
@@ -245,7 +245,7 @@ def test_from_discrete_mapping():
     assert geo_from_mapping.ddm.ends   == expected_ends
 
 # ==============================================================================
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_from_topological_domain():
 
     comm = MPI.COMM_WORLD

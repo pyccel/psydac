@@ -16,6 +16,22 @@ from psydac.fem.tensor       import TensorFemSpace
 from psydac.mapping.discrete import SplineMapping
 from psydac.ddm.cart         import DomainDecomposition
 
+#==============================================================================
+available_mappings_2d = (
+    'identity',
+    'collela',
+    'circle',
+    'annulus',
+    'quarter_annulus',
+    'target',
+    'czarny',
+)
+
+available_mappings_3d = (
+    'identity',
+    'collela',
+    'spherical_shell',
+)
 
 class Collela3D( Mapping ):
 
@@ -94,8 +110,8 @@ def discrete_mapping(mapping, ncells, degree, **kwargs):
             limits   = ((0, 1), (0, 1), (0, 1))
             periodic = ( False,  False,  False)
 
-        elif mapping == 'spherical shell':
-            map_analytic = SphericalMapping('M', dim=dim)
+        elif mapping == 'spherical_shell':
+            map_symbolic = SphericalMapping('M', dim=dim)
             limits   = ((1, 4), (0, np.pi), (0, np.pi/2))
             periodic = ( False,  False,  False)
 

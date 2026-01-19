@@ -609,7 +609,7 @@ def test_maxwell_1d_dirichlet_penalization():
     assert abs(namespace['error_E'] - ref['error_E']) / ref['error_E'] <= TOL
     assert abs(namespace['error_B'] - ref['error_B']) / ref['error_B'] <= TOL
 
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_maxwell_1d_periodic_par():
 
     namespace = run_maxwell_1d(
@@ -636,7 +636,7 @@ def test_maxwell_1d_periodic_par():
     assert abs(namespace['error_l2_E'] - ref['error_l2_E']) / ref['error_l2_E'] <= TOL
     assert abs(namespace['error_l2_B'] - ref['error_l2_B']) / ref['error_l2_B'] <= TOL
 
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_maxwell_1d_periodic_par_deg_1():
 
     namespace = run_maxwell_1d(
@@ -663,7 +663,7 @@ def test_maxwell_1d_periodic_par_deg_1():
     assert abs(namespace['error_l2_E'] - ref['error_l2_E']) / ref['error_l2_E'] <= TOL
     assert abs(namespace['error_l2_B'] - ref['error_l2_B']) / ref['error_l2_B'] <= TOL
 
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_maxwell_1d_dirichlet_strong_par():
 
     namespace = run_maxwell_1d(
@@ -691,7 +691,7 @@ def test_maxwell_1d_dirichlet_strong_par():
     #assert abs(namespace['error_l2_E'] - ref['error_l2_E']) / ref['error_l2_E'] <= TOL
     #assert abs(namespace['error_l2_B'] - ref['error_l2_B']) / ref['error_l2_B'] <= TOL
 
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_maxwell_1d_dirichlet_penalization_par():
 
     namespace = run_maxwell_1d(

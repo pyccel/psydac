@@ -134,7 +134,7 @@ def run_cart_3d( data_exchanger_type, verbose=False ):
 import pytest
 
 @pytest.mark.parametrize( 'data_exchanger_type', [BlockingCartDataExchanger, NonBlockingCartDataExchanger] )
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_cart_3d(data_exchanger_type):
 
     namespace = run_cart_3d(data_exchanger_type)

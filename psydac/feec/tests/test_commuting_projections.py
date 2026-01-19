@@ -277,7 +277,7 @@ def test_3d_commuting_pro_3(Nel, Nq, p, bc, m):
 #==============================================================================
 # 2D tests
 #==============================================================================
-@pytest.mark.parallel
+@pytest.mark.mpi
 @pytest.mark.parametrize('Nel', [8, 12])
 @pytest.mark.parametrize('Nq', [5])
 @pytest.mark.parametrize('p', [2,3])
@@ -350,7 +350,7 @@ def test_2d_commuting_pro_1(Nel, Nq, p, bc, m):
     norm2_e1 = np.sqrt(e1.inner(e1))
     assert norm2_e1 < 1e-12
 
-@pytest.mark.parallel
+@pytest.mark.mpi
 @pytest.mark.parametrize('Nel', [8, 12])
 @pytest.mark.parametrize('Nq', [5])
 @pytest.mark.parametrize('p', [2,3])
@@ -423,7 +423,7 @@ def test_2d_commuting_pro_2(Nel, Nq, p, bc, m):
     norm2_e1 = np.sqrt(e1.inner(e1))
     assert norm2_e0 < 1e-12
 
-@pytest.mark.parallel
+@pytest.mark.mpi
 @pytest.mark.parametrize('Nel', [8, 12])
 @pytest.mark.parametrize('Nq', [8])
 @pytest.mark.parametrize('p', [2,3])
@@ -503,7 +503,7 @@ def test_2d_commuting_pro_3(Nel, Nq, p, bc, m):
     norm2_e3 = np.sqrt(e3.inner(e3))
     assert norm2_e3 < 1e-12
 
-@pytest.mark.parallel
+@pytest.mark.mpi
 @pytest.mark.parametrize('Nel', [8, 12])
 @pytest.mark.parametrize('Nq', [8])
 @pytest.mark.parametrize('p', [2,3])

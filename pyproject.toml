@@ -8,7 +8,7 @@ description     = "Python package for isogeometric analysis (IGA)"
 readme          = "README.md"
 license         = "MIT"
 license-files   = ["LICENSE", "AUTHORS"]
-version         = "0.1"
+version         = "1.0.0"
 requires-python = ">= 3.10"
 authors         = [
     {name = "PSYDAC development team", email = "psydac@googlegroups.com"}
@@ -16,7 +16,6 @@ authors         = [
 maintainers = [
     {name = "Yaman Güçlü", email = "yaman.guclu@gmail.com"},
     {name = "Martin Campos Pinto", email = "martin.campos-pinto@ipp.mpg.de"},
-    {name = "Ahmed Ratnani", email = "ratnaniahmed@gmail.com"},
 ]
 keywords     = ["FEM", "IGA", "B-spline", "NURBS"]
 classifiers  = ["Programming Language :: Python :: 3"]
@@ -29,6 +28,7 @@ dependencies = [
     'pyyaml >= 5.1',
     'packaging',
     'pyevtk',
+    'termcolor',
 
     # Our packages from PyPi
     'sympde == 0.19.2',
@@ -55,8 +55,9 @@ dependencies = [
 
 [project.optional-dependencies]
 test = [
-    "pytest-cov >= 5.0.0",
-    'pytest >= 4.5',
+    'pytest >= 7.0',
+    'pytest-cov >= 5.0.0',
+    'pytest-mpi',
     'pytest-xdist >= 1.16',
     'Pillow',  # Python Imaging Library (PIL) fork
 ]
@@ -65,10 +66,11 @@ test = [
 Homepage      = "https://github.com/pyccel/psydac"
 Documentation = "https://pyccel.github.io/psydac"
 Repository    = "https://github.com/pyccel/psydac.git"
+Changelog     = "https://github.com/pyccel/psydac/blob/devel/CHANGELOG.md"
+Tracker       = "https://github.com/pyccel/psydac/issues"
 
 [project.scripts]
-psydac-mesh = "psydac.cmd.mesh:main"
-psydac-accelerate = "psydac.cmd.accelerate:main"
+psydac = "psydac.cmd.main:psydac_command"
 
 [tool.meson-python.args]
 setup=['-Ddefault_library=static']

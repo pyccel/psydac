@@ -27,15 +27,29 @@ AutosummaryRenderer.__init__ = fixed_init
 import pathlib
 import sys
 import tomli
+import psydac
 
-autodoc_mock_imports = ['sympy', 'sympde', 'numpy', 'scipy', 'mpi4py', 'pyccel', 'h5py', 'yaml', 'gelato', 'pyevtk', 'matplotlib']
-sys.path.insert(0, pathlib.Path(__file__).parents[2].resolve().as_posix())
+autodoc_mock_imports = [
+    'gelato',
+    'h5py',
+    'matplotlib'
+    'mpi4py',
+    'numpy',
+#    'psydac',
+    'pyccel',
+    'pyevtk',
+    'scipy',
+    'sympde',
+    'sympy',
+    'yaml',
+]
+#sys.path.insert(0, pathlib.Path(__file__).parents[2].resolve().as_posix())
 
 with open('../../pyproject.toml', mode='rb') as pyproject:
     pkg_meta = tomli.load(pyproject)['project']
 
 project   = str(pkg_meta['name'])
-copyright = '2018-2025, PSYDAC Developers'
+copyright = '2018-2026, PSYDAC Developers'
 author    = str(pkg_meta['authors'][0]['name'])
 release   = str(pkg_meta['version'])
 
@@ -84,7 +98,7 @@ html_theme = 'pydata_sphinx_theme'
 html_logo = "logo/psydac_square.svg"
 
 html_theme_options = {
-    "repository_branch": "devel",
+#    "repository_branch": "devel",
     "show_toc_level": 2,
     "secondary_sidebar_items": ["page-toc"],
     "icon_links": [

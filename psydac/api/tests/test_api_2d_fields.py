@@ -18,10 +18,12 @@
 #      Please note that the logical coordinates (x1, x2) correspond to the polar
 #      coordinates (r, theta), but with reversed order: hence x1=theta and x2=r
 
+import os
+from pathlib import Path
+
 from mpi4py import MPI
 from sympy import pi, cos, sin, log, exp, lambdify, symbols
 import pytest
-import os
 
 from sympde.calculus import grad, dot
 from sympde.calculus import laplace
@@ -32,24 +34,19 @@ from sympde.topology import Domain
 from sympde.topology import Union
 from sympde.topology import Square
 from sympde.expr     import linearize
-from sympde.expr import BilinearForm, LinearForm, integral
-from sympde.expr import Norm
-from sympde.expr import find, EssentialBC
+from sympde.expr     import BilinearForm, LinearForm, integral
+from sympde.expr     import Norm
+from sympde.expr     import find, EssentialBC
 
-from psydac.fem.basic                           import FemField
-from psydac.api.discretization                  import discretize
-from psydac.api.settings                        import PSYDAC_BACKEND_GPYCCEL
-from psydac.feec.global_geometric_projectors    import GlobalGeometricProjectorH1
+from psydac.fem.basic                        import FemField
+from psydac.api.discretization               import discretize
+from psydac.api.settings                     import PSYDAC_BACKEND_GPYCCEL
+from psydac.feec.global_geometric_projectors import GlobalGeometricProjectorH1
 
-# ... get the mesh directory
-try:
-    mesh_dir = os.environ['PSYDAC_MESH_DIR']
+# Get the mesh directory
+import psydac.cad.mesh as mesh_mod
+mesh_dir = Path(mesh_mod.__file__).parent
 
-except:
-    base_dir = os.path.dirname(os.path.realpath(__file__))
-    base_dir = os.path.join(base_dir, '..', '..', '..')
-    mesh_dir = os.path.join(base_dir, 'mesh')
-# ...
 x, y = symbols('x, y', real=True)
 
 #------------------------------------------------------------------------------

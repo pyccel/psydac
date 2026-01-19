@@ -4,7 +4,10 @@
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
 import os
+from pathlib import Path
+
 import numpy as np
+import pytest
 from scipy.linalg import eig as eig_solver
 
 from sympde.calculus import grad, dot
@@ -16,17 +19,10 @@ from sympde.expr     import BilinearForm, integral
 from gelato.expr import GltExpr
 
 from psydac.api.discretization import discretize
-import pytest
 
-# ... get the mesh directory
-try:
-    mesh_dir = os.environ['PSYDAC_MESH_DIR']
-
-except:
-    base_dir = os.path.dirname(os.path.realpath(__file__))
-    base_dir = os.path.join(base_dir, '..', '..', '..')
-    mesh_dir = os.path.join(base_dir, 'mesh')
-# ...
+# Get the mesh directory
+import psydac.cad.mesh as mesh_mod
+mesh_dir = Path(mesh_mod.__file__).parent
 
 #==============================================================================
 def run_poisson_2d_dir(filename, comm=None):

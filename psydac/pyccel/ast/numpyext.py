@@ -29,7 +29,7 @@ from .type_inference import str_dtype
 
 
 __all__ = (
-    'NumpyArrayClass',
+#    'NumpyArrayClass',
     'NumpyAbs',
     'NumpyFloor',
     # ---

@@ -431,7 +431,7 @@ def test_LST_preconditioner(comm=None):
         print()
 
 #===============================================================================
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_LST_preconditioner_parallel():
     comm = MPI.COMM_WORLD
     test_LST_preconditioner(comm=comm)

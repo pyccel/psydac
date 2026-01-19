@@ -389,4 +389,3 @@ class LinearOperator_DenseToStencil(LinearOperator):
 
     def transpose(self, conjugate=False):
         raise NotImplementedError()
-
