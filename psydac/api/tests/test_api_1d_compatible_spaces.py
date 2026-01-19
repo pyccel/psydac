@@ -1,10 +1,13 @@
-# -*- coding: UTF-8 -*-
-
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 from sympy               import pi, sin
 from scipy.sparse.linalg import spsolve
 
 from sympde.calculus import dot, div
-from sympde.topology import ScalarFunctionSpace
+from sympde.topology import VectorFunctionSpace, ScalarFunctionSpace
 from sympde.topology import ProductSpace
 from sympde.topology import element_of
 from sympde.topology import Line
@@ -22,7 +25,7 @@ def run_system_1_1d_dir(f0, sol, ncells, degree):
     # ... abstract model
     domain = Line()
 
-    V1 = ScalarFunctionSpace('V1', domain, kind='Hdiv')
+    V1 = VectorFunctionSpace('V1', domain, kind='H1')
     V2 = ScalarFunctionSpace('V2', domain, kind='L2')
     X  = ProductSpace(V1, V2)
 
@@ -35,8 +38,8 @@ def run_system_1_1d_dir(f0, sol, ncells, degree):
     
     int_0 = lambda expr: integral(domain , expr)
 
-    a  = BilinearForm(((p,u),(q,v)), int_0(dot(p,q) + dot(div(q),u) + dot(div(p),v)) )
-    l  = LinearForm((q,v), int_0(dot(f0, v)))
+    a  = BilinearForm(((p,u),(q,v)), int_0(dot(p,q) + div(q)*u + div(p)*v))
+    l  = LinearForm((q,v), int_0(f0*v))
 
     error = F-sol
     l2norm_F = Norm(error, domain, kind='l2')
@@ -52,7 +55,7 @@ def run_system_1_1d_dir(f0, sol, ncells, degree):
     V2h = discretize(V2, domain_h, degree=degree)
     Xh  = discretize(X , domain_h, degree=degree)
     # ... dsicretize the equation using Dirichlet bc
-    ah = discretize(equation, domain_h, [Xh, Xh], symbolic_space=[X, X])
+    ah = discretize(equation, domain_h, [Xh, Xh])
 
     # ... discretize norms
     l2norm_F_h = discretize(l2norm_F, domain_h, V2h)
@@ -65,6 +68,7 @@ def run_system_1_1d_dir(f0, sol, ncells, degree):
     sol = spsolve(M, rhs)
 
     phi2 = FemField(V2h)    
+
     phi2.coeffs[0:V2h.nbasis] = sol[V1h.nbasis:]
     
     l2_error = l2norm_F_h.assemble(F=phi2)
@@ -79,8 +83,9 @@ def run_system_1_1d_dir(f0, sol, ncells, degree):
 
 def test_api_system_1_1d_dir_1():
 
-    from sympy.abc import x
+    from sympy import symbols
+    x1 = symbols('x1', real=True)
 
-    f0 = -(2*pi)**2*sin(2*pi*x)
-    u  = sin(2*pi*x)
+    f0 = -(2*pi)**2*sin(2*pi*x1)
+    u  = sin(2*pi*x1)
     x  = run_system_1_1d_dir(f0, u,ncells=[10], degree=[2])

@@ -1,33 +1,30 @@
-# -*- coding: UTF-8 -*-
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
+import os
+from pathlib import Path
 
 from mpi4py import MPI
-from sympy import pi, cos, sin
+from sympy import pi, cos, sin, symbols
 import pytest
-import os
 
 from sympde.calculus import grad, dot
 from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
-from sympde.topology import ProductSpace
 from sympde.topology import element_of
 from sympde.topology import NormalVector
 from sympde.topology import Union
 from sympde.topology import Domain
 from sympde.expr     import BilinearForm, LinearForm, integral
-from sympde.expr     import Norm
+from sympde.expr     import Norm, SemiNorm
 from sympde.expr     import find, EssentialBC
 
-from psydac.fem.basic          import FemField
 from psydac.api.discretization import discretize
 
-# ... get the mesh directory
-try:
-    mesh_dir = os.environ['PSYDAC_MESH_DIR']
-
-except:
-    base_dir = os.path.dirname(os.path.realpath(__file__))
-    base_dir = os.path.join(base_dir, '..', '..', '..')
-    mesh_dir = os.path.join(base_dir, 'mesh')
-# ...
+# Get the mesh directory
+import psydac.cad.mesh as mesh_mod
+mesh_dir = Path(mesh_mod.__file__).parent
 
 #==============================================================================
 def run_poisson_3d_dir(filename, solution, f, comm=None):
@@ -38,8 +35,6 @@ def run_poisson_3d_dir(filename, solution, f, comm=None):
     V = ScalarFunctionSpace('V', domain)
 
     x,y,z = domain.coordinates
-
-    F = element_of(V, name='F')
 
     v = element_of(V, name='v')
     u = element_of(V, name='u')
@@ -52,9 +47,9 @@ def run_poisson_3d_dir(filename, solution, f, comm=None):
     expr = f*v
     l = LinearForm(v, int_0(expr))
 
-    error = F - solution
-    l2norm = Norm(error, domain, kind='l2')
-    h1norm = Norm(error, domain, kind='h1')
+    error  = u - solution
+    l2norm =     Norm(error, domain, kind='l2')
+    h1norm = SemiNorm(error, domain, kind='h1')
 
     bc = EssentialBC(u, 0, domain.boundary)
     equation = find(u, forall=v, lhs=a(u,v), rhs=l(v), bc=bc)
@@ -78,16 +73,12 @@ def run_poisson_3d_dir(filename, solution, f, comm=None):
     # ...
 
     # ... solve the discrete equation
-    x = equation_h.solve()
-    # ...
-
-    # ...
-    phi = FemField( Vh, x )
+    uh = equation_h.solve()
     # ...
 
     # ... compute norms
-    l2_error = l2norm_h.assemble(F=phi)
-    h1_error = h1norm_h.assemble(F=phi)
+    l2_error = l2norm_h.assemble(u = uh)
+    h1_error = h1norm_h.assemble(u = uh)
     # ...
 
     return l2_error, h1_error
@@ -111,8 +102,6 @@ def run_poisson_3d_dirneu(filename, solution, f, boundary, comm=None):
 
     x,y,z = domain.coordinates
 
-    F = element_of(V, name='F')
-
     v = element_of(V, name='v')
     u = element_of(V, name='u')
 
@@ -133,9 +122,9 @@ def run_poisson_3d_dirneu(filename, solution, f, boundary, comm=None):
     expr = l0(v) + l_B_neumann(v)
     l = LinearForm(v, expr)
 
-    error = F-solution
-    l2norm = Norm(error, domain, kind='l2')
-    h1norm = Norm(error, domain, kind='h1')
+    error  = u - solution
+    l2norm =     Norm(error, domain, kind='l2')
+    h1norm = SemiNorm(error, domain, kind='h1')
 
     B_dirichlet = domain.boundary.complement(B_neumann)
     bc = EssentialBC(u, 0, B_dirichlet)
@@ -161,16 +150,12 @@ def run_poisson_3d_dirneu(filename, solution, f, boundary, comm=None):
     # ...
 
     # ... solve the discrete equation
-    x = equation_h.solve()
-    # ...
-
-    # ...
-    phi = FemField( Vh, x )
+    uh = equation_h.solve()
     # ...
 
     # ... compute norms
-    l2_error = l2norm_h.assemble(F=phi)
-    h1_error = h1norm_h.assemble(F=phi)
+    l2_error = l2norm_h.assemble(u = uh)
+    h1_error = h1norm_h.assemble(u = uh)
     # ...
 
     return l2_error, h1_error
@@ -209,9 +194,9 @@ def run_laplace_3d_neu(filename, solution, f, comm=None):
     expr = l0(v) + l_B_neumann(v)
     l = LinearForm(v, expr)
 
-    error = F-solution
-    l2norm = Norm(error, domain, kind='l2')
-    h1norm = Norm(error, domain, kind='h1')
+    error  = u - solution
+    l2norm =     Norm(error, domain, kind='l2')
+    h1norm = SemiNorm(error, domain, kind='h1')
 
     equation = find(u, forall=v, lhs=a(u,v), rhs=l(v))
     # ...
@@ -234,16 +219,12 @@ def run_laplace_3d_neu(filename, solution, f, comm=None):
     # ...
 
     # ... solve the discrete equation
-    x = equation_h.solve()
-    # ...
-
-    # ...
-    phi = FemField( Vh, x )
+    uh = equation_h.solve()
     # ...
 
     # ... compute norms
-    l2_error = l2norm_h.assemble(F=phi)
-    h1_error = h1norm_h.assemble(F=phi)
+    l2_error = l2norm_h.assemble(u = uh)
+    h1_error = h1norm_h.assemble(u = uh)
     # ...
 
     return l2_error, h1_error
@@ -258,7 +239,7 @@ def test_api_poisson_3d_dir_collela():
 
     filename = os.path.join(mesh_dir, 'collela_3d.h5')
 
-    from sympy.abc import x,y,z
+    x,y,z = symbols('x,y,z', real=True)
 
     solution = sin(pi*x)*sin(pi*y)*sin(pi*z)
     f        = 3*pi**2*sin(pi*x)*sin(pi*y)*sin(pi*z)
@@ -276,7 +257,7 @@ def test_api_poisson_3d_dir_collela():
 def test_api_poisson_3d_dirneu_identity_2():
     filename = os.path.join(mesh_dir, 'identity_3d.h5')
 
-    from sympy.abc import x,y,z
+    x,y,z = symbols('x,y,z', real=True)
 
     solution = sin(0.5*pi*x)*sin(pi*y)*sin(pi*z)
     f        = (9./4.)*pi**2*solution
@@ -294,7 +275,7 @@ def test_api_poisson_3d_dirneu_identity_2():
 def test_api_poisson_3d_dirneu_identity_13():
     filename = os.path.join(mesh_dir, 'identity_3d.h5')
 
-    from sympy.abc import x,y,z
+    x,y,z = symbols('x,y,z', real=True)
 
     solution = cos(0.5*pi*x)*cos(0.5*pi*y)*sin(pi*z)
     f        = (3./2.)*pi**2*solution
@@ -313,7 +294,7 @@ def test_api_poisson_3d_dirneu_identity_13():
 def test_api_poisson_3d_dirneu_identity_24():
     filename = os.path.join(mesh_dir, 'identity_3d.h5')
 
-    from sympy.abc import x,y,z
+    x,y,z = symbols('x,y,z', real=True)
 
     solution = sin(0.5*pi*x)*sin(0.5*pi*y)*sin(pi*z)
     f        = (3./2.)*pi**2*solution
@@ -376,7 +357,7 @@ def test_api_poisson_3d_dirneu_identity_24():
 def test_api_poisson_3d_dirneu_collela_2():
     filename = os.path.join(mesh_dir, 'collela_3d.h5')
 
-    from sympy.abc import x,y,z
+    x,y,z = symbols('x,y,z', real=True)
 
     solution = sin(0.25*pi*(x+1.))*sin(pi*y)*sin(pi*z)
     f        = (33./16.)*pi**2*solution
@@ -415,7 +396,7 @@ def test_api_poisson_3d_dirneu_collela_2():
 def test_api_poisson_3d_dirneu_collela_24():
     filename = os.path.join(mesh_dir, 'collela_3d.h5')
 
-    from sympy.abc import x,y,z
+    x,y,z = symbols('x,y,z', real=True)
 
     solution = sin(0.25*pi*(x+1.))*sin(0.25*pi*(y+1.))*sin(pi*z)
     f        = (9./8.)*pi**2*solution
@@ -477,7 +458,7 @@ def test_api_poisson_3d_dirneu_collela_24():
 def test_api_laplace_3d_neu_identity():
     filename = os.path.join(mesh_dir, 'identity_3d.h5')
 
-    from sympy.abc import x,y,z
+    x,y,z = symbols('x,y,z', real=True)
 
     solution = cos(pi*x)*cos(pi*y)*cos(pi*z)
     f        = (3.*pi**2 + 1.)*solution
@@ -513,12 +494,12 @@ def test_api_laplace_3d_neu_identity():
 ###############################################################################
 
 #==============================================================================
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_api_poisson_3d_dir_collela():
 
     filename = os.path.join(mesh_dir, 'collela_3d.h5')
 
-    from sympy.abc import x,y,z
+    x,y,z = symbols('x,y,z', real=True)
 
     solution = sin(pi*x)*sin(pi*y)*sin(pi*z)
     f        = 3*pi**2*sin(pi*x)*sin(pi*y)*sin(pi*z)
@@ -532,15 +513,14 @@ def test_api_poisson_3d_dir_collela():
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
-
 #==============================================================================
 # CLEAN UP SYMPY NAMESPACE
 #==============================================================================
 
 def teardown_module():
-    from sympy import cache
+    from sympy.core import cache
     cache.clear_cache()
 
 def teardown_function():
-    from sympy import cache
+    from sympy.core import cache
     cache.clear_cache()

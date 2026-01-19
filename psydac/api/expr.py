@@ -1,24 +1,26 @@
-# coding: utf-8
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 
 # TODO for the moment we assume Product of same space
 # TODO properly treat expression with mapping
 
-from itertools import product
-from sympy import Expr
 import numpy as np
+from sympy import Expr
 
 from sympde.expr import TerminalExpr
 
-from psydac.api.basic         import BasicCodeGen
-from psydac.api.settings      import PSYDAC_BACKEND_PYTHON, PSYDAC_DEFAULT_FOLDER
+from psydac.api.glt           import GltBasicCodeGen as BasicCodeGen
+from psydac.api.settings      import PSYDAC_BACKEND_PYTHON
 from psydac.api.grid          import CollocationBasisValues
 from psydac.api.ast.expr      import ExprKernel, ExprInterface
 from psydac.cad.geometry      import Geometry
-from psydac.mapping.discrete  import SplineMapping, NurbsMapping
-from psydac.fem.splines       import SplineSpace
-from psydac.fem.tensor        import TensorFemSpace
-from psydac.fem.vector        import ProductFemSpace
+from psydac.mapping.discrete  import NurbsMapping
+from psydac.fem.vector        import MultipatchFemSpace
 
+__all__ = ('DiscreteExpr',)
 #==============================================================================
 class DiscreteExpr(BasicCodeGen):
 
@@ -33,6 +35,7 @@ class DiscreteExpr(BasicCodeGen):
 
         # ...
         domain_h = args[0]
+        domain   = domain_h.domain
         assert( isinstance(domain_h, Geometry) )
 
         mapping = list(domain_h.mappings.values())[0]
@@ -48,7 +51,7 @@ class DiscreteExpr(BasicCodeGen):
         # ...
         self._space = args[1]
         # ...
-        kernel_expr = TerminalExpr(expr, dim=self._space.ldim)
+        kernel_expr = TerminalExpr(expr, domain)
         # ...
         kwargs['mapping'] = self.space.symbolic_mapping
         kwargs['is_rational_mapping'] = is_rational_mapping
@@ -72,8 +75,10 @@ class DiscreteExpr(BasicCodeGen):
         return self._space
 
     # TODO add comm and treate parallel case
-    def _create_ast(self, expr, tag, **kwargs):
+    def _create_ast(self, **kwargs):
 
+        expr                = kwargs.pop('expr')
+        tag                 = kwargs.pop('tag')
         mapping             = kwargs.pop('mapping', None)
         backend             = kwargs.pop('backend', PSYDAC_BACKEND_PYTHON)
         is_rational_mapping = kwargs.pop('is_rational_mapping', None)
@@ -108,7 +113,6 @@ class DiscreteExpr(BasicCodeGen):
         
         if fields:
             nderiv = self.interface.max_nderiv
-            print(fields)
             fields = [kwargs[F.name] for F in fields]
             grid  = args
             
@@ -116,7 +120,7 @@ class DiscreteExpr(BasicCodeGen):
             # TODO generalize to use multiple fields
             coeffs = ()
             for F in fields:
-                if isinstance(Vh, ProductFemSpace):
+                if isinstance(Vh, MultipatchFemSpace):
                     basis_values = [CollocationBasisValues(grid, V, nderiv=nderiv) for V in Vh.spaces]
                     basis = [bs.basis for bs in basis_values]
                     spans = [bs.spans for bs in basis_values]
@@ -126,7 +130,7 @@ class DiscreteExpr(BasicCodeGen):
                     spans   = list(map(list, zip(*spans)))
                     basis   = [b for bs in basis for b in bs]
                     spans   = [s for sp in spans for s in sp]
-                    coeffs  = coeffs + tuple(F.coeffs[i] for i in range(Vh.shape))
+                    coeffs  = coeffs + tuple(F.coeffs[i] for i in range(len(Vh.spaces)))
                 else:
                     
                     basis_values = CollocationBasisValues(grid, Vh, nderiv=nderiv)
@@ -134,7 +138,6 @@ class DiscreteExpr(BasicCodeGen):
                     spans   = basis_values.spans
                     degrees = Vh.degree
                     coeffs  = coeffs + (F.coeffs,)
-                
 
             args = grid + coeffs + (*degrees, *basis, *spans)
             
@@ -142,5 +145,3 @@ class DiscreteExpr(BasicCodeGen):
         values = self.func(*args)
 
         return values
-
-

@@ -1,504 +1,575 @@
-# coding: utf-8
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 
 # TODO: - init_fem is called whenever we call discretize. we should check that
-#         nderiv has not been changed. shall we add quad_order too?
+#         nderiv has not been changed. shall we add nquads too?
 
-# TODO: avoid using os.system and use subprocess.call
-
-from collections import OrderedDict
-from collections import namedtuple
-
-from pyccel.ast import Nil
-from pyccel.epyccel import get_source_function
+import numpy as np
+from sympy import Expr as sym_Expr
 
 from sympde.expr     import BasicForm as sym_BasicForm
 from sympde.expr     import BilinearForm as sym_BilinearForm
 from sympde.expr     import LinearForm as sym_LinearForm
 from sympde.expr     import Functional as sym_Functional
-from sympde.expr     import BoundaryIntegral as sym_BoundaryIntegral
 from sympde.expr     import Equation as sym_Equation
-from sympde.expr     import Boundary as sym_Boundary
-from sympde.expr     import Norm as sym_Norm
+from sympde.expr     import Norm as sym_Norm, SemiNorm as sym_SemiNorm
 from sympde.expr     import TerminalExpr
-from sympde.topology import Domain, Boundary
-from sympde.topology import Line, Square, Cube
+
 from sympde.topology import BasicFunctionSpace
-from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace, Derham
+from sympde.topology import VectorFunctionSpace
 from sympde.topology import ProductSpace
-from sympde.topology import Mapping
+from sympde.topology import Domain
+from sympde.topology import Derham
+from sympde.topology import LogicalExpr
 from sympde.topology import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType, UndefinedSpaceType
 
-from gelato.expr     import GltExpr as sym_GltExpr
-from sympy           import Expr    as sym_Expr
+from gelato.expr import GltExpr as sym_GltExpr
 
-from psydac.api.basic                import BasicDiscrete
-from psydac.api.fem                  import DiscreteBilinearForm
-from psydac.api.fem                  import DiscreteLinearForm
-from psydac.api.fem                  import DiscreteFunctional
-from psydac.api.fem                  import DiscreteSumForm
-from psydac.api.glt                  import DiscreteGltExpr
-from psydac.api.expr                 import DiscreteExpr
+from psydac.api.fem_bilinear_form import DiscreteBilinearForm as DiscreteBilinearForm_SF
+from psydac.api.fem_sum_form import DiscreteSumForm
+from psydac.api.fem          import DiscreteBilinearForm
+from psydac.api.fem          import DiscreteLinearForm
+from psydac.api.fem          import DiscreteFunctional
+from psydac.api.feec         import DiscreteDeRham, MultipatchDiscreteDeRham
+from psydac.api.glt          import DiscreteGltExpr
+from psydac.api.expr         import DiscreteExpr
+from psydac.api.equation     import DiscreteEquation
+from psydac.api.utilities    import flatten
+from psydac.fem.basic        import FemSpace
+from psydac.fem.splines      import SplineSpace
+from psydac.fem.tensor       import TensorFemSpace
+from psydac.fem.partitioning import create_cart, construct_connectivity, construct_interface_spaces, construct_reduced_interface_spaces
+from psydac.fem.vector       import MultipatchFemSpace, VectorFemSpace
+from psydac.cad.geometry     import Geometry
+from psydac.linalg.stencil   import StencilVectorSpace
+from psydac.linalg.block     import BlockVectorSpace
 
-from psydac.api.essential_bc         import apply_essential_bc
-from psydac.linalg.iterative_solvers import cg
-from psydac.fem.splines              import SplineSpace
-from psydac.fem.tensor               import TensorFemSpace
-from psydac.fem.vector               import ProductFemSpace
-from psydac.cad.geometry             import Geometry
-from psydac.mapping.discrete         import SplineMapping, NurbsMapping
-from psydac.feec.derivatives         import Grad, Curl, Div
-from psydac.feec.utilities           import Interpolation, interpolation_matrices
-
-import inspect
-import sys
-import os
-import importlib
-import string
-import random
-import numpy as np
-from mpi4py import MPI
-
-
+__all__ = (
+    'discretize',
+    'discretize_derham',
+    'discretize_derham_multipatch',
+    'reduce_space_degrees',
+    'discretize_space',
+    'discretize_domain'
+)
 
 #==============================================================================
-LinearSystem = namedtuple('LinearSystem', ['lhs', 'rhs'])
+def change_dtype(V, dtype):
+    """
+    Given a FemSpace V, change its underlying coeff_space (i.e. the space of
+    its coefficients) so that it matches the required data type.
 
-#==============================================================================
-_default_solver = {'solver':'cg', 'tol':1e-9, 'maxiter':1000, 'verbose':False}
+    Parameters
+    ----------
+    Vh : FemSpace
+        The FEM space, which is modified in place.
 
-def driver_solve(L, **kwargs):
-    if not isinstance(L, LinearSystem):
-        raise TypeError('> Expecting a LinearSystem object')
+    dtype : float or complex
+        Datatype of the new coeff_space.
 
-    M = L.lhs
-    rhs = L.rhs
+    Returns
+    -------
+    FemSpace
+        The same FEM space passed as input, which was modified in place.
+    """
+    if not V.coeff_space.dtype == dtype:
+        if isinstance(V.coeff_space, BlockVectorSpace):
+            # Recreate the BlockVectorSpace
+            new_spaces = []
+            for v in V.spaces:
+                change_dtype(v, dtype)
+                new_spaces.append(v.coeff_space)
+            V._coeff_space = BlockVectorSpace(*new_spaces, connectivity=V.coeff_space.connectivity)
 
-    name = kwargs.pop('solver')
-    return_info = kwargs.pop('info', False)
-
-    if name == 'cg':
-        x, info = cg( M, rhs, **kwargs )
-        if return_info:
-            return x, info
+        # If the coeff_space is a StencilVectorSpace
         else:
-            return x
+            # Recreate the StencilVectorSpace
+            interfaces = V.coeff_space.interfaces
+            V._coeff_space = StencilVectorSpace(V.coeff_space.cart, dtype=dtype)
+
+            # Recreate the interface in the StencilVectorSpace
+            for (axis, ext), interface_space in interfaces.items():
+                V.coeff_space.set_interface(axis, ext, interface_space.cart)
+
+    return V
+
+#==============================================================================
+def get_max_degree_of_one_space(Vh):
+    """
+    Get the maximum polynomial degree of a finite element space, along each
+    logical (parametric) coordinate.
+
+    Parameters
+    ----------
+    Vh : FemSpace
+        The finite element space under investigation.
+
+    Returns
+    -------
+    list[int]
+        The maximum polynomial degre of Vh with respect to each coordinate.
+
+    """
+
+    if isinstance(Vh, TensorFemSpace):
+        return Vh.degree
+
+    elif isinstance(Vh, VectorFemSpace):
+        return [max(p) for p in zip(*Vh.degree)]
+
+    elif isinstance(Vh, MultipatchFemSpace):
+        degree = [get_max_degree_of_one_space(Vh_i) for Vh_i in Vh.spaces]
+        return [max(p) for p in zip(*degree)]
+
     else:
-        raise NotImplementedError('Only cg solver is available')
+        raise TypeError(f'Type({V}) not understood')
 
 
-#==============================================================================
-class DiscreteEquation(BasicDiscrete):
+def get_max_degree(*spaces):
+    """
+    Get the maximum polynomial degree across several finite element spaces,
+    along each logical (parametric) coordinate.
 
-    def __init__(self, expr, *args, **kwargs):
-        if not isinstance(expr, sym_Equation):
-            raise TypeError('> Expecting a symbolic Equation')
+    Parameters
+    ----------
+    *spaces : tuple[FemSpace]
+        The finite element spaces under investigation.
 
-        # ...
-        bc = expr.bc
-        # ...
+    Returns
+    -------
+    list[int]
+        The maximum polynomial degree across all spaces, with respect to each
+        coordinate.
 
-        self._expr = expr
-        # since lhs and rhs are calls, we need to take their expr
-
-        # ...
-        domain      = args[0]
-        trial_test  = args[1]
-        trial_space = trial_test[0]
-        test_space  = trial_test[1]
-        # ...
-
-        # ...
-        boundaries_lhs = expr.lhs.atoms(sym_BoundaryIntegral)
-        boundaries_lhs = [a.domain for a in boundaries_lhs]
-
-        boundaries_rhs = expr.rhs.atoms(sym_BoundaryIntegral)
-        boundaries_rhs = [a.domain for a in boundaries_rhs]
-        # ...
-
-        # ...
-
-        kwargs['boundary'] = None
-        if boundaries_lhs:
-            kwargs['boundary'] = boundaries_lhs
-
-        newargs = list(args)
-        newargs[1] = trial_test
-
-        self._lhs = discretize(expr.lhs, *newargs, **kwargs)
-        # ...
-
-        # ...
-        kwargs['boundary'] = None
-        if boundaries_rhs:
-            kwargs['boundary'] = boundaries_rhs
-        
-        newargs = list(args)
-        newargs[1] = test_space
-        self._rhs = discretize(expr.rhs, *newargs, **kwargs)
-        # ...
-
-        self._bc = bc
-        self._linear_system = None
-        self._domain      = domain
-        self._trial_space = trial_space
-        self._test_space  = test_space
-
-    @property
-    def expr(self):
-        return self._expr
-
-    @property
-    def lhs(self):
-        return self._lhs
-
-    @property
-    def rhs(self):
-        return self._rhs
-
-    @property
-    def domain(self):
-        return self._domain
-
-    @property
-    def trial_space(self):
-        return self._trial_space
-
-    @property
-    def test_space(self):
-        return self._test_space
-
-    @property
-    def bc(self):
-        return self._bc
-
-    @property
-    def linear_system(self):
-        return self._linear_system
-
-    def assemble(self, **kwargs):
-        assemble_lhs = kwargs.pop('assemble_lhs', True)
-        assemble_rhs = kwargs.pop('assemble_rhs', True)
-        if assemble_lhs:
-            M = self.lhs.assemble(**kwargs)
-            if self.bc:
-                # TODO change it: now apply_bc can be called on a list/tuple
-                for bc in self.bc:
-                    apply_essential_bc(self.test_space, bc, M)
-        else:
-            M = self.linear_system.lhs
-
-        if assemble_rhs:
-            rhs = self.rhs.assemble(**kwargs)
-            if self.bc:
-                # TODO change it: now apply_bc can be called on a list/tuple
-                for bc in self.bc:
-                    apply_essential_bc(self.test_space, bc, rhs)
-
-        else:
-            rhs = self.linear_system.rhs
-
-        self._linear_system = LinearSystem(M, rhs)
-
-    def solve(self, **kwargs):
-
-        settings = _default_solver.copy()
-        settings.update(kwargs.pop('settings', {}))
-
-        rhs = kwargs.pop('rhs', None)
-        if rhs:
-            kwargs['assemble_rhs'] = False
-
-        self.assemble(**kwargs)
-
-        if rhs:
-            L = self.linear_system
-            L = LinearSystem(L.lhs, rhs)
-            self._linear_system = L
-
-        #----------------------------------------------------------------------
-        # [YG, 18/11/2019]
-        #
-        # Impose inhomogeneous Dirichlet boundary conditions through
-        # L2 projection on the boundary. This requires setting up a
-        # new variational formulation and solving the resulting linear
-        # system to obtain a solution that does not live in the space
-        # of homogeneous solutions. Such a solution is then used as
-        # initial guess when the model equation is to be solved by an
-        # iterative method. Our current method of solution does not
-        # modify the initial guess at the boundary.
-        #
-        if self.bc:
-
-            # Inhomogeneous Dirichlet boundary conditions
-            idbcs = [i for i in self.bc if i.rhs != 0]
-
-            if idbcs:
-
-                from sympde.expr import integral
-                from sympde.expr import find
-                from sympde.topology import element_of #, ScalarTestFunction
-
-                # Extract trial functions from model equation
-                u = self.expr.trial_functions
-
-                # Create test functions in same space of trial functions
-                # TODO: check if we should generate random names
-                V = ProductSpace(*[ui.space for ui in u])
-                v = element_of(V, name='v:{}'.format(len(u)))
-
-                # In a system, each essential boundary condition is applied to
-                # only one component (bc.variable) of the state vector. Hence
-                # we will select the correct test function using a dictionary.
-                test_dict = dict(zip(u, v))
-
-                # TODO: use dot product for vector quantities
-#                product  = lambda f, g: (f * g if isinstance(g, ScalarTestFunction) else dot(f, g))
-                product  = lambda f, g: f * g
-
-                # Construct variational formulation that performs L2 projection
-                # of boundary conditions onto the correct space
-                factor   = lambda bc : bc.lhs.xreplace(test_dict)
-                lhs_expr = sum(integral(i.boundary, product(i.lhs, factor(i))) for i in idbcs)
-                rhs_expr = sum(integral(i.boundary, product(i.rhs, factor(i))) for i in idbcs)
-                equation = find(u, forall=v, lhs=lhs_expr, rhs=rhs_expr)
-
-                # Discretize weak form
-                domain_h   = self.domain
-                Vh         = self.trial_space
-                equation_h = discretize(equation, domain_h, [Vh, Vh])
-
-                # Find inhomogeneous solution (use CG as system is symmetric)
-                loc_settings = settings.copy()
-                loc_settings['solver'] = 'cg'
-                X = equation_h.solve(**loc_settings)
-
-                # Use inhomogeneous solution as initial guess to solver
-                settings['x0'] = X
-
-        #----------------------------------------------------------------------
-
-        return driver_solve(self.linear_system, **settings)
-
-#==============================================================================
-class DiscreteDerham(BasicDiscrete):
-    def __init__(self, *spaces):
-    
-        dim       = len(spaces) - 1
-        self._V0  = None
-        self._V1  = None
-        self._V2  = None
-        self._V3  = None
-        self._dim = dim
-        
-        if dim == 1:
-            self._V0 = spaces[0]
-            self._V1 = spaces[1]
-        elif dim == 2:
-            self._V0 = spaces[0]
-            self._V1 = spaces[1]
-            self._V2 = spaces[2]
-        elif dim == 3:
-            self._V0 = spaces[0]
-            self._V1 = spaces[1]
-            self._V2 = spaces[2]
-            self._V3 = spaces[3]
-
-    # ...
-    @property
-    def dim(self):
-        return self._dim
-
-    # ...  
-    @property
-    def V0(self):
-        return self._V0
-
-    @property
-    def V1(self):
-        return self._V1        
-
-    @property
-    def V2(self):
-        return self._V2
-        
-    @property
-    def V3(self):
-        return self._V3  
+    """
+    degree = [get_max_degree_of_one_space(Vh) for Vh in spaces]
+    return [max(p) for p in zip(*degree)]
 
 #==============================================================================           
-def discretize_derham(V, domain_h, *args, **kwargs):
-
-    spaces = [discretize_space(Vi, domain_h, *args, **kwargs) for Vi in V.spaces]
-    ldim   = V.shape
+def discretize_derham(derham, domain_h, *, get_H1vec_space=False, **kwargs):
+    """
+    Create a discrete de Rham sequence from a symbolic one.
     
-    if ldim == 1:
-        D0 = Grad(spaces[0], spaces[1].vector_space)
-        setattr(spaces[0], 'grad', D0)
-        
-        interpolation0 = Interpolation(H1=spaces[0])
-        interpolation1 = Interpolation(H1=spaces[0], L2=spaces[1])
-        
-        setattr(spaces[0], 'interpolate', interpolation0)
-        setattr(spaces[1], 'interpolate', interpolation1)
-        
-    elif ldim == 2:
-        
-        if isinstance(V.spaces[1].kind, HcurlSpaceType):
-            D0 = Grad(spaces[0], spaces[1].vector_space)
-            D1 = Curl(spaces[0], spaces[1].vector_space, spaces[2].vector_space)
-            setattr(spaces[0], 'grad', D0)
-            setattr(spaces[1], 'curl', D1)
-            
-            interpolation0 = Interpolation(H1=spaces[0])
-            interpolation1 = Interpolation(H1=spaces[0], Hcurl=spaces[1])
-            interpolation2 = Interpolation(H1=spaces[0], L2=spaces[2])
-            
-        else:
-            D0 = Grad(spaces[0], spaces[1].vector_space)
-            D1 = Div(spaces[0], spaces[1].vector_space, spaces[2].vector_space)
-            setattr(spaces[0], 'grad', D0)
-            setattr(spaces[1], 'div', D1)
-            
-            interpolation0 = Interpolation(H1=spaces[0])
-            interpolation1 = Interpolation(H1=spaces[0], Hdiv=spaces[1])
-            interpolation2 = Interpolation(H1=spaces[0], L2=spaces[2])
+    This function creates the discrete spaces from the symbolic ones, and then
+    creates a DiscreteDeRham object from them.
 
-        setattr(spaces[0], 'interpolate', interpolation0)
-        setattr(spaces[1], 'interpolate', interpolation1)
-        setattr(spaces[2], 'interpolate', interpolation2)
-            
-    elif ldim == 3:
-        D0 = Grad(spaces[0], spaces[1].vector_space)
-        D1 = Curl(spaces[0], spaces[1].vector_space, spaces[2].vector_space)  
-        D2 = Div(spaces[0], spaces[2].vector_space, spaces[3].vector_space)
-        
-        setattr(spaces[1], 'grad', D0)
-        setattr(spaces[2], 'curl', D1)
-        setattr(spaces[3], 'div' , D2)
-        
-        interpolation0 = Interpolation(H1=spaces[0])
-        interpolation1 = Interpolation(H1=spaces[0], Hcurl=spaces[1])
-        interpolation2 = Interpolation(H1=spaces[0], Hdiv=spaces[2])
-        interpolation3 = Interpolation(H1=spaces[0], L2=spaces[3])
-        
-        setattr(spaces[0], 'interpolate', interpolation0)
-        setattr(spaces[1], 'interpolate', interpolation1)
-        setattr(spaces[2], 'interpolate', interpolation2)
-        setattr(spaces[3], 'interpolate', interpolation3)
-        
+    Parameters
+    ----------
+    derham : sympde.topology.space.Derham
+        The symbolic Derham sequence.
 
-        
-    return DiscreteDerham(*spaces)
+    domain_h : Geometry
+        Discrete domain where the spaces will be discretized.
+
+    get_H1vec_space : bool, default=False
+        True to also get the "Hvec" space discretizing (H1)^n vector fields.
+
+    **kwargs : dict
+        Optional parameters for the space discretization.
+
+    Returns
+    -------
+    DiscreteDeRham
+      The discrete de Rham sequence containing the discrete spaces, 
+      differential operators and projectors.
+
+    See Also
+    --------
+    discretize_space
+    """
+
+    ldim    = derham.shape
+    bases   = ['B'] + ldim * ['M']
+    spaces  = [discretize_space(V, domain_h, basis=basis, **kwargs)
+               for V, basis in zip(derham.spaces, bases)]
+
+    if get_H1vec_space:
+        X = VectorFunctionSpace('X', domain_h.domain, kind='h1')
+        V0h = spaces[0]
+        Xh  = VectorFemSpace(*([V0h]*ldim))
+        Xh.symbolic_space = X
+        #We still need to specify the symbolic space because of "_recursive_element_of" not implemented in sympde
+        spaces.append(Xh)
+
+    return DiscreteDeRham(domain_h, *spaces)
+
 #==============================================================================
-# TODO multi patch
-# TODO knots
-def discretize_space(V, domain_h, *args, **kwargs):
-    degree           = kwargs.pop('degree', None)
-    normalize        = kwargs.pop('normalize', True)
-    comm             = domain_h.comm
-    symbolic_mapping = None
-    kind             = V.kind
-    ldim             = V.ldim
+def discretize_derham_multipatch(derham, domain_h, **kwargs):
+    """
+    Create a discrete multipatch de Rham sequence from a symbolic one.
     
-    if isinstance(V, ProductSpace):
-        kwargs['normalize'] = normalize
-        normalize = False
+    This function creates the broken discrete spaces from the symbolic ones, and then
+    creates a MultipatchDiscreteDeRham object from them.
+
+    Parameters
+    ----------
+    derham : sympde.topology.space.Derham
+        The symbolic Derham sequence.
+
+    domain_h : Geometry
+        Discrete domain where the spaces will be discretized.
+
+    **kwargs : dict
+        Optional parameters for the space discretization.
+
+    Returns
+    -------
+    MultipatchDiscreteDeRham
+      The discrete multipatch de Rham sequence containing the discrete spaces, 
+      differential operators and projectors.
+
+    See Also
+    --------
+    discretize_derham
+    discretize_space
+    """
+
+    ldim   = derham.shape
+    bases  = ['B'] + ldim * ['M']
+    spaces = [discretize_space(V, domain_h, basis=basis, **kwargs) \
+            for V, basis in zip(derham.spaces, bases)]
+
+    return MultipatchDiscreteDeRham(
+        domain_h = domain_h,
+        spaces   = spaces
+    )
+
+#==============================================================================
+def reduce_space_degrees(V, Vh, *, basis='B', sequence='DR'):
+    """
+    This function takes a tensor FEM space Vh and reduces some degrees in order
+    to obtain a tensor FEM space Wh that matches the symbolic space V in a
+    certain sequence of spaces. Where the degree is reduced, Wh employs either
+    a B-spline or an M-spline basis.
+
+    For example let [p1, p2, p3] indicate the degrees and [r1, r2, r3] indicate
+    the interior multiplicites in each direction of the space Vh before
+    reduction. The degrees and multiplicities of the reduced spaces are
+    specified as follows:
+    
+    With the 'DR' sequence in 3D, all multiplicies are [r1, r2, r3] and we have
+     'H1'   : degree = [p1, p2, p3]
+     'Hcurl': degree = [[p1-1, p2, p3], [p1, p2-1, p3], [p1, p2, p3-1]]
+     'Hdiv' : degree = [[p1, p2-1, p3-1], [p1-1, p2, p3-1], [p1-1, p2-1, p3]]
+     'L2'   : degree = [p1-1, p2-1, p3-1]
+
+    With the 'TH' sequence in 2D we have:
+     'H1' : degree = [[p1, p2], [p1, p2]], multiplicity = [[r1, r2], [r1, r2]]
+     'L2' : degree = [p1-1, p2-1], multiplicity = [r1-1, r2-1]
+
+    With the 'RT' sequence in 2D we have:
+    'H1' : degree = [[p1, p2-1], [p1-1, p2]], multiplicity = [[r1,r2], [r1,r2]]
+    'L2' : degree = [p1-1, p2-1], multiplicity = [r1, r2]
+
+    With the 'N' sequence in 2D we have:
+    'H1' : degree = [[p1, p2], [p1, p2]], multiplicity = [[r1,r2+1], [r1+1,r2]]
+    'L2' : degree = [p1-1, p2-1], multiplicity = [r1, r2]
+
+    For more details see:
+
+      [1] : A. Buffa, J. Rivas, G. Sangalli, and R.G. Vazquez. Isogeometric
+      Discrete Differential Forms in Three Dimensions. SIAM J. Numer. Anal.,
+      49:818-844, 2011. DOI:10.1137/100786708. (Section 4.1)
+
+      [2] : A. Buffa, C. de Falco, and G. Sangalli. IsoGeometric Analysis:
+      Stable elements for the 2D Stokes equation. Int. J. Numer. Meth. Fluids,
+      65:1407-1422, 2011. DOI:10.1002/fld.2337. (Section 3)
+
+      [3] : A. Bressan, and G. Sangalli. Isogeometric discretizations of the
+      Stokes problem: stability analysis by the macroelement technique. IMA J.
+      Numer. Anal., 33(2):629-651, 2013. DOI:10.1093/imanum/drr056.
+
+    Parameters
+    ----------
+    V : FunctionSpace
+        The symbolic space.
+
+    Vh : TensorFemSpace
+        The tensor product FEM space.
+
+    basis: str
+        The basis function of the reduced spaces, it can be either 'B' for
+        B-spline basis or 'M' for M-spline basis.
+
+    sequence: str
+        The sequence used to reduce the space. The available choices are:
+          'DR': for the de Rham sequence, as described in [1],
+          'TH': for Taylor-Hood elements, as described in [2].
+        Not implemented yet:
+          'N' : for Nedelec elements, as described in [2],
+          'RT': for Raviart-Thomas elements, as described in [2].
+
+    Returns
+    -------
+    Wh : TensorFemSpace, VectorFemSpace
+      The reduced space.
+
+    """
+    multiplicity = Vh.multiplicity
+    if isinstance(V.kind, HcurlSpaceType):
+        if sequence == 'DR':
+            if V.ldim == 2:
+                spaces = [Vh.reduce_degree(axes=[0], multiplicity=multiplicity[0:1], basis=basis),
+                          Vh.reduce_degree(axes=[1], multiplicity=multiplicity[1:] , basis=basis)]
+            elif V.ldim == 3:
+                spaces = [Vh.reduce_degree(axes=[0], multiplicity=multiplicity[0:1], basis=basis),
+                          Vh.reduce_degree(axes=[1], multiplicity=multiplicity[1:2], basis=basis),
+                          Vh.reduce_degree(axes=[2], multiplicity=multiplicity[2:] , basis=basis)]
+            else:
+                raise NotImplementedError('TODO')
+        else:
+            raise NotImplementedError('The sequence {} is not currently available for the space kind {}'.format(sequence, V.kind))
+        Wh = VectorFemSpace(*spaces)
+
+    elif isinstance(V.kind, HdivSpaceType):
+        if sequence == 'DR':
+            if V.ldim == 2:
+                spaces = [Vh.reduce_degree(axes=[1], multiplicity=multiplicity[:1], basis=basis),
+                          Vh.reduce_degree(axes=[0], multiplicity=multiplicity[1:], basis=basis)]
+            elif V.ldim == 3:
+                spaces = [Vh.reduce_degree(axes=[1,2], multiplicity=multiplicity[1:], basis=basis),
+                          Vh.reduce_degree(axes=[0,2], multiplicity=[multiplicity[0], multiplicity[2]], basis=basis),
+                          Vh.reduce_degree(axes=[0,1], multiplicity=multiplicity[:2], basis=basis)]
+            else:
+                raise NotImplementedError('TODO')
+        else:
+            raise NotImplementedError('The sequence {} is not currently available for the space kind {}'.format(sequence, V.kind))
+        Wh = VectorFemSpace(*spaces)
+
+    elif isinstance(V.kind, L2SpaceType):
+        if sequence == 'DR':
+            if V.ldim == 1:
+                Wh = Vh.reduce_degree(axes=[0], multiplicity=multiplicity, basis=basis)
+            elif V.ldim == 2:
+                Wh = Vh.reduce_degree(axes=[0,1], multiplicity=multiplicity, basis=basis)
+            elif V.ldim == 3:
+                Wh = Vh.reduce_degree(axes=[0,1,2], multiplicity=multiplicity, basis=basis)
+        elif sequence == 'TH':
+            multiplicity = [max(1,m-1) for m in multiplicity]
+            if V.ldim == 1:
+                Wh = Vh.reduce_degree(axes=[0], multiplicity=multiplicity, basis=basis)
+            elif V.ldim == 2:
+                Wh = Vh.reduce_degree(axes=[0,1], multiplicity=multiplicity, basis=basis)
+            elif V.ldim == 3:
+                Wh = Vh.reduce_degree(axes=[0,1,2], multiplicity=multiplicity, basis=basis)
+        else:
+            raise NotImplementedError('The sequence {} is not currently available for the space kind {}'.format(sequence, V.kind))
+
+    elif isinstance(V.kind, (H1SpaceType, UndefinedSpaceType)):
+        Wh = Vh  # Do not reduce space
+
     else:
-        normalize = normalize
+        raise NotImplementedError('Cannot create FEM space with kind = {}'.format(V.kind))
 
-    # from a discrete geoemtry
-    # TODO improve condition on mappings
+    if isinstance(V, VectorFunctionSpace):
+        if isinstance(V.kind, (H1SpaceType, L2SpaceType, UndefinedSpaceType)):
+            Wh = VectorFemSpace(*[Wh]*V.ldim)
+
+    return Wh
+
+#==============================================================================
+# TODO knots
+def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None, basis='B', sequence='DR'):
+    """
+    This function creates the discretized space starting from the symbolic space.
+
+    Parameters
+    ----------
+    V : <FunctionSpace>
+        The symbolic space.
+
+    domain_h   : <Geometry>
+        The discretized domain.
+
+    degree : list | dict
+        The degree of the h1 space in each direction.
+
+    multiplicity: list | dict
+        The multiplicity of knots for the h1 space in each direction.
+
+    knots: list | dict
+        The knots sequence of the h1 space in each direction.
+
+    basis: str
+        The type of basis function can be 'B' for B-splines or 'M' for M-splines.
+
+    sequence: str
+        The sequence used to reduce the space. The available choices are:
+          'DR': for the de Rham sequence, as described in [1],
+          'TH': for Taylor-Hood elements, as described in [2].
+        Not implemented yet:
+          'N' : for Nedelec elements, as described in [2],
+          'RT': for Raviart-Thomas elements, as described in [2].
+
+    For more details see:
+
+      [1] : A. Buffa, J. Rivas, G. Sangalli, and R.G. Vazquez. Isogeometric
+      Discrete Differential Forms in Three Dimensions. SIAM J. Numer. Anal.,
+      49:818-844, 2011. DOI:10.1137/100786708. (Section 4.1)
+
+      [2] : A. Buffa, C. de Falco, and G. Sangalli. IsoGeometric Analysis:
+      Stable elements for the 2D Stokes equation. Int. J. Numer. Meth. Fluids,
+      65:1407-1422, 2011. DOI:10.1002/fld.2337. (Section 3)
+
+      [3] : A. Bressan, and G. Sangalli. Isogeometric discretizations of the
+      Stokes problem: stability analysis by the macroelement technique. IMA J.
+      Numer. Anal., 33(2):629-651, 2013. DOI:10.1093/imanum/drr056.
+
+    Returns
+    -------
+    Vh : <FemSpace>
+        The discrete FEM space.
+    """
+
+#    we have two cases, the case where we have a geometry file,
+#    and the case where we have either an analytical mapping or without a mapping.
+#    We build the dictionary g_spaces for each interior domain, where it conatians the interiors as keys and the spaces as values,
+#    we then create the compatible spaces if needed with the suitable basis functions.
+
+    comm                = domain_h.comm
+    ldim                = V.ldim
+    is_rational_mapping = False
+
+    assert sequence in ['DR', 'TH', 'N', 'RT']
+    if sequence in ['TH', 'N', 'RT']:
+        assert isinstance(V, ProductSpace) and len(V.spaces) == 2
+
+    # Define data type of our TensorFemSpace
+    dtype = float
+    # TODO remove when codomain_type is implemented in SymPDE
+    if hasattr(V, 'codomain_type'):
+        if V.codomain_type == 'complex':
+            dtype = complex
+
+    g_spaces   = {}
+    domain     = domain_h.domain
+
+    if len(domain)==1:
+        interiors  = [domain.interior]
+    else:
+        interiors  = list(domain.interior.args)
+
+    connectivity = construct_connectivity(domain)
     if isinstance(domain_h, Geometry) and all(domain_h.mappings.values()):
-        if len(domain_h.mappings.values()) > 1:
-            raise NotImplementedError('Multipatch not yet available')
+        # from a discrete geoemtry
+        if interiors[0].name in domain_h.mappings:
+            mappings  = [domain_h.mappings[inter.name] for inter in interiors]
+        else:
+            mappings  = [domain_h.mappings[inter.logical_domain.name] for inter in interiors]
 
-        mapping = list(domain_h.mappings.values())[0]
-        Vh = mapping.space
-
-        # TODO how to give a name to the mapping?
-        symbolic_mapping = Mapping('M', domain_h.pdim)
+        # Get all the FEM spaces from the mapping and convert their coeff_space at the dtype needed
+        spaces    = [change_dtype(m.space, dtype) for m in mappings]
+        g_spaces  = dict(zip(interiors, spaces))
+        spaces    = [S.spaces for S in spaces]
 
         if not( comm is None ) and ldim == 1:
             raise NotImplementedError('must create a TensorFemSpace in 1d')
 
-    elif not( degree is None ):
-        assert(hasattr(domain_h, 'ncells'))
+    else:
 
-        ncells     = domain_h.ncells
-        min_coords = domain_h.domain.min_coords
-        max_coords = domain_h.domain.max_coords
+        if isinstance( degree, (list, tuple) ):
+            degree = {I.name:degree for I in interiors}
+        else:
+            assert isinstance(degree, dict)
 
-        assert(isinstance( degree, (list, tuple) ))
-        assert( len(degree) == ldim )
+        if isinstance( multiplicity, (list, tuple) ):
+            multiplicity = {I.name:multiplicity for I in interiors}
+        elif multiplicity is None:
+            multiplicity = {I.name:(1,)*len(degree[I.name]) for I in interiors}
+        else:
+            assert isinstance(multiplicity, dict)
 
-        # Create uniform grid
-        grids = [np.linspace(xmin, xmax, num=ne + 1)
-                 for xmin, xmax, ne in zip(min_coords, max_coords, ncells)]
+        if isinstance(knots, (list, tuple)):
+            assert len(interiors) == 1
+            knots = {interiors[0].name:knots}
 
-        # Create 1D finite element spaces and precompute quadrature data
-        spaces = [SplineSpace( p, grid=grid ) for p,grid in zip(degree, grids)]
-        Vh = TensorFemSpace( *spaces, comm=comm )
-        
-        if isinstance(kind, L2SpaceType):
-  
-            if ldim == 1:
-                Vh = Vh.reduce_degree(axes=[0], normalize=normalize)
-            elif ldim == 2:
-                Vh = Vh.reduce_degree(axes=[0,1], normalize=normalize)
-            elif ldim == 3:
-                Vh = Vh.reduce_degree(axes=[0,1,2], normalize=normalize)
+        if len(interiors) == 1:
+            ddms = [domain_h.ddm]
+        else:
+            ddms = domain_h.ddm.domains
 
-    # Product and Vector spaces are constructed here
-    if V.shape > 1:
-        spaces = []
-        if isinstance(V, VectorFunctionSpace):
-        
-            if isinstance(kind, (H1SpaceType, L2SpaceType,  UndefinedSpaceType)):
-                spaces = [Vh for i in range(V.shape)]
-                
-            elif isinstance(kind, HcurlSpaceType):
-                if ldim == 2:
-                    spaces = [Vh.reduce_degree(axes=[0], normalize=normalize), 
-                              Vh.reduce_degree(axes=[1], normalize=normalize)]
-                elif ldim == 3:
-                    spaces = [Vh.reduce_degree(axes=[0], normalize=normalize), 
-                              Vh.reduce_degree(axes=[1], normalize=normalize), 
-                              Vh.reduce_degree(axes=[2], normalize=normalize)]
-                else:
-                    raise NotImplementedError('TODO')
-                
-            elif isinstance(kind, HdivSpaceType):
-            
-                if ldim == 2:
-                    spaces = [Vh.reduce_degree(axes=[1], normalize=normalize), 
-                              Vh.reduce_degree(axes=[0], normalize=normalize)]
-                elif ldim == 3:
-                    spaces = [Vh.reduce_degree(axes=[1,2], normalize=normalize), 
-                              Vh.reduce_degree(axes=[0,2], normalize=normalize), 
-                              Vh.reduce_degree(axes=[0,1], normalize=normalize)]
-                else:
-                    raise NotImplementedError('TODO')
-                    
-        elif isinstance(V, ProductSpace):
-            
-            for Vi in V.spaces:
-                space = discretize_space(Vi, domain_h, *args, degree=degree,**kwargs)
-                if isinstance(space, ProductFemSpace):
-                    spaces += list(space.spaces)
-                else:
-                    spaces += [space]
-        
-        Vh = ProductFemSpace(*spaces)
-        setattr(Vh, 'shape', V.shape)
+        spaces = [None]*len(interiors)
+        for i,interior in enumerate(interiors):
+            ncells     = domain_h.ncells[interior.name]
+            periodic   = domain_h.periodic[interior.name]
+            degree_i   = degree[interior.name]
+            multiplicity_i = multiplicity[interior.name]
+            min_coords = interior.min_coords
+            max_coords = interior.max_coords
 
-    # add symbolic_mapping as a member to the space object
-    setattr(Vh, 'symbolic_mapping', symbolic_mapping)
+            assert len(ncells) == len(periodic) == len(degree_i)  == len(multiplicity_i) == len(min_coords) == len(max_coords)
+
+            if knots is None:
+                # Create uniform grid
+                grids = [np.linspace(xmin, xmax, num=ne + 1)
+                         for xmin, xmax, ne in zip(min_coords, max_coords, ncells)]
+
+                # Create 1D finite element spaces and precompute quadrature data
+                spaces[i] = [SplineSpace( p, multiplicity=m, grid=grid , periodic=P) for p,m,grid,P in zip(degree_i, multiplicity_i,grids, periodic)]
+            else:
+                 # Create 1D finite element spaces and precompute quadrature data
+                spaces[i] = [SplineSpace( p, knots=T , periodic=P) for p,T, P in zip(degree_i, knots[interior.name], periodic)]
+
+
+        carts    = create_cart(ddms, spaces)
+        g_spaces = {inter : TensorFemSpace(ddms[i], *spaces[i], cart=carts[i], dtype=dtype) for i, inter in enumerate(interiors)}
+
+
+        for i,j in connectivity:
+            ((axis_i, ext_i), (axis_j , ext_j)) = connectivity[i, j]
+            minus = interiors[i]
+            plus  = interiors[j]
+            max_ncells = [max(ni,nj) for ni,nj in zip(domain_h.ncells[minus.name],domain_h.ncells[plus.name])]
+            g_spaces[minus].add_refined_space(ncells=max_ncells)
+            g_spaces[plus].add_refined_space(ncells=max_ncells)
+
+        # ... construct interface spaces
+        construct_interface_spaces(domain_h.ddm, g_spaces, carts, interiors, connectivity)
+
+    new_g_spaces = {}
+    for inter in g_spaces:
+        Vh = g_spaces[inter]
+        if isinstance(V, ProductSpace):
+            spaces = [reduce_space_degrees(Vi, Vh, basis=basis, sequence=sequence) for Vi in V.spaces]
+            spaces = [Vh.spaces if isinstance(Vh, VectorFemSpace) else Vh for Vh in spaces]
+            spaces = flatten(spaces)
+            Vh     = VectorFemSpace(*spaces)
+        else:
+            Vh = reduce_space_degrees(V, Vh, basis=basis, sequence=sequence)
+
+        Vh.symbolic_space = V
+        for key in Vh._refined_space:
+            Vh.get_refined_space(key).symbolic_space = V
+
+        new_g_spaces[inter]   = Vh
+
+    construct_reduced_interface_spaces(g_spaces, new_g_spaces, interiors, connectivity)
+    spaces = list(new_g_spaces.values())
+
+    if len(interiors) > 1:
+        assert all((isinstance(Wh, FemSpace) and not Wh.is_multipatch) for Wh in spaces)
+        Vh = MultipatchFemSpace(*spaces, connectivity=connectivity)
+    else:
+        assert all(isinstance(Wh, FemSpace) for Wh in spaces)
+        if  len(spaces) == 1:
+            Vh = spaces[0]
+        else:
+            Vh = VectorFemSpace(*spaces)
     
+    Vh.symbolic_space = V
 
     return Vh
 
+
 #==============================================================================
-def discretize_domain(domain, *, filename=None, ncells=None, comm=None):
+def discretize_domain(domain, *, filename=None, ncells=None, periodic=None, comm=None, mpi_dims_mask=None):
+
+    if comm is not None:
+        # Create a copy of the communicator
+        comm = comm.Dup()
 
     if not (filename or ncells):
         raise ValueError("Must provide either 'filename' or 'ncells'")
@@ -507,27 +578,93 @@ def discretize_domain(domain, *, filename=None, ncells=None, comm=None):
         raise ValueError("Cannot provide both 'filename' and 'ncells'")
 
     elif filename:
-        return Geometry(filename=filename, comm=comm)
+        return Geometry(filename=filename, comm=comm, mpi_dims_mask=mpi_dims_mask)
 
     elif ncells:
-        return Geometry.from_topological_domain(domain, ncells, comm)
+        return Geometry.from_topological_domain(domain, ncells, periodic=periodic, comm=comm, mpi_dims_mask=mpi_dims_mask)
 
 #==============================================================================
 def discretize(a, *args, **kwargs):
 
+    if isinstance(a, (sym_BasicForm, sym_GltExpr, sym_Expr)):
+        domain_h = args[0]
+        assert isinstance(domain_h, Geometry)
+        domain  = domain_h.domain
+        dim     = domain.dim
+
+        # The current implementation of the sum factorization algorithm does not support OpenMP parallelization
+        # It is not properly tested, whether this way of excluding OpenMP parallelized code from using the sum factorization algorithm works.
+        backend = kwargs.get('backend')# or None
+        assembly_backend = kwargs.get('assembly_backend')# or None
+        assembly_backend = backend or assembly_backend
+        openmp = False if assembly_backend is None else assembly_backend.get('openmp')
+
+        # Since all keyword arguments are hidden in kwargs, we cannot set the
+        # defaults in the function signature. Here we set the defaults for
+        # sum_factorization using dict.setdefault: we default to True for
+        # bilinear forms in 3D, and to False otherwise. If the user has chosen
+        # differently, we let the code run and see what happens!
+        #
+        # We also default to False if the code is to be parallelized w/ OpenMP.
+        # TODO [YG 21.07.2025]: Drop this restriction
+        if isinstance(a, sym_BilinearForm):
+            default = (dim == 3 and not openmp)
+            kwargs.setdefault('sum_factorization', default)
+
+        mapping = domain_h.domain.mapping
+        kwargs['symbolic_mapping'] = mapping
+
+    #...
+    # In the case of Equation, BilinearForm, LinearForm, or Functional, we
+    # need the number of quadrature points along each direction.
+    #
+    # If not given, we set `nquads[i] = max_p[i] + 1`, where `max_p[i]` is the
+    # maximum polynomial degree of the spaces along direction i.
+    #
+    # If a scalar integer is passed, we use the same number of quadrature
+    # points in all directions.
+    if isinstance(a, (sym_BasicForm, sym_Equation)):
+        nquads = kwargs.get('nquads', None)
+        if nquads is None:
+            spaces = args[1]
+            if not hasattr(spaces, '__iter__'):
+                spaces = [spaces]
+            nquads = [p + 1 for p in get_max_degree(*spaces)]
+        elif not hasattr(nquads, '__iter__'):
+            assert isinstance(nquads, int)
+            domain_h = args[0]
+            nquads = [nquads] * domain_h.ldim
+        kwargs['nquads'] = nquads
+    #...
+
     if isinstance(a, sym_BasicForm):
-        if not a.is_annotated:
-            a = a.annotate()
-        kernel_expr = TerminalExpr(a)
-#        print('=================')
-#        print(kernel_expr)
-#        print('=================')
-#        sys.exit(0)
+        if isinstance(a, (sym_Norm, sym_SemiNorm)):
+            kernel_expr = TerminalExpr(a, domain)
+            if not mapping is None:
+                kernel_expr = tuple(LogicalExpr(i, domain) for i in kernel_expr)
+        else:
+            if not mapping is None:
+                a       = LogicalExpr (a, domain)
+                domain  = domain.logical_domain
+
+            kernel_expr = TerminalExpr(a, domain)
+
         if len(kernel_expr) > 1:
             return DiscreteSumForm(a, kernel_expr, *args, **kwargs)
 
+    # TODO uncomment when the SesquilinearForm subclass of bilinearForm is create in SymPDE
+    # if isinstance(a, sym_SesquilinearForm):
+    #     return DiscreteSesquilinearForm(a, kernel_expr, *args, **kwargs)
+
     if isinstance(a, sym_BilinearForm):
-        return DiscreteBilinearForm(a, kernel_expr, *args, **kwargs)
+        # Currently sum factorization can only be used for interior domains
+        from sympde.expr.evaluation import DomainExpression
+        is_interior_expr = isinstance(kernel_expr, DomainExpression)
+
+        if kwargs.pop('sum_factorization') and is_interior_expr:
+            return DiscreteBilinearForm_SF(a, kernel_expr, *args, **kwargs)
+        else:
+            return DiscreteBilinearForm(a, kernel_expr, *args, **kwargs)
 
     elif isinstance(a, sym_LinearForm):
         return DiscreteLinearForm(a, kernel_expr, *args, **kwargs)
@@ -541,15 +678,17 @@ def discretize(a, *args, **kwargs):
     elif isinstance(a, BasicFunctionSpace):
         return discretize_space(a, *args, **kwargs)
         
-    elif isinstance(a, Derham):
+    elif isinstance(a, Derham) and not a.V0.is_broken:
         return discretize_derham(a, *args, **kwargs)
+
+    elif isinstance(a, Derham) and a.V0.is_broken:
+        return discretize_derham_multipatch(a, *args, **kwargs)
 
     elif isinstance(a, Domain):
         return discretize_domain(a, *args, **kwargs)
 
     elif isinstance(a, sym_GltExpr):
         return DiscreteGltExpr(a, *args, **kwargs)
-        
     elif isinstance(a, sym_Expr):
         return DiscreteExpr(a, *args, **kwargs)
 

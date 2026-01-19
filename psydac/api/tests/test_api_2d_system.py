@@ -1,5 +1,8 @@
-# -*- coding: UTF-8 -*-
-
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 from mpi4py import MPI
 from sympy import pi, cos, sin, Tuple, Matrix
 import numpy as np
@@ -11,11 +14,10 @@ from sympde.topology import ProductSpace
 from sympde.topology import element_of
 from sympde.topology import Square
 from sympde.expr import BilinearForm, LinearForm, integral
-from sympde.expr import Norm
+from sympde.expr import Norm, SemiNorm
 from sympde.expr import find, EssentialBC
 
 from psydac.fem.basic          import FemField
-from psydac.fem.vector         import VectorFemField
 from psydac.api.discretization import discretize
 
 #==============================================================================
@@ -37,7 +39,7 @@ def run_system_1_2d_dir(Fe, Ge, f0, f1, ncells, degree):
     G = element_of(V, name='G')
 
     u,v = [element_of(W, name=i) for i in ['u', 'v']]
-    p,q = [      element_of(V, name=i) for i in ['p', 'q']]
+    p,q = [element_of(V, name=i) for i in ['p', 'q']]
 
     int_0 = lambda expr: integral(domain , expr)
 
@@ -50,12 +52,12 @@ def run_system_1_2d_dir(Fe, Ge, f0, f1, ncells, degree):
     l  = LinearForm((v,q), l0(v) + l1(q))
 
     error = Matrix([F[0]-Fe[0], F[1]-Fe[1]])
-    l2norm_F = Norm(error, domain, kind='l2')
-    h1norm_F = Norm(error, domain, kind='h1')
+    l2norm_F =     Norm(error, domain, kind='l2')
+    h1norm_F = SemiNorm(error, domain, kind='h1')
 
     error = G-Ge
-    l2norm_G = Norm(error, domain, kind='l2')
-    h1norm_G = Norm(error, domain, kind='h1')
+    l2norm_G =     Norm(error, domain, kind='l2')
+    h1norm_G = SemiNorm(error, domain, kind='h1')
 
     bc = EssentialBC(u, 0, domain.boundary)
     equation = find([u,p], forall=[v,q], lhs=a((u,p),(v,q)), rhs=l(v,q), bc=bc)
@@ -75,7 +77,7 @@ def run_system_1_2d_dir(Fe, Ge, f0, f1, ncells, degree):
 #    Xh = Wh * Vh
 #    Wh, Vh = Xh.spaces
 
-    # ... dsicretize the equation using Dirichlet bc
+    # ... discretize the equation using Dirichlet bc
     equation_h = discretize(equation, domain_h, [Xh, Xh])
     # ...
 
@@ -88,18 +90,22 @@ def run_system_1_2d_dir(Fe, Ge, f0, f1, ncells, degree):
     # ...
 
     # ... solve the discrete equation
-    x = equation_h.solve()
+    Xh = equation_h.solve()
     # ...
 
+    # TODO [YG, 12.02.2021]: Fh and Gh are temporary FEM fields needed because
+    #   the blocks in Xh.coeffs have been flattened. Once this assumption is
+    #   removed, just assemble the error norms passing F = Xh[0] and G = Xh[1].
+
     # ...
-    Fh = VectorFemField( Wh )
-    Fh.coeffs[0][:,:] = x[0][:,:]
-    Fh.coeffs[1][:,:] = x[1][:,:]
+    Fh = FemField( Wh )
+    Fh.coeffs[0][:,:] = Xh.coeffs[0][:,:]
+    Fh.coeffs[1][:,:] = Xh.coeffs[1][:,:]
     # ...
 
     # ...
     Gh = FemField( Vh )
-    Gh.coeffs[:,:] = x[2][:,:]
+    Gh.coeffs[:,:] = Xh.coeffs[2][:,:]
     # ...
 
     # ... compute norms
@@ -122,14 +128,16 @@ def run_system_1_2d_dir(Fe, Ge, f0, f1, ncells, degree):
 #==============================================================================
 def test_api_system_1_2d_dir_1():
 
-    from sympy.abc import x,y
+    from sympy import symbols
 
-    Fe = Tuple(sin(pi*x)*sin(pi*y), sin(pi*x)*sin(pi*y))
-    f0 = Tuple(2*pi**2*sin(pi*x)*sin(pi*y),
-              2*pi**2*sin(pi*x)*sin(pi*y))
+    x1,x2 = symbols('x1, x2', real=True)
 
-    Ge = cos(pi*x)*cos(pi*y)
-    f1 = cos(pi*x)*cos(pi*y)
+    Fe = Tuple(sin(pi*x1)*sin(pi*x2), sin(pi*x1)*sin(pi*x2))
+    f0 = Tuple(2*pi**2*sin(pi*x1)*sin(pi*x2),
+              2*pi**2*sin(pi*x1)*sin(pi*x2))
+
+    Ge = cos(pi*x1)*cos(pi*x2)
+    f1 = cos(pi*x1)*cos(pi*x2)
 
     l2_error, h1_error = run_system_1_2d_dir(Fe, Ge, f0, f1,
                                             ncells=[2**3,2**3], degree=[2,2])
@@ -140,17 +148,17 @@ def test_api_system_1_2d_dir_1():
                                      0.012987988507232278])
 
 
-    assert( np.allclose(l2_error, expected_l2_error, 1.e-7) )
-    assert( np.allclose(h1_error, expected_h1_error, 1.e-7) )
+    assert( np.allclose(l2_error, expected_l2_error, 1.e-13) )
+    assert( np.allclose(h1_error, expected_h1_error, 1.e-13) )
 
 #==============================================================================
 # CLEAN UP SYMPY NAMESPACE
 #==============================================================================
 
 def teardown_module():
-    from sympy import cache
+    from sympy.core import cache
     cache.clear_cache()
 
 def teardown_function():
-    from sympy import cache
+    from sympy.core import cache
     cache.clear_cache()

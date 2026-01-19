@@ -1,253 +1,257 @@
-# coding: utf-8
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
+from sympde.expr.equation  import EssentialBC
 
-from sympde.topology import Boundary as sym_Boundary
-
+from psydac.linalg.basic   import ComposedLinearOperator
 from psydac.linalg.stencil import StencilVector, StencilMatrix
-from psydac.linalg.block   import BlockVector, BlockMatrix
+from psydac.linalg.stencil import StencilInterfaceMatrix
+from psydac.linalg.kron    import KroneckerDenseMatrix
+from psydac.linalg.block   import BlockVector, BlockLinearOperator
 
+__all__ = ('apply_essential_bc', 'check_boundary_type', 'apply_essential_bc_kronecker_dense_matrix', 'apply_essential_bc_stencil', 
+           'apply_essential_bc_BlockLinearOperator', 'apply_essential_bc_BlockVector')
+#==============================================================================
+def apply_essential_bc(a, *bcs, **kwargs):
+
+    if isinstance(a, (StencilVector, StencilMatrix, StencilInterfaceMatrix)):
+        kwargs.pop('is_broken', None)
+        for bc in bcs:
+            check_boundary_type(bc)
+            apply_essential_bc_stencil(a,
+                axis  = bc.boundary.axis,
+                ext   = bc.boundary.ext,
+                order = bc.order,
+                **kwargs
+            )
+
+    elif isinstance(a, ComposedLinearOperator):
+        apply_essential_bc(a.multiplicants[0], *bcs, **kwargs)
+
+    elif isinstance(a, KroneckerDenseMatrix):
+        for bc in bcs:
+            check_boundary_type(bc)
+            apply_essential_bc_kronecker_dense_matrix(a,
+                axis  = bc.boundary.axis,
+                ext   = bc.boundary.ext,
+                order = bc.order,
+                **kwargs
+            )
+    elif isinstance(a, BlockVector):
+        is_broken=kwargs.pop('is_broken', True)
+        for bc in bcs:
+            check_boundary_type(bc)
+            apply_essential_bc_BlockVector(a, bc, is_broken=is_broken)
+
+    elif isinstance(a, BlockLinearOperator):
+        for bc in bcs:
+            check_boundary_type(bc)
+            apply_essential_bc_BlockLinearOperator(a, bc, **kwargs)
+
+    else:
+        raise TypeError('Cannot apply essential BCs to object of type {}'\
+                .format(type(a)))
 
 #==============================================================================
-def apply_essential_bc_1d_StencilVector(V, bc, a):
-    """ Apply homogeneous dirichlet boundary conditions in 1D """
-
-    # assumes a 1D spline space
-    # add asserts on the space if it is periodic
-
-    # get order
-    order = bc.order
-
-    if bc.boundary.ext == -1:
-        a[0+order] = 0.
-
-    if bc.boundary.ext == 1:
-        a[V.nbasis-1-order] = 0.
+def check_boundary_type(bc):
+    if not isinstance(bc, EssentialBC):
+        raise TypeError('Essential boundary condition must be of type '\
+                'EssentialBC from sympde.expr.equation, got {} instead'\
+                .format(type(bc)))
 
 #==============================================================================
-def apply_essential_bc_1d_StencilMatrix(V, bc, a):
-    """ Apply homogeneous dirichlet boundary conditions in 1D """
+def apply_essential_bc_kronecker_dense_matrix(a, *, axis, ext, order, identity=False):
+    """ This function applies the homogeneous boundary condition to the Kronecker product matrix objects,
+        If the identity keyword argument is set to True, the boundary diagonal terms are set to 1.
 
-    # assumes a 1D spline space
-    # add asserts on the space if it is periodic
+    Parameters
+    ----------
+    a : KroneckerDenseMatrix
+        The matrix to be modified.
 
-    # get order
-    order = bc.order
+    axis : int
+        Axis of the boundary, i.e. the index of the coordinate which remains constant.
 
-    if bc.boundary.ext == -1:
-        a[ 0+order,:] = 0.
+    ext : int
+        Extremity of the boundary, it takes the value of -1 or 1.
 
-    if bc.boundary.ext == 1:
-        a[-1-order,:] = 0.
+    order : int
+        All function derivatives up to `order` are set to zero
+        on the specified boundary. `order >= 0` is required.
 
-#==============================================================================
-def apply_essential_bc_2d_StencilVector(V, bc, a):
-    """ Apply homogeneous dirichlet boundary conditions in 2D """
+    identity : bool
+        If true, the diagonal terms corresponding to boundary coefficients are set to 1.
+    """
 
-    # assumes a 2D Tensor space
-    # add asserts on the space if it is periodic
+    mats = a.mats
+    p = a.codomain.pads[axis]
 
-    V1,V2 = V.spaces
+    if ext == 1:
+        mats[axis][-p-1] = 0.
+    elif ext == -1:
+        mats[axis][p] = 0.
 
-    s1, s2 = a.space.starts
-    e1, e2 = a.space.ends
-
-    # get order
-    order = bc.order
-
-    if bc.boundary.axis == 0:
-        # left  bc.boundary.at x=0.
-        if s1 == 0 and bc.boundary.ext == -1:
-            a[0+order,:] = 0.
-
-        # right bc.boundary.at x=1.
-        if e1 == V1.nbasis-1 and bc.boundary.ext == 1:
-            a [e1-order,:] = 0.
-
-    if bc.boundary.axis == 1:
-        # lower bc.boundary.at y=0.
-        if s2 == 0 and bc.boundary.ext == -1:
-            a [:,0+order] = 0.
-
-        # upper bc.boundary.at y=1.
-        if e2 == V2.nbasis-1 and bc.boundary.ext == 1:
-            a [:,e2-order] = 0.
+    if identity and ext == 1:
+        mats[axis][-p-1,mats[axis].shape[0]-2*p-1] = 1
+    elif identity and ext == -1:
+        mats[axis][p][0] = 1
 
 #==============================================================================
-def apply_essential_bc_2d_StencilMatrix(V, bc, a):
-    """ Apply homogeneous dirichlet boundary conditions in 2D """
+def apply_essential_bc_stencil(a, *, axis, ext, order, identity=False):
+    """ This function applies the homogeneous boundary condition to the Stencil objects,
+        by setting the boundary degrees of freedom to zero in the StencilVector,
+        and the corresponding rows in the StencilMatrix/StencilInterfaceMatrix to zeros.
+        If the identity keyword argument is set to True, the boundary diagonal terms are set to 1.
 
-    # assumes a 2D Tensor space
-    # add asserts on the space if it is periodic
+    Parameters
+    ----------
+    a : StencilVector, StencilMatrix or StencilInterfaceMatrix
+        The matrix or the Vector to be modified.
 
-    V1,V2 = V.spaces
+    axis : int
+        Axis of the boundary, i.e. the index of the coordinate which remains constant.
 
-    s1, s2 = a.domain.starts
-    e1, e2 = a.domain.ends
+    ext : int
+        Extremity of the boundary, it takes the value of -1 or 1.
 
-    # get order
-    order = bc.order
+    order : int
+        All function derivatives up to `order` are set to zero
+        on the specified boundary. `order >= 0` is required.
 
-    if bc.boundary.axis == 0:
-        # left  bc.boundary.at x=0.
-        if s1 == 0 and bc.boundary.ext == -1:
-            a[0+order,:,:,:] = 0.
+    identity : bool
+        If True, the diagonal terms corresponding to boundary coefficients are set to 1.
+    """
 
-        # right bc.boundary.at x=1.
-        if e1 == V1.nbasis-1 and bc.boundary.ext == 1:
-            a[e1-order,:,:,:] = 0.
+    if isinstance(a, StencilVector):
+        V = a.space
+        n = V.ndim
+    elif isinstance(a, StencilMatrix):
+        V = a.codomain
+        n = V.ndim * 2
+    elif isinstance(a, StencilInterfaceMatrix):
+        V = a.codomain
+        n = V.ndim * 2
 
-    if bc.boundary.axis == 1:
-        # lower bc.boundary.at y=0.
-        if s2 == 0 and bc.boundary.ext == -1:
-            a[:,0+order,:,:] = 0.
+        if axis == a.codomain_axis:
+            return
+    else:
+        raise TypeError('Cannot apply essential BC to object {} of type {}'\
+                .format(a, type(a)))
 
-        # upper bc.boundary.at y=1.
-        if e2 == V2.nbasis-1 and bc.boundary.ext == 1:
-            a[:,e2-order,:,:] = 0.
+    if V.parallel and V.cart.is_comm_null:
+        return
 
+    if axis not in range(V.ndim):
+        raise ValueError('Cannot apply essential BC along axis x{} in {}D'\
+                .format(axis + 1, V.ndim))
 
+    if ext not in (-1, 1):
+        raise ValueError("Argument 'ext' can only be -1 or 1, got {} instead"\
+                .format(ext))
 
-#==============================================================================
-def apply_essential_bc_3d_StencilVector(V, bc, a):
-    """ Apply homogeneous dirichlet boundary conditions in 3D """
+    if not isinstance(order, int) or order < 0:
+        raise ValueError("Argument 'order' must be a non-negative integer, got "
+                "{} instead".format(order))
 
-    # assumes a 3D Tensor space
-    # add asserts on the space if it is periodic
+    if V.periods[axis]:
+        raise ValueError('Cannot apply essential BC along periodic direction '\
+                'x{}'.format(axis + 1))
 
-    V1,V2,V3 = V.spaces
+    if ext == -1 and V.starts[axis] == 0:
+        s = V.starts[axis]
+        index = [(s + order if j == axis else slice(None)) for j in range(n)]
+        a[tuple(index)] = 0.0
+        if isinstance(a, StencilMatrix) and identity:
+            a[tuple(index[:n//2])+(0,)*(n//2)] = 1.
 
-    s1, s2, s3 = a.space.starts
-    e1, e2, e3 = a.space.ends
-
-    # get order
-    order = bc.order
-
-    if bc.boundary.axis == 0:
-        # left  bc at x=0.
-        if s1 == 0 and bc.boundary.ext == -1:
-            a[0+order,:,:] = 0.
-
-        # right bc at x=1.
-        if e1 == V1.nbasis-1 and bc.boundary.ext == 1:
-            a [e1-order,:,:] = 0.
-
-    if bc.boundary.axis == 1:
-        # lower bc at y=0.
-        if s2 == 0 and bc.boundary.ext == -1:
-            a [:,0+order,:] = 0.
-
-        # upper bc at y=1.
-        if e2 == V2.nbasis-1 and bc.boundary.ext == 1:
-            a [:,e2-order,:] = 0.
-
-    if bc.boundary.axis == 2:
-        # lower bc at z=0.
-        if s3 == 0 and bc.boundary.ext == -1:
-            a [:,:,0+order] = 0.
-
-        # upper bc at z=1.
-        if e3 == V3.nbasis-1 and bc.boundary.ext == 1:
-            a [:,:,e3-order] = 0.
-
-#==============================================================================
-def apply_essential_bc_3d_StencilMatrix(V, bc, a):
-    """ Apply homogeneous dirichlet boundary conditions in 3D """
-
-    # assumes a 3D Tensor space
-    # add asserts on the space if it is periodic
-
-    V1,V2,V3 = V.spaces
-
-    s1, s2, s3 = a.domain.starts
-    e1, e2, e3 = a.domain.ends
-
-    # get order
-    order = bc.order
-
-    if bc.boundary.axis == 0:
-        # left  bc at x=0.
-        if s1 == 0 and bc.boundary.ext == -1:
-            a[0+order,:,:,:,:,:] = 0.
-
-        # right bc at x=1.
-        if e1 == V1.nbasis-1 and bc.boundary.ext == 1:
-            a[e1-order,:,:,:,:,:] = 0.
-
-    if bc.boundary.axis == 1:
-        # lower bc at y=0.
-        if s2 == 0 and bc.boundary.ext == -1:
-            a[:,0+order,:,:,:,:] = 0.
-
-        # upper bc at y=1.
-        if e2 == V2.nbasis-1 and bc.boundary.ext == 1:
-            a[:,e2-order,:,:,:,:] = 0.
-
-    if bc.boundary.axis == 2:
-        # lower bc at z=0.
-        if s3 == 0 and bc.boundary.ext == -1:
-            a[:,:,0+order,:,:,:] = 0.
-
-        # upper bc at z=1.
-        if e3 == V3.nbasis-1 and bc.boundary.ext == 1:
-            a[:,:,e3-order,:,:,:] = 0.
-
+    elif ext == 1 and V.ends[axis] == V.npts[axis] - 1:
+        e = V.ends[axis]
+        index = [(e - order if j == axis else slice(None)) for j in range(n)]
+        a[tuple(index)] = 0.0
+        if isinstance(a, StencilMatrix) and identity:
+            a[tuple(index[:n//2])+(0,)*(n//2)] = 1.
+    else:
+        pass
 
 #==============================================================================
-# V is a ProductFemSpace here
-def apply_essential_bc_BlockMatrix(V, bc, a):
-    """ Apply homogeneous dirichlet boundary conditions in nD """
+def apply_essential_bc_BlockLinearOperator(a, bc, *, identity=False, is_broken=True):
+    """
+    Apply homogeneous dirichlet boundary conditions in nD.
+    is_broken is used to identify if we are in a multipatch setting, where we assume
+    that the domain and codomain of each block of the BlockLinearOperator corresponds to a single patch.
 
-    if bc.index_component:
-        keys = list(a._blocks.keys())
+    Parameters
+    ----------
+    a : BlockLinearOperator
+        The BlockLinearOperator to be modified.
+ 
+    bc: Sympde.expr.equation.BasicBoundaryCondition
+        The boundary condition type that will be applied to a.
+
+    is_broken: bool
+        Set to True if we are in a multipatch setting and False otherwise.
+    """
+
+    assert isinstance(a, BlockLinearOperator)
+    keys = a.nonzero_block_indices
+
+    is_broken = bc.variable.space.is_broken and is_broken
+    if bc.index_component and not is_broken:
         for i_loc in bc.index_component:
             i = bc.position + i_loc
             js = [ij[1] for ij in keys if ij[0] == i]
             for j in js:
-                M = a[i,j]
+                apply_essential_bc(a[i, j], bc, identity=(identity and i==j))
 
-                W = V.spaces[i]
-                apply_essential_bc(W, bc, M)
-
+    elif bc.position is not None and not is_broken:
+        i = bc.position
+        js = [ij[1] for ij in keys if ij[0] == i]
+        for j in js:
+            apply_essential_bc(a[i, j], bc, identity=(identity and i==j))
+    elif is_broken:
+        space = bc.variable.space
+        domains = space.domain.interior.args
+        assert len(a.blocks) == len(domains)
+        bd = bc.boundary.domain
+        i  = domains.index(bd)
+        js = [ij[1] for ij in keys if ij[0] == i]
+        for j in js:
+            apply_essential_bc(a[i, j], bc, identity=(identity and i==j), is_broken=False)
 
 #==============================================================================
-# V is a ProductFemSpace here
-def apply_essential_bc_BlockVector(V, bc, a):
-    """ Apply homogeneous dirichlet boundary conditions in nD """
+def apply_essential_bc_BlockVector(a, bc, *, is_broken=True):
+    """ Apply homogeneous dirichlet boundary conditions in nD.
+        is_broken is used to identify if we are in a multipatch setting, where we assume
+        each block of the BlockVector corresponds to a different patch.
 
-    if bc.index_component:
+    Parameters
+    ----------
+    a : BlockVector
+        The BlockVector to be modified.
+ 
+    bc: Sympde.expr.equation.BasicBoundaryCondition
+        The boundary condition type that will be applied to a.
+
+    is_broken: bool
+        Set to True if we are in a multipatch setting and False otherwise. 
+    """
+
+    assert isinstance(a, BlockVector)
+
+    is_broken = bc.variable.space.is_broken and is_broken
+    if bc.index_component and not is_broken:
         for i_loc in bc.index_component:
             i = bc.position + i_loc
-
-            M = a[i]
-            W = V.spaces[i]
-            apply_essential_bc(W, bc, M)
-
-
-#==============================================================================
-# TODO must pass two spaces for a matrix
-def apply_essential_bc(V, bc, *args, **kwargs):
-
-    if not isinstance(bc, (tuple, list)):
-        bc = [bc]
-
-    _avail_classes = [StencilVector, StencilMatrix,
-                      BlockVector, BlockMatrix]
-    for a in args:
-        classes = type(a).__mro__
-        classes = set(classes) & set(_avail_classes)
-        classes = list(classes)
-        if not classes:
-            raise TypeError('> wrong argument type {}'.format(type(a)))
-
-        cls = classes[0]
-
-        if not isinstance(a, (BlockMatrix, BlockVector)):
-            pattern = 'apply_essential_bc_{dim}d_{name}'
-            apply_bc = pattern.format( dim = V.ldim, name = cls.__name__ )
-
-        else:
-            pattern = 'apply_essential_bc_{name}'
-            apply_bc = pattern.format( name = cls.__name__ )
-
-        apply_bc = eval(apply_bc)
-        for b in bc:
-            apply_bc(V, b, a, **kwargs)
+            apply_essential_bc(a[i], bc)
+    elif bc.position is not None and not is_broken:
+        i = bc.position
+        apply_essential_bc(a[i], bc)
+    elif is_broken:
+        space = bc.variable.space
+        domains = space.domain.interior.args
+        bd = bc.boundary.domain
+        assert len(a.blocks) == len(domains)
+        i  = domains.index(bd)
+        apply_essential_bc(a[i], bc, is_broken=False)

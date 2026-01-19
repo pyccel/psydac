@@ -1,5 +1,8 @@
-# -*- coding: UTF-8 -*-
-
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 from sympy import Tuple, Matrix
 from sympy import pi, sin
 
@@ -8,10 +11,9 @@ from sympde.topology import VectorFunctionSpace
 from sympde.topology import element_of
 from sympde.topology import Square
 from sympde.expr     import BilinearForm, LinearForm, integral
-from sympde.expr     import Norm
+from sympde.expr     import Norm, SemiNorm
 from sympde.expr     import find, EssentialBC
 
-from psydac.fem.vector         import VectorFemField
 from psydac.api.discretization import discretize
 
 #==============================================================================
@@ -24,8 +26,6 @@ def run_vector_poisson_2d_dir(solution, f, ncells, degree):
 
     x,y = domain.coordinates
 
-    F = element_of(V, name='F')
-
     v = element_of(V, name='v')
     u = element_of(V, name='u')
 
@@ -37,9 +37,9 @@ def run_vector_poisson_2d_dir(solution, f, ncells, degree):
     expr = dot(f, v)
     l = LinearForm(v, int_0(expr))
 
-    error = Matrix([F[0]-solution[0], F[1]-solution[1]])
-    l2norm = Norm(error, domain, kind='l2')
-    h1norm = Norm(error, domain, kind='h1')
+    error  = Matrix([u[0]-solution[0], u[1]-solution[1]])
+    l2norm =     Norm(error, domain, kind='l2')
+    h1norm = SemiNorm(error, domain, kind='h1')
 
     bc = EssentialBC(u, 0, domain.boundary)
     equation = find(u, forall=v, lhs=a(u,v), rhs=l(v), bc=bc)
@@ -63,16 +63,12 @@ def run_vector_poisson_2d_dir(solution, f, ncells, degree):
     # ...
 
     # ... solve the discrete equation
-    x = equation_h.solve()
-    # ...
-
-    # ...
-    phi = VectorFemField( Vh, x )
+    uh = equation_h.solve()
     # ...
 
     # ... compute norms
-    l2_error = l2norm_h.assemble(F=phi)
-    h1_error = h1norm_h.assemble(F=phi)
+    l2_error = l2norm_h.assemble(u = uh)
+    h1_error = h1norm_h.assemble(u = uh)
     # ...
 
     return l2_error, h1_error
@@ -80,14 +76,15 @@ def run_vector_poisson_2d_dir(solution, f, ncells, degree):
 #==============================================================================
 def test_api_vector_poisson_2d_dir_1():
 
-    from sympy.abc import x,y
+    from sympy import symbols
+    x1, x2 = symbols('x1, x2', real=True)
 
-    u1 = sin(pi*x)*sin(pi*y)
-    u2 = sin(pi*x)*sin(pi*y)
+    u1 = sin(pi*x1)*sin(pi*x2)
+    u2 = sin(pi*x1)*sin(pi*x2)
     solution = Tuple(u1, u2)
 
-    f1 = 2*pi**2*sin(pi*x)*sin(pi*y)
-    f2 = 2*pi**2*sin(pi*x)*sin(pi*y)
+    f1 = 2*pi**2*sin(pi*x1)*sin(pi*x2)
+    f2 = 2*pi**2*sin(pi*x1)*sin(pi*x2)
     f = Tuple(f1, f2)
 
     l2_error, h1_error = run_vector_poisson_2d_dir(solution, f,
@@ -106,9 +103,9 @@ def test_api_vector_poisson_2d_dir_1():
 #==============================================================================
 
 def teardown_module():
-    from sympy import cache
+    from sympy.core import cache
     cache.clear_cache()
 
 def teardown_function():
-    from sympy import cache
+    from sympy.core import cache
     cache.clear_cache()

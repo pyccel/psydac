@@ -1,5 +1,0 @@
-numpy
-scipy
-matplotlib
-sphinx
-sphinxcontrib-bibtex==0.3.6
