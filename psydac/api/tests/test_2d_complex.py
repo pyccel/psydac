@@ -4,7 +4,7 @@
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
 import os
-
+from pathlib import Path
 from collections import OrderedDict
 
 from mpi4py import MPI
@@ -30,15 +30,9 @@ from sympde.expr     import find, EssentialBC
 from psydac.api.discretization import discretize
 from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL
 
-# ... get the mesh directory
-try:
-    mesh_dir = os.environ['PSYDAC_MESH_DIR']
-
-except:
-    base_dir = os.path.dirname(os.path.realpath(__file__))
-    base_dir = os.path.join(base_dir, '..', '..', '..')
-    mesh_dir = os.path.join(base_dir, 'mesh')
-
+# Get the mesh directory
+import psydac.cad.mesh as mesh_mod
+mesh_dir = Path(mesh_mod.__file__).parent
 
 #==============================================================================
 def get_boundaries(*args):
@@ -484,7 +478,7 @@ def test_maxwell_2d_2_patch_dirichlet_2():
     assert abs(l2_error - expected_l2_error) < 1e-7
 
 
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_maxwell_2d_2_patch_dirichlet_parallel_0():
     # This test solve the maxwell problem with non-homogeneous dirichlet condition with penalization on the border of the exact solution
 

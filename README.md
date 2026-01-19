@@ -1,8 +1,7 @@
-<h1 align="center">
-<img src="https://raw.githubusercontent.com/pyccel/psydac/devel/docs/source/logo/psydac_banner.svg" width="600" alt="Shows the psydac logo." class="dark-light">
-</h1><br>
+# <img src="https://raw.githubusercontent.com/pyccel/psydac/devel/docs/source/logo/psydac_banner.svg" width="600" style="display: block; margin: 0 auto" alt="PSYDAC logo." class="dark-light">
 
-[![devel_tests](https://github.com/pyccel/psydac/actions/workflows/testing.yml/badge.svg)](https://github.com/pyccel/psydac/actions/workflows/testing.yml) [![docs](https://github.com/pyccel/psydac/actions/workflows/documentation.yml/badge.svg)](https://github.com/pyccel/psydac/actions/workflows/documentation.yml)
+[![devel_tests](https://github.com/pyccel/psydac/actions/workflows/testing.yml/badge.svg)](https://github.com/pyccel/psydac/actions/workflows/testing.yml)
+[![docs](https://github.com/pyccel/psydac/actions/workflows/documentation.yml/badge.svg)](https://github.com/pyccel/psydac/actions/workflows/documentation.yml)
 
 PSYDAC is a Python 3 library for isogeometric analysis.
 It is an academic, open-source project created by numerical mathematicians at the [Max Planck Institute for Plasma Physics](https://www.ipp.mpg.de/en) ([NMPP](https://www.ipp.mpg.de/ippcms/eng/for/bereiche/numerik) division, [FEM](https://www.ipp.mpg.de/5150531/fem) group).
@@ -48,21 +47,25 @@ source <ENV-PATH>/bin/activate
 
 PSYDAC and its Python dependencies can now be installed in the virtual environment using [`pip`](https://pip.pypa.io/en/stable/), the Python package manager:
 ```bash
-git clone https://github.com/pyccel/psydac.git
-
 export CC="mpicc"
 export HDF5_MPI="ON"
 export HDF5_DIR=<HDF5-PATH>
 
 pip install --upgrade pip
 pip install h5py --no-cache-dir --no-binary h5py
-pip install ./psydac
+pip install "psydac[test]"
 ```
 Here `<HDF5-PATH>` is the path to the HDF5 root folder, such that `<HDF5-PATH>/lib/` contains the HDF5 dynamic libraries with MPI support.
-For an editable install, the last command above should be replaced with:
+
+The last command above installs the latest version of PSYDAC found on [PyPI](https://pypi.org), the Python Package Index, together with some optional packages needed for running the unit tests.
+A developer wanting to modify the source code should skip that command, and instead clone the PSYDAC repository to perform an **editable install**:
+
 ```bash
+git clone --recurse-submodules https://github.com/pyccel/psydac.git
+cd psydac
+
 pip install meson-python "pyccel>=2.1.0"
-pip install --no-build-isolation --editable ./psydac
+pip install --no-build-isolation --editable ".[test]"
 ```
 
 Again, for more details we refer to our [documentation](https://pyccel.github.io/psydac/installation.html).
@@ -74,36 +77,35 @@ Again, for more details we refer to our [documentation](https://pyccel.github.io
 
 ## Running Tests
 
-The test suite of PSYDAC is based on [`pytest`](https://docs.pytest.org/en/stable/), which should be installed in the same virtual environment:
-```bash
-source <ENV-PATH>/bin/activate
-pip install pytest
-```
+We strongly advice users and developers to run the test suite of PSYDAC to verify the correct installation on their machine (possibly a supercomputer).
+All unit tests are based on [`pytest`](https://docs.pytest.org/en/stable/) and are installed together with the library.
+For convenience, PSYDAC provides the `psydac test` command as shown below.
 
-Let `<PSYDAC-PATH>` be the installation directory of PSYDAC.
 In order to run all serial and parallel tests which do not use PETSc, just type:
 ```bash
-export PSYDAC_MESH_DIR=<PSYDAC-PATH>/mesh/
-pytest --pyargs psydac -m "not parallel and not petsc"
-python <PSYDAC-PATH>/mpi_tester.py --pyargs psydac -m "parallel and not petsc"
+psydac test
+psydac test --mpi
 ```
 
-If PETSc and petsc4py were installed, some additional tests can be run:
+If PETSc and petsc4py were installed, additional serial and parallel tests can be run:
 ```bash
-pytest --pyargs psydac -m "not parallel and petsc"
-python <PSYDAC-PATH>/mpi_tester.py --pyargs psydac -m "parallel and petsc"
+psydac test --petsc
+psydac test --petsc --mpi
 ```
 
 ## Speeding up PSYDAC's core
 
-Many of PSYDAC's low-level Python functions can be translated to a compiled language using the [Pyccel](https://github.com/pyccel/pyccel) transpiler. Currently, all of those functions are collected in modules which follow the name pattern `[module]_kernels.py`.
+Many of PSYDAC's low-level Python functions can be translated to a compiled language using the [Pyccel](https://github.com/pyccel/pyccel) transpiler.
+Currently, all of those functions are collected in modules which follow the name pattern `[module]_kernels.py`.
 
-For both classical and editable installations, all kernel files are translated to Fortran without user intervention. If the user adds or edits a kernel file within an editable install, they should use the command `psydac-accelerate` in order to be able to see the changes at runtime.
-This command applies Pyccel to all the kernel files in the source directory. The default language is Fortran, and C is also available.
+For both classical and editable installations, *all kernel files are translated to Fortran __without user intervention__*.
+If the user adds or edits a kernel file within an editable install, they should use the command `psydac compile` in order to be able to see the changes at runtime.
+This command applies Pyccel to all the kernel files in the source directory.
+The default language is Fortran, and C is also available.
 
 -   **Only in development mode**:
     ```bash
-    psydac-accelerate [--language LANGUAGE] [--openmp]
+    psydac compile [--language {fortran, c}]
     ```
 
 ## Examples and Tutorials

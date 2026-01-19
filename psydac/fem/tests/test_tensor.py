@@ -144,7 +144,7 @@ def compare_figure_to_reference(fig, filename, *, dpi, tol, folder, comm, root):
 #==============================================================================
 # Unit tests
 #==============================================================================
-@pytest.mark.parallel
+@pytest.mark.mpi
 @pytest.mark.parametrize('root', ['first', 'last'])
 @pytest.mark.parametrize('kind', ['spline', 'analytical'])
 def test_plot_2d_decomposition(kind, root):
