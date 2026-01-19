@@ -10,7 +10,7 @@ on:
 jobs:
   deployVersion:
     runs-on: ubuntu-latest
-    if: github.repository == 'pyccel/psydac'
+    if: ${{ github.repository == 'pyccel/psydac' && github.event.workflow_run.conclusion == 'success' }}
     steps:
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
