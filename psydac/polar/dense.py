@@ -1,16 +1,18 @@
-# coding: utf-8
-#
-# Copyright 2018 Yaman Güçlü
-
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 import numpy as np
+from mpi4py import MPI
 from scipy.sparse import coo_matrix
 
-from psydac.linalg.basic import VectorSpace, Vector, Matrix
+from psydac.linalg.basic import VectorSpace, Vector, LinearOperator
 
-__all__ = ['DenseVectorSpace', 'DenseVector', 'DenseMatrix']
+__all__ = ('DenseVectorSpace', 'DenseVector', 'DenseMatrix')
 
 #==============================================================================
-class DenseVectorSpace( VectorSpace ):
+class DenseVectorSpace(VectorSpace):
     """
     Space of one-dimensional global arrays, NOT distributed across processes.
 
@@ -65,7 +67,7 @@ class DenseVectorSpace( VectorSpace ):
            subcommunicator (process with radial coordinate = 0 is the root);
 
     """
-    def __init__( self, n, *, dtype=np.float64, cart=None, radial_dim=0, angle_dim=1 ):
+    def __init__(self, n, *, dtype=np.float64, cart=None, radial_dim=0, angle_dim=1):
 
         self._n     = n
         self._dtype = dtype
@@ -81,14 +83,15 @@ class DenseVectorSpace( VectorSpace ):
             # Radial sub-communicator (1D)
             radial_comm   = cart.subcomm[radial_dim]
             radial_master = (cart.coords[radial_dim] == 0)
-            radial_root   = radial_comm.allreduce( radial_comm.rank if radial_master else 0 )
+            radial_root   = radial_comm.allreduce(radial_comm.rank if radial_master else 0)
 
             # Tensor sub-communicator (M-dimensional)
-            remain_dims = [d not in (radial_dim, angle_dim) for d in range( cart.ndim )]
-            tensor_comm = cart.comm_cart.Sub( remain_dims )
+            remain_dims = [d not in (radial_dim, angle_dim) for d in range(cart.ndim)]
+            tensor_comm = cart.comm_cart.Sub(remain_dims)
 
             # Calculate dimension of linear space
-            self._dimension = n * np.prod( [cart.npts[d] for d in remain_dims] )
+            tensor_shape = [cart.npts[i] for i, d in enumerate(remain_dims) if d]
+            dimension    = n * np.prod(tensor_shape, dtype=int)
 
             # Store info
             self._radial_dim  = radial_dim
@@ -97,6 +100,7 @@ class DenseVectorSpace( VectorSpace ):
             self._angle_dim   = angle_dim
             self._angle_comm  = angle_comm
             self._tensor_comm = tensor_comm
+            self._dimension   = dimension
 
         else:
 
@@ -110,14 +114,19 @@ class DenseVectorSpace( VectorSpace ):
     # Abstract interface
     #-------------------------------------
     @property
-    def dimension( self ):
+    def dimension(self):
         """ The dimension of a vector space V is the cardinality
             (i.e. the number of vectors) of a basis of V over its base field.
         """
         return self._dimension
 
     # ...
-    def zeros( self ):
+    @property
+    def dtype(self):
+        return self._dtype
+
+    # ...
+    def zeros(self):
         """
         Get a copy of the null element of the DenseVectorSpace V.
 
@@ -127,24 +136,83 @@ class DenseVectorSpace( VectorSpace ):
             A new vector object with all components equal to zero.
 
         """
-        data = np.zeros( self.ncoeff, dtype=self.dtype )
-        return DenseVector( self, data )
+        data = np.zeros(self.ncoeff, dtype=self.dtype)
+        return DenseVector(self, data)
+
+    # ...
+    def inner(self, x, y):
+        """
+        Evaluate the inner vector product between two vectors of this space V.
+
+        If the field of V is real, compute the classical scalar product.
+        If the field of V is complex, compute the classical sesquilinear
+        product with linearity on the second vector.
+
+        TODO [YG 01.05.2025]: Currently, the first vector is conjugated. We
+        want to reverse this behavior in order to align with the convention
+        of FEniCS.
+
+        TODO [MCP 07.05.2025]: Actually, there is currently no conjugation, 
+        since `numpy.dot` is being called.
+
+        Parameters
+        ----------
+        x : Vector
+            The first vector in the scalar product. In the case of a complex
+            field, the inner product is antilinear w.r.t. this vector (hence
+            this vector is conjugated).
+            NOTE [MCP 07.05.2025]: currently without conjugate, see np.dot
+
+        y : Vector
+            The second vector in the scalar product. The inner product is
+            linear w.r.t. this vector.
+
+        Returns
+        -------
+        float | complex
+            The scalar product of the two vectors. Note that inner(x, x) is
+            a non-negative real number which is zero if and only if x = 0.
+
+        """
+        assert isinstance(x, DenseVector)
+        assert isinstance(y, DenseVector)
+        assert x.space is self
+        assert y.space is self
+
+        # 1. Local dot product
+        res = np.dot(x._data, y._data)
+
+        V = self
+        if V.parallel:
+            # 2. MPI_ALLREDUCE operation on the M-2 dimensional tensor subcomm.
+            if (V.tensor_comm != MPI.COMM_NULL) and (V.radial_comm.rank == V.radial_root):
+                res = V.tensor_comm.allreduce(res)
+            # 3. MPI_BCAST operation on the 1D radial subcommunicator
+            res = V.radial_comm.bcast(res, root=V.radial_root)
+
+        return res
+
+    # ...
+    def axpy(self, a, x, y):
+
+        assert isinstance(a, (int, float, complex))
+        assert isinstance(x, DenseVector)
+        assert isinstance(y, DenseVector)
+        assert x.space is self
+        assert y.space is self
+
+        y += a * x
 
     #-------------------------------------
     # Other properties/methods
     #-------------------------------------
     @property
-    def dtype( self ):
-        return self._dtype
-
-    # ...
-    @property
-    def parallel( self ):
+    def parallel(self):
         return (self._cart is not None)
 
     # ...
     @property
-    def ncoeff( self ):
+    def ncoeff(self):
         """ Local number of coefficients. """
         # TODO: maybe keep this number global, and add local 'dshape' property
         if self.parallel:
@@ -154,32 +222,32 @@ class DenseVectorSpace( VectorSpace ):
 
     # ...
     @property
-    def tensor_comm( self ):
+    def tensor_comm(self):
         return self._tensor_comm
 
     # ...
     @property
-    def angle_comm( self ):
+    def angle_comm(self):
         return self._angle_comm
 
     # ...
     @property
-    def radial_comm( self ):
+    def radial_comm(self):
         return self._radial_comm
 
     # ...
     @property
-    def radial_root( self ):
+    def radial_root(self):
         return self._radial_root
 
 #==============================================================================
-class DenseVector( Vector ):
+class DenseVector(Vector):
 
-    def __init__( self, V, data ):
+    def __init__(self, V, data):
 
-        assert isinstance( V, DenseVectorSpace )
+        assert isinstance(V, DenseVectorSpace)
 
-        data = np.asarray( data )
+        data = np.asarray(data)
         assert data.ndim  == 1
         assert data.shape ==(V.ncoeff,)
         assert data.dtype == V.dtype
@@ -191,63 +259,70 @@ class DenseVector( Vector ):
     # Abstract interface
     #--------------------------------------
     @property
-    def space( self ):
+    def space(self):
         return self._space
 
     # ...
-    def dot( self, v ):
-        assert isinstance( v, DenseVector )
+    def toarray(self, **kwargs):
+        return self._data.copy()
+
+    # ...
+    def copy(self, out=None):
+        if self is out:
+            return self
+        if out is not None:
+            assert isinstance(out, DenseVector)
+            assert self.space is out.space
+            np.copyto(out._data, self._data, casting='no')
+            return out
+        else:
+            return DenseVector(self._space, self._data.copy())
+
+    # ...
+    def conjugate(self, out=None):
+        if out is not None:
+            assert isinstance(out, DenseVector)
+            assert out.space is self.space
+        else:
+            out = DenseVector(self.space)
+        np.conjugate(self._data, out=out._data, casting='no')
+        return out
+
+    # ...
+    def __neg__(self):
+        return DenseVector(self._space, -self._data)
+
+    # ...
+    def __mul__(self, a):
+        return DenseVector(self._space, self._data * a)
+
+    # ...
+    def __add__(self, v):
+        assert isinstance(v, DenseVector)
         assert v._space is self._space
-
-        res = np.dot( self._data, v._data )
-
-        V = self._space
-        if V.parallel:
-            if V.radial_comm.rank == V.radial_root:
-                res = V.tensor_comm.allreduce( res )
-            res = V.radial_comm.bcast( res, root=V.radial_root )
-
-        return res
+        return DenseVector(self._space, self._data + v._data)
 
     # ...
-    def copy( self ):
-        return DenseVector( self._space, self._data.copy() )
-
-    # ...
-    def __mul__( self, a ):
-        return DenseVector( self._space, self._data * a )
-
-    # ...
-    def __rmul__( self, a ):
-        return DenseVector( self._space, a * self._data )
-
-    # ...
-    def __add__( self, v ):
-        assert isinstance( v, DenseVector )
+    def __sub__(self, v):
+        assert isinstance(v, DenseVector)
         assert v._space is self._space
-        return DenseVector( self._space, self._data + v._data )
+        return DenseVector(self._space, self._data - v._data)
 
     # ...
-    def __sub__( self, v ):
-        assert isinstance( v, DenseVector )
-        assert v._space is self._space
-        return DenseVector( self._space, self._data - v._data )
-
-    # ...
-    def __imul__( self, a ):
+    def __imul__(self, a):
         self._data *= a
         return self
 
     # ...
-    def __iadd__( self, v ):
-        assert isinstance( v, DenseVector )
+    def __iadd__(self, v):
+        assert isinstance(v, DenseVector)
         assert v._space is self._space
         self._data += v._data
         return self
 
     # ...
-    def __isub__( self, v ):
-        assert isinstance( v, DenseVector )
+    def __isub__(self, v):
+        assert isinstance(v, DenseVector)
         assert v._space is self._space
         self._data -= v._data
         return self
@@ -255,18 +330,28 @@ class DenseVector( Vector ):
     #-------------------------------------
     # Other properties/methods
     #-------------------------------------
-    def toarray( self ):
-        return self._data.copy()
+    def update_ghost_regions(self, *, direction=None):
+        pass
+
+    # ...
+    @property
+    def ghost_regions_in_sync(self):
+        return True
+
+    # ...
+    @ghost_regions_in_sync.setter
+    def ghost_regions_in_sync(self, value):
+        pass
 
 #==============================================================================
-class DenseMatrix( Matrix ):
+class DenseMatrix(LinearOperator):
 
-    def __init__( self, V, W, data ):
+    def __init__(self, V, W, data):
 
-        assert isinstance( V, DenseVectorSpace )
-        assert isinstance( W, DenseVectorSpace )
+        assert isinstance(V, DenseVectorSpace)
+        assert isinstance(W, DenseVectorSpace)
 
-        data = np.asarray( data )
+        data = np.asarray(data)
         assert data.ndim  == 2
         assert data.shape == (W.ncoeff, V.ncoeff)
 #        assert data.dfype == #???
@@ -279,35 +364,99 @@ class DenseMatrix( Matrix ):
     # Abstract interface
     #--------------------------------------
     @property
-    def domain( self ):
+    def domain(self):
         return self._domain
 
     # ...
     @property
-    def codomain( self ):
+    def codomain(self):
         return self._codomain
 
-    # ...
-    def dot( self, v, out=None ):
+    def transpose(self, conjugate=False):
+        raise NotImplementedError()
 
-        assert isinstance( v, DenseVector )
+    # ...
+    @property
+    def dtype(self):
+        return self.domain.dtype
+
+    def __truediv__(self, a):
+        """ Divide by scalar. """
+        return self * (1.0 / a)
+
+    def __itruediv__(self, a):
+        """ Divide by scalar, in place. """
+        self *= 1.0 / a
+        return self
+
+    # ...
+    def dot(self, v, out=None):
+
+        assert isinstance(v, DenseVector)
         assert v.space is self._domain
 
         if out:
-            assert isinstance( out, DenseVector )
+            assert isinstance(out, DenseVector)
             assert out.space is self._codomain
-            np.dot( self._data, v._data, out=out._data )
+            np.dot(self._data, v._data, out=out._data)
         else:
             W    = self._codomain
-            data = np.dot( self._data, v._data )
-            out  = DenseVector( W, data )
+            data = np.dot(self._data, v._data)
+            out  = DenseVector(W, data)
 
         return out
 
     # ...
-    def toarray( self ):
+    def toarray(self , **kwargs):
         return self._data.copy()
 
     # ...
-    def tosparse( self ):
-        return coo_matrix( self._data )
+    def tosparse(self , **kwargs):
+        return coo_matrix(self._data)
+
+    # ...
+    def copy(self):
+        return DenseMatrix(self.domain, self.codomain, self._data.copy())
+
+    # ...
+    def __neg__(self):
+        return DenseMatrix(self.domain, self.codomain, -self._data)
+
+    # ...
+    def __mul__(self, a):
+        return DenseMatrix(self.domain, self.codomain, self._data * a)
+
+    # ...
+    def __add__(self, m):
+        assert isinstance(m, DenseMatrix)
+        assert self.  domain == m.  domain
+        assert self.codomain == m.codomain
+        return DenseMatrix(self.domain, self.codomain, self._data + m._data)
+
+    # ...
+    def __sub__(self, m):
+        assert isinstance(m, DenseMatrix)
+        assert self.  domain == m.  domain
+        assert self.codomain == m.codomain
+        return DenseMatrix(self.domain, self.codomain, self._data - m._data)
+
+    # ...
+    def __imul__(self, a):
+        self._data *= a
+        return self
+
+    # ...
+    def __iadd__(self, m):
+        assert isinstance(m, DenseMatrix)
+        assert self.  domain == m.  domain
+        assert self.codomain == m.codomain
+        self._data += m._data
+        return self
+
+    # ...
+    def __isub__(self, m):
+        assert isinstance(m, DenseMatrix)
+        assert self.  domain == m.  domain
+        assert self.codomain == m.codomain
+        self._data -= m._data
+        return self

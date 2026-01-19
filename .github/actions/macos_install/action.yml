@@ -1,0 +1,23 @@
+name: 'MacOS installation commands'
+
+runs:
+  using: "composite"
+  steps:
+
+    - name: Install non-Python dependencies on macOS
+      run: |
+        brew install make
+        brew install open-mpi
+        brew install hdf5-mpi
+        brew install libomp
+        GFORTRAN_HOME=$(which gfortran || true)
+        echo "GFORTRAN_HOME : $GFORTRAN_HOME"
+        if [[ ! -f "$GFORTRAN_HOME" ]]; then
+          gfort=$(find ${PATH//:/\/ } -name 'gfortran-*' -exec basename {} \; | sort | tail -n 1 || true)
+          echo "Found $gfort"
+          gfort_path=$(which ${gfort})
+          folder=$(dirname ${gfort_path})
+          ln -s ${gfort_path} ${folder}/gfortran
+        fi
+        echo "/opt/homebrew/opt/make/libexec/gnubin" >> $GITHUB_PATH
+      shell: bash

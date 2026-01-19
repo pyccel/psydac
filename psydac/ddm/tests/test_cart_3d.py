@@ -1,22 +1,29 @@
-# File test_cart_3d.py
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
+from psydac.ddm.blocking_data_exchanger    import BlockingCartDataExchanger
+from psydac.ddm.nonblocking_data_exchanger import NonBlockingCartDataExchanger
 
 #===============================================================================
 # TEST CartDecomposition and CartDataExchanger in 3D
 #===============================================================================
-def run_cart_3d( verbose=False ):
+def run_cart_3d( data_exchanger_type, verbose=False ):
 
     import numpy as np
     from mpi4py       import MPI
-    from psydac.ddm.cart import CartDecomposition, CartDataExchanger
+    from psydac.ddm.cart import DomainDecomposition, CartDecomposition
 
     #---------------------------------------------------------------------------
     # INPUT PARAMETERS
     #---------------------------------------------------------------------------
 
-    # Number of elements
-    n1 = 135
-    n2 =  77
-    n3 =  98
+
+    # Number of cells
+    nc1 = 135
+    nc2 = 77
+    nc3 =  98
 
     # Padding ('thickness' of ghost region)
     p1 = 3
@@ -28,6 +35,10 @@ def run_cart_3d( verbose=False ):
     period2 = False
     period3 = True
 
+    # Number of Points
+    n1 = nc1 + p1*(1-period1)
+    n2 = nc2 + p2*(1-period2)
+    n3 = nc3 + p3*(1-period3)
     #---------------------------------------------------------------------------
     # DOMAIN DECOMPOSITION
     #---------------------------------------------------------------------------
@@ -37,13 +48,27 @@ def run_cart_3d( verbose=False ):
     size = comm.Get_size()
     rank = comm.Get_rank()
 
+    domain_decomposition = DomainDecomposition(ncells=[nc1,nc2,nc3], periods=[period1,period2,period3], comm=comm)
+    
+    npts          = [n1,n2,n3]
+    global_starts = [None]*3
+    global_ends   = [None]*3
+    for axis in range(3):
+        es = domain_decomposition.global_element_starts[axis]
+        ee = domain_decomposition.global_element_ends  [axis]
+
+        global_ends  [axis]     = (ee+1)-1
+        global_ends  [axis][-1] = npts[axis]-1
+        global_starts[axis]     = np.array([0] + (global_ends[axis][:-1]+1).tolist())
+
     # Decomposition of Cartesian domain
     cart = CartDecomposition(
-        npts    = [n1+1,n2+1,n3+1],
-        pads    = [p1,p2,p3],
-        periods = [period1, period2, period3],
-        reorder = False,
-        comm    = comm,
+            domain_decomposition      = domain_decomposition,
+            npts          = [n1,n2,n3],
+            global_starts = global_starts,
+            global_ends   = global_ends,
+            pads          = [p1,p2,p3],
+            shifts        = [1,1,1],
     )
 
     # Local 3D array with 3D vector data (extended domain)
@@ -55,7 +80,7 @@ def run_cart_3d( verbose=False ):
     e1,e2,e3 = cart.ends
 
     # Create object in charge of exchanging data between subdomains
-    synchronizer = CartDataExchanger( cart, u.dtype, coeff_shape=[3] )
+    synchronizer = data_exchanger_type( cart, u.dtype, coeff_shape=[3] )
 
     # Print some info
     if rank == 0:
@@ -80,15 +105,17 @@ def run_cart_3d( verbose=False ):
                                               for i2 in range(s2,e2+1)] \
                                               for i1 in range(s1,e1+1)]
 
+    request = synchronizer.prepare_communications(u)
     # Update ghost regions
-    synchronizer.update_ghost_regions( u )
+    synchronizer.start_update_ghost_regions( u, request )
+    synchronizer.end_update_ghost_regions( u, request )
 
     #---------------------------------------------------------------------------
     # CHECK RESULTS
     #---------------------------------------------------------------------------
 
     # Verify that ghost cells contain correct data (note periodic domain!)
-    val = lambda i1,i2,i3: (i1%(n1+1),i2,i3%(n3+1)) if 0<=i2<=n2 else (0,0,0)
+    val = lambda i1,i2,i3: (i1%n1,i2,i3%n3) if 0<=i2<n2 else (0,0,0)
 
     uex = [[[val(i1,i2,i3) for i3 in range(s3-p3,e3+p3+1)] \
                            for i2 in range(s2-p2,e2+p2+1)] \
@@ -106,10 +133,11 @@ def run_cart_3d( verbose=False ):
 #===============================================================================
 import pytest
 
-@pytest.mark.parallel
-def test_cart_3d():
+@pytest.mark.parametrize( 'data_exchanger_type', [BlockingCartDataExchanger, NonBlockingCartDataExchanger] )
+@pytest.mark.mpi
+def test_cart_3d(data_exchanger_type):
 
-    namespace = run_cart_3d()
+    namespace = run_cart_3d(data_exchanger_type)
 
     assert namespace['success']
 
@@ -118,7 +146,7 @@ def test_cart_3d():
 #===============================================================================
 if __name__=='__main__':
 
-    locals().update( run_cart_3d( verbose=True ) )
+    locals().update( run_cart_3d( BlockingCartDataExchanger, verbose=True ) )
 
     # Print error messages (if any) in orderly fashion
     for k in range(size):

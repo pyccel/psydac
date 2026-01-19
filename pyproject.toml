@@ -1,0 +1,116 @@
+[build-system]
+requires = ["meson-python", "pyccel >= 2.1.0"]
+build-backend = "mesonpy"
+
+[project]
+name            = "psydac"
+description     = "Python package for isogeometric analysis (IGA)"
+readme          = "README.md"
+license         = "MIT"
+license-files   = ["LICENSE", "AUTHORS"]
+version         = "1.0.0"
+requires-python = ">= 3.10"
+authors         = [
+    {name = "PSYDAC development team", email = "psydac@googlegroups.com"}
+]
+maintainers = [
+    {name = "Yaman Güçlü", email = "yaman.guclu@gmail.com"},
+    {name = "Martin Campos Pinto", email = "martin.campos-pinto@ipp.mpg.de"},
+]
+keywords     = ["FEM", "IGA", "B-spline", "NURBS"]
+classifiers  = ["Programming Language :: Python :: 3"]
+dependencies = [
+    # Third-party packages from PyPi
+    'numpy >= 1.16, < 2.4',
+    'scipy >= 1.12',
+    'sympy >= 1.5',
+    'matplotlib',
+    'pyyaml >= 5.1',
+    'packaging',
+    'pyevtk',
+    'termcolor',
+
+    # Our packages from PyPi
+    'sympde == 0.19.2',
+    'pyccel >= 2.1.0',
+    'gelato == 0.12',
+
+    # MPI for Python provides Python bindings for the
+    # Message Passing Interface (MPI) standard
+    'mpi4py >= 4',
+
+    # In addition, we depend on h5py (MPI version). Since h5py must
+    # be built from source, we install it with the commands
+    #
+    # export CC="mpicc"
+    # export HDF5_MPI="ON"
+    # export HDF5_DIR=<PATH-TO-HDF5-ROOT-FOLDER>
+    # pip install --no-cache-dir --no-binary h5py
+    'h5py',
+
+    # When pyccel is run in parallel with MPI, it uses tblib to pickle
+    # tracebacks, which allows mpi4py to broadcast exceptions
+    'tblib',
+]
+
+[project.optional-dependencies]
+test = [
+    'pytest >= 7.0',
+    'pytest-cov >= 5.0.0',
+    'pytest-mpi',
+    'pytest-xdist >= 1.16',
+    'Pillow',  # Python Imaging Library (PIL) fork
+]
+
+[project.urls]
+Homepage      = "https://github.com/pyccel/psydac"
+Documentation = "https://pyccel.github.io/psydac"
+Repository    = "https://github.com/pyccel/psydac.git"
+Changelog     = "https://github.com/pyccel/psydac/blob/devel/CHANGELOG.md"
+Tracker       = "https://github.com/pyccel/psydac/issues"
+
+[project.scripts]
+psydac = "psydac.cmd.main:psydac_command"
+
+[tool.meson-python.args]
+setup=['-Ddefault_library=static']
+dist=['--include-subprojects']
+install=['--only=python-modules']
+
+[tool.coverage.run]
+branch = true
+omit = [
+    # Exclude pyccelised kernels
+    "*/__psydac__/*",
+
+    # Examples don't need to be covered
+    "*/examples/*",
+
+    # Unit tests shouldn't be included
+    "*/tests/*",
+]
+
+[tool.coverage.report]
+# Regexes for lines to exclude from consideration
+exclude_also = [
+    # Don't complain about missing debug-only code:
+    "def __repr__",
+    "if self\\.debug",
+
+    # Don't complain if tests don't hit defensive assertion code:
+    "raise AssertionError",
+    "raise NotImplementedError",
+
+    # Don't complain if non-runnable code isn't run:
+    "if False:",
+    "if __name__ == .__main__.:",
+
+    # Don't complain about abstract methods, they aren't run:
+    "@(abc\\.)?abstractmethod",
+]
+
+# Ignore source code that can’t be found, emitting a warning instead of an exception.
+ignore_errors = true
+
+[tool.coverage.html]
+directory = "coverage_html_report"

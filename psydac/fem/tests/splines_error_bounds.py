@@ -1,11 +1,14 @@
-# coding: utf-8
-# Copyright 2018 Yaman Güçlü
-#
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
+
 # This file is the Python translation of a Selalib Fortran module:
 # 'selalib/src/splines/tests/m_splines_error_bounds.F90'
 
-__all__ = ['spline_1d_error_bound', 'spline_1d_error_bound_on_deriv',
-           'spline_2d_error_bound', 'spline_2d_error_bounds_on_grad']
+__all__ = ('spline_1d_error_bound', 'spline_1d_error_bound_on_deriv',
+           'spline_2d_error_bound', 'spline_2d_error_bounds_on_grad')
 
 #===============================================================================
 

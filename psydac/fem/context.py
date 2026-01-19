@@ -1,6 +1,8 @@
-# coding: utf-8
-# Copyright 2018 Yaman Güçlü
-
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 from mpi4py import MPI
 import h5py
 import yaml
@@ -10,7 +12,7 @@ from psydac.fem.splines      import SplineSpace
 from psydac.fem.tensor       import TensorFemSpace
 from psydac.mapping.discrete import SplineMapping
 
-__all__ = ['fem_context']
+__all__ = ('fem_context',)
 
 #==============================================================================
 def fem_context( filename, comm=MPI.COMM_WORLD ):
@@ -26,7 +28,7 @@ def fem_context( filename, comm=MPI.COMM_WORLD ):
     comm : mpi4py.Comm
       MPI communicator.
 
-    Results
+    Returns
     -------
     w : TensorFemSpace
       Tensor-product spline space.
