@@ -74,8 +74,7 @@ class C0PolarProjection_V0(LinearOperator):
         if rank_at_polar_edge:
             # compute sum of points with s = 0 for the process
             local_sum = np.sum(x[0, s2:e2 + 1])
-
-            if x.space.is_parallel:
+            if x.space.parallel:
                 from mpi4py import MPI
                 angle_comm = x.space.cart.subcomm[1]
                 local_sum = angle_comm.allreduce(local_sum, op=MPI.SUM)
@@ -99,19 +98,38 @@ class C0PolarProjection_V0(LinearOperator):
 
     def tosparse(self):
 
-        [n1, n2] = self.W0.coeff_space.npts
+        # Matrix size is n1*n2. Columns with numbers i*n2 + j with
+        # s1 <= i <= e1, s2 <= j <= e2 belong to the process
 
-        data = np.tile((1 / n2) * np.ones(n2), n2)
-        cols = np.repeat(np.arange(n2), n2)
-        rows = np.tile(np.arange(n2), n2)
-        if self.hbc:
-            data = np.concatenate((data, np.ones(n2 * (n1 - 2))))
-            cols = np.concatenate((cols, np.arange(n2, (n1 - 1) * n2)))
-            rows = np.concatenate((rows, np.arange(n2, (n1 - 1) * n2)))
-        else:
-            data = np.concatenate((data, np.ones(n2 * (n1 - 1))))
-            cols = np.concatenate((cols, np.arange(n2, n1 * n2)))
-            rows = np.concatenate((rows, np.arange(n2, n1 * n2)))
+        [n1, n2] = self.W0.coeff_space.npts
+        [s1, s2] = self.W0.coeff_space.starts
+        [e1, e2] = self.W0.coeff_space.ends
+        rank_at_polar_edge = (s1 == 0)
+        rank_at_outer_edge = (e1 == n1 - 1)
+        data, cols, rows = [], [], []
+
+        # Assemble the matrix entries which contribute to the polar edge (s1 = 0)
+        len_theta = e2 - s2 + 1
+        if rank_at_polar_edge:
+            data = np.tile((1 / n2) * np.ones(n2), len_theta)
+            cols = np.repeat(np.arange(s2, e2 + 1), n2)
+            rows = np.tile(np.arange(n2), len_theta)
+
+        # Assemble the rest of the matrix (identity block)
+        start_s = s1
+        end_s = e1 + 1
+        # We do not need entries with s1 = 0 (already accounted for)
+        if rank_at_polar_edge:
+            start_s += 1
+        if rank_at_outer_edge and self.hbc:
+            end_s -= 1
+        i = np.arange(start_s, end_s)[:, None]
+        j = np.arange(s2, e2 + 1)[None, :]
+        local_cols = (i * n2 + j).ravel()
+
+        data = np.concatenate((data, np.ones(len_theta * (end_s - start_s))))
+        cols = np.concatenate((cols, local_cols))
+        rows = np.concatenate((rows, local_cols))
 
         P = coo_matrix((data, (rows, cols)), shape=[n1 * n2, n1 * n2], dtype=self.W0.coeff_space.dtype)
         P.eliminate_zeros()
