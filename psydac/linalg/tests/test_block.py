@@ -1,9 +1,11 @@
-# -*- coding: UTF-8 -*-
-#
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 import pytest
 import numpy as np
 from scipy.sparse import csr_matrix
-from random import random, seed
 
 from psydac.linalg.direct_solvers import SparseSolver
 from psydac.linalg.stencil        import StencilVectorSpace, StencilVector, StencilMatrix
@@ -41,8 +43,6 @@ def compute_global_starts_ends(domain_decomposition, npts):
 @pytest.mark.parametrize( 'P2', [True] )
 
 def test_2D_block_vector_space_serial_init( dtype, n1, n2, p1, p2, P1, P2  ):
-    # set seed for reproducibility
-    seed(n1*n2*p1*p2)
 
     D = DomainDecomposition([n1,n2], periods=[P1,P2])
 
@@ -65,6 +65,7 @@ def test_2D_block_vector_space_serial_init( dtype, n1, n2, p1, p2, P1, P2  ):
     assert W.pads == (p1,p2)
     assert W.n_blocks == 2
     assert W.connectivity== {}
+
 #===============================================================================
 @pytest.mark.parametrize( 'dtype', [float, complex] )
 @pytest.mark.parametrize( 'n1', [8, 16] )
@@ -75,8 +76,6 @@ def test_2D_block_vector_space_serial_init( dtype, n1, n2, p1, p2, P1, P2  ):
 @pytest.mark.parametrize( 'P2', [True] )
 
 def test_2D_block_vector_serial_init( dtype, n1, n2, p1, p2, P1, P2  ):
-    # set seed for reproducibility
-    seed(n1*n2*p1*p2)
 
     D = DomainDecomposition([n1,n2], periods=[P1,P2])
 
@@ -97,6 +96,7 @@ def test_2D_block_vector_serial_init( dtype, n1, n2, p1, p2, P1, P2  ):
     assert x.space == W
     assert x.n_blocks == 2
     assert x.blocks == (x1, x2)
+
 #===============================================================================
 @pytest.mark.parametrize( 'dtype', [float, complex] )
 @pytest.mark.parametrize( 'n1', [8, 16] )
@@ -107,8 +107,6 @@ def test_2D_block_vector_serial_init( dtype, n1, n2, p1, p2, P1, P2  ):
 @pytest.mark.parametrize( 'P2', [True] )
 
 def test_2D_block_linear_operator_serial_init( dtype, n1, n2, p1, p2, P1, P2  ):
-    # set seed for reproducibility
-    seed(n1*n2*p1*p2)
 
     D = DomainDecomposition([n1,n2], periods=[P1,P2])
 
@@ -142,11 +140,14 @@ def test_2D_block_linear_operator_serial_init( dtype, n1, n2, p1, p2, P1, P2  ):
     M2.remove_spurious_entries()
     M3.remove_spurious_entries()
 
+    # Initialize random number generator (set seed for reproducibility)
+    rng = np.random.default_rng(seed=n1*n2*p1*p2)
+
     # Fill in vector with random values, then update ghost regions
     for i1 in range(n1):
         for i2 in range(n2):
-            x1[i1,i2] = 2.0*random() - 1.0
-            x2[i1,i2] = 5.0*random() - 1.0
+            x1[i1,i2] = 2.0*rng.random() - 1.0
+            x2[i1,i2] = 5.0*rng.random() - 1.0
     x1.update_ghost_regions()
     x2.update_ghost_regions()
 
@@ -290,25 +291,27 @@ def test_block_serial_dimension( ndim, p, P1, P2, P3, dtype ):
 
     W = BlockVectorSpace(V, V)
 
+    # Initialize random number generator
+    rng = np.random.default_rng()
 
     # Fill in vector with random values, then update ghost regions
     if ndim==1:
-        x1[:] = cst*2.0*np.random.random((npts[0]+2*p))
-        x2[:] = cst*5.0*np.random.random((npts[0]+2*p))
-        y1[:] = cst*2.0*np.random.random((npts[0]+2*p))
-        y2[:] = cst*3.0*np.random.random((npts[0]+2*p))
+        x1[:] = cst*2.0*rng.random((npts[0]+2*p))
+        x2[:] = cst*5.0*rng.random((npts[0]+2*p))
+        y1[:] = cst*2.0*rng.random((npts[0]+2*p))
+        y2[:] = cst*3.0*rng.random((npts[0]+2*p))
 
     elif ndim==2:
-        x1[:,:] = cst*2.0*np.random.random((npts[0]+2*p,npts[1]+2*p))
-        x2[:,:] = cst*5.0*np.random.random((npts[0]+2*p,npts[1]+2*p))
-        y1[:,:] = cst*2.0*np.random.random((npts[0]+2*p,npts[1]+2*p))
-        y2[:,:] = cst*3.0*np.random.random((npts[0]+2*p,npts[1]+2*p))
+        x1[:,:] = cst*2.0*rng.random((npts[0]+2*p,npts[1]+2*p))
+        x2[:,:] = cst*5.0*rng.random((npts[0]+2*p,npts[1]+2*p))
+        y1[:,:] = cst*2.0*rng.random((npts[0]+2*p,npts[1]+2*p))
+        y2[:,:] = cst*3.0*rng.random((npts[0]+2*p,npts[1]+2*p))
 
     else:
-        x1[:,:,:] = cst*2.0*np.random.random((npts[0]+2*p,npts[1]+2*p,npts[2]+2*p))
-        x2[:,:,:] = cst*5.0*np.random.random((npts[0]+2*p,npts[1]+2*p,npts[2]+2*p))
-        y1[:,:,:] = cst*2.0*np.random.random((npts[0]+2*p,npts[1]+2*p,npts[2]+2*p))
-        y2[:,:,:] = cst*3.0*np.random.random((npts[0]+2*p,npts[1]+2*p,npts[2]+2*p))
+        x1[:,:,:] = cst*2.0*rng.random((npts[0]+2*p,npts[1]+2*p,npts[2]+2*p))
+        x2[:,:,:] = cst*5.0*rng.random((npts[0]+2*p,npts[1]+2*p,npts[2]+2*p))
+        y1[:,:,:] = cst*2.0*rng.random((npts[0]+2*p,npts[1]+2*p,npts[2]+2*p))
+        y2[:,:,:] = cst*3.0*rng.random((npts[0]+2*p,npts[1]+2*p,npts[2]+2*p))
 
     x1.update_ghost_regions()
     x2.update_ghost_regions()
@@ -405,13 +408,16 @@ def test_3D_block_serial_basic_operator( dtype, npts, p, P1, P2, P3 ):
     y2 = StencilVector( V )
 
     W = BlockVectorSpace(V, V)
-    if dtype==complex:
-        x1[:,:,:] = 2.0*np.random.random((npts[0]+2*p[0],npts[1]+2*p[1],npts[2]+2*p[2]))+1j*np.random.random((npts[0]+2*p[0],npts[1]+2*p[1],npts[2]+2*p[2]))
-        x2[:,:,:] = 5.0*np.random.random((npts[0]+2*p[0],npts[1]+2*p[1],npts[2]+2*p[2]))+2j*np.random.random((npts[0]+2*p[0],npts[1]+2*p[1],npts[2]+2*p[2]))
-    else:
-        x1[:,:,:] = 2.0*np.random.random((npts[0]+2*p[0],npts[1]+2*p[1],npts[2]+2*p[2]))
-        x2[:,:,:] = 5.0*np.random.random((npts[0]+2*p[0],npts[1]+2*p[1],npts[2]+2*p[2]))
 
+    # Initialize random number generator
+    rng = np.random.default_rng()
+
+    if dtype==complex:
+        x1[:,:,:] = 2.0*rng.random((npts[0]+2*p[0],npts[1]+2*p[1],npts[2]+2*p[2]))+1j*rng.random((npts[0]+2*p[0],npts[1]+2*p[1],npts[2]+2*p[2]))
+        x2[:,:,:] = 5.0*rng.random((npts[0]+2*p[0],npts[1]+2*p[1],npts[2]+2*p[2]))+2j*rng.random((npts[0]+2*p[0],npts[1]+2*p[1],npts[2]+2*p[2]))
+    else:
+        x1[:,:,:] = 2.0*rng.random((npts[0]+2*p[0],npts[1]+2*p[1],npts[2]+2*p[2]))
+        x2[:,:,:] = 5.0*rng.random((npts[0]+2*p[0],npts[1]+2*p[1],npts[2]+2*p[2]))
 
     x1.update_ghost_regions()
     x2.update_ghost_regions()
@@ -468,7 +474,6 @@ def test_3D_block_serial_basic_operator( dtype, npts, p, P1, P2, P3 ):
     assert isinstance(Z4,BlockVector)
     assert np.allclose(Z4.blocks[0]._data, (x2)._data/4,  rtol=1e-14, atol=1e-14 )
     assert np.allclose(Z4.blocks[1]._data, (-x1)._data/4,  rtol=1e-14, atol=1e-14 )
-
 
     M1 = StencilMatrix(V, V)
     M2 = StencilMatrix(V, V)
@@ -569,13 +574,16 @@ def test_2D_block_serial_math( dtype, npts, p, P1, P2 ):
     x2 = StencilVector( V )
 
     W = BlockVectorSpace(V, V)
-    if dtype==complex:
-        x1[:,:,:] = 2.0*np.random.random((npts[0]+2*p[0],npts[1]+2*p[1]))+1j*np.random.random((npts[0]+2*p[0],npts[1]+2*p[1]))
-        x2[:,:,:] = 5.0*np.random.random((npts[0]+2*p[0],npts[1]+2*p[1]))+2j*np.random.random((npts[0]+2*p[0],npts[1]+2*p[1]))
-    else:
-        x1[:,:,:] = 2.0*np.random.random((npts[0]+2*p[0],npts[1]+2*p[1]))
-        x2[:,:,:] = 5.0*np.random.random((npts[0]+2*p[0],npts[1]+2*p[1]))
 
+    # Initialize random number generator
+    rng = np.random.default_rng()
+
+    if dtype==complex:
+        x1[:,:,:] = 2.0*rng.random((npts[0]+2*p[0],npts[1]+2*p[1]))+1j*rng.random((npts[0]+2*p[0],npts[1]+2*p[1]))
+        x2[:,:,:] = 5.0*rng.random((npts[0]+2*p[0],npts[1]+2*p[1]))+2j*rng.random((npts[0]+2*p[0],npts[1]+2*p[1]))
+    else:
+        x1[:,:,:] = 2.0*rng.random((npts[0]+2*p[0],npts[1]+2*p[1]))
+        x2[:,:,:] = 5.0*rng.random((npts[0]+2*p[0],npts[1]+2*p[1]))
 
     x1.update_ghost_regions()
     x2.update_ghost_regions()
@@ -651,8 +659,6 @@ def test_2D_block_serial_math( dtype, npts, p, P1, P2 ):
 @pytest.mark.parametrize( 'P2', [True] )
 
 def test_block_linear_operator_serial_dot( dtype, n1, n2, p1, p2, P1, P2  ):
-    # set seed for reproducibility
-    seed(n1*n2*p1*p2)
 
     D = DomainDecomposition([n1,n2], periods=[P1,P2])
 
@@ -686,11 +692,14 @@ def test_block_linear_operator_serial_dot( dtype, n1, n2, p1, p2, P1, P2  ):
     M2.remove_spurious_entries()
     M3.remove_spurious_entries()
 
+    # Initialize random number generator (set seed for reproducibility)
+    rng = np.random.default_rng(seed=n1*n2*p1*p2)
+
     # Fill in vector with random values, then update ghost regions
     for i1 in range(n1):
         for i2 in range(n2):
-            x1[i1,i2] = 2.0*random() - 1.0
-            x2[i1,i2] = 5.0*random() - 1.0
+            x1[i1,i2] = 2.0*rng.random() - 1.0
+            x2[i1,i2] = 5.0*rng.random() - 1.0
     x1.update_ghost_regions()
     x2.update_ghost_regions()
 
@@ -734,8 +743,6 @@ def test_block_linear_operator_serial_dot( dtype, n1, n2, p1, p2, P1, P2  ):
 @pytest.mark.parametrize( 'P2', [True] )
 
 def test_sparse_matrix_linear_operator_serial_dot( dtype, n1, n2, p1, p2, P1, P2  ):
-    # set seed for reproducibility
-    seed(n1*n2*p1*p2)
 
     D = DomainDecomposition([n1,n2], periods=[P1,P2])
 
@@ -769,11 +776,14 @@ def test_sparse_matrix_linear_operator_serial_dot( dtype, n1, n2, p1, p2, P1, P2
     M2.remove_spurious_entries()
     M3.remove_spurious_entries()
 
+    # Initialize random number generator (set seed for reproducibility)
+    rng = np.random.default_rng(seed=n1*n2*p1*p2)
+
     # Fill in vector with random values, then update ghost regions
     for i1 in range(n1):
         for i2 in range(n2):
-            x1[i1,i2] = 2.0*random() - 1.0
-            x2[i1,i2] = 5.0*random() - 1.0
+            x1[i1,i2] = 2.0*rng.random() - 1.0
+            x2[i1,i2] = 5.0*rng.random() - 1.0
     x1.update_ghost_regions()
     x2.update_ghost_regions()
 
@@ -820,8 +830,6 @@ def test_block_2d_serial_array_to_psydac( dtype, n1, n2, p1, p2, P1, P2 ):
         factor=1j
     else:
         factor=1
-    # set seed for reproducibility
-    seed(n1*n2*p1*p2)
 
     D = DomainDecomposition([n1,n2], periods=[P1,P2])
 
@@ -841,15 +849,18 @@ def test_block_2d_serial_array_to_psydac( dtype, n1, n2, p1, p2, P1, P2 ):
     x = BlockVector(W)
     x2 = BlockVector(W2)
 
+    # Initialize random number generator (set seed for reproducibility)
+    rng = np.random.default_rng(seed=n1*n2*p1*p2)
+
     # Fill in vector with random values, then update ghost regions
     for i1 in range(n1):
         for i2 in range(n2):
-            x[0][i1,i2] = 2.0*factor*random() + 1.0
-            x[1][i1,i2] = 5.0*factor*random() - 1.0
-            x2[0][0][i1,i2] = 2.0*factor*random() + 1.0
-            x2[0][1][i1,i2] = 5.0*factor*random() - 1.0
-            x2[1][0][i1,i2] = 2.0*factor*random() + 1.0
-            x2[1][1][i1,i2] = 5.0*factor*random() - 1.0
+            x[0][i1,i2] = 2.0*factor*rng.random() + 1.0
+            x[1][i1,i2] = 5.0*factor*rng.random() - 1.0
+            x2[0][0][i1,i2] = 2.0*factor*rng.random() + 1.0
+            x2[0][1][i1,i2] = 5.0*factor*rng.random() - 1.0
+            x2[1][0][i1,i2] = 2.0*factor*rng.random() + 1.0
+            x2[1][1][i1,i2] = 5.0*factor*rng.random() - 1.0
     x.update_ghost_regions()
     x2.update_ghost_regions()
 
@@ -877,8 +888,6 @@ def test_block_vector_2d_serial_topetsc( dtype, n1, n2, p1, p2, P1, P2 ):
         factor=1j
     else:
         factor=1
-    # set seed for reproducibility
-    seed(n1*n2*p1*p2)
 
     D = DomainDecomposition([n1,n2], periods=[P1,P2])
 
@@ -896,11 +905,14 @@ def test_block_vector_2d_serial_topetsc( dtype, n1, n2, p1, p2, P1, P2 ):
 
     x = BlockVector(W)
 
+    # Initialize random number generator (set seed for reproducibility)
+    rng = np.random.default_rng(seed=n1*n2*p1*p2)
+
     # Fill in vector with random values, then update ghost regions
     for i1 in range(n1):
         for i2 in range(n2):
-            x[0][i1,i2] = 2.0*factor*random() + 1.0
-            x[1][i1,i2] = 5.0*factor*random() - 1.0
+            x[0][i1,i2] = 2.0*factor*rng.random() + 1.0
+            x[1][i1,i2] = 5.0*factor*rng.random() - 1.0
 
     x.update_ghost_regions()
 
@@ -921,8 +933,6 @@ def test_block_vector_2d_serial_topetsc( dtype, n1, n2, p1, p2, P1, P2 ):
 @pytest.mark.petsc
 
 def test_block_linear_operator_2d_serial_topetsc( dtype, n1, n2, p1, p2, P1, P2  ):
-    # set seed for reproducibility
-    seed(n1*n2*p1*p2)
 
     D = DomainDecomposition([n1,n2], periods=[P1,P2])
 
@@ -1027,7 +1037,7 @@ def test_block_linear_operator_dot_backend( dtype, n1, n2, p1, p2, P1, P2, backe
     M3.remove_spurious_entries()
     M4.remove_spurious_entries()
 
-    # Fill in vector with random values, then update ghost regions
+    # Fill in vector, then update ghost regions
     for i1 in range(s1,e1+1):
         for i2 in range(s2,e2+1):
             x1[i1,i2] = 2.0*factor * i1 + i2
@@ -1069,7 +1079,7 @@ def test_block_linear_operator_dot_backend( dtype, n1, n2, p1, p2, P1, P2, backe
 @pytest.mark.parametrize( 'p2', [2] )
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True] )
-@pytest.mark.parallel
+@pytest.mark.mpi
 
 def test_block_linear_operator_parallel_dot( dtype, n1, n2, p1, p2, P1, P2 ):
     # Define a factor for the data
@@ -1077,9 +1087,6 @@ def test_block_linear_operator_parallel_dot( dtype, n1, n2, p1, p2, P1, P2 ):
         factor = 1j
     else:
         factor = 1
-
-    # set seed for reproducibility
-    seed(n1*n2*p1*p2)
 
     from mpi4py       import MPI
 
@@ -1118,11 +1125,14 @@ def test_block_linear_operator_parallel_dot( dtype, n1, n2, p1, p2, P1, P2 ):
     M3.remove_spurious_entries()
     M4.remove_spurious_entries()
 
+    # Initialize random number generator (set seed for reproducibility)
+    rng = np.random.default_rng(seed=n1*n2*p1*p2)
+
     # Fill in vector with random values, then update ghost regions
     for i1 in range(s1,e1+1):
         for i2 in range(s2,e2+1):
-            x1[i1,i2] = 2.0*factor*random() + 1.0
-            x2[i1,i2] = 5.0*factor*random() - 1.0
+            x1[i1,i2] = 2.0*factor*rng.random() + 1.0
+            x2[i1,i2] = 5.0*factor*rng.random() - 1.0
     x1.update_ghost_regions()
     x2.update_ghost_regions()
 
@@ -1156,16 +1166,18 @@ def test_block_linear_operator_parallel_dot( dtype, n1, n2, p1, p2, P1, P2 ):
     N3 = StencilMatrix( V, V )
     N4 = StencilMatrix( V, V )
 
+    # Initialize random number generator
+    rng = np.random.default_rng()
+
     for k1 in range(-p1,p1+1):
         for k2 in range(-p2,p2+1):
-            N1[:,:,k1,k2] = factor*random()
-            N2[:,:,k1,k2] = factor*random()
-            N3[:,:,k1,k2] = factor*random()
-            N4[:,:,k1,k2] = factor*random()
+            N1[:,:,k1,k2] = factor*rng.random()
+            N2[:,:,k1,k2] = factor*rng.random()
+            N3[:,:,k1,k2] = factor*rng.random()
+            N4[:,:,k1,k2] = factor*rng.random()
 
     K = BlockLinearOperator( W, W )
     N = BlockLinearOperator( W, W )
-
 
     K[0,0] = N1
     K[0,1] = N2
@@ -1207,7 +1219,7 @@ def test_block_linear_operator_parallel_dot( dtype, n1, n2, p1, p2, P1, P2 ):
 @pytest.mark.parametrize('s2', [1])
 @pytest.mark.parametrize('P1', [True, False])
 @pytest.mark.parametrize('P2', [True])
-@pytest.mark.parallel
+@pytest.mark.mpi
 
 def test_block_vector_2d_parallel_array_to_psydac(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
     npts = [n1, n2]   
@@ -1253,14 +1265,20 @@ def test_block_vector_2d_parallel_array_to_psydac(dtype, n1, n2, p1, p2, s1, s2,
     w = array_to_psydac(xa, W)
     w2 = array_to_psydac(x2a, W2)
 
+    # Initialize random number generator
+    rng = np.random.default_rng()
 
     # Apply array_to_psydac first, and toarray next
-    xa_r_inv = np.array(np.random.rand(xa.size), dtype=dtype)*xa # the vector must be distributed as xa
+    xa_r_inv = rng.random(xa.size) * xa # the vector must be distributed as xa
+    if dtype == complex:
+        xa_r_inv += 1j * rng.random(xa.size) * xa
     x_r_inv = array_to_psydac(xa_r_inv, W)
     x_r_inv.update_ghost_regions()
     va_r_inv = x_r_inv.toarray()
 
-    x2a_r_inv = np.array(np.random.rand(x2a.size), dtype=dtype)*x2a # the vector must be distributed as xa
+    x2a_r_inv = rng.random(x2a.size) * x2a # the vector must be distributed as xa
+    if dtype == complex:
+        x2a_r_inv += 1j * rng.random(x2a.size) * x2a
     x2_r_inv = array_to_psydac(x2a_r_inv, W2)
     x2_r_inv.update_ghost_regions()
     v2a_r_inv = x2_r_inv.toarray()
@@ -1291,7 +1309,7 @@ def test_block_vector_2d_parallel_array_to_psydac(dtype, n1, n2, p1, p2, s1, s2,
 @pytest.mark.parametrize( 'p2', [1, 3] )
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True] )
-@pytest.mark.parallel
+@pytest.mark.mpi
 @pytest.mark.petsc
 
 def test_block_vector_2d_parallel_topetsc( dtype, n1, n2, p1, p2, P1, P2 ):
@@ -1300,8 +1318,6 @@ def test_block_vector_2d_parallel_topetsc( dtype, n1, n2, p1, p2, P1, P2 ):
         factor=1j
     else:
         factor=1
-    # set seed for reproducibility
-    seed(n1*n2*p1*p2)
 
     from mpi4py import MPI
     comm = MPI.COMM_WORLD
@@ -1328,11 +1344,14 @@ def test_block_vector_2d_parallel_topetsc( dtype, n1, n2, p1, p2, P1, P2 ):
 
     x = BlockVector(W)
 
+    # Initialize random number generator (set seed for reproducibility)
+    rng = np.random.default_rng(seed=n1*n2*p1*p2)
+
     # Fill in vector with random values, then update ghost regions
     for i0 in range(len(W.starts)):
         for i1 in range(W.starts[i0][0], W.ends[i0][0] + 1):
             for i2 in range(W.starts[i0][1], W.ends[i0][1] + 1):
-                x[i0][i1,i2] = 2.0*factor*random() + 1.0
+                x[i0][i1,i2] = 2.0*factor*rng.random() + 1.0
 
     x.update_ghost_regions()
 
@@ -1345,12 +1364,11 @@ def test_block_vector_2d_parallel_topetsc( dtype, n1, n2, p1, p2, P1, P2 ):
 @pytest.mark.parametrize( 'n1', [8, 16] )
 @pytest.mark.parametrize( 'p1', [1, 2] )
 @pytest.mark.parametrize( 'P1', [True, False] )
-@pytest.mark.parallel
+@pytest.mark.mpi
 @pytest.mark.petsc
 
 def test_block_linear_operator_1d_parallel_topetsc( dtype, n1, p1, P1):
-    # set seed for reproducibility
-    seed(n1*p1)
+
     from mpi4py import MPI
 
     D = DomainDecomposition([n1], periods=[P1], comm=MPI.COMM_WORLD)
@@ -1391,10 +1409,13 @@ def test_block_linear_operator_1d_parallel_topetsc( dtype, n1, p1, P1):
     L = BlockLinearOperator( W, V, blocks=dict_blocks )
     x = BlockVector(W)
 
+    # Initialize random number generator (set seed for reproducibility)
+    rng = np.random.default_rng(seed=n1*p1)
+
     # Fill in vector with random values, then update ghost regions
     for i0 in range(len(W.starts)):
         for i1 in range(W.starts[i0][0], W.ends[i0][0] + 1):
-            x[i0][i1] = 2.0*random() + (1j if dtype==complex else 1.)
+            x[i0][i1] = 2.0*rng.random() + (1j if dtype==complex else 1.)
     x.update_ghost_regions()
 
     y = L.dot(x)
@@ -1406,7 +1427,7 @@ def test_block_linear_operator_1d_parallel_topetsc( dtype, n1, p1, P1):
     y_petsc = Lp.createVecLeft()
     # Compute dot product
     Lp.mult(x.topetsc(), y_petsc)
-    # Cast result back to Psydac BlockVector format
+    # Cast result back to PSYDAC BlockVector format
     y_p = petsc_to_psydac(y_petsc, V)
     
     assert np.allclose(y_p.toarray(), y.toarray(), rtol=1e-12, atol=1e-12)
@@ -1419,12 +1440,11 @@ def test_block_linear_operator_1d_parallel_topetsc( dtype, n1, p1, P1):
 @pytest.mark.parametrize( 'p2', [1, 3] )
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True] )
-@pytest.mark.parallel
+@pytest.mark.mpi
 @pytest.mark.petsc
 
 def test_block_linear_operator_2d_parallel_topetsc( dtype, n1, n2, p1, p2, P1, P2):
-    # set seed for reproducibility
-    seed(n1*n2*p1*p2)
+
     from mpi4py import MPI
     comm = MPI.COMM_WORLD
 
@@ -1470,11 +1490,14 @@ def test_block_linear_operator_2d_parallel_topetsc( dtype, n1, n2, p1, p2, P1, P
     L = BlockLinearOperator( W, W, blocks=dict_blocks )
     x = BlockVector(W)
 
+    # Initialize random number generator (set seed for reproducibility)
+    rng = np.random.default_rng(seed=n1*n2*p1*p2)
+
     # Fill in vector with random values, then update ghost regions
     for i0 in range(len(W.starts)):
         for i1 in range(W.starts[i0][0], W.ends[i0][0] + 1):
             for i2 in range(W.starts[i0][1], W.ends[i0][1] + 1):
-                x[i0][i1,i2] = 2.0*random() + (1j if dtype==complex else 1.)
+                x[i0][i1,i2] = 2.0*rng.random() + (1j if dtype==complex else 1.)
     x.update_ghost_regions()
 
     y = L.dot(x)
@@ -1486,7 +1509,7 @@ def test_block_linear_operator_2d_parallel_topetsc( dtype, n1, n2, p1, p2, P1, P
     y_petsc = Lp.createVecLeft()
     # Compute dot product
     Lp.mult(x.topetsc(), y_petsc)
-    # Cast result back to Psydac BlockVector format
+    # Cast result back to PSYDAC BlockVector format
     y_p = petsc_to_psydac(y_petsc, L.codomain)
     
     assert np.allclose(y_p.toarray(), y.toarray(), rtol=1e-12, atol=1e-12)
@@ -1500,7 +1523,7 @@ def test_block_linear_operator_2d_parallel_topetsc( dtype, n1, n2, p1, p2, P1, P
 @pytest.mark.parametrize( 'p2', [2] )
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True] )
-@pytest.mark.parallel
+@pytest.mark.mpi
 
 def test_block_matrix_operator_parallel_dot_backend( dtype, n1, n2, p1, p2, P1, P2 ):
     # Define a factor for the data
@@ -1547,11 +1570,14 @@ def test_block_matrix_operator_parallel_dot_backend( dtype, n1, n2, p1, p2, P1, 
     M3.remove_spurious_entries()
     M4.remove_spurious_entries()
 
+    # Initialize random number generator
+    rng = np.random.default_rng()
+
     # Fill in vector with random values, then update ghost regions
     for i1 in range(s1,e1+1):
         for i2 in range(s2,e2+1):
-            x1[i1,i2] = 2.0*factor*random() + 1.0
-            x2[i1,i2] = 5.0*factor*random() - 1.0
+            x1[i1,i2] = 2.0*factor*rng.random() + 1.0
+            x2[i1,i2] = 5.0*factor*rng.random() - 1.0
     x1.update_ghost_regions()
     x2.update_ghost_regions()
 

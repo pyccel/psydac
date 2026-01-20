@@ -1,6 +1,8 @@
-# coding: utf-8
-# Copyright 2020 Yaman Güçlü
-
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 """
     1D time-dependent Maxwell simulation using FEEC and time splitting with
     two operators. These integrate exactly one of the two equations,
@@ -129,7 +131,7 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
     # ...
 
     #--------------------------------------------------------------------------
-    # Discrete objects: Psydac
+    # Discrete objects: PSYDAC
     #--------------------------------------------------------------------------
 
     # Discrete physical domain and discrete DeRham sequence
@@ -339,7 +341,7 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
 
     elif bc_mode == 'penalization':
         M0_M0_bc = M0 + M0_bc
-        M0_M0_bc_inv = inverse(M0_M0_bc, 'pcg', pc = M0_M0_bc.diagonal(inverse=True), **kwargs)
+        M0_M0_bc_inv = inverse(M0_M0_bc, 'cg', pc = M0_M0_bc.diagonal(inverse=True), **kwargs)
         step_ampere_1d = dt * ( M0_M0_bc_inv @ D0_T @ M1 )
 
     half_step_faraday_1d = (dt/2) * D0
@@ -607,7 +609,7 @@ def test_maxwell_1d_dirichlet_penalization():
     assert abs(namespace['error_E'] - ref['error_E']) / ref['error_E'] <= TOL
     assert abs(namespace['error_B'] - ref['error_B']) / ref['error_B'] <= TOL
 
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_maxwell_1d_periodic_par():
 
     namespace = run_maxwell_1d(
@@ -634,7 +636,7 @@ def test_maxwell_1d_periodic_par():
     assert abs(namespace['error_l2_E'] - ref['error_l2_E']) / ref['error_l2_E'] <= TOL
     assert abs(namespace['error_l2_B'] - ref['error_l2_B']) / ref['error_l2_B'] <= TOL
 
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_maxwell_1d_periodic_par_deg_1():
 
     namespace = run_maxwell_1d(
@@ -661,7 +663,7 @@ def test_maxwell_1d_periodic_par_deg_1():
     assert abs(namespace['error_l2_E'] - ref['error_l2_E']) / ref['error_l2_E'] <= TOL
     assert abs(namespace['error_l2_B'] - ref['error_l2_B']) / ref['error_l2_B'] <= TOL
 
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_maxwell_1d_dirichlet_strong_par():
 
     namespace = run_maxwell_1d(
@@ -689,7 +691,7 @@ def test_maxwell_1d_dirichlet_strong_par():
     #assert abs(namespace['error_l2_E'] - ref['error_l2_E']) / ref['error_l2_E'] <= TOL
     #assert abs(namespace['error_l2_B'] - ref['error_l2_B']) / ref['error_l2_B'] <= TOL
 
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_maxwell_1d_dirichlet_penalization_par():
 
     namespace = run_maxwell_1d(

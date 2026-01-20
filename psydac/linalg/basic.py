@@ -1,7 +1,8 @@
-# coding: utf-8
-#
-# Copyright 2018 Yaman Güçlü, Jalal Lakhlili
-# Copyright 2022 Yaman Güçlü, Said Hadjout, Julian Owezarek
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 """
 provides the fundamental classes for linear algebra operations.
 
@@ -170,7 +171,7 @@ class Vector(ABC):
         """ Vector space to which this vector belongs. """
 
     @abstractmethod
-    def toarray(self, **kwargs):
+    def toarray(self):
         """ Convert to Numpy 1D array. """
 
     @abstractmethod
@@ -676,10 +677,11 @@ class ScaledLinearOperator(LinearOperator):
         assert isinstance(domain, VectorSpace)
         assert isinstance(codomain, VectorSpace)
         assert np.isscalar(c)
-        assert np.iscomplexobj(c) == (codomain._dtype == complex)
+        if np.iscomplexobj(c):
+            assert codomain._dtype == complex
         assert isinstance(A, LinearOperator)
-        assert domain   == A.domain
-        assert codomain == A.codomain
+        assert A.domain   is domain
+        assert A.codomain is codomain
 
         if isinstance(A, ScaledLinearOperator):
             scalar = A.scalar * c
@@ -801,15 +803,14 @@ class SumLinearOperator(LinearOperator):
         return None
 
     def tosparse(self):
-        from scipy.sparse import csr_matrix
-        out = csr_matrix(self.shape, dtype=self.dtype)
-        for a in self._addends:
-            out += a.tosparse()
+        out = self.addends[0].tosparse().tocsr()
+        for a in self.addends[1:]:
+            out += a.tosparse().tocsr()
         return out
 
     def toarray(self):
-        out = np.zeros(self.shape, dtype=self.dtype)
-        for a in self._addends:
+        out = self.addends[0].toarray()
+        for a in self.addends[1:]:
             out += a.toarray()
         return out
 
@@ -1075,7 +1076,7 @@ class PowerLinearOperator(LinearOperator):
 class InverseLinearOperator(LinearOperator):
     """
     Abstract base class for the (approximate) inverse $A^{-1}$ of a
-    square matrix $A$. The result of A_inv.dot(b) is the (approximate) solution x
+    'forward' linear operator $A$. The result of A_inv.dot(b) is the (approximate) solution x
     of the linear system A x = b, where x and b belong to the same vector space V.
 
     We assume that the linear system is solved by an iterative method, which
@@ -1087,7 +1088,7 @@ class InverseLinearOperator(LinearOperator):
     Parameters
     ----------
     A : psydac.linalg.basic.LinearOperator
-        Left-hand-side matrix A of linear system.
+        The forward linear operator
         
     x0 : psydac.linalg.basic.Vector
         First guess of solution for iterative solver (optional).
@@ -1132,9 +1133,9 @@ class InverseLinearOperator(LinearOperator):
         return None
 
     @property
-    def linop(self):
+    def fwd_linop(self):
         """
-        The linear operator $A$ of which this object is the inverse $A^{-1}$.
+        The forward linear operator $A$, of which this object is the inverse $A^{-1}$.
 
         The linear operator $A$ can be modified in place, or replaced entirely
         through the setter. A substitution should only be made in cases where
@@ -1145,8 +1146,8 @@ class InverseLinearOperator(LinearOperator):
         """
         return self._A
     
-    @linop.setter
-    def linop(self, a):
+    @fwd_linop.setter
+    def fwd_linop(self, a):
         """ Set the linear operator $A$ of which this object is the inverse $A^{-1}$. """
         assert isinstance(a, LinearOperator)
         assert a.domain is self.domain
@@ -1208,7 +1209,7 @@ class InverseLinearOperator(LinearOperator):
 
     def transpose(self, conjugate=False):
         cls     = type(self)
-        At      = self.linop.transpose(conjugate=conjugate)
+        At      = self.fwd_linop.transpose(conjugate=conjugate)
         options = self._options
         return cls(At, **options)
 

@@ -1,0 +1,110 @@
+name: Check deployment of new version to TestPyPI
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+    branches: [main]
+
+jobs:
+  deployTest:
+    runs-on: ubuntu-latest
+    if: github.repository == 'pyccel/psydac'
+    steps:
+      - id: duplicate_check
+        uses: fkirc/skip-duplicate-actions@v5
+        with:
+          skip_after_successful_duplicate: 'true'
+          paths: '["psydac/**", "pyproject.toml", ".github/workflows/deploy_check.yml", ".github/actions/**"]'
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Checkout repository
+        if: steps.duplicate_check.outputs.should_skip != 'true'
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Install dependencies
+        if: steps.duplicate_check.outputs.should_skip != 'true'
+        uses: ./.github/actions/ubuntu_install
+
+      - name: Update build tools
+        if: steps.duplicate_check.outputs.should_skip != 'true'
+        run: |
+          pip install --upgrade pip
+          pip install --upgrade build
+          pip install --upgrade twine
+
+      - name: Build and deploy to TestPyPI
+        if: steps.duplicate_check.outputs.should_skip != 'true'
+        run: |
+          CURRENT_VERSION=$(grep 'version *= *"\([0-9\.]*\)"' pyproject.toml | grep '[0-9\.]*' -o)
+          TEST_VERSION=${CURRENT_VERSION}.dev$(date +%Y%m%d%H%M%S)
+          sed -i.bak "s/\"${CURRENT_VERSION}\"/\"${TEST_VERSION}\"/g" pyproject.toml && rm pyproject.toml.bak
+          echo "TEST_VERSION=${TEST_VERSION}" >> $GITHUB_ENV
+          # Setup dummy user to save temp version for meson
+          git config --global user.email "you@example.com"
+          git config --global user.name "Your Name"
+          git commit -m "Save temp version" pyproject.toml
+          python -m build --sdist
+          ls dist/*
+          twine check --strict dist/*
+          twine upload --repository testpypi dist/* --non-interactive --verbose
+          sleep 60
+        shell: bash
+        env:
+          TWINE_USERNAME: '__token__'
+          TWINE_PASSWORD: ${{ secrets.TEST_PYPI_API_TOKEN }}
+
+      - name: Install h5py in parallel mode
+        if: steps.duplicate_check.outputs.should_skip != 'true'
+        uses: ./.github/actions/parallel_h5py
+
+      - name: Download psydac package from TestPyPI and install it
+        if: steps.duplicate_check.outputs.should_skip != 'true'
+        timeout-minutes: 60
+        run: |
+          WAIT=20
+          SUCCESS=0
+          for i in {1..5}; do
+            echo "Attempt $i: Installing psydac==${TEST_VERSION}..."""
+            if pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ psydac[test]=="${TEST_VERSION}"
+            then
+              SUCCESS=1
+              break
+            else
+              echo "Install failed. Retrying in $WAIT seconds..."
+              sleep $WAIT
+            fi
+          done
+
+          # Final check
+          if [ "$SUCCESS" -ne 1 ]; then
+            echo "ERROR: Failed to install psydac==${TEST_VERSION}."
+            exit 1
+          fi
+        shell: bash
+
+      - name: Initialize test directory
+        if: steps.duplicate_check.outputs.should_skip != 'true'
+        run: |
+          mkdir pytest
+
+      - name: Run single-process tests with Pytest
+        if: steps.duplicate_check.outputs.should_skip != 'true'
+        working-directory: ./pytest
+        run: |
+          psydac test -x
+
+      - name: Run MPI tests with Pytest
+        if: steps.duplicate_check.outputs.should_skip != 'true'
+        working-directory: ./pytest
+        run: |
+          psydac test --mpi -x

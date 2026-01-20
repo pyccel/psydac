@@ -1,3 +1,8 @@
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 import numpy as np
 import pytest
 
@@ -308,7 +313,7 @@ def test_directional_derivative_operator_3d_ser(domain, ncells, degree, periodic
 @pytest.mark.parametrize('negative', [True, False])
 @pytest.mark.parametrize('transposed', [True, False])
 @pytest.mark.parametrize('seed', [1,3])
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_directional_derivative_operator_1d_par(domain, ncells, degree, periodic, direction, negative, transposed, seed):
     # TODO: re-enable KroneckerStencilMatrix assembly here (fails right now sometimes when transposing)
     run_directional_derivative_operator(MPI.COMM_WORLD, [domain], [ncells], [degree], [periodic], direction, negative, transposed, seed)
@@ -321,7 +326,7 @@ def test_directional_derivative_operator_1d_par(domain, ncells, degree, periodic
 @pytest.mark.parametrize('negative', [True, False])
 @pytest.mark.parametrize('transposed', [True, False])
 @pytest.mark.parametrize('seed', [1,3])
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_directional_derivative_operator_2d_par(domain, ncells, degree, periodic, direction, negative, transposed, seed):
     # TODO: re-enable KroneckerStencilMatrix assembly here (fails right now sometimes when transposing)
     run_directional_derivative_operator(MPI.COMM_WORLD, domain, ncells, degree, periodic, direction, negative, transposed, seed) 
@@ -336,7 +341,7 @@ def test_directional_derivative_operator_2d_par(domain, ncells, degree, periodic
 @pytest.mark.parametrize('negative', [True, False])
 @pytest.mark.parametrize('transposed', [True, False])
 @pytest.mark.parametrize('seed', [3])
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_directional_derivative_operator_3d_par(domain, ncells, degree, periodic, direction, negative, transposed, seed):
     run_directional_derivative_operator(MPI.COMM_WORLD, domain, ncells, degree, periodic, direction, negative, transposed, seed) 
 

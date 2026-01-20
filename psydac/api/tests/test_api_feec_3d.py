@@ -1,5 +1,8 @@
-# -*- coding: UTF-8 -*-
-
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 from mpi4py import MPI
 import pytest
 import numpy as np
@@ -109,7 +112,7 @@ def run_maxwell_3d_scipy(logical_domain, mapping, e_ex, b_ex, ncells, degree, pe
     F = mapping.get_callable_mapping()
 
     #------------------------------------------------------------------------------
-    # Discrete objects: Psydac
+    # Discrete objects: PSYDAC
     #------------------------------------------------------------------------------
 
     # Select backend for acceleration of the generated assembly code
@@ -212,7 +215,7 @@ def run_maxwell_3d_stencil(logical_domain, mapping, e_ex, b_ex, ncells, degree, 
     F = mapping.get_callable_mapping()
 
     #------------------------------------------------------------------------------
-    # Discrete objects: Psydac
+    # Discrete objects: PSYDAC
     #------------------------------------------------------------------------------
 
     # Select backend for acceleration of the generated assembly code

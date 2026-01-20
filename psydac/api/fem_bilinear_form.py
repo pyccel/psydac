@@ -1,3 +1,8 @@
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 import sys
 import os
 import importlib
@@ -7,6 +12,7 @@ import numpy as np
 from sympy                  import ImmutableDenseMatrix, Matrix, Symbol, sympify
 from sympy.tensor.indexed   import Indexed, IndexedBase
 from sympy.simplify         import cse_main
+from sympy.printing.pycode  import pycode
 
 from pyccel import epyccel
 
@@ -54,7 +60,7 @@ class DiscreteBilinearForm:
     """
     Discrete bilinear form ready to be assembled into a matrix.
 
-    This class represents the concept of a discrete bilinear form in Psydac.
+    This class represents the concept of a discrete bilinear form in PSYDAC.
     Instances of this class generate an appropriate matrix assembly kernel,
     allocate the matrix if not provided, and prepare a list of arguments for
     the kernel.
@@ -144,6 +150,7 @@ class DiscreteBilinearForm:
         self._domain = domain_h.domain
         self._spaces = spaces
         self._matrix = matrix
+        self._func   = None    # The assembly function will be generated later
 
         domain = self.domain
         target = self.target
@@ -245,6 +252,11 @@ class DiscreteBilinearForm:
             self._trial_ext = trial_target.ext
 
         #...
+
+        # Determine the type of scalar quantities to be managed in the code
+        dtypes = [getattr(V.symbolic_space, 'codomain_type', 'real') for V in (trial_space, test_space)]
+        assert all(t in ['complex', 'real'] for t in dtypes)
+        self._dtype = 'complex128' if 'complex' in dtypes else 'float64'
 
         # Assuming that all vector spaces (and their Cartesian decomposition,
         # if any) are compatible with each other, extract the first available
@@ -1211,7 +1223,7 @@ class DiscreteBilinearForm:
                 g_mat = g_mat_str.format(u_i=v_j, v_j=u_i)
             else:
                 g_mat = g_mat_str.format(u_i=u_i, v_j=v_j)
-            G_MAT += f'                    {g_mat} : "float64[:,:,:,:,:,:]",\n'
+            G_MAT += f'                    {g_mat} : f"{self._dtype}[:,:,:,:,:,:]",\n'
 
             TT1 += tt1_str.format(u_i=u_i, v_j=v_j) + ' : "float64[:,:,:,:,:,:]", '
             TT2 += tt2_str.format(u_i=u_i, v_j=v_j) + ' : "float64[:,:,:,:,:,:]", '
@@ -1277,11 +1289,14 @@ class DiscreteBilinearForm:
             global_span_v = global_span_v_str.format(v_j=v_j)
             LOCAL_SPAN += f'        {local_span_v_1} = {global_span_v}1[k_1]\n'
 
+        # Print expressions using SymPy's Python code printer
+        pyc = lambda expr: pycode(expr, fully_qualified_modules=False)
+
         for temp in temps:
-            TEMPS += f'                            {temp.lhs} = {temp.rhs}\n'
+            TEMPS += f'                            {temp.lhs} = {pyc(temp.rhs)}\n'
         for block in blocks:
             for stmt in ordered_stmts[block]:
-                COUPLING_TERMS += f'                            {stmt.lhs} = {stmt.rhs}\n'
+                COUPLING_TERMS += f'                            {stmt.lhs} = {pyc(stmt.rhs)}\n'
         
         KEYS = KEYS_2 + KEYS_3
 
@@ -2135,10 +2150,10 @@ class DiscreteBilinearForm:
                     *list(coupling_terms.values()))
         
         # This part is a bit shady.
-        # There has been a case, where my code wasn't running, because one instance of deep-(Psydac/Sympde/Sympy)-code
+        # There has been a case, where my code wasn't running, because one instance of deep-(PSYDAC/Sympde/Sympy)-code
         # correctly understood that a possibly complicated expression (corresponding to a block) in fact evaluates to 0,
         # and hence no StencilMatrix for that particular block ever needs to be created - but a different part of
-        # deep-(Psydac/Sympde/Sympy)-code did not get that simplification right (yet?), and decided that the assembly code
+        # deep-(PSYDAC/SymPDE/SymPy)-code did not get that simplification right (yet?), and decided that the assembly code
         # needs a StencilMatrix as input for this particular block.
         # See readBilinearForm for additional information.
         # This part of the code filters out unnecessary StencilMatrices, such that only the relevant StencilMatrices

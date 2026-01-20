@@ -1,11 +1,14 @@
-# coding: utf-8
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 
 # TODO: - init_fem is called whenever we call discretize. we should check that
 #         nderiv has not been changed. shall we add nquads too?
-import os
 
-from sympy import Expr as sym_Expr
 import numpy as np
+from sympy import Expr as sym_Expr
 
 from sympde.expr     import BasicForm as sym_BasicForm
 from sympde.expr     import BilinearForm as sym_BilinearForm
@@ -30,7 +33,7 @@ from psydac.api.fem_sum_form import DiscreteSumForm
 from psydac.api.fem          import DiscreteBilinearForm
 from psydac.api.fem          import DiscreteLinearForm
 from psydac.api.fem          import DiscreteFunctional
-from psydac.api.feec         import DiscreteDeRham, DiscreteDeRhamMultipatch
+from psydac.api.feec         import DiscreteDeRham, MultipatchDiscreteDeRham
 from psydac.api.glt          import DiscreteGltExpr
 from psydac.api.expr         import DiscreteExpr
 from psydac.api.equation     import DiscreteEquation
@@ -199,7 +202,7 @@ def discretize_derham_multipatch(derham, domain_h, **kwargs):
     Create a discrete multipatch de Rham sequence from a symbolic one.
     
     This function creates the broken discrete spaces from the symbolic ones, and then
-    creates a DiscreteDeRhamMultipatch object from them.
+    creates a MultipatchDiscreteDeRham object from them.
 
     Parameters
     ----------
@@ -214,7 +217,7 @@ def discretize_derham_multipatch(derham, domain_h, **kwargs):
 
     Returns
     -------
-    DiscreteDeRhamMultipatch
+    MultipatchDiscreteDeRham
       The discrete multipatch de Rham sequence containing the discrete spaces, 
       differential operators and projectors.
 
@@ -229,7 +232,7 @@ def discretize_derham_multipatch(derham, domain_h, **kwargs):
     spaces = [discretize_space(V, domain_h, basis=basis, **kwargs) \
             for V, basis in zip(derham.spaces, bases)]
 
-    return DiscreteDeRhamMultipatch(
+    return MultipatchDiscreteDeRham(
         domain_h = domain_h,
         spaces   = spaces
     )
@@ -546,7 +549,7 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
     construct_reduced_interface_spaces(g_spaces, new_g_spaces, interiors, connectivity)
     spaces = list(new_g_spaces.values())
 
-    if connectivity:
+    if len(interiors) > 1:
         assert all((isinstance(Wh, FemSpace) and not Wh.is_multipatch) for Wh in spaces)
         Vh = MultipatchFemSpace(*spaces, connectivity=connectivity)
     else:
@@ -589,8 +592,8 @@ def discretize(a, *args, **kwargs):
         domain  = domain_h.domain
         dim     = domain.dim
 
-        # The current implementation of the sum factorization algorithm does not support openMP parallelization
-        # It is not properly tested, whether this way of excluding openMP parallelized code from using the sum factorization algorithm works.
+        # The current implementation of the sum factorization algorithm does not support OpenMP parallelization
+        # It is not properly tested, whether this way of excluding OpenMP parallelized code from using the sum factorization algorithm works.
         backend = kwargs.get('backend')# or None
         assembly_backend = kwargs.get('assembly_backend')# or None
         assembly_backend = backend or assembly_backend
@@ -654,7 +657,11 @@ def discretize(a, *args, **kwargs):
     #     return DiscreteSesquilinearForm(a, kernel_expr, *args, **kwargs)
 
     if isinstance(a, sym_BilinearForm):
-        if kwargs.pop('sum_factorization'):
+        # Currently sum factorization can only be used for interior domains
+        from sympde.expr.evaluation import DomainExpression
+        is_interior_expr = isinstance(kernel_expr, DomainExpression)
+
+        if kwargs.pop('sum_factorization') and is_interior_expr:
             return DiscreteBilinearForm_SF(a, kernel_expr, *args, **kwargs)
         else:
             return DiscreteBilinearForm(a, kernel_expr, *args, **kwargs)
@@ -682,7 +689,6 @@ def discretize(a, *args, **kwargs):
 
     elif isinstance(a, sym_GltExpr):
         return DiscreteGltExpr(a, *args, **kwargs)
-
     elif isinstance(a, sym_Expr):
         return DiscreteExpr(a, *args, **kwargs)
 

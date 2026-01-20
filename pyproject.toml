@@ -1,37 +1,38 @@
 [build-system]
-requires = ["setuptools >= 64.0, != 67.2.0", "wheel", "numpy", "pyccel >= 2.0.1"]
-build-backend = "setuptools.build_meta"
+requires = ["meson-python", "pyccel >= 2.1.0"]
+build-backend = "mesonpy"
 
 [project]
 name            = "psydac"
-version         = "0.1"
 description     = "Python package for isogeometric analysis (IGA)"
 readme          = "README.md"
-requires-python = ">= 3.9"
-license         = {file = "LICENSE"}
+license         = "MIT"
+license-files   = ["LICENSE", "AUTHORS"]
+version         = "1.0.0"
+requires-python = ">= 3.10"
 authors         = [
-    {name = "Psydac development team", email = "psydac@googlegroups.com"}
+    {name = "PSYDAC development team", email = "psydac@googlegroups.com"}
 ]
 maintainers = [
     {name = "Yaman Güçlü", email = "yaman.guclu@gmail.com"},
     {name = "Martin Campos Pinto", email = "martin.campos-pinto@ipp.mpg.de"},
-    {name = "Ahmed Ratnani", email = "ratnaniahmed@gmail.com"},
 ]
 keywords     = ["FEM", "IGA", "B-spline", "NURBS"]
 classifiers  = ["Programming Language :: Python :: 3"]
 dependencies = [
     # Third-party packages from PyPi
-    'numpy >= 1.16',
+    'numpy >= 1.16, < 2.4',
     'scipy >= 1.12',
     'sympy >= 1.5',
     'matplotlib',
     'pyyaml >= 5.1',
     'packaging',
     'pyevtk',
+    'termcolor',
 
     # Our packages from PyPi
     'sympde == 0.19.2',
-    'pyccel >= 2.0.1',
+    'pyccel >= 2.1.0',
     'gelato == 0.12',
 
     # MPI for Python provides Python bindings for the
@@ -50,15 +51,13 @@ dependencies = [
     # When pyccel is run in parallel with MPI, it uses tblib to pickle
     # tracebacks, which allows mpi4py to broadcast exceptions
     'tblib',
-
-    # IGAKIT - not on PyPI
-    'igakit @ https://github.com/dalcinl/igakit/archive/refs/heads/master.zip'
 ]
 
 [project.optional-dependencies]
 test = [
-    "pytest-cov >= 5.0.0",
-    'pytest >= 4.5',
+    'pytest >= 7.0',
+    'pytest-cov >= 5.0.0',
+    'pytest-mpi',
     'pytest-xdist >= 1.16',
     'Pillow',  # Python Imaging Library (PIL) fork
 ]
@@ -67,17 +66,16 @@ test = [
 Homepage      = "https://github.com/pyccel/psydac"
 Documentation = "https://pyccel.github.io/psydac"
 Repository    = "https://github.com/pyccel/psydac.git"
+Changelog     = "https://github.com/pyccel/psydac/blob/devel/CHANGELOG.md"
+Tracker       = "https://github.com/pyccel/psydac/issues"
 
 [project.scripts]
-psydac-mesh = "psydac.cmd.mesh:main"
+psydac = "psydac.cmd.main:psydac_command"
 
-[tool.setuptools.packages.find]
-include = ["psydac*"]
-exclude = ["*__psydac__*"]
-namespaces = false
-
-[tool.setuptools.package-data]
-"*" = ["*.txt", "**/tests/data/*.png"]
+[tool.meson-python.args]
+setup=['-Ddefault_library=static']
+dist=['--include-subprojects']
+install=['--only=python-modules']
 
 [tool.coverage.run]
 branch = true

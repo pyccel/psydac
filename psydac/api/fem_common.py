@@ -1,3 +1,8 @@
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 from typing import Iterable
 
 from sympy import Expr, ImmutableDenseMatrix, Matrix
@@ -109,9 +114,9 @@ def compute_imports(expr: Expr,
     with TerminalExpr(), then pull back from physical to logical
     coordinates with LogicalExpr(), and finally convert the symbolic
     partial derivatives with SymbolicExpr(). Where:
-        - TerminalExpr is defined in sympde.expr.evaluation
-        -  LogicalExpr is defined in sympde.topology.mapping
-        - SymbolicExpr is defined in sympde.topology.mapping
+    - TerminalExpr is defined in sympde.expr.evaluation
+    -  LogicalExpr is defined in sympde.topology.mapping
+    - SymbolicExpr is defined in sympde.topology.mapping
 
     The resulting expression `expr` can be passed to this function.
     """

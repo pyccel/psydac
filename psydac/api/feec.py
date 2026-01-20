@@ -1,3 +1,8 @@
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 from psydac.api.basic                           import BasicDiscrete
 
 from psydac.feec.derivatives                    import Derivative1D, Gradient2D, Gradient3D
@@ -25,10 +30,13 @@ from psydac.feec.pull_push                      import pull_3d_h1, pull_3d_hcurl
 from psydac.feec.pull_push                      import pull_3d_hdiv, pull_3d_l2, pull_3d_h1vec
 
 from psydac.fem.basic                           import FemSpace, FemLinearOperator
+from psydac.fem.lst_preconditioner              import construct_LST_preconditioner
 from psydac.fem.vector                          import VectorFemSpace
+from psydac.fem.projectors                      import DirichletProjector, MultipatchDirichletProjector
+
 from psydac.linalg.basic                        import IdentityOperator
 
-__all__ = ('DiscreteDeRham', 'DiscreteDeRhamMultipatch',)
+__all__ = ('DiscreteDeRham', 'MultipatchDiscreteDeRham',)
 
 #==============================================================================
 class DiscreteDeRham(BasicDiscrete):
@@ -116,6 +124,7 @@ class DiscreteDeRham(BasicDiscrete):
 
         self._hodge_operators = ()
         self._conf_proj = ()
+        self._dirichlet_proj = ()
     #--------------------------------------------------------------------------
     @property
     def dim(self):
@@ -283,11 +292,104 @@ class DiscreteDeRham(BasicDiscrete):
 
     #--------------------------------------------------------------------------
     def derivatives(self, kind='femlinop'):
+        assert kind in ('femlinop', 'linop')
+
         if kind == 'femlinop':
             return self._derivatives
         elif kind == 'linop': 
             return tuple(b_diff.linop for b_diff in self._derivatives)
     
+    #--------------------------------------------------------------------------
+    def dirichlet_projectors(self, kind='femlinop'):
+        """
+        Returns operators that apply the correct homogeneous Dirichlet BCs.
+
+        Parameters
+        ----------
+        kind : str
+            The kind of the projector, can be 'femlinop' or 'linop'.
+            - 'femlinop' returns a psydac FemLinearOperator (default)
+            - 'linop' returns a psydac LinearOperator
+
+        Returns
+        -------
+        d_projectors : tuple
+            Tuple of <psydac.fem.basic.FemLinearOperator> or <psydac.fem.projectors.DirichletProjector>
+            The Dirichlet projectors of each space and in desired form.
+
+        Notes
+        -----
+        See examples/vector_potential_3d.py for a use case of these operators in LinearOperator form.
+        
+        """
+        assert kind in ('femlinop', 'linop')
+
+        if not self._dirichlet_proj:
+            d_projectors_linop = tuple(DirichletProjector(Vh) for Vh in self.spaces[:-1]) + (IdentityOperator(self.spaces[-1].coeff_space),)
+            d_projectors_femlinop = tuple(FemLinearOperator(fem_domain=Vh, fem_codomain=Vh, linop=d_projector) for Vh, d_projector in zip(self.spaces, d_projectors_linop))
+            self._dirichlet_proj = d_projectors_femlinop
+
+        if kind == 'femlinop':
+            return self._dirichlet_proj
+        elif kind == 'linop':
+            return tuple(femlinop.linop for femlinop in self._dirichlet_proj)
+    
+    #--------------------------------------------------------------------------
+    def LST_preconditioners(self, *, M0=None, M1=None, M2=None, M3=None, hom_bc=False):
+        """
+        LST (Loli, Sangalli, Tani) preconditioners [1] are mass matrix preconditioners of the form
+        pc = D_inv_sqrt @ D_log_sqrt @ M_log_kron_solver @ D_log_sqrt @ D_inv_sqrt, where
+
+        D_inv_sqrt          is the diagonal matrix of the square roots of the inverse diagonal entries of the mass matrix M,
+        D_log_sqrt          is the diagonal matrix of the square roots of the diagonal entries of the mass matrix on the logical domain,
+        M_log_kron_solver   is the Kronecker Solver of the mass matrix on the logical domain.
+
+        These preconditioners work very well even on complex domains as numerical experiments have shown.
+
+        Upon choosing hom_bc=True, preconditioners for the modified mass matrices M{i}_0 are being returned.
+        The preconditioner for the last mass matrix of the sequence remains identical as there are no BCs to take care of.
+        M{i}_0 is a mass matrix of the form
+        M{i}_0 = DP @ M{i} @ DP + (I - DP)
+        where DP and I are the corresponding DirichletProjector and IdentityOperator.
+        See examples/vector_potential_3d.
+
+        Parameters
+        ----------
+        M0, M1, M2, M3 : psydac.linalg.stencil.StencilMatrix | psydac.linalg.block.BlockLinearOperator | None
+            H1, Hcurl/Hdiv, L2 (2D) or H1, Hcurl, Hdiv, L2 mass matrices or None. 
+            Returns only preconditioners for passed mass matrices.
+
+        hom_bc : bool
+            If True, return LST preconditioners for modified M{i}_0 = DP @ M{i} @ DP + (I - DP) mass matrices (i=0,1 (2D), i=0,1,2 (3D)).
+            The arguments M{i} in that case remain the same (M{i}, not M{i}_0). DP and I are DirichletProjector and IdentityOperator.
+            Default: False.
+
+        Returns
+        -------
+        tuple
+            tuple of psydac.linalg.stencil.StencilMatrix and/or psydac.linalg.block.BlockLinearOperator
+            LST preconditioner(s) for the passed mass matrices.
+
+        References
+        ----------
+        [1] Gabriele Loli, Giancarlo Sangalli, Mattia Tani. “Easy and efficient preconditioning of the isogeometric mass 
+            matrix”. In: Computers & Mathematics with Applications 116 (2022), pp. 245–264
+        
+        """
+
+        domain_h    = self.domain_h
+        Ms          = (M0, M1, M2, M3)
+
+        M_pc_arr    = []
+
+        for M, Vh in zip(Ms, self.spaces):
+            if M is not None:
+
+                M_pc = construct_LST_preconditioner(M, domain_h, Vh, hom_bc=hom_bc)
+                M_pc_arr.append(M_pc)
+        
+        return tuple(M_pc_arr)
+
     #--------------------------------------------------------------------------
     def conforming_projectors(self, kind='femlinop', mom_pres=False, p_moments=-1, hom_bc=False):
         """
@@ -295,17 +397,20 @@ class DiscreteDeRham(BasicDiscrete):
 
         Parameters
         ----------
-
-        p_moments : <int>
-            The number of moments preserved by the projector.
-
-        hom_bc: <bool>
-          Apply homogenous boundary conditions if True
-
         kind : <str>
             The kind of the projector, can be 'femlinop' or 'linop'.
             - 'femlinop' returns a psydac FemLinearOperator (default)
             - 'linop' returns a psydac LinearOperator
+
+        mom_pres: <bool>
+            If True, preserve polynomial moments of maximal order in the projection.
+
+        p_moments: <int>
+            Number of polynomial moments to be preserved in the projection.
+            (Gets overwritten if the parameter mom_pres equals True)
+
+        hom_bc: <bool>
+            Apply homogenous boundary conditions if True
 
         Returns
         -------
@@ -313,6 +418,7 @@ class DiscreteDeRham(BasicDiscrete):
           The conforming projectors of each space and in desired form.
 
         """
+        assert kind in ('femlinop', 'linop')
 
         if hom_bc is None:
             raise ValueError('please provide a value for "hom_bc" argument')
@@ -442,6 +548,7 @@ class DiscreteDeRham(BasicDiscrete):
 
         H : <psydac.fem.basic.FemLinearOperator> or <psydac.linalg.basic.LinearOperator>
         """
+        assert kind in ('femlinop', 'linop')
 
         if not self._hodge_operators:
             self._init_hodge_operators(backend_language=backend_language)
@@ -480,6 +587,7 @@ class DiscreteDeRham(BasicDiscrete):
         -------
         The Hodge operators of all spaces and of the specified kind.
         """
+        assert kind in ('femlinop', 'linop')
 
         if not self._hodge_operators:
             self._init_hodge_operators(backend_language=backend_language)
@@ -488,7 +596,7 @@ class DiscreteDeRham(BasicDiscrete):
 
 
 #==============================================================================
-class DiscreteDeRhamMultipatch(DiscreteDeRham):
+class MultipatchDiscreteDeRham(DiscreteDeRham):
     """ Represents the discrete de Rham sequence for multipatch domains.
         It only works when the number of patches>1.
 
@@ -538,6 +646,7 @@ class DiscreteDeRhamMultipatch(DiscreteDeRham):
 
         self._hodge_operators = ()
         self._conf_proj = ()
+        self._dirichlet_proj = ()
 
     #--------------------------------------------------------------------------
     @property
@@ -606,3 +715,38 @@ class DiscreteDeRhamMultipatch(DiscreteDeRham):
 
         elif self.dim == 3:
             raise NotImplementedError("3D projectors are not available")
+
+    #--------------------------------------------------------------------------
+    def dirichlet_projectors(self, kind='femlinop'):
+        """
+        Returns operators that apply the correct homogeneous Dirichlet BCs.
+
+        Parameters
+        ----------
+        kind : str
+            The kind of the projector, can be 'femlinop' or 'linop'.
+            - 'femlinop' returns a psydac FemLinearOperator (default)
+            - 'linop' returns a psydac LinearOperator
+
+        Returns
+        -------
+        d_projectors : tuple
+            Tuple of <psydac.fem.basic.FemLinearOperator> or <psydac.fem.projectors.MultipatchDirichletProjector>
+            The Dirichlet projectors of each space and in desired form.
+
+        Notes
+        -----
+        See examples/vector_potential_3d.py for a use case of these operators in LinearOperator form.
+        
+        """
+        assert kind in ('femlinop', 'linop')
+
+        if not self._dirichlet_proj:
+            d_projectors_linop = tuple(MultipatchDirichletProjector(Vh) for Vh in self.spaces[:-1]) + (IdentityOperator(self.spaces[-1].coeff_space),)
+            d_projectors_femlinop = tuple(FemLinearOperator(fem_domain=Vh, fem_codomain=Vh, linop=d_projector) for Vh, d_projector in zip(self.spaces, d_projectors_linop))
+            self._dirichlet_proj = d_projectors_femlinop
+
+        if kind == 'femlinop':
+            return self._dirichlet_proj
+        elif kind == 'linop':
+            return tuple(femlinop.linop for femlinop in self._dirichlet_proj)

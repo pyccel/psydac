@@ -1,3 +1,8 @@
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 import numpy as np
 import pytest
 from mpi4py import MPI
@@ -122,7 +127,7 @@ def run_projection_comparison(domain, ncells, degree, periodic, funcs, reduce):
 @pytest.mark.parametrize('periodic', [True, False])
 @pytest.mark.parametrize('funcs', [np.sin, np.exp])
 @pytest.mark.parametrize('reduce', [0,1])
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_projection_parallel_1d(domain, ncells, degree, periodic, funcs, reduce):
     run_projection_comparison([domain], [ncells], [degree], [periodic], [funcs], reduce)
 
@@ -133,7 +138,7 @@ def test_projection_parallel_1d(domain, ncells, degree, periodic, funcs, reduce)
 @pytest.mark.parametrize('funcs', [[lambda x,y: np.sin(x)*np.sin(y), lambda x,y: np.cos(x)*np.cos(y)],
                                     [lambda x,y: np.exp(x)*np.exp(y), lambda x,y: np.exp(x) + np.exp(y)]])
 @pytest.mark.parametrize('reduce', [0,1,2,3])
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_projection_parallel_2d(domain, ncells, degree, periodic, funcs, reduce):
     run_projection_comparison(domain, ncells, degree, periodic, funcs, reduce) 
 
@@ -146,6 +151,6 @@ def test_projection_parallel_2d(domain, ncells, degree, periodic, funcs, reduce)
 @pytest.mark.parametrize('funcs', [[lambda x,y,z: np.sin(x)*np.cos(y)*np.cos(z), lambda x,y,z: np.cos(x)*np.sin(y)*np.cos(z), lambda x,y,z: np.cos(x)*np.cos(y)*np.sin(z)],
                                     [lambda x,y,z: np.exp(x)*np.exp(y)*np.exp(z), lambda x,y,z: np.exp(x) + np.exp(y) + np.exp(z), lambda x,y,z: x*y*z]])
 @pytest.mark.parametrize('reduce', [0,1,2,3])
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_projection_parallel_3d(domain, ncells, degree, periodic, funcs, reduce):
     run_projection_comparison(domain, ncells, degree, periodic, funcs, reduce) 

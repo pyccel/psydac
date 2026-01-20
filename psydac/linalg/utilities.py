@@ -1,7 +1,11 @@
-# coding: utf-8
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
+from math import sqrt
 
 import numpy as np
-from math import sqrt
 
 from psydac.linalg.basic   import Vector
 from psydac.linalg.stencil import StencilVector, StencilVectorSpace
@@ -17,8 +21,8 @@ __all__ = (
 #==============================================================================
 def array_to_psydac(x, V):
     """ 
-    Convert a NumPy array to a Vector of the space V. This function is designed to be the inverse of the method .toarray() of the class Vector.
-    Note: This function works in parallel but it is very costly and should be avoided if performance is a priority.
+    Convert a NumPy array to a Vector of the space V. This function is designed
+    to be the inverse of the method .toarray() of the class Vector.
 
     Parameters
     ----------
@@ -26,15 +30,18 @@ def array_to_psydac(x, V):
         Array to be converted. It only contains the true data, the ghost regions must not be included.
 
     V : psydac.linalg.stencil.StencilVectorSpace or psydac.linalg.block.BlockVectorSpace
-        Space of the final Psydac Vector.
+        Space of the final PSYDAC Vector.
 
     Returns
     -------
     u : psydac.linalg.stencil.StencilVector or psydac.linalg.block.BlockVector
         Element of space V, the coefficients of which (excluding ghost regions) are the entries of x. The ghost regions of u are up to date.
 
+    Notes
+    -----
+    This function works in parallel but it is very costly and should be avoided
+    if performance is a priority.
     """
-
     assert x.ndim == 1, 'Array must be 1D.'
     if x.dtype==complex:
         assert V.dtype==complex, 'Complex array cannot be converted to a real StencilVector'
@@ -76,8 +83,9 @@ def _array_to_psydac_recursive(x, u):
 #==============================================================================
 def petsc_to_psydac(x, Xh, out=None):
     """
-    Convert a PETSc.Vec object to a StencilVector or BlockVector. It assumes that PETSc was installed with the configuration for complex numbers.
-    Uses the index conversion functions in psydac.linalg.topetsc.py.
+    Convert a PETSc.Vec object to a StencilVector or BlockVector. It assumes
+    that PETSc was installed with the configuration for complex numbers. It
+    uses the index conversion functions in psydac.linalg.topetsc.
 
     Parameters
     ----------
@@ -85,17 +93,17 @@ def petsc_to_psydac(x, Xh, out=None):
       PETSc vector
 
     Xh : psydac.linalg.stencil.StencilVectorSpace | psydac.linalg.block.BlockVectorSpace
-      Space of the coefficients of the Psydac vector.
+      Space of the coefficients of the PSYDAC vector.
 
     out : psydac.linalg.stencil.StencilVector | psydac.linalg.block.BlockVector, optional
-      The Psydac vector where to store the result.
+      The PSYDAC vector where to store the result.
 
     Returns
     -------
     u : psydac.linalg.stencil.StencilVector | psydac.linalg.block.BlockVector
-        Psydac vector. In the case of a BlockVector, the blocks must be StencilVector. The general case is not yet implemented.
+        PSYDAC vector. In the case of a BlockVector, the blocks must be of type
+        StencilVector. The general case is not yet implemented.
     """
-    
     if isinstance(Xh, BlockVectorSpace):
         if any([isinstance(Xh.spaces[b], BlockVectorSpace) for b in range(len(Xh.spaces))]):
             raise NotImplementedError('Block of blocks not implemented.')
