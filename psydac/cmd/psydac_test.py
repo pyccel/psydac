@@ -78,6 +78,7 @@ def psydac_test(*, mod, mpi, petsc, verbose, exitfirst):
             exit_with_error_message(f"module '{mod}' not found")
 
     # Import modules here to speed up parser
+    import platform
     import shutil
     import subprocess
 
@@ -123,7 +124,11 @@ def psydac_test(*, mod, mpi, petsc, verbose, exitfirst):
     flags.extend(['--pyargs', mod])
     mpi_mark = 'mpi' if mpi else 'not mpi'
     petsc_mark = 'petsc' if petsc else 'not petsc'
-    flags.extend(['-m', f'({mpi_mark} and {petsc_mark})'])
+    marker_expr = f'({mpi_mark} and {petsc_mark})'
+    # Add quotes on Ubuntu when mpirun is used
+    if mpi and platform.system() == 'Linux':
+        marker_expr = f'"{marker_expr}"'
+    flags.extend(['-m', marker_expr])
 
     # Default flags for pytest
     flags.append('-ra')  # show extra test summary info for skipped, failed, etc.
