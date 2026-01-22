@@ -14,9 +14,6 @@ on:
   pull_request:
     branches: [ devel, main ]
     types:
-      - opened
-      - synchronize
-      - reopened
       - ready_for_review
     paths:
       - 'psydac/**'
