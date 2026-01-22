@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+### Added
+
+### Fixed
+
+-   #565 Expand editable install info in `README.md`
+
+### Changed
+
+-   [DEVELOPER] Run documentation workflow whenever `README.md` is modified
+-   [DEVELOPER] Run testing workflow on PRs only when set to "ready for review"
+
+### Deprecated
+
+### Removed
+
 ## [1.0.0] - 2026-01-19
 
 The first official release on PyPI. A complete overhaul since version 0.1.
