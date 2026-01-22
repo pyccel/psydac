@@ -4,12 +4,14 @@ on:
   push:
     branches: [ devel ]
     paths:
+      - 'README.md'
       - 'docs/**'
       - 'psydac/**.py'
 
   pull_request:
     branches: [ devel, main ]
     paths:
+      - 'README.md'
       - 'docs/**'
       - 'psydac/**.py'
 
