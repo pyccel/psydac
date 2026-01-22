@@ -68,6 +68,8 @@ pip install meson-python "pyccel>=2.1.0"
 pip install --no-build-isolation --editable ".[test]"
 ```
 
+The last install command will create a local `build/` folder, which can be inspected in the case of an error.
+We recommend removing such a folder before running the command again (e.g. when installing PSYDAC in multiple virtual environments) in order to avoid conflicts in library path resolution.
 Again, for more details we refer to our [documentation](https://pyccel.github.io/psydac/installation.html).
 
 > [!TIP]
