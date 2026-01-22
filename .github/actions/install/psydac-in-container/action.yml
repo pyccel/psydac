@@ -1,5 +1,7 @@
 name: Install Psydac in Container
 
+description: 
+
 inputs:
   compile_language:
     required: true
@@ -19,8 +21,9 @@ runs:
       run: |
           ls / -a
           which python3
-          git clone https://github.com/struphy-hub/psydac-for-struphy.git
-          cd psydac-for-struphy
+          ls -a
+          git clone https://github.com/struphy-hub/feectools.git feectools-tmp
+          cd feectools-tmp
           echo ${GIT_BRANCH_NAME}
           git checkout ${GIT_BRANCH_NAME}
           git pull
@@ -28,4 +31,4 @@ runs:
           pip show feectools
           psydac-accelerate --cleanup --yes
           pip uninstall feectools -y
-          python3 -m pip install . --force-reinstall --no-cache-dir
+          python3 -m pip install .

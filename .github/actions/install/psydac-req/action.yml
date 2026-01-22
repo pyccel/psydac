@@ -1,5 +1,7 @@
 name: Install prerequisites
 
+description: 
+
 runs:
   using: composite
   steps:
@@ -92,13 +94,13 @@ runs:
           path: "./petsc"
           key: petsc-${{ matrix.os }}-${{ matrix.python-version }}
 
-    - if: steps.cache-petsc.outputs.cache-hit != 'true'
+    - if: steps.cache-petsc.outputs.cache-hit == ''
       name: Download a specific release of PETSc
       shell: bash
       run: |
           git clone --depth 1 --branch v3.23.3 https://gitlab.com/petsc/petsc.git
 
-    - if: steps.cache-petsc.outputs.cache-hit != 'true'
+    - if: steps.cache-petsc.outputs.cache-hit == ''
       name: Install PETSc with complex support
       working-directory: ./petsc
       shell: bash

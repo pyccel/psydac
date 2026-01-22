@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name            = "feectools"
-version         = "0.1.1"
+version         = "0.1.2"
 description     = "Slimmed-down fork of Psydac (https://github.com/pyccel/psydac) with less functionality and fewer dependencies."
 readme          = "README.md"
 requires-python = ">= 3.10"
@@ -53,13 +53,14 @@ mpi = [
 ]
 
 [project.urls]
-Homepage      = "https://github.com/struphy-hub/psydac-for-struphy"
-Documentation = "https://github.com/struphy-hub/psydac-for-struphy"
-Repository    = "https://github.com/struphy-hub/psydac-for-struphy"
+Homepage      = "https://github.com/struphy-hub/feectools"
+Documentation = "https://github.com/struphy-hub/feectools"
+Repository    = "https://github.com/struphy-hub/feectools"
 
 [project.scripts]
 psydac-mesh = "feectools.cmd.mesh:main"
 psydac-accelerate = "feectools.accelerate.accelerate:main"
+
 [tool.setuptools.packages.find]
 include = ["feectools*"]
 exclude = ["*__psydac__*"]
