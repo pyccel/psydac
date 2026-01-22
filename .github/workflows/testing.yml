@@ -140,8 +140,9 @@ jobs:
 #          --cov-report xml
 #          --pyargs psydac -m "not mpi and not petsc" -ra
 
-      - name: Run single-process tests with Pytest on Ubuntu
-        if: matrix.os == 'ubuntu-24.04'
+#      - name: Run single-process tests with Pytest on Ubuntu
+#        if: matrix.os == 'ubuntu-24.04'
+      - name: Run single-process tests with Pytest
         working-directory: ./pytest
         run: |
           psydac test --mod psydac.linalg.tests.test_stencil_vector_space
