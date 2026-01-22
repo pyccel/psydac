@@ -78,7 +78,6 @@ def psydac_test(*, mod, mpi, petsc, verbose, exitfirst):
             exit_with_error_message(f"module '{mod}' not found")
 
     # Import modules here to speed up parser
-    import os
     import shutil
     import subprocess
 
@@ -124,7 +123,7 @@ def psydac_test(*, mod, mpi, petsc, verbose, exitfirst):
     flags.extend(['--pyargs', mod])
     mpi_mark = 'mpi' if mpi else 'not mpi'
     petsc_mark = 'petsc' if petsc else 'not petsc'
-    flags.extend(['-m', f'"{mpi_mark} and {petsc_mark}"'])
+    flags.extend(['-m', f'({mpi_mark} and {petsc_mark})'])
 
     # Default flags for pytest
     flags.append('-ra')  # show extra test summary info for skipped, failed, etc.
@@ -140,11 +139,12 @@ def psydac_test(*, mod, mpi, petsc, verbose, exitfirst):
 
     # Print the command
     print('Executing command:')
-    print(f' {" ".join(cmd)}\n')
+    cmd_to_print = [a.replace('(', '"(').replace(')', ')"') for a in cmd]
+    print(f' {" ".join(cmd_to_print)}\n', flush=True)
 
-    # Strip double quotes if zsh is used as shell
-    if os.environ.get('SHELL', '').endswith('zsh'):
-        cmd = [arg.replace('"', '') for arg in cmd]
+#    # Strip double quotes if zsh is used as shell
+#    if os.environ.get('SHELL', '').endswith('zsh'):
+#        cmd = [arg.replace('"', '') for arg in cmd]
 
     # Execute the command
     subprocess.run(cmd, shell=False)
