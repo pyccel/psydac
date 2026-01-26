@@ -1460,11 +1460,11 @@ class StencilMatrix(LinearOperator):
         return out
 
     # ...
-    def topetsc(self):
+    def topetsc(self, folder):
         """ Convert to PETSc data structure.
         """
         from psydac.linalg.topetsc import mat_topetsc
-        mat = mat_topetsc(self)
+        mat = mat_topetsc(self, folder)
         return mat
 
     #--------------------------------------
