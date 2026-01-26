@@ -79,7 +79,6 @@ def psydac_test(*, mod, mpi, petsc, verbose, exitfirst):
 
     # Import modules here to speed up parser
     import os
-    import platform
     import shutil
     import subprocess
     import time
@@ -127,9 +126,6 @@ def psydac_test(*, mod, mpi, petsc, verbose, exitfirst):
     mpi_mark = 'mpi' if mpi else 'not mpi'
     petsc_mark = 'petsc' if petsc else 'not petsc'
     marker_expr = f'({mpi_mark} and {petsc_mark})'
-    # Add quotes on Ubuntu when mpirun is used
-    if mpi and platform.system() == 'Linux':
-        marker_expr = f'"{marker_expr}"'
     flags.extend(['-m', marker_expr])
 
     # Default flags for pytest
