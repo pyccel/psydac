@@ -162,7 +162,7 @@ jobs:
       - name: Run MPI tests with Pytest
         working-directory: ./pytest
         run: |
-          psydac test --mpi --mod psydac.linalg.tests.test_stencil_vector_space
+          psydac test --mpi psydac.linalg.tests.test_stencil_vector_space
 
 #      - name: Run single-process PETSc tests with Pytest
 #        working-directory: ./pytest
