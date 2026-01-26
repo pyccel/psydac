@@ -78,6 +78,7 @@ def psydac_test(*, mod, mpi, petsc, verbose, exitfirst):
             exit_with_error_message(f"module '{mod}' not found")
 
     # Import modules here to speed up parser
+    import os
     import platform
     import shutil
     import subprocess
@@ -147,4 +148,4 @@ def psydac_test(*, mod, mpi, petsc, verbose, exitfirst):
     print('Executing command:')
     print(f' {" ".join(cmd)}', end='\n\n', flush=True)
     time.sleep(0.1)  # ensure the print is shown before subprocess output
-    subprocess.run(cmd, shell=False)
+    subprocess.run(cmd, shell=False, env=os.environ)
