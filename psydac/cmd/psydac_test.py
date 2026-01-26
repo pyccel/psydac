@@ -125,8 +125,7 @@ def psydac_test(*, mod, mpi, petsc, verbose, exitfirst):
     flags.extend(['--pyargs', mod])
     mpi_mark = 'mpi' if mpi else 'not mpi'
     petsc_mark = 'petsc' if petsc else 'not petsc'
-    marker_expr = f'({mpi_mark} and {petsc_mark})'
-    flags.extend(['-m', marker_expr])
+    flags.extend(['-m', f'{mpi_mark} and {petsc_mark}'])
 
     # Default flags for pytest
     flags.append('-ra')  # show extra test summary info for skipped, failed, etc.
