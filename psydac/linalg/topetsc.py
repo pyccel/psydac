@@ -555,7 +555,7 @@ def mat_topetsc(mat, folder):
         os.makedirs(folder, exist_ok=True)
 
         output_file=open(folder + f'/petsc_performance_nprocs={comm.Get_size()}.txt', "a")
-        print(f'time_kernel={time_kernel}, \ntime_setValuesIJV={time_setValuesIJV}, \ntime_assemble={time_assemble}', flush=True, file=output_file)
+        print(f'\nnrows={int(mat.shape[0])}, \ntime_kernel={time_kernel}, \ntime_setValuesIJV={time_setValuesIJV}, \ntime_assemble={time_assemble}', flush=True, file=output_file)
         output_file.close()
 
         table_file_ext=open(folder + f'/petsc_performance_table_ext.txt', "a")
