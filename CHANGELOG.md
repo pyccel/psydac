@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 
 -   #565 Expand editable install info in `README.md`
+-   #566 Fix command `psydac test --mpi` on Ubuntu machines
 
 ### Changed
 

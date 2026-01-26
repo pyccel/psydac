@@ -78,8 +78,10 @@ def psydac_test(*, mod, mpi, petsc, verbose, exitfirst):
             exit_with_error_message(f"module '{mod}' not found")
 
     # Import modules here to speed up parser
+    import os
     import shutil
     import subprocess
+    import time
 
     flags = []
 
@@ -123,7 +125,7 @@ def psydac_test(*, mod, mpi, petsc, verbose, exitfirst):
     flags.extend(['--pyargs', mod])
     mpi_mark = 'mpi' if mpi else 'not mpi'
     petsc_mark = 'petsc' if petsc else 'not petsc'
-    flags.extend(['-m', f'{mpi_mark} and {petsc_mark}'])
+    flags.extend(['-m', f'({mpi_mark} and {petsc_mark})'])
 
     # Default flags for pytest
     flags.append('-ra')  # show extra test summary info for skipped, failed, etc.
@@ -137,7 +139,11 @@ def psydac_test(*, mod, mpi, petsc, verbose, exitfirst):
     # Command to be executed
     cmd = [*mpi_exe, shutil.which('pytest'), *flags]
 
-    # Execute the command
+    # Print command
+    cmd_to_print = [a.replace('(', '"(',).replace(')', ')"') for a in cmd]
     print('Executing command:')
-    print(f' {" ".join(cmd)}\n')
-    subprocess.run(cmd, shell=False)
+    print(f' {" ".join(cmd_to_print)}', end='\n\n', flush=True)
+    time.sleep(0.1)  # ensure the print is shown before subprocess output
+
+    # Execute the command
+    subprocess.run(cmd, shell=False, env=os.environ)
