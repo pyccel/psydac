@@ -30,7 +30,7 @@ jobs:
       matrix:
         os: [ ubuntu-24.04, macos-14 ]
 #        python-version: [ '3.9', '3.10', '3.11', '3.12', '3.13' ]
-        python-version: [ '3.11' ]
+        python-version: [ '3.11', '3.12' ]
         isMerge:
           - ${{ github.event_name == 'push' && github.ref == 'refs/heads/devel' }}
         exclude:
@@ -139,13 +139,17 @@ jobs:
 #          --cov-config $GITHUB_WORKSPACE/pyproject.toml
 #          --cov-report xml
 #          --pyargs psydac -m "not parallel and not petsc"
+#
+#      - name: Run single-process tests with Pytest on Ubuntu
+#        if: matrix.os == 'ubuntu-24.04'
+#        working-directory: ./pytest
+#        run: |
+#          psydac test
 
-      - name: Run single-process tests with Pytest on Ubuntu
-        if: matrix.os == 'ubuntu-24.04'
+      - name: Run single-process tests with Pytest
         working-directory: ./pytest
         run: |
           psydac test --mod psydac.cad -x -v
-#          psydac test
 
 #      - name: Upload coverage report to Codacy
 #        if: matrix.os == 'macos-14'
