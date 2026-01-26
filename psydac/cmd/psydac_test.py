@@ -81,6 +81,7 @@ def psydac_test(*, mod, mpi, petsc, verbose, exitfirst):
     import platform
     import shutil
     import subprocess
+    import time
 
     flags = []
 
@@ -145,4 +146,5 @@ def psydac_test(*, mod, mpi, petsc, verbose, exitfirst):
     # Execute the command
     print('Executing command:')
     print(f' {" ".join(cmd)}', end='\n\n', flush=True)
+    time.sleep(0.1)  # ensure the print is shown before subprocess output
     subprocess.run(cmd, shell=False)
