@@ -140,8 +140,11 @@ def psydac_test(*, mod, mpi, petsc, verbose, exitfirst):
     # Command to be executed
     cmd = [*mpi_exe, shutil.which('pytest'), *flags]
 
-    # Execute the command
+    # Print command
+    cmd_to_print = [a.replace('(', '"(',).replace(')', ')"') for a in cmd]
     print('Executing command:')
-    print(f' {" ".join(cmd)}', end='\n\n', flush=True)
+    print(f' {" ".join(cmd_to_print)}', end='\n\n', flush=True)
     time.sleep(0.1)  # ensure the print is shown before subprocess output
+
+    # Execute the command
     subprocess.run(cmd, shell=False, env=os.environ)
