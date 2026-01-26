@@ -567,7 +567,7 @@ def mat_topetsc(mat, folder):
         print(f'{comm.Get_size()} & {int(mat.shape[0])} & \SI{{{'{:.2e}'.format(time_kernel)}}}{{\second}} & \SI{{{'{:.2e}'.format(time_setValuesIJV)}}}{{\second}} & \SI{{{'{:.2e}'.format(time_assemble)}}}{{\second}}' + r'\\' , flush=True, file=table_file)
         table_file.close()
 
-        np.savez(folder + f'/petsc_performance_nprocs={comm.Get_size()}', allow_pickle=True, 
+        np.savez(folder + f'/petsc_performance_nprocs={comm.Get_size()}_nrows={int(mat.shape[0])}', allow_pickle=True, 
                  time_kernel=time_kernel, time_setValuesIJV=time_setValuesIJV, time_assemble=time_assemble)
 
     comm.Barrier()
