@@ -142,14 +142,7 @@ def psydac_test(*, mod, mpi, petsc, verbose, exitfirst):
     # Command to be executed
     cmd = [*mpi_exe, shutil.which('pytest'), *flags]
 
-    # Print the command
-    print('Executing command:')
-    cmd_to_print = [a.replace('(', '"(').replace(')', ')"') for a in cmd]
-    print(f' {" ".join(cmd_to_print)}\n', flush=True)
-
-#    # Strip double quotes if zsh is used as shell
-#    if os.environ.get('SHELL', '').endswith('zsh'):
-#        cmd = [arg.replace('"', '') for arg in cmd]
-
     # Execute the command
+    print('Executing command:')
+    print(f' {" ".join(cmd)}', end='\n\n', flush=True)
     subprocess.run(cmd, shell=False)
