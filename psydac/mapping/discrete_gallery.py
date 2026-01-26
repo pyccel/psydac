@@ -1,4 +1,8 @@
-# coding: utf-8
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 from typing import Iterable
 
 import numpy as np
@@ -14,6 +18,22 @@ from psydac.fem.tensor       import TensorFemSpace
 from psydac.mapping.discrete import SplineMapping
 from psydac.ddm.cart         import DomainDecomposition
 
+#==============================================================================
+available_mappings_2d = (
+    'identity',
+    'collela',
+    'circle',
+    'annulus',
+    'quarter_annulus',
+    'target',
+    'czarny',
+)
+
+available_mappings_3d = (
+    'identity',
+    'collela',
+    'spherical_shell',
+)
 
 __all__ = (
     'get_available_mappings',
@@ -48,7 +68,7 @@ def get_available_mappings(ldim):
         return ('identity', 'collela', 'circle', 'annulus', 'quarter_annulus',
                 'target', 'czarny')
     elif ldim == 3:
-        return ('identity', 'collela', 'spherical shell')
+        return ('identity', 'collela', 'spherical_shell')
     else:
         return ()
 
@@ -162,8 +182,8 @@ def discrete_mapping(mapping, ncells, degree, *,
             limits   = ((0, 1), (0, 1), (0, 1))
             periodic = ( False,  False,  False)
 
-        elif mapping == 'spherical shell':
-            map_analytic = SphericalMapping('M', dim=ldim)
+        elif mapping == 'spherical_shell':
+            map_symbolic = SphericalMapping('M', dim=ldim)
             limits   = ((1, 4), (0, np.pi), (0, np.pi/2))
             periodic = ( False,  False,  False)
 

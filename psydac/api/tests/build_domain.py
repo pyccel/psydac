@@ -1,5 +1,8 @@
-# coding: utf-8
-
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 # todo: this file has a lot of redundant code with psydac/feec/multipatch/multipatch_domain_utilities.py
 # it should probably be removed in the future
 
@@ -9,7 +12,7 @@ from sympde.topology import Square, Domain
 from sympde.topology import IdentityMapping, PolarMapping, AffineMapping, Mapping
 
 # remove after sympde PR #155 is merged and call Domain.join instead
-from psydac.feec.multipatch.multipatch_domain_utilities import sympde_Domain_join
+from psydac.feec.multipatch_domain_utilities import sympde_Domain_join
 
 #==============================================================================
 # small extension to SymPDE:

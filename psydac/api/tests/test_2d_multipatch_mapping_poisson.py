@@ -1,9 +1,13 @@
-# -*- coding: UTF-8 -*-
-
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 import os
+from pathlib import Path
+
 import pytest
 import numpy as np
-
 from mpi4py import MPI
 from sympy  import pi, sin
 
@@ -24,14 +28,9 @@ from psydac.api.tests.build_domain import build_pretzel
 from psydac.api.settings           import PSYDAC_BACKEND_GPYCCEL
 from psydac.fem.plotting_utilities import plot_field_2d as plot_field
 
-# ... get the mesh directory
-try:
-    mesh_dir = os.environ['PSYDAC_MESH_DIR']
-
-except:
-    base_dir = os.path.dirname(os.path.realpath(__file__))
-    base_dir = os.path.join(base_dir, '..', '..', '..')
-    mesh_dir = os.path.join(base_dir, 'mesh')
+# Get the mesh directory
+import psydac.cad.mesh as mesh_mod
+mesh_dir = Path(mesh_mod.__file__).parent
 
 #==============================================================================
 def run_poisson_2d(solution, f, domain, ncells=None, degree=None, filename=None, comm=None, backend=None):
@@ -303,7 +302,7 @@ def test_poisson_2d_4_patch_dirichlet_0():
 ###############################################################################
 
 #==============================================================================
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_poisson_2d_2_patches_dirichlet_parallel_0():
 
     A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi/2))
@@ -333,7 +332,7 @@ def test_poisson_2d_2_patches_dirichlet_parallel_0():
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
 
 #------------------------------------------------------------------------------
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_poisson_2d_4_patches_dirichlet_parallel_0():
 
     filename = os.path.join(mesh_dir, 'multipatch/magnet.h5')
@@ -352,7 +351,7 @@ def test_poisson_2d_4_patches_dirichlet_parallel_0():
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
 
 #------------------------------------------------------------------------------
-@pytest.mark.parallel
+@pytest.mark.mpi
 @pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL])
 def test_poisson_2d_2_patches_dirichlet_parallel_1(backend):
 

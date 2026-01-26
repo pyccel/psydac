@@ -1,3 +1,8 @@
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 import pytest
 
 from psydac.ddm.partition import compute_dims
@@ -119,6 +124,3 @@ if __name__ == '__main__':
     # test_partition_2d_dims_mask(10, [58, 64], [True, False])
     
     test_partition_3d_dims_mask(10, [32, 64, 128], [True, False, True])
-
-
-

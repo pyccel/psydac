@@ -1,3 +1,8 @@
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 import pytest
 from collections import OrderedDict
 
@@ -132,16 +137,17 @@ def test_conf_projectors_2d(
     derham_h = discretize(derham, domain_h, degree=degree)
     V0h, V1h, V2h = derham_h.spaces
 
-
-    # full moment preservation only possible if enough interior functions in a
-    # patch (<=> enough cells)
-    if full_mom_pres and (nc >= degree[0] + 1):
-        mom_pres = degree[0]
+    if full_mom_pres:
+        # full moment preservation only possible if enough interior functions in a
+        # patch (<=> enough cells)
+        if nc >= degree[0] + 1:
+            mom_pres = degree[0]
+        else:
+            raise ValueError(f'nc = {nc} too small for full moment preservation')
     else:
-        raise ValueError(f'nc = {nc} too small for moment preservation')
         mom_pres = -1
-    # NOTE: if mom_pres but not full_mom_pres we could test reduced order
-    # moment preservation...
+        # NOTE: if mom_pres but not full_mom_pres we could test reduced order
+        # moment preservation...
 
     # geometric projections (operators)
     geomP0, geomP1, geomP2 = derham_h.projectors(nquads=nquads)

@@ -4,12 +4,14 @@ on:
   push:
     branches: [ devel ]
     paths:
+      - 'README.md'
       - 'docs/**'
       - 'psydac/**.py'
 
   pull_request:
-    branches: [ devel ]
+    branches: [ devel, main ]
     paths:
+      - 'README.md'
       - 'docs/**'
       - 'psydac/**.py'
 
@@ -25,28 +27,100 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN}}
+      OMP_NUM_THREADS: 2
     steps:
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: 3.9
+        python-version: '3.10'
     - name: Install non-Python dependencies on Ubuntu
+      uses: awalsh128/cache-apt-pkgs-action@latest
+      with:
+        packages: gfortran openmpi-bin libopenmpi-dev libhdf5-openmpi-dev
+        version: 1.0
+        execute_install_scripts: true
+
+    - name: Reconfigure non-Python dependencies on Ubuntu
       run: |
-        sudo apt update
-        sudo apt install graphviz
-    - name: Install Python dependencies
+        sudo apt-get update
+        sudo apt-get install --reinstall openmpi-bin libhdf5-openmpi-dev liblapack-dev libblas-dev
+        sudo apt install graphviz pandoc
+
+    - name: Print information on MPI and HDF5 libraries
       run: |
-        python -m pip install -r docs/requirements.txt
+        ompi_info
+        h5pcc -showconfig -echo || true
+
+    - name: Upgrade pip, setuptools, and wheel
+      run: |
+        pip install --upgrade pip setuptools wheel
+
+    - name: Cache PETSc
+      uses: actions/cache@v4
+      id: cache-petsc
+      env:
+        cache-name: cache-PETSc
+      with:
+        path: "./petsc"
+        key: petsc-${{ matrix.os }}-${{ matrix.python-version }}
+
+    - if: steps.cache-petsc.outputs.cache-hit != 'true'
+      name: Download a specific release of PETSc
+      run: |
+        git clone --depth 1 --branch v3.23.2 https://gitlab.com/petsc/petsc.git
+
+    - if: steps.cache-petsc.outputs.cache-hit != 'true'
+      name: Install PETSc with complex support
+      working-directory: ./petsc
+      run: |
+        export PETSC_DIR=$(pwd)
+        export PETSC_ARCH=petsc-cmplx
+        ./configure --with-scalar-type=complex --with-fortran-bindings=0 --have-numpy=1         
+        make all
+        echo "PETSC_DIR=$PETSC_DIR" > petsc.env
+        echo "PETSC_ARCH=$PETSC_ARCH" >> petsc.env
+
+    # This step is not really necessary and could be combined with PETSc install
+    # step; however it's good to verify if the cached PETSc installation really works!
+    - name: Test PETSc installation
+      working-directory: ./petsc
+      run: |
+        source petsc.env
+        make check
+        echo "PETSC_DIR=$PETSC_DIR" >> $GITHUB_ENV
+        echo "PETSC_ARCH=$PETSC_ARCH" >> $GITHUB_ENV
+
+    - name: Install petsc4py
+      working-directory: ./petsc
+      run: | 
+        pip install wheel Cython numpy
+        pip install src/binding/petsc4py
+
+    - name: Install h5py in parallel mode
+      uses: ./.github/actions/parallel_h5py
+
+    - name: Install project
+      run: |
+        pip install .[test]
+        pip freeze
+
+    - name: Install Python dependencies for Documentation
+      run: |
+        pip install -r docs/requirements.txt
+
     - name: Make the sphinx doc
       run: |
         rm -rf docs/source/modules/STUBDIR
         make -C docs clean
         make -C docs html
         python docs/update_links.py
+
     - name: Setup Pages
       uses: actions/configure-pages@v5
+
     - name: Upload artifact
       uses: actions/upload-pages-artifact@v3
       with:

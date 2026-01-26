@@ -1,8 +1,14 @@
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 import  os
+from    pathlib import  Path
+
 import  pytest
 import  time
 import  numpy   as      np
-
 from    sympy   import  sin, sqrt, pi, Abs, cos, tan
 
 from    sympde.calculus             import dot, cross, grad, curl, div, laplace
@@ -14,14 +20,9 @@ from    psydac.api.settings         import PSYDAC_BACKEND_GPYCCEL
 from    psydac.linalg.block         import BlockVectorSpace
 from    psydac.fem.basic            import FemField
 
-try:
-    mesh_dir = os.environ['PSYDAC_MESH_DIR']
-
-except:
-    base_dir = os.path.dirname(os.path.realpath(__file__))
-    base_dir = os.path.join(base_dir, '..', '..', '..')
-    mesh_dir = os.path.join(base_dir, 'mesh')
-
+# Get the mesh directory
+import psydac.cad.mesh as mesh_mod
+mesh_dir = Path(mesh_mod.__file__).parent
 
 # With PR #448, matrices corresponding to bilinear forms on 3D domains are being assembled using a so called sum factorization algorithm.
 # Unless explicitely using the old algorithm, this happens automatically, and hence all old tests passing should indicate that the implementation of the sum factorization algorithm has been successful.

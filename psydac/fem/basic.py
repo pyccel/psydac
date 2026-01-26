@@ -1,5 +1,8 @@
-# coding: utf-8
-
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 """
 In order to avoid multiple inheritence, we define the base objects for Finite
 Elements as abstract classes that contain a topological member. This member can
@@ -387,21 +390,21 @@ class FemField:
 class FemLinearOperator:
     """
     Linear operators with an additional FEM layer. 
+
     There is also a shorthand access to sparse matrices as they are sometimes
     used in the FEEC interfaces.
+
     Parameters
     ----------
     fem_domain : psydac.fem.basic.FemSpace
-        The discrete space of the domain
+        The discrete space of the domain.
 
     fem_codomain : psydac.fem.basic.FemSpace
-        The discrete space of the codomain
+        The discrete space of the codomain.
 
-    linop : <psydac.linalg.basic.LinearOperator> 
-        Linear Operator. 
-
+    linop : psydac.linalg.basic.LinearOperator, optional
+        Underlying linear operator acting between the coefficient spaces.
     """
-
     def __init__(self, fem_domain, fem_codomain, *, linop=None):
         assert isinstance(fem_domain, FemSpace)
         assert isinstance(fem_codomain, FemSpace)

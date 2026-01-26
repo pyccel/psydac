@@ -1,4 +1,8 @@
-# coding: utf-8
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 
 # TODO: - init_fem is called whenever we call discretize. we should check that
 #         nderiv has not been changed. shall we add nquads too?
@@ -8,7 +12,6 @@
 import sys
 import os
 import importlib
-import numpy as np
 from mpi4py import MPI
 
 from psydac.api.ast.fem         import AST
@@ -342,5 +345,3 @@ class BasicDiscrete(BasicCodeGen):
         return AST(expr, kernel_expr, discrete_space, mapping_space=mapping_space,
                    tag=tag, nquads=nquads, mapping=mapping, is_rational_mapping=is_rational_mapping,
                    backend=backend, num_threads=num_threads)
-
-

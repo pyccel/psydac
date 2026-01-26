@@ -1,6 +1,8 @@
-# coding: utf-8
-# Copyright 2021 Yaman Güçlü
-
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 """
     2D time-dependent Maxwell simulation using FEEC and time splitting with
     two operators. These integrate exactly one of the two equations,
@@ -245,13 +247,10 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
 
     if use_spline_mapping:
 
-        try:
-            mesh_dir = os.environ['PSYDAC_MESH_DIR']
-        except KeyError:
-            base_dir = os.path.dirname(os.path.realpath(__file__))
-            mesh_dir = os.path.join(base_dir, '..', '..', '..', 'mesh')
+        from pathlib import Path
+        import psydac.cad.mesh as mesh_mod
 
-        filename = os.path.join(mesh_dir, 'collela_2d.h5')
+        filename = Path(mesh_mod.__file__).parent / 'collela_2d.h5'
         domain   = Domain.from_file(filename)
         mapping  = domain.mapping
 
@@ -288,7 +287,7 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
                integral(domain.boundary, 1e30 * cross(u1, nn) * cross(v1, nn)))
 
     #--------------------------------------------------------------------------
-    # Discrete objects: Psydac
+    # Discrete objects: PSYDAC
     #--------------------------------------------------------------------------
     if use_spline_mapping:
         domain_h = discretize(domain, filename=filename, comm=MPI.COMM_WORLD)
@@ -523,7 +522,7 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
         step_ampere_2d = dt * (M1_inv @ D1_T @ M2)
     else:
         M1_M1_bc = M1 + M1_bc
-        M1_M1_bc_inv = inverse(M1_M1_bc, 'pcg', pc = M1_M1_bc.diagonal(inverse=True), **kwargs)
+        M1_M1_bc_inv = inverse(M1_M1_bc, 'cg', pc = M1_M1_bc.diagonal(inverse=True), **kwargs)
         step_ampere_2d = dt * (M1_M1_bc_inv @ D1_T @ M2)
 
     half_step_faraday_2d = (dt/2) * D1
@@ -856,7 +855,7 @@ def test_maxwell_2d_dirichlet_spline_mapping():
     assert abs(namespace['error_Bz'] - ref['error_Bz']) / ref['error_Bz'] <= TOL
 
 
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_maxwell_2d_periodic_par():
 
     namespace = run_maxwell_2d_TE(
@@ -884,7 +883,7 @@ def test_maxwell_2d_periodic_par():
     assert abs(namespace['error_l2_Ey'] - ref['error_l2_Ey']) / ref['error_l2_Ey'] <= TOL
     assert abs(namespace['error_l2_Bz'] - ref['error_l2_Bz']) / ref['error_l2_Bz'] <= TOL
 
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_maxwell_2d_dirichlet_par():
 
     namespace = run_maxwell_2d_TE(

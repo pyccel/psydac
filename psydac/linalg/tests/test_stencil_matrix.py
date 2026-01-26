@@ -1,8 +1,10 @@
-# -*- coding: UTF-8 -*-
-
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 import pytest
 import numpy as np
-from random import random
 
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
 from psydac.linalg.utilities import petsc_to_psydac
@@ -155,12 +157,12 @@ def test_stencil_matrix_2d_copy(dtype, n1, n2, p1, p2,s1,s2, P1=True, P2=False):
     M = StencilMatrix(V, V)
 
     # Take random data, but determinize it
-    np.random.seed(2)
+    rng = np.random.default_rng(2)
 
     if dtype == complex:
-        M._data[:] = np.random.random(M._data.shape)+ 2j*np.random.random(M._data.shape)
+        M._data[:] = rng.random(M._data.shape)+ 2j*rng.random(M._data.shape)
     else:
-        M._data[:] = np.random.random(M._data.shape)
+        M._data[:] = rng.random(M._data.shape)
 
     # Create a copy of the matrix
     M1 = M.copy()
@@ -197,12 +199,11 @@ def test_stencil_matrix_2d_basic_ops(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=
     M = StencilMatrix(V, V)
 
     # take random data, but determinize it
-    np.random.seed(2)
+    rng = np.random.default_rng(2)
     if dtype == complex:
-        M._data[:] = np.random.random(M._data.shape)+ 2j*np.random.random(M._data.shape)
+        M._data[:] = rng.random(M._data.shape)+ 2j*rng.random(M._data.shape)
     else:
-        M._data[:] = np.random.random(M._data.shape)
-
+        M._data[:] = rng.random(M._data.shape)
 
     # Check that the basic operation return the correct StencilMatrix
     assert isinstance(M * 2, StencilMatrix)
@@ -276,11 +277,11 @@ def test_stencil_matrix_2d_math(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=False
     M = StencilMatrix(V, V)
 
     # take random data, but determinize it
-    np.random.seed(2)
+    rng = np.random.default_rng(2)
     if dtype == complex:
-        M._data[:] = np.random.random(M._data.shape) + 10j * np.random.random(M._data.shape)
+        M._data[:] = rng.random(M._data.shape) + 10j * rng.random(M._data.shape)
     else:
-        M._data[:] = -1*np.random.random(M._data.shape)
+        M._data[:] = -1*rng.random(M._data.shape)
 
     # Check that the max function work
     assert M.max()==M._data.max()
@@ -752,12 +753,13 @@ def test_stencil_matrix_1d_serial_dot(dtype, n1, p1, s1, P1):
     M.remove_spurious_entries()
 
     # Fill in vector with random values, then update ghost regions
+    rng = np.random.default_rng()
     if dtype==complex:
         for i1 in range(n1):
-            x[i1] = (2.0+3j) * random() - 1.0
+            x[i1] = (2.0+3j) * rng.random() - 1.0
     else:
         for i1 in range(n1):
-            x[i1] = 2.0 * random() - 1.0
+            x[i1] = 2.0 * rng.random() - 1.0
 
     x.update_ghost_regions()
 
@@ -819,15 +821,18 @@ def test_stencil_matrix_2d_serial_dot_1(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
     # If any dimension is not periodic, set corresponding periodic corners to zero
     M.remove_spurious_entries()
 
+    # Initialize random number generator
+    rng = np.random.default_rng()
+
     # Fill in vector with random values, then update ghost regions
     if dtype==complex:
         for i1 in range(n1):
             for i2 in range(n2):
-                x[i1, i2] = 2.0 * random() - 1.0j
+                x[i1, i2] = 2.0 * rng.random() - 1.0j
     else:
         for i1 in range(n1):
             for i2 in range(n2):
-                x[i1, i2] = 2.0 * random() - 1.0
+                x[i1, i2] = 2.0 * rng.random() - 1.0
     x.update_ghost_regions()
 
     # Compute matrix-vector product
@@ -879,13 +884,16 @@ def test_stencil_matrix_2d_serial_dot_2(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
     x1 = StencilVector(V1)
     x2 = StencilVector(V2)
 
+    # Initialize random number generator
+    rng = np.random.default_rng()
+
     # Fill in stencil matrix values based on diagonal index (periodic!)
     if dtype==complex:
-        M1._data[p1:-p1, p2:-p2, :, :] = np.random.random(M1._data[p1:-p1, p2:-p2, :, :].shape)+1j*np.random.random(M1._data[p1:-p1, p2:-p2, :, :].shape)
-        M2._data[p1:-p1, p2:-p2, :, :] = np.random.random(M2._data[p1:-p1, p2:-p2, :, :].shape)+1j*np.random.random(M2._data[p1:-p1, p2:-p2, :, :].shape)
+        M1._data[p1:-p1, p2:-p2, :, :] = rng.random(M1._data[p1:-p1, p2:-p2, :, :].shape)+1j*rng.random(M1._data[p1:-p1, p2:-p2, :, :].shape)
+        M2._data[p1:-p1, p2:-p2, :, :] = rng.random(M2._data[p1:-p1, p2:-p2, :, :].shape)+1j*rng.random(M2._data[p1:-p1, p2:-p2, :, :].shape)
     else:
-        M1._data[p1:-p1, p2:-p2, :, :] = np.random.random(M1._data[p1:-p1, p2:-p2, :, :].shape)
-        M2._data[p1:-p1, p2:-p2, :, :] = np.random.random(M2._data[p1:-p1, p2:-p2, :, :].shape)
+        M1._data[p1:-p1, p2:-p2, :, :] = rng.random(M1._data[p1:-p1, p2:-p2, :, :].shape)
+        M2._data[p1:-p1, p2:-p2, :, :] = rng.random(M2._data[p1:-p1, p2:-p2, :, :].shape)
 
     # If any dimension is not periodic, set corresponding periodic corners to zero
     M1.remove_spurious_entries()
@@ -895,17 +903,17 @@ def test_stencil_matrix_2d_serial_dot_2(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
     if dtype ==complex:
         for i1 in range(n1):
             for i2 in range(n2 - 1):
-                x1[i1, i2] = (2.0+1j) * random() - 1.0
+                x1[i1, i2] = (2.0+1j) * rng.random() - 1.0
         for i1 in range(n1 - 1):
             for i2 in range(n2 - 1):
-                x2[i1, i2] = (2.0+1j)  * random() - 1.0
+                x2[i1, i2] = (2.0+1j)  * rng.random() - 1.0
     else:
         for i1 in range(n1):
             for i2 in range(n2 - 1):
-                x1[i1, i2] = 2.0 * random() - 1.0
+                x1[i1, i2] = 2.0 * rng.random() - 1.0
         for i1 in range(n1 - 1):
             for i2 in range(n2 - 1):
-                x2[i1, i2] = 2.0 * random() - 1.0
+                x2[i1, i2] = 2.0 * rng.random() - 1.0
     x1.update_ghost_regions()
     x2.update_ghost_regions()
 
@@ -966,13 +974,16 @@ def test_stencil_matrix_2d_serial_dot_3(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
     x1 = StencilVector(V1)
     x2 = StencilVector(V2)
 
+    # Initialize random number generator
+    rng = np.random.default_rng()
+
     # Fill in stencil matrix values based on diagonal index (periodic!)
     if dtype==complex:
-        M1[0:n1 - 1, 0:n2 - 1, :, :] = np.random.random((n1 - 1, n2 - 1, 2 * p1 + 1, 2 * p2 - 1))+1j*np.random.random((n1 - 1, n2 - 1, 2 * p1 + 1, 2 * p2 - 1))
-        M2[0:n1, 0:n2 - 1, :, :] = np.random.random((n1, n2 - 1, 2 * p1 + 1, 2 * p2 - 1))+1j*np.random.random((n1, n2 - 1, 2 * p1 + 1, 2 * p2 - 1))
+        M1[0:n1 - 1, 0:n2 - 1, :, :] = rng.random((n1 - 1, n2 - 1, 2 * p1 + 1, 2 * p2 - 1))+1j*rng.random((n1 - 1, n2 - 1, 2 * p1 + 1, 2 * p2 - 1))
+        M2[0:n1, 0:n2 - 1, :, :] = rng.random((n1, n2 - 1, 2 * p1 + 1, 2 * p2 - 1))+1j*rng.random((n1, n2 - 1, 2 * p1 + 1, 2 * p2 - 1))
     else:
-        M1[0:n1 - 1, 0:n2 - 1, :, :] = np.random.random((n1 - 1, n2 - 1, 2 * p1 + 1, 2 * p2 - 1))
-        M2[0:n1, 0:n2 - 1, :, :] = np.random.random((n1, n2 - 1, 2 * p1 + 1, 2 * p2 - 1))
+        M1[0:n1 - 1, 0:n2 - 1, :, :] = rng.random((n1 - 1, n2 - 1, 2 * p1 + 1, 2 * p2 - 1))
+        M2[0:n1, 0:n2 - 1, :, :] = rng.random((n1, n2 - 1, 2 * p1 + 1, 2 * p2 - 1))
 
     # If any dimension is not periodic, set corresponding periodic corners to zero
     M1.remove_spurious_entries()
@@ -982,17 +993,17 @@ def test_stencil_matrix_2d_serial_dot_3(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
     if dtype == complex:
         for i1 in range(n1):
             for i2 in range(n2 - 1):
-                x1[i1, i2] = (2.0+1j) * random() - 1.0
+                x1[i1, i2] = (2.0+1j) * rng.random() - 1.0
         for i1 in range(n1 - 1):
             for i2 in range(n2 - 1):
-                x2[i1, i2] = (2.0+1j) * random() - 1.0
+                x2[i1, i2] = (2.0+1j) * rng.random() - 1.0
     else:
         for i1 in range(n1):
             for i2 in range(n2 - 1):
-                x1[i1, i2] = 2.0 * random() - 1.0
+                x1[i1, i2] = 2.0 * rng.random() - 1.0
         for i1 in range(n1 - 1):
             for i2 in range(n2 - 1):
-                x2[i1, i2] = 2.0 * random() - 1.0
+                x2[i1, i2] = 2.0 * rng.random() - 1.0
     x1.update_ghost_regions()
     x2.update_ghost_regions()
 
@@ -1053,13 +1064,16 @@ def test_stencil_matrix_2d_serial_dot_4(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
     x1 = StencilVector(V1)
     x2 = StencilVector(V2)
 
+    # Initialize random number generator
+    rng = np.random.default_rng()
+
     # Fill in stencil matrix values based on diagonal index (periodic!)
     if dtype==complex:
-        M1[0:n1 - 1, 0:n2 - 1, :, :] = np.random.random((n1 - 1, n2 - 1, 2 * p1 - 1, 2 * p2 + 1))+1j*np.random.random((n1 - 1, n2 - 1, 2 * p1 - 1, 2 * p2 + 1))
-        M2[0:n1 - 1, 0:n2, :, :] = np.random.random((n1 - 1, n2, 2 * p1 - 1, 2 * p2 + 1))+1j*np.random.random((n1 - 1, n2, 2 * p1 - 1, 2 * p2 + 1))
+        M1[0:n1 - 1, 0:n2 - 1, :, :] = rng.random((n1 - 1, n2 - 1, 2 * p1 - 1, 2 * p2 + 1))+1j*rng.random((n1 - 1, n2 - 1, 2 * p1 - 1, 2 * p2 + 1))
+        M2[0:n1 - 1, 0:n2, :, :] = rng.random((n1 - 1, n2, 2 * p1 - 1, 2 * p2 + 1))+1j*rng.random((n1 - 1, n2, 2 * p1 - 1, 2 * p2 + 1))
     else:
-        M1[0:n1 - 1, 0:n2 - 1, :, :] = np.random.random((n1 - 1, n2 - 1, 2 * p1 - 1, 2 * p2 + 1))
-        M2[0:n1 - 1, 0:n2, :, :] = np.random.random((n1 - 1, n2, 2 * p1 - 1, 2 * p2 + 1))
+        M1[0:n1 - 1, 0:n2 - 1, :, :] = rng.random((n1 - 1, n2 - 1, 2 * p1 - 1, 2 * p2 + 1))
+        M2[0:n1 - 1, 0:n2, :, :] = rng.random((n1 - 1, n2, 2 * p1 - 1, 2 * p2 + 1))
 
     # If any dimension is not periodic, set corresponding periodic corners to zero
     M1.remove_spurious_entries()
@@ -1070,17 +1084,17 @@ def test_stencil_matrix_2d_serial_dot_4(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
     if dtype==complex:
         for i1 in range(n1 - 1):
             for i2 in range(n2):
-                x1[i1, i2] = (2.0+1j) * random() - 1.0
+                x1[i1, i2] = (2.0+1j) * rng.random() - 1.0
         for i1 in range(n1 - 1):
             for i2 in range(n2 - 1):
-                x2[i1, i2] = (2.0+1j) * random() - 1.0
+                x2[i1, i2] = (2.0+1j) * rng.random() - 1.0
     else:
         for i1 in range(n1 - 1):
             for i2 in range(n2):
-                x1[i1, i2] = 2.0 * random() - 1.0
+                x1[i1, i2] = 2.0 * rng.random() - 1.0
         for i1 in range(n1 - 1):
             for i2 in range(n2 - 1):
-                x2[i1, i2] = 2.0 * random() - 1.0
+                x2[i1, i2] = 2.0 * rng.random() - 1.0
     x1.update_ghost_regions()
     x2.update_ghost_regions()
 
@@ -1140,35 +1154,36 @@ def test_stencil_matrix_2d_serial_dot_5(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
     x1 = StencilVector(V1)
     x2 = StencilVector(V2)
 
+    # Initialize random number generator
+    rng = np.random.default_rng()
+
     # Fill in stencil matrix values based on diagonal index (periodic!)
     if dtype==complex:
-        M1[0:n1 - 1, 0:n2 - 1, :, :] = np.random.random((n1 - 1, n2 - 1, 2 * p1 + 1, 2 * p2 + 1))+1j*np.random.random((n1 - 1, n2 - 1, 2 * p1 + 1, 2 * p2 + 1))
-        M2[0:n1 - 1, 0:n2, :, :] = np.random.random((n1 - 1, n2, 2 * p1 + 1, 2 * p2 + 1))+1j*np.random.random((n1 - 1, n2, 2 * p1 + 1, 2 * p2 + 1))
+        M1[0:n1 - 1, 0:n2 - 1, :, :] = rng.random((n1 - 1, n2 - 1, 2 * p1 + 1, 2 * p2 + 1))+1j*rng.random((n1 - 1, n2 - 1, 2 * p1 + 1, 2 * p2 + 1))
+        M2[0:n1 - 1, 0:n2, :, :] = rng.random((n1 - 1, n2, 2 * p1 + 1, 2 * p2 + 1))+1j*rng.random((n1 - 1, n2, 2 * p1 + 1, 2 * p2 + 1))
     else:
-        M1[0:n1 - 1, 0:n2 - 1, :, :] = np.random.random((n1 - 1, n2 - 1, 2 * p1 + 1, 2 * p2 + 1))
-        M2[0:n1 - 1, 0:n2, :, :] = np.random.random((n1 - 1, n2, 2 * p1 + 1, 2 * p2 + 1))
+        M1[0:n1 - 1, 0:n2 - 1, :, :] = rng.random((n1 - 1, n2 - 1, 2 * p1 + 1, 2 * p2 + 1))
+        M2[0:n1 - 1, 0:n2, :, :] = rng.random((n1 - 1, n2, 2 * p1 + 1, 2 * p2 + 1))
 
     # If any dimension is not periodic, set corresponding periodic corners to zero
     M1.remove_spurious_entries()
     M2.remove_spurious_entries()
 
     # Fill in vector with random values, then update ghost regions
-
-
     if dtype==complex:
         for i1 in range(n1 - 1):
             for i2 in range(n2):
-                x1[i1, i2] = (2.0+1j) * random() - 1.0
+                x1[i1, i2] = (2.0+1j) * rng.random() - 1.0
         for i1 in range(n1 - 1):
             for i2 in range(n2 - 1):
-                x2[i1, i2] = (2.0+1j) * random() - 1.0
+                x2[i1, i2] = (2.0+1j) * rng.random() - 1.0
     else:
         for i1 in range(n1 - 1):
             for i2 in range(n2):
-                x1[i1, i2] = 2.0 * random() - 1.0
+                x1[i1, i2] = 2.0 * rng.random() - 1.0
         for i1 in range(n1 - 1):
             for i2 in range(n2 - 1):
-                x2[i1, i2] = 2.0 * random() - 1.0
+                x2[i1, i2] = 2.0 * rng.random() - 1.0
 
     x1.update_ghost_regions()
     x2.update_ghost_regions()
@@ -1191,7 +1206,6 @@ def test_stencil_matrix_2d_serial_dot_5(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
     y2a_exact = np.dot(M2a, x2a)
 
     # Check data in 1D array
-
     assert np.allclose(y1a, y1a_exact, rtol=1e-13, atol=1e-13)
     assert np.allclose(y2a, y2a_exact, rtol=1e-13, atol=1e-13)
 
@@ -1235,15 +1249,18 @@ def test_stencil_matrix_2d_serial_dot_6(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
     # If any dimension is not periodic, set corresponding periodic corners to zero
     M.remove_spurious_entries()
 
+    # Initialize random number generator
+    rng = np.random.default_rng()
+
     # Fill in vector with random values, then update ghost regions
     if dtype==complex:
         for i1 in range(n1):
             for i2 in range(n2):
-                x[i1, i2] = 2.0 * random() - 1.0j
+                x[i1, i2] = 2.0 * rng.random() - 1.0j
     else:
         for i1 in range(n1):
             for i2 in range(n2):
-                x[i1, i2] = 2.0 * random() - 1.0
+                x[i1, i2] = 2.0 * rng.random() - 1.0
     x.update_ghost_regions()
 
     # Compute matrix-vector product
@@ -1300,15 +1317,18 @@ def test_stencil_matrix_2d_serial_vdot(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
     # If any dimension is not periodic, set corresponding periodic corners to zero
     M.remove_spurious_entries()
 
+    # Initialize random number generator
+    rng = np.random.default_rng()
+
     # Fill in vector with random values, then update ghost regions
     if dtype==complex:
         for i1 in range(n1):
             for i2 in range(n2):
-                x[i1, i2] = 2.0 * random() - 1.0j
+                x[i1, i2] = 2.0 * rng.random() - 1.0j
     else:
         for i1 in range(n1):
             for i2 in range(n2):
-                x[i1, i2] = 2.0 * random() - 1.0
+                x[i1, i2] = 2.0 * rng.random() - 1.0
     x.update_ghost_regions()
 
     # Convert stencil objects to Numpy arrays
@@ -1346,9 +1366,12 @@ def test_stencil_matrix_1d_serial_transpose(dtype, n1, p1, s1, P1):
     V = StencilVectorSpace(cart, dtype=dtype)
     M = StencilMatrix(V, V)
 
+    # Initialize random number generator
+    rng = np.random.default_rng()
+
     # Fill in matrix values with random numbers between 0 and 1
     if dtype==complex:
-        M[0:n1, -p1:p1 + 1] = np.random.random((n1, 2 * p1 + 1))+1j*np.random.random((n1, 2 * p1 + 1))
+        M[0:n1, -p1:p1 + 1] = rng.random((n1, 2 * p1 + 1))+1j*np.random.random((n1, 2 * p1 + 1))
     else:
         M[0:n1, -p1:p1 + 1] = np.random.random((n1, 2 * p1 + 1))
 
@@ -1399,11 +1422,14 @@ def test_stencil_matrix_2d_serial_transpose_1(dtype, n1, n2, p1, p2, s1, s2, P1,
     V = StencilVectorSpace(cart, dtype=dtype)
     M = StencilMatrix(V, V)
 
+    # Initialize random number generator
+    rng = np.random.default_rng()
+
     # Fill in matrix values with random numbers between 0 and 1
     if dtype == complex:
-        M[0:n1, 0:n2, :, :] = np.random.random((n1, n2, 2 * p1 + 1, 2 * p2 + 1))+1j*np.random.random((n1, n2, 2 * p1 + 1, 2 * p2 + 1))
+        M[0:n1, 0:n2, :, :] = rng.random((n1, n2, 2 * p1 + 1, 2 * p2 + 1))+1j*rng.random((n1, n2, 2 * p1 + 1, 2 * p2 + 1))
     else:
-        M[0:n1, 0:n2, :, :] = np.random.random((n1, n2, 2 * p1 + 1, 2 * p2 + 1))
+        M[0:n1, 0:n2, :, :] = rng.random((n1, n2, 2 * p1 + 1, 2 * p2 + 1))
 
     # If domain is not periodic, set corresponding periodic corners to zero
     M.remove_spurious_entries()
@@ -1463,11 +1489,14 @@ def test_stencil_matrix_2d_serial_transpose_2(dtype, n1, n2, p1, p2, s1, s2, P1,
     V2 = StencilVectorSpace(cart2, dtype=dtype)
     M = StencilMatrix(V1, V2, pads=(p1, p2))
 
+    # Initialize random number generator
+    rng = np.random.default_rng()
+
     # Fill in matrix values with random numbers between 0 and 1
     if dtype == complex:
-        M[0:n1- 1, 0:n2, :, :] = np.random.random((n1- 1, n2, 2 * p1 + 1, 2 * p2 + 1))+1j*np.random.random((n1- 1, n2, 2 * p1 + 1, 2 * p2 + 1))
+        M[0:n1- 1, 0:n2, :, :] = rng.random((n1- 1, n2, 2 * p1 + 1, 2 * p2 + 1))+1j*rng.random((n1- 1, n2, 2 * p1 + 1, 2 * p2 + 1))
     else:
-        M[0:n1- 1, 0:n2, :, :] = np.random.random((n1- 1, n2, 2 * p1 + 1, 2 * p2 + 1))
+        M[0:n1- 1, 0:n2, :, :] = rng.random((n1- 1, n2, 2 * p1 + 1, 2 * p2 + 1))
 
     # If domain is not periodic, set corresponding periodic corners to zero
     M.remove_spurious_entries()
@@ -1516,11 +1545,14 @@ def test_stencil_matrix_2d_serial_transpose_3(dtype, n1, n2, p1, p2, s1, s2, P1,
     V2 = StencilVectorSpace(cart2, dtype=dtype)
     M = StencilMatrix(V1, V2, pads=(p1, p2))
 
+    # Initialize random number generator
+    rng = np.random.default_rng()
+
     # Fill in matrix values with random numbers between 0 and 1
     if dtype == complex:
-        M[0:n1- 1, 0:n2, :, :] = np.random.random((n1- 1, n2, 2 * p1 + 1, 2 * p2 + 1))+1j*np.random.random((n1- 1, n2, 2 * p1 + 1, 2 * p2 + 1))
+        M[0:n1- 1, 0:n2, :, :] = rng.random((n1- 1, n2, 2 * p1 + 1, 2 * p2 + 1))+1j*rng.random((n1- 1, n2, 2 * p1 + 1, 2 * p2 + 1))
     else:
-        M[0:n1- 1, 0:n2, :, :] = np.random.random((n1- 1, n2, 2 * p1 + 1, 2 * p2 + 1))
+        M[0:n1- 1, 0:n2, :, :] = rng.random((n1- 1, n2, 2 * p1 + 1, 2 * p2 + 1))
 
     # If domain is not periodic, set corresponding periodic corners to zero
     M.remove_spurious_entries()
@@ -1568,11 +1600,14 @@ def test_stencil_matrix_2d_serial_transpose_4(dtype, n1, n2, p1, p2, s1, s2, P1,
     V2 = StencilVectorSpace(cart2, dtype=dtype)
     M = StencilMatrix(V1, V2, pads=(p1, p2))
 
+    # Initialize random number generator
+    rng = np.random.default_rng()
+
     # Fill in matrix values with random numbers between 0 and 1
     if dtype == complex:
-        M[0:n1, 0:n2 - 1, :, :] = np.random.random((n1, n2 - 1, 2 * p1 + 1, 2 * p2 + 1))+1j*np.random.random((n1, n2 - 1, 2 * p1 + 1, 2 * p2 + 1))
+        M[0:n1, 0:n2 - 1, :, :] = rng.random((n1, n2 - 1, 2 * p1 + 1, 2 * p2 + 1))+1j*rng.random((n1, n2 - 1, 2 * p1 + 1, 2 * p2 + 1))
     else:
-        M[0:n1, 0:n2 - 1, :, :] = np.random.random((n1, n2 - 1, 2 * p1 + 1, 2 * p2 + 1))
+        M[0:n1, 0:n2 - 1, :, :] = rng.random((n1, n2 - 1, 2 * p1 + 1, 2 * p2 + 1))
 
     # If domain is not periodic, set corresponding periodic corners to zero
     M.remove_spurious_entries()
@@ -1620,11 +1655,14 @@ def test_stencil_matrix_2d_serial_transpose_5(dtype, n1, n2, p1, p2, s1, s2, P1,
     V2 = StencilVectorSpace(cart2, dtype=dtype)
     M = StencilMatrix(V1, V2, pads=(p1, p2 - 1))
 
+    # Initialize random number generator
+    rng = np.random.default_rng()
+
     # Fill in matrix values with random numbers between 0 and 1
     if dtype == complex:
-        M[0:n1, 0:n2 - 1, :, :] = np.random.random((n1, n2 - 1, 2 * p1 + 1, 2 * p2 - 1))+1j*np.random.random((n1, n2 - 1, 2 * p1 + 1, 2 * p2 - 1))
+        M[0:n1, 0:n2 - 1, :, :] = rng.random((n1, n2 - 1, 2 * p1 + 1, 2 * p2 - 1))+1j*rng.random((n1, n2 - 1, 2 * p1 + 1, 2 * p2 - 1))
     else:
-        M[0:n1, 0:n2 - 1, :, :] = np.random.random((n1, n2 - 1, 2 * p1 + 1, 2 * p2 - 1))
+        M[0:n1, 0:n2 - 1, :, :] = rng.random((n1, n2 - 1, 2 * p1 + 1, 2 * p2 - 1))
 
     # If domain is not periodic, set corresponding periodic corners to zero
     M.remove_spurious_entries()
@@ -1671,12 +1709,14 @@ def test_stencil_matrix_2d_serial_transpose_6(dtype, n1, n2, p1, p2, s1, s2, P1,
     V2 = StencilVectorSpace(cart2, dtype=dtype)
     M = StencilMatrix(V1, V2, pads=(p1, p2 - 1))
 
+    # Initialize random number generator
+    rng = np.random.default_rng()
+
     # Fill in matrix values with random numbers between 0 and 1
     if dtype == complex:
-        M[0:n1, 0:n2 - 1, :, :] = np.random.random((n1, n2 - 1, 2 * p1 + 1, 2 * p2 - 1))+1j*np.random.random((n1, n2 - 1, 2 * p1 + 1, 2 * p2 - 1))
+        M[0:n1, 0:n2 - 1, :, :] = rng.random((n1, n2 - 1, 2 * p1 + 1, 2 * p2 - 1))+1j*rng.random((n1, n2 - 1, 2 * p1 + 1, 2 * p2 - 1))
     else:
-        M[0:n1, 0:n2 - 1, :, :] = np.random.random((n1, n2 - 1, 2 * p1 + 1, 2 * p2 - 1))
-
+        M[0:n1, 0:n2 - 1, :, :] = rng.random((n1, n2 - 1, 2 * p1 + 1, 2 * p2 - 1))
 
     # If domain is not periodic, set corresponding periodic corners to zero
     M.remove_spurious_entries()
@@ -1717,12 +1757,14 @@ def test_stencil_matrix_2d_serial_transpose_7(dtype, n1, n2, p1, p2, s1, s2, P1,
     V2 = StencilVectorSpace(cart, dtype=dtype)
     M = StencilMatrix(V1, V2, pads=(p1, p2 - 1))
 
+    # Initialize random number generator
+    rng = np.random.default_rng()
+
     # Fill in matrix values with random numbers between 0 and 1
     if dtype == complex:
-        M[0:n1, 0:n2, :, :] = np.random.random((n1, n2, 2 * p1 + 1, 2 * p2 - 1))+1j*np.random.random((n1, n2, 2 * p1 + 1, 2 * p2 - 1))
+        M[0:n1, 0:n2, :, :] = rng.random((n1, n2, 2 * p1 + 1, 2 * p2 - 1))+1j*rng.random((n1, n2, 2 * p1 + 1, 2 * p2 - 1))
     else:
-        M[0:n1, 0:n2, :, :] = np.random.random((n1, n2, 2 * p1 + 1, 2 * p2 - 1))
-
+        M[0:n1, 0:n2, :, :] = rng.random((n1, n2, 2 * p1 + 1, 2 * p2 - 1))
 
     # If domain is not periodic, set corresponding periodic corners to zero
     M.remove_spurious_entries()
@@ -1763,12 +1805,14 @@ def test_stencil_matrix_2d_serial_transpose_8(dtype, n1, n2, p1, p2, s1, s2, P1,
     V2 = StencilVectorSpace(cart, dtype=dtype)
     M = StencilMatrix(V1, V2, pads=(p1 - 1, p2 - 1))
 
+    # Initialize random number generator
+    rng = np.random.default_rng()
+
     # Fill in matrix values with random numbers between 0 and 1
     if dtype == complex:
-        M[0:n1, 0:n2, :, :] = np.random.random((n1, n2, 2 * p1 - 1, 2 * p2 - 1))+1j*np.random.random((n1, n2, 2 * p1 - 1, 2 * p2 - 1))
+        M[0:n1, 0:n2, :, :] = rng.random((n1, n2, 2 * p1 - 1, 2 * p2 - 1))+1j*rng.random((n1, n2, 2 * p1 - 1, 2 * p2 - 1))
     else:
-        M[0:n1, 0:n2, :, :] = np.random.random((n1, n2, 2 * p1 - 1, 2 * p2 - 1))
-
+        M[0:n1, 0:n2, :, :] = rng.random((n1, n2, 2 * p1 - 1, 2 * p2 - 1))
 
     # If domain is not periodic, set corresponding periodic corners to zero
     M.remove_spurious_entries()
@@ -1811,11 +1855,14 @@ def test_stencil_matrix_2d_serial_transpose_9(dtype, n1, n2, p1, p2, s1, s2, P1,
     V2 = StencilVectorSpace(cart, dtype=dtype)
     M = StencilMatrix(V1, V2)
 
+    # Initialize random number generator
+    rng = np.random.default_rng()
+
     # Fill in matrix values with random numbers between 0 and 1
     if dtype == complex:
-        M[0:n1 - 1, 0:n2 - 1, :, :] = np.random.random((n1 - 1, n2 - 1, 2 * p1 + 1, 2 * p2 + 1))+1j*np.random.random((n1 - 1, n2 - 1, 2 * p1 + 1, 2 * p2 + 1))
+        M[0:n1 - 1, 0:n2 - 1, :, :] = rng.random((n1 - 1, n2 - 1, 2 * p1 + 1, 2 * p2 + 1))+1j*rng.random((n1 - 1, n2 - 1, 2 * p1 + 1, 2 * p2 + 1))
     else:
-        M[0:n1 - 1, 0:n2 - 1, :, :] = np.random.random((n1 - 1, n2 - 1, 2 * p1 + 1, 2 * p2 + 1))
+        M[0:n1 - 1, 0:n2 - 1, :, :] = rng.random((n1 - 1, n2 - 1, 2 * p1 + 1, 2 * p2 + 1))
 
     # If domain is not periodic, set corresponding periodic corners to zero
     M.remove_spurious_entries()
@@ -1862,13 +1909,15 @@ def test_stencil_matrix_3d_serial_transpose_1(dtype, n1, n2, n3, p1, p2, p3, s1,
     V2 = StencilVectorSpace(cart2, dtype=dtype)
     M = StencilMatrix(V1, V2, pads=(p1, p2 - 1, p3 - 1))
 
+    # Initialize random number generator
+    rng = np.random.default_rng()
+
     # Fill in matrix values with random numbers between 0 and 1
     if dtype == complex:
-        M[0:n1, 0:n2 - 1, 0:n3 - 1, :, :, :] = np.random.random((n1, n2 - 1, n3 - 1, 2 * p1 + 1, 2 * p2 - 1, 2 * p3 - 1))\
-                                               +1j*np.random.random((n1, n2 - 1, n3 - 1, 2 * p1 + 1, 2 * p2 - 1, 2 * p3 - 1))
+        M[0:n1, 0:n2 - 1, 0:n3 - 1, :, :, :] = rng.random((n1, n2 - 1, n3 - 1, 2 * p1 + 1, 2 * p2 - 1, 2 * p3 - 1))\
+                                               +1j*rng.random((n1, n2 - 1, n3 - 1, 2 * p1 + 1, 2 * p2 - 1, 2 * p3 - 1))
     else:
-        M[0:n1, 0:n2 - 1, 0:n3 - 1, :, :, :] = np.random.random((n1, n2 - 1, n3 - 1, 2 * p1 + 1, 2 * p2 - 1, 2 * p3 - 1))
-
+        M[0:n1, 0:n2 - 1, 0:n3 - 1, :, :, :] = rng.random((n1, n2 - 1, n3 - 1, 2 * p1 + 1, 2 * p2 - 1, 2 * p3 - 1))
 
     # If domain is not periodic, set corresponding periodic corners to zero
     M.remove_spurious_entries()
@@ -1921,13 +1970,17 @@ def test_stencil_matrix_2d_serial_backend_dot_1(dtype, n1, n2, p1, p2, s1, s2, P
     x1 = StencilVector(V1)
     x2 = StencilVector(V2)
 
+    # Initialize random number generator
+    rng = np.random.default_rng()
+
     # Fill in stencil matrix values based on diagonal index (periodic!)
     if dtype==complex:
-        M1[0:n1 - 1, 0:n2 - 1, :, :] = np.random.random((n1 - 1, n2 - 1, 2 * p1 + 1, 2 * p2 + 1))+1j*np.random.random((n1 - 1, n2 - 1, 2 * p1 + 1, 2 * p2 + 1))
-        M2[0:n1 - 1, 0:n2, :, :] = np.random.random((n1 - 1, n2, 2 * p1 + 1, 2 * p2 + 1)) +1j*np.random.random((n1 - 1, n2, 2 * p1 + 1, 2 * p2 + 1))
+        M1[0:n1 - 1, 0:n2 - 1, :, :] = rng.random((n1 - 1, n2 - 1, 2 * p1 + 1, 2 * p2 + 1))+1j*rng.random((n1 - 1, n2 - 1, 2 * p1 + 1, 2 * p2 + 1))
+        M2[0:n1 - 1, 0:n2, :, :] = rng.random((n1 - 1, n2, 2 * p1 + 1, 2 * p2 + 1)) +1j*rng.random((n1 - 1, n2, 2 * p1 + 1, 2 * p2 + 1))
     else:
-        M1[0:n1 - 1, 0:n2 - 1, :, :] = np.random.random((n1 - 1, n2 - 1, 2 * p1 + 1, 2 * p2 + 1))
-        M2[0:n1 - 1, 0:n2, :, :] = np.random.random((n1 - 1, n2, 2 * p1 + 1, 2 * p2 + 1))
+        M1[0:n1 - 1, 0:n2 - 1, :, :] = rng.random((n1 - 1, n2 - 1, 2 * p1 + 1, 2 * p2 + 1))
+        M2[0:n1 - 1, 0:n2, :, :] = rng.random((n1 - 1, n2, 2 * p1 + 1, 2 * p2 + 1))
+
     # If any dimension is not periodic, set corresponding periodic corners to zero
     M1.remove_spurious_entries()
     M2.remove_spurious_entries()
@@ -1936,17 +1989,17 @@ def test_stencil_matrix_2d_serial_backend_dot_1(dtype, n1, n2, p1, p2, s1, s2, P
     if dtype==complex :
         for i1 in range(n1 - 1):
             for i2 in range(n2):
-                x1[i1, i2] = 2.0j * random() - 1.0
+                x1[i1, i2] = 2.0j * rng.random() - 1.0
         for i1 in range(n1 - 1):
             for i2 in range(n2 - 1):
-                x2[i1, i2] = 2.0 * random() - 1.0j
+                x2[i1, i2] = 2.0 * rng.random() - 1.0j
     else:
         for i1 in range(n1 - 1):
             for i2 in range(n2):
-                x1[i1, i2] = 2.0 * random() - 1.0
+                x1[i1, i2] = 2.0 * rng.random() - 1.0
         for i1 in range(n1 - 1):
             for i2 in range(n2 - 1):
-                x2[i1, i2] = 2.0 * random() - 1.0
+                x2[i1, i2] = 2.0 * rng.random() - 1.0
 
     x1.update_ghost_regions()
     x2.update_ghost_regions()
@@ -2020,15 +2073,18 @@ def test_stencil_matrix_2d_serial_backend_dot_2(dtype, n1, n2, p1, p2, s1, s2, P
     # If any dimension is not periodic, set corresponding periodic corners to zero
     M.remove_spurious_entries()
 
+    # Initialize random number generator
+    rng = np.random.default_rng()
+
     # Fill in vector with random values, then update ghost regions
     if dtype == complex:
         for i1 in range(n1):
             for i2 in range(n2):
-                x[i1, i2] = 2.0j * random() - 1.0
+                x[i1, i2] = 2.0j * rng.random() - 1.0
     else:
         for i1 in range(n1):
             for i2 in range(n2):
-                x[i1, i2] = 2.0 * random() - 1.0
+                x[i1, i2] = 2.0 * rng.random() - 1.0
     x.update_ghost_regions()
 
     # Compute matrix-vector product
@@ -2084,15 +2140,19 @@ def test_stencil_matrix_2d_serial_backend_dot_3(dtype, n1, n2, p1, p2, s1, s2, P
     x1 = StencilVector(V1)
     x2 = StencilVector(V2)
 
+    # Initialize random number generator
+    rng = np.random.default_rng()
+
     # Fill in stencil matrix values based on diagonal index (periodic!)
     if dtype == complex:
-        M1[0:n1 - 1, 0:n2 - 1, :, :] = np.random.random((n1 - 1, n2 - 1, 2 * p1 - 1, 2 * p2 + 1)) \
-                                       +1j*np.random.random((n1 - 1, n2 - 1, 2 * p1 - 1, 2 * p2 + 1))
-        M2[0:n1 - 1, 0:n2, :, :] = np.random.random((n1 - 1, n2, 2 * p1 - 1, 2 * p2 + 1)) \
-                                   +1j*np.random.random((n1 - 1, n2, 2 * p1 - 1, 2 * p2 + 1))
+        M1[0:n1 - 1, 0:n2 - 1, :, :] = rng.random((n1 - 1, n2 - 1, 2 * p1 - 1, 2 * p2 + 1)) \
+                                       + 1j * rng.random((n1 - 1, n2 - 1, 2 * p1 - 1, 2 * p2 + 1))
+        M2[0:n1 - 1, 0:n2, :, :] = rng.random((n1 - 1, n2, 2 * p1 - 1, 2 * p2 + 1)) \
+                                   + 1j * rng.random((n1 - 1, n2, 2 * p1 - 1, 2 * p2 + 1))
     else:
-        M1[0:n1 - 1, 0:n2 - 1, :, :] = np.random.random((n1 - 1, n2 - 1, 2 * p1 - 1, 2 * p2 + 1))
-        M2[0:n1 - 1, 0:n2, :, :] = np.random.random((n1 - 1, n2, 2 * p1 - 1, 2 * p2 + 1))
+        M1[0:n1 - 1, 0:n2 - 1, :, :] = rng.random((n1 - 1, n2 - 1, 2 * p1 - 1, 2 * p2 + 1))
+        M2[0:n1 - 1, 0:n2, :, :] = rng.random((n1 - 1, n2, 2 * p1 - 1, 2 * p2 + 1))
+
     # If any dimension is not periodic, set corresponding periodic corners to zero
     M1.remove_spurious_entries()
     M2.remove_spurious_entries()
@@ -2101,17 +2161,17 @@ def test_stencil_matrix_2d_serial_backend_dot_3(dtype, n1, n2, p1, p2, s1, s2, P
     if dtype==complex:
         for i1 in range(n1 - 1):
             for i2 in range(n2):
-                x1[i1, i2] = 2.0j * random() - 1.0
+                x1[i1, i2] = 2.0j * rng.random() - 1.0
         for i1 in range(n1 - 1):
             for i2 in range(n2 - 1):
-                x2[i1, i2] = 2.0j * random() - 1.0
+                x2[i1, i2] = 2.0j * rng.random() - 1.0
     else:
         for i1 in range(n1 - 1):
             for i2 in range(n2):
-                x1[i1, i2] = 2.0 * random() - 1.0
+                x1[i1, i2] = 2.0 * rng.random() - 1.0
         for i1 in range(n1 - 1):
             for i2 in range(n2 - 1):
-                x2[i1, i2] = 2.0 * random() - 1.0
+                x2[i1, i2] = 2.0 * rng.random() - 1.0
     x1.update_ghost_regions()
     x2.update_ghost_regions()
 
@@ -2133,7 +2193,6 @@ def test_stencil_matrix_2d_serial_backend_dot_3(dtype, n1, n2, p1, p2, s1, s2, P
     y2a_exact = np.dot(M2a, x2a)
 
     # Check data in 1D array
-
     assert np.allclose(y1a, y1a_exact, rtol=1e-13, atol=1e-13)
     assert np.allclose(y2a, y2a_exact, rtol=1e-13, atol=1e-13)
 
@@ -2172,10 +2231,13 @@ def test_stencil_matrix_2d_serial_backend_switch(dtype, n1, n2, p1, p2, s1, s2, 
     # If any dimension is not periodic, set corresponding periodic corners to zero
     M.remove_spurious_entries()
 
+    # Initialize random number generator
+    rng = np.random.default_rng()
+
     # Fill in vector with random values, then update ghost regions
     for i1 in range(n1):
         for i2 in range(n2):
-            x[i1, i2] = 2.0 * random() - 1.0
+            x[i1, i2] = 2.0 * rng.random() - 1.0
     x.update_ghost_regions()
 
     assert M.backend is backend
@@ -2193,7 +2255,7 @@ def test_stencil_matrix_2d_serial_backend_switch(dtype, n1, n2, p1, p2, s1, s2, 
 @pytest.mark.parametrize('p1', [1, 2, 3])
 @pytest.mark.parametrize('sh1', [1, 2])
 @pytest.mark.parametrize('P1', [True, False])
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_stencil_matrix_1d_parallel_toarray(dtype, n1, p1, sh1, P1):
     # Select non-zero values based on diagonal index
     nonzero_values = dict()
@@ -2222,7 +2284,6 @@ def test_stencil_matrix_1d_parallel_toarray(dtype, n1, p1, sh1, P1):
     s1, = V.starts
     e1, = V.ends
 
-
     # Fill in stencil matrix values
     for k1 in range(-p1, p1 + 1):
         M[s1:e1, k1] = nonzero_values[k1]
@@ -2244,7 +2305,6 @@ def test_stencil_matrix_1d_parallel_toarray(dtype, n1, p1, sh1, P1):
             if (P1 or 0 <= i1 + k1 < n1) :
                 A[i, j] = nonzero_values[k1]
 
-
     # Check data in 2D array
     assert A.shape==Ma.shape
     # assert A.shape==Maw.shape
@@ -2257,7 +2317,7 @@ def test_stencil_matrix_1d_parallel_toarray(dtype, n1, p1, sh1, P1):
 @pytest.mark.parametrize('p1', [1, 2, 3])
 @pytest.mark.parametrize('sh1', [1])
 @pytest.mark.parametrize('P1', [True, False])
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_stencil_matrix_1d_parallel_dot(dtype, n1, p1, sh1, P1):
     from mpi4py import MPI
 
@@ -2278,14 +2338,15 @@ def test_stencil_matrix_1d_parallel_dot(dtype, n1, p1, sh1, P1):
     s1, = V.starts
     e1, = V.ends
 
+    # Initialize random number generator
+    rng = np.random.default_rng()
+
     # Fill in stencil matrix values based on diagonal index (periodic!)
-
     if dtype == complex:
-        M[s1:e1, :] = np.random.random((e1-s1, 2 * p1 + 1)) \
-                                       +1j*np.random.random((e1-s1, 2 * p1 + 1))
+        M[s1:e1, :] = rng.random((e1-s1, 2 * p1 + 1)) \
+                                       + 1j * rng.random((e1-s1, 2 * p1 + 1))
     else:
-        M[s1:e1, :] = np.random.random((e1-s1, 2 * p1 + 1))
-
+        M[s1:e1, :] = rng.random((e1-s1, 2 * p1 + 1))
 
     # If domain is not periodic, set corresponding periodic corners to zero
     M.remove_spurious_entries()
@@ -2293,10 +2354,10 @@ def test_stencil_matrix_1d_parallel_dot(dtype, n1, p1, sh1, P1):
     # Fill in vector with random values, then update ghost regions
     if dtype==complex:
         for i1 in range(x.starts[0], x.ends[0] + 1):
-            x[i1] = 2.0j * random() - 1.0
+            x[i1] = 2.0j * rng.random() - 1.0
     else:
         for i1 in range(x.starts[0], x.ends[0] + 1):
-            x[i1] = 2.0 * random() - 1.0
+            x[i1] = 2.0 * rng.random() - 1.0
     x.update_ghost_regions()
 
     # Compute matrix-vector product
@@ -2327,7 +2388,7 @@ def test_stencil_matrix_1d_parallel_dot(dtype, n1, p1, sh1, P1):
 @pytest.mark.parametrize('sh2', [1])
 @pytest.mark.parametrize('P1', [True, False])
 @pytest.mark.parametrize('P2', [True, False])
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_stencil_matrix_2d_parallel_dot(dtype, n1, n2, p1, p2, sh1, sh2, P1, P2):
     from mpi4py import MPI
 
@@ -2349,13 +2410,15 @@ def test_stencil_matrix_2d_parallel_dot(dtype, n1, n2, p1, p2, sh1, sh2, P1, P2)
     s1, s2 = V.starts
     e1, e2 = V.ends
 
+    # Initialize random number generator
+    rng = np.random.default_rng()
+
     # Fill in stencil matrix values based on diagonal index (periodic!)
     if dtype == complex:
-        M[s1:e1, s2:e2, :, :] = np.random.random((e1-s1, e2-s2, 2 * p1 + 1, 2 * p2 + 1)) \
-                                       + 1j * np.random.random((e1-s1, e2-s2, 2 * p1 + 1, 2 * p2 + 1))
+        M[s1:e1, s2:e2, :, :] = rng.random((e1-s1, e2-s2, 2 * p1 + 1, 2 * p2 + 1)) \
+                                       + 1j * rng.random((e1-s1, e2-s2, 2 * p1 + 1, 2 * p2 + 1))
     else:
-        M[s1:e1, s2:e2, :, :] = np.random.random((e1-s1, e2-s2, 2 * p1 + 1, 2 * p2 + 1))
-
+        M[s1:e1, s2:e2, :, :] = rng.random((e1-s1, e2-s2, 2 * p1 + 1, 2 * p2 + 1))
 
     # If any dimension is not periodic, set corresponding periodic corners to zero
     M.remove_spurious_entries()
@@ -2364,11 +2427,11 @@ def test_stencil_matrix_2d_parallel_dot(dtype, n1, n2, p1, p2, sh1, sh2, P1, P2)
     if dtype == complex:
         for i1 in range(s1, e1 + 1):
             for i2 in range(s2, e2 + 1):
-                x[i1, i2] = 2.0j * random() - 1.0
+                x[i1, i2] = 2.0j * rng.random() - 1.0
     else:
         for i1 in range(s1, e1 + 1):
             for i2 in range(s2, e2 + 1):
-                x[i1, i2] = 2.0 * random() - 1.0
+                x[i1, i2] = 2.0 * rng.random() - 1.0
     x.update_ghost_regions()
 
     # Compute matrix-vector product
@@ -2393,7 +2456,7 @@ def test_stencil_matrix_2d_parallel_dot(dtype, n1, n2, p1, p2, sh1, sh2, P1, P2)
 @pytest.mark.parametrize('p1', [1, 2, 3])
 @pytest.mark.parametrize('P1', [True, False])
 @pytest.mark.parametrize('sh1', [1])
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_stencil_matrix_1d_parallel_sync( n1, p1, sh1, P1):
     from mpi4py import MPI
     from psydac.ddm.cart import CartDecomposition
@@ -2473,7 +2536,7 @@ def test_stencil_matrix_1d_parallel_sync( n1, p1, sh1, P1):
 @pytest.mark.parametrize('sh2', [1])
 @pytest.mark.parametrize('P1', [True, False])
 @pytest.mark.parametrize('P2', [True, False])
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_stencil_matrix_2d_parallel_sync(n1, n2, p1, p2, sh1, sh2, P1, P2):
     from mpi4py import MPI
     from psydac.ddm.cart import CartDecomposition
@@ -2585,7 +2648,7 @@ def test_stencil_matrix_2d_parallel_sync(n1, n2, p1, p2, sh1, sh2, P1, P2):
 @pytest.mark.parametrize('p1', [1, 2, 3])
 @pytest.mark.parametrize('sh1', [1])
 @pytest.mark.parametrize('P1', [True, False])
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_stencil_matrix_1d_parallel_transpose(dtype, n1, p1, sh1, P1):
     from mpi4py import MPI
     from psydac.ddm.cart import CartDecomposition
@@ -2607,9 +2670,12 @@ def test_stencil_matrix_1d_parallel_transpose(dtype, n1, p1, sh1, P1):
     s1, = V.starts
     e1, = V.ends
 
+    # Initialize random number generator
+    rng = np.random.default_rng()
+
     # Fill in matrix values with random numbers between 0 and 1
     if dtype==complex:
-        M[s1:e1 + 1, -p1:p1 + 1] = np.random.random((e1 - s1 + 1, 2 * p1 + 1))+ 1j* np.random.random((e1 - s1 + 1, 2 * p1 + 1))
+        M[s1:e1 + 1, -p1:p1 + 1] = rng.random((e1 - s1 + 1, 2 * p1 + 1))+ 1j* rng.random((e1 - s1 + 1, 2 * p1 + 1))
     else:
         M[s1:e1 + 1, -p1:p1 + 1] = np.random.random((e1 - s1 + 1, 2 * p1 + 1))
 
@@ -2639,7 +2705,7 @@ def test_stencil_matrix_1d_parallel_transpose(dtype, n1, p1, sh1, P1):
 @pytest.mark.parametrize('sh2', [1])
 @pytest.mark.parametrize('P1', [True, False])
 @pytest.mark.parametrize('P2', [True, False])
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_stencil_matrix_2d_parallel_transpose(dtype, n1, n2, p1, p2, sh1, sh2, P1, P2):
     from mpi4py import MPI
     from psydac.ddm.cart import CartDecomposition
@@ -2661,13 +2727,16 @@ def test_stencil_matrix_2d_parallel_transpose(dtype, n1, n2, p1, p2, sh1, sh2, P
     s1, s2 = V.starts
     e1, e2 = V.ends
 
+    # Initialize random number generator
+    rng = np.random.default_rng()
+
     # Fill in matrix values with random numbers between 0 and 1
     if dtype==complex:
-        M[s1:e1 + 1, s2:e2 + 1, -p1:p1 + 1, -p2:p2 + 1] = np.random.random(
-            (e1 - s1 + 1, e2 - s2 + 1, 2 * p1 + 1, 2 * p2 + 1)) +1j*np.random.random(
+        M[s1:e1 + 1, s2:e2 + 1, -p1:p1 + 1, -p2:p2 + 1] = rng.random(
+            (e1 - s1 + 1, e2 - s2 + 1, 2 * p1 + 1, 2 * p2 + 1)) + 1j * rng.random(
             (e1 - s1 + 1, e2 - s2 + 1, 2 * p1 + 1, 2 * p2 + 1))
     else:
-        M[s1:e1 + 1, s2:e2 + 1, -p1:p1 + 1, -p2:p2 + 1] = np.random.random(
+        M[s1:e1 + 1, s2:e2 + 1, -p1:p1 + 1, -p2:p2 + 1] = rng.random(
             (e1 - s1 + 1, e2 - s2 + 1, 2 * p1 + 1, 2 * p2 + 1))
 
     # If domain is not periodic, set corresponding periodic corners to zero
@@ -2707,7 +2776,7 @@ def test_stencil_matrix_2d_parallel_transpose(dtype, n1, n2, p1, p2, sh1, sh2, P
 @pytest.mark.parametrize('sh2', [1])
 @pytest.mark.parametrize('P1', [True, False])
 @pytest.mark.parametrize('P2', [True, False])
-@pytest.mark.parallel
+@pytest.mark.mpi
 @pytest.mark.petsc
 
 def test_stencil_matrix_2d_parallel_topetsc(dtype, n1, n2, p1, p2, sh1, sh2, P1, P2):
@@ -2748,15 +2817,18 @@ def test_stencil_matrix_2d_parallel_topetsc(dtype, n1, n2, p1, p2, sh1, sh2, P1,
     s1, s2 = V.starts
     e1, e2 = V.ends
 
+    # Initialize random number generator
+    rng = np.random.default_rng()
+
     # Fill in vector with random values, then update ghost regions
     if dtype == complex:
         for i1 in range(s1, e1 + 1):
             for i2 in range(s2, e2 + 1):
-                x[i1, i2] = 2.0j * random() - 1.0
+                x[i1, i2] = 2.0j * rng.random() - 1.0
     else:
         for i1 in range(s1, e1 + 1):
             for i2 in range(s2, e2 + 1):
-                x[i1, i2] = 2.0 * random() - 1.0
+                x[i1, i2] = 2.0 * rng.random() - 1.0
     x.update_ghost_regions()
 
     # If any dimension is not periodic, set corresponding periodic corners to zero
@@ -2773,7 +2845,7 @@ def test_stencil_matrix_2d_parallel_topetsc(dtype, n1, n2, p1, p2, sh1, sh2, P1,
     y_petsc = Mp.createVecLeft()
     # Compute dot product
     Mp.mult(x.topetsc(), y_petsc)
-    # Cast result back to Psydac StencilVector format
+    # Cast result back to PSYDAC StencilVector format
     y_p = petsc_to_psydac(y_petsc, V)
 
     assert np.allclose(y_p.toarray(), y.toarray(), rtol=1e-12, atol=1e-12)
@@ -2785,7 +2857,7 @@ def test_stencil_matrix_2d_parallel_topetsc(dtype, n1, n2, p1, p2, sh1, sh2, P1,
 @pytest.mark.parametrize('p1', [1, 3])
 @pytest.mark.parametrize('sh1', [1])
 @pytest.mark.parametrize('P1', [True, False])
-@pytest.mark.parallel
+@pytest.mark.mpi
 @pytest.mark.petsc
 
 def test_stencil_matrix_1d_parallel_topetsc(dtype, n1, p1, sh1, P1):
@@ -2824,13 +2896,16 @@ def test_stencil_matrix_1d_parallel_topetsc(dtype, n1, p1, sh1, P1):
         for k1 in range(-p1, p1 + 1):
                 M[i1, k1] = (i1+1)*nonzero_values[k1]
 
+    # Initialize random number generator
+    rng = np.random.default_rng()
+
     # Fill in vector with random values, then update ghost regions
     if dtype == complex:
         for i1 in range(s1, e1 + 1):
-            x[i1] = 2.0j * random() - 1.0
+            x[i1] = 2.0j * rng.random() - 1.0
     else:
         for i1 in range(s1, e1 + 1):
-            x[i1] = 2.0 * random() - 1.0
+            x[i1] = 2.0 * rng.random() - 1.0
     x.update_ghost_regions()
 
     # If any dimension is not periodic, set corresponding periodic corners to zero
@@ -2847,7 +2922,7 @@ def test_stencil_matrix_1d_parallel_topetsc(dtype, n1, p1, sh1, P1):
     y_petsc = Mp.createVecLeft()
     # Compute dot product
     Mp.mult(x.topetsc(), y_petsc)
-    # Cast result back to Psydac StencilVector format
+    # Cast result back to PSYDAC StencilVector format
     y_p = petsc_to_psydac(y_petsc, V)
 
     assert np.allclose(y_p.toarray(), y.toarray(), rtol=1e-12, atol=1e-12)
@@ -2860,7 +2935,7 @@ def test_stencil_matrix_1d_parallel_topetsc(dtype, n1, p1, sh1, P1):
 @pytest.mark.parametrize('p2', [1])
 @pytest.mark.parametrize('P1', [True, False])
 @pytest.mark.parametrize('P2', [True, False])
-@pytest.mark.parallel
+@pytest.mark.mpi
 @pytest.mark.petsc
 
 def test_mass_matrix_2d_parallel_topetsc(n1, n2, p1, p2, P1, P2):
@@ -2888,10 +2963,13 @@ def test_mass_matrix_2d_parallel_topetsc(n1, n2, p1, p2, P1, P2):
     s1, s2 = Vh.coeff_space.starts
     e1, e2 = Vh.coeff_space.ends
 
+    # Initialize random number generator
+    rng = np.random.default_rng()
+
     # Fill in vector with random values, then update ghost regions
     for i1 in range(s1, e1 + 1):
         for i2 in range(s2, e2 + 1):
-            x[i1, i2] = 2.0 * random() - 1.0
+            x[i1, i2] = 2.0 * rng.random() - 1.0
     x.update_ghost_regions()
 
     y = M.dot(x)
@@ -2902,7 +2980,7 @@ def test_mass_matrix_2d_parallel_topetsc(n1, n2, p1, p2, P1, P2):
     y_petsc = Mp.createVecLeft()
     # Compute dot product
     Mp.mult(x.topetsc(), y_petsc)
-    # Cast result back to Psydac StencilVector format
+    # Cast result back to PSYDAC StencilVector format
     y_p = petsc_to_psydac(y_petsc, Vh.coeff_space)
 
     assert np.allclose(y_p.toarray(), y.toarray(), rtol=1e-12, atol=1e-12)
@@ -2918,7 +2996,7 @@ def test_mass_matrix_2d_parallel_topetsc(n1, n2, p1, p2, P1, P2):
 @pytest.mark.parametrize('P1', [False])
 @pytest.mark.parametrize('P2', [True])
 @pytest.mark.parametrize('P3', [True, False])
-@pytest.mark.parallel
+@pytest.mark.mpi
 @pytest.mark.petsc
 
 def test_mass_matrix_3d_parallel_topetsc(n1, n2, n3, p1, p2, p3, P1, P2, P3):
@@ -2946,11 +3024,14 @@ def test_mass_matrix_3d_parallel_topetsc(n1, n2, n3, p1, p2, p3, P1, P2, P3):
     s1, s2, s3 = Vh.coeff_space.starts
     e1, e2, e3 = Vh.coeff_space.ends
 
+    # Initialize random number generator
+    rng = np.random.default_rng()
+
     # Fill in vector with random values, then update ghost regions
     for i1 in range(s1, e1 + 1):
         for i2 in range(s2, e2 + 1):
             for i3 in range(s3, e3 + 1):
-                x[i1, i2, i3] = 2.0 * random() - 1.0
+                x[i1, i2, i3] = 2.0 * rng.random() - 1.0
     x.update_ghost_regions()
 
     y = M.dot(x)
@@ -2961,7 +3042,7 @@ def test_mass_matrix_3d_parallel_topetsc(n1, n2, n3, p1, p2, p3, P1, P2, P3):
     y_petsc = Mp.createVecLeft()
     # Compute dot product
     Mp.mult(x.topetsc(), y_petsc)
-    # Cast result back to Psydac StencilVector format
+    # Cast result back to PSYDAC StencilVector format
     y_p = petsc_to_psydac(y_petsc, Vh.coeff_space)
 
     assert np.allclose(y_p.toarray(), y.toarray(), rtol=1e-12, atol=1e-12)
@@ -2971,7 +3052,7 @@ def test_mass_matrix_3d_parallel_topetsc(n1, n2, n3, p1, p2, p3, P1, P2, P3):
 @pytest.mark.parametrize('n1', [15,17])
 @pytest.mark.parametrize('p1', [2])
 @pytest.mark.parametrize('P1', [True])
-@pytest.mark.parallel
+@pytest.mark.mpi
 @pytest.mark.petsc
 
 def test_mass_matrix_1d_parallel_topetsc(n1, p1, P1):
@@ -2999,9 +3080,12 @@ def test_mass_matrix_1d_parallel_topetsc(n1, p1, P1):
     s1, = Vh.coeff_space.starts
     e1, = Vh.coeff_space.ends
 
+    # Initialize random number generator
+    rng = np.random.default_rng()
+
     # Fill in vector with random values, then update ghost regions
     for i1 in range(s1, e1 + 1):
-        x[i1] = 2.0 * random() - 1.0
+        x[i1] = 2.0 * rng.random() - 1.0
     x.update_ghost_regions()
 
     y = M.dot(x)
@@ -3015,7 +3099,7 @@ def test_mass_matrix_1d_parallel_topetsc(n1, p1, P1):
     x_petsc = x.topetsc()
     # Compute dot product
     Mp.mult(x_petsc, y_petsc)
-    # Cast result back to Psydac StencilVector format
+    # Cast result back to PSYDAC StencilVector format
     y_p = petsc_to_psydac(y_petsc, Vh.coeff_space)
 
     assert np.allclose(y_p.toarray(), y.toarray(), rtol=1e-12, atol=1e-12)
@@ -3029,7 +3113,7 @@ def test_mass_matrix_1d_parallel_topetsc(n1, p1, P1):
 @pytest.mark.parametrize('sh1', [1])
 @pytest.mark.parametrize('P1', [True])
 @pytest.mark.parametrize('backend', [PSYDAC_BACKEND_GPYCCEL])
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_stencil_matrix_1d_parallel_backend_dot(dtype, n1, p1, sh1, P1, backend):
     from mpi4py import MPI
     from psydac.ddm.cart import CartDecomposition
@@ -3055,9 +3139,12 @@ def test_stencil_matrix_1d_parallel_backend_dot(dtype, n1, p1, sh1, P1, backend)
     # If domain is not periodic, set corresponding periodic corners to zero
     M.remove_spurious_entries()
 
+    # Initialize random number generator
+    rng = np.random.default_rng()
+
     # Fill in vector with random values, then update ghost regions
     for i1 in range(x.starts[0], x.ends[0] + 1):
-        x[i1] = 2.0 * random() - 1.0
+        x[i1] = 2.0 * rng.random() - 1.0
     x.update_ghost_regions()
 
     # Compute matrix-vector product
@@ -3089,7 +3176,7 @@ def test_stencil_matrix_1d_parallel_backend_dot(dtype, n1, p1, sh1, P1, backend)
 @pytest.mark.parametrize('P1', [False])
 @pytest.mark.parametrize('P2', [True])
 @pytest.mark.parametrize('backend', [PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_stencil_matrix_2d_parallel_backend_dot(dtype, n1, n2, p1, p2, sh1, sh2, P1, P2, backend):
     from mpi4py import MPI
     from psydac.ddm.cart import CartDecomposition
@@ -3125,10 +3212,13 @@ def test_stencil_matrix_2d_parallel_backend_dot(dtype, n1, n2, p1, p2, sh1, sh2,
     # If any dimension is not periodic, set corresponding periodic corners to zero
     M.remove_spurious_entries()
 
+    # Initialize random number generator
+    rng = np.random.default_rng()
+
     # Fill in vector with random values, then update ghost regions
     for i1 in range(s1, e1 + 1):
         for i2 in range(s2, e2 + 1):
-            x[i1, i2] = 2.0 * random() - 1.0
+            x[i1, i2] = 2.0 * rng.random() - 1.0
     x.update_ghost_regions()
 
     # Compute matrix-vector product
@@ -3161,4 +3251,3 @@ if __name__ == "__main__":
     import sys
 
     pytest.main(sys.argv)
-

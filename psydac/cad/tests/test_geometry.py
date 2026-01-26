@@ -1,6 +1,13 @@
-# coding: utf-8
-#
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 import os
+
+import pytest
+import numpy as np
+from mpi4py import MPI
 
 import pytest
 import numpy as np
@@ -172,8 +179,8 @@ def test_geometry_2d_4():
     geo.export('circle.h5')
 
 #==============================================================================
-@pytest.mark.parallel
-def test_from_file_with_mpi_dims_mask():
+@pytest.mark.mpi
+def test_geometry_with_mpi_dims_mask():
 
     comm = MPI.COMM_WORLD
     rank = comm.rank
@@ -216,7 +223,7 @@ def test_from_file_with_mpi_dims_mask():
         os.remove('geo_mpi_dims.h5')
 
 # ==============================================================================
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_from_discrete_mapping():
 
     comm = MPI.COMM_WORLD
@@ -240,7 +247,7 @@ def test_from_discrete_mapping():
     assert geo_from_mapping.ddm.ends   == expected_ends
 
 # ==============================================================================
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_from_topological_domain():
 
     comm = MPI.COMM_WORLD

@@ -1,5 +1,9 @@
-# coding: utf-8
-#
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
+
 # a Geometry class contains the list of patches and additional information about
 # the topology i.e. connectivity, boundaries
 # For the moment, it is used as a container, that can be loaded from a file
@@ -266,6 +270,13 @@ class Geometry:
 
         if periodic is None:
             periodic = [False] * domain.dim
+        else:
+            if len(interior) > 1 and True in periodic:
+                msg = "Discretizing a multipatch domain with a periodic flag is not advised -- continue at your own risk."
+                # [MCP 18.12.2025] the following line may be causing a strange error in the CI (MPI tests for macos-14/Python 3.10)
+                # warnings.warn(msg, Warning)  
+                warnings.warn(msg, UserWarning)
+
 
         if isinstance(periodic, (list, tuple)):
             periodic = {itr.name : periodic for itr in interior}
@@ -586,7 +597,7 @@ class Geometry:
 def export_nurbs_to_hdf5(filename, nurbs, periodic=None, comm=None ):
 
     """
-    Export a single-patch igakit NURBS object to a Psydac geometry file in HDF5 format
+    Export a single-patch igakit NURBS object to a PSYDAC geometry file in HDF5 format
 
     Parameters
     ----------
@@ -659,6 +670,9 @@ def export_nurbs_to_hdf5(filename, nurbs, periodic=None, comm=None ):
         bounds2 = (float(nurbs.breaks(1)[0]), float(nurbs.breaks(1)[-1]))
         bounds3 = (float(nurbs.breaks(2)[0]), float(nurbs.breaks(2)[-1]))
         domain  = Cube(patch_name, bounds1=bounds1, bounds2=bounds2, bounds3=bounds3)
+
+    else:
+        raise NotImplementedError('> nurbs.dim > 3 not implemented')
 
     mapping = Mapping(mapping_id, dim=nurbs.dim)
     domain  = mapping(domain)
@@ -828,6 +842,7 @@ def refine_knots(knots, ncells, degree, multiplicity=None, tol=1e-9):
         knots = np.repeat(knots, counts)
         nrb = nrb.refine(axis, knots)
     return nrb.knots
+
 #==============================================================================
 def import_geopdes_to_nurbs(filename):
     """
@@ -874,8 +889,9 @@ def _read_header(line):
     for c in chars:
         try:
             data.append(int(c))
-        except:
-            pass
+        except ValueError:
+            msg = f"WARNING: Cannot convert str '{c}' to int. Moving to next word..."
+            print(msg)
     return data
 
 def _extract_patch_line(lines, i_patch):
@@ -901,12 +917,25 @@ def _read_line(line):
     data  = []
     for c in chars:
         try:
-            data.append(int(c))
-        except:
-            try:
-                data.append(float(c))
-            except:
-                pass
+            i = int(c)
+        except ValueError:
+            i = None
+        else:
+            data.append(i)
+            continue
+
+        try:
+            f = float(c)
+        except ValueError:
+            f = None
+        else:
+            data.append(f)
+            continue
+
+        if i is None and f is None:
+            msg = f"WARNING: Cannot convert str '{c}' to int or float. Moving to next word..."
+            print(msg)
+
     return data
 
 def _read_patch(lines, i_patch, n_lines_per_patch, list_begin_line):
@@ -937,4 +966,3 @@ def _read_patch(lines, i_patch, n_lines_per_patch, list_begin_line):
 
     nrb = NURBS(knots, control=points, weights=W)
     return nrb
-

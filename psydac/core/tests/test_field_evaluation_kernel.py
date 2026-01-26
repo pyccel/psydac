@@ -1,7 +1,14 @@
-import numpy as np
-import pytest
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 import os
 import itertools as it
+from pathlib import Path
+
+import numpy as np
+import pytest
 
 from sympde.topology import Domain, ScalarFunctionSpace, Line, Square, Cube
 from psydac.api.discretization import discretize
@@ -33,14 +40,9 @@ from psydac.core.field_evaluation_kernels import (eval_fields_1d_no_weights, eva
 
 
 
-# Get mesh directory
-try:
-    mesh_dir = os.environ['PSYDAC_MESH_DIR']
-except KeyError:
-    base_dir = os.path.dirname(os.path.realpath(__file__))
-    base_dir = os.path.join(base_dir, '..', '..', '..')
-    mesh_dir = os.path.join(base_dir, 'mesh')
-
+# Get the mesh directory
+import psydac.cad.mesh as mesh_mod
+mesh_dir = Path(mesh_mod.__file__).parent
 
 # Tolerance for testing float equality
 RTOL = 1e-14

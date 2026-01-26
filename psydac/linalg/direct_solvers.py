@@ -1,15 +1,32 @@
-# coding: utf-8
-# Copyright 2018 Jalal Lakhlili, Yaman Güçlü
-
-from abc                 import abstractmethod
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 import numpy               as np
 from scipy.linalg.lapack import dgbtrf, dgbtrs, sgbtrf, sgbtrs, cgbtrf, cgbtrs, zgbtrf, zgbtrs
-from scipy.sparse        import spmatrix
+from scipy.sparse        import spmatrix, dia_matrix
 from scipy.sparse.linalg import splu
 
 from psydac.linalg.basic    import LinearSolver
 
-__all__ = ('BandedSolver', 'SparseSolver')
+__all__ = ('to_bnd', 'BandedSolver', 'SparseSolver')
+
+#===============================================================================
+def to_bnd(A):
+    """Converts a 1D StencilMatrix to a band matrix"""
+
+    dmat = dia_matrix(A.toarray(), dtype=A.dtype)
+    la   = abs(dmat.offsets.min())
+    ua   = dmat.offsets.max()
+    cmat = dmat.tocsr()
+
+    A_bnd = np.zeros((1+ua+2*la, cmat.shape[1]), A.dtype)
+
+    for i,j in zip(*cmat.nonzero()):
+        A_bnd[la+ua+i-j, j] = cmat[i,j]
+
+    return A_bnd, la, ua
 
 #===============================================================================
 class BandedSolver(LinearSolver):
@@ -57,6 +74,14 @@ class BandedSolver(LinearSolver):
 
         self._space = np.ndarray
         self._dtype = bmat.dtype
+
+    @staticmethod
+    def from_stencil_mat_1d(A):
+        """Converts a 1D StencilMatrix to a BandedSolver."""
+
+        A.remove_spurious_entries()
+        A_bnd, la, ua = to_bnd(A)
+        return BandedSolver(ua, la, A_bnd)
 
     @property
     def finfo(self):

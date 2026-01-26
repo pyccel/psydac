@@ -1,5 +1,8 @@
-# File test_cart_2d.py
-
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 from psydac.ddm.blocking_data_exchanger    import BlockingCartDataExchanger
 from psydac.ddm.nonblocking_data_exchanger import NonBlockingCartDataExchanger
 
@@ -122,21 +125,21 @@ def run_cart_2d( data_exchanger_type, verbose=False , nprocs=None, reverse_axis=
 import pytest
 
 @pytest.mark.parametrize( 'data_exchanger_type', [BlockingCartDataExchanger, NonBlockingCartDataExchanger] )
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_cart_2d(data_exchanger_type):
 
     namespace = run_cart_2d(data_exchanger_type)
 
     assert namespace['success']
 
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_cart_2d_reverse_axis_0():
 
     namespace = run_cart_2d(BlockingCartDataExchanger, reverse_axis=0)
 
     assert namespace['success']
 
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_cart_2d_reverse_axis_1():
 
     namespace = run_cart_2d(BlockingCartDataExchanger, reverse_axis=1)
@@ -161,4 +164,3 @@ if __name__=='__main__':
             print( "PASSED", end='\n\n', flush=True )
         else:
             print( "FAILED", end='\n\n', flush=True )
-

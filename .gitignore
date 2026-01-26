@@ -33,3 +33,6 @@ __test__/
 
 # Visual Studio Code workspace files
 *.code-workspace
+
+# Meson lock files
+*/.wraplock
