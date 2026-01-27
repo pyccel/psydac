@@ -1,12 +1,4 @@
-from mpi4py                         import MPI
-comm = MPI.COMM_WORLD
-
-'''if comm.Get_rank() <=8:
-    ncells_list = [((2**k)*10, (2**k)*10, (2**k)*10) for k in range(0,4)]
-else:
-    ncells_list = [((2**k)*10, (2**k)*10, (2**k)*10) for k in range(1,6)]'''
-
-ncells_list = [((2**k)*10, (2**k)*10, (2**k)*10) for k in range(0,5)]
+ncells_list = [((2**k)*10, (2**k)*10, (2**k)*10) for k in range(0,6)]
 
 for ncells in ncells_list:
     import gc
@@ -14,6 +6,8 @@ for ncells in ncells_list:
     from psydac.api.settings            import PSYDAC_BACKENDS
     from sympde.topology                import Cube, element_of, Derham
     from sympde.expr                    import BilinearForm, integral
+    from mpi4py                         import MPI
+    comm = MPI.COMM_WORLD
     
     per = [False, False, False]
     deg = [2,2,2]
