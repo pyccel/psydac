@@ -1,4 +1,4 @@
-ncells_list = [((2**k)*5, (2**k)*5, (2**k)*5) for k in range(0,6)]
+ncells_list = [((2**k)*6, (2**k)*6, (2**k)*6) for k in range(0,6)]
 
 for ncells in ncells_list:
     import gc
