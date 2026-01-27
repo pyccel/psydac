@@ -44,7 +44,7 @@ class Geometry:
     Distributed discrete geometry that works for single and multiple patches.
 
     The Geometry object can be created in four ways:
-    - case 0 : providing a `Domain` to `__init__` with ncells, periodicity and mapping for each patch.
+    - case 0 : providing a `Domain` to `__init__` with detailed parameters for each patch.
     - case 1 : passing the path to a geometry file to `from_file`.
     - case 2 : passing a `SplineMapping` to `from_discrete_mapping` (single patch).
     - case 3 : passing a `Domain`, ncells, and periodicity to `from_topological_domain` (single or multi-patch).
