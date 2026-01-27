@@ -113,7 +113,7 @@ def psydac_test(*, mod, mpi, petsc, verbose, exitfirst):
 
     else:
         mpi_exe = []
-        flags.extend(['-n', 'auto'])
+        flags.extend(['-n', 'auto', '--dist', 'loadgroup'])  # for pytest-xdist
 
     # If PETSc tests are requested, check that petsc4py is installed
     if petsc:
