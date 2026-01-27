@@ -217,7 +217,18 @@ class C0PolarProjection_V1_00(LinearOperator):
     def tosparse(self):
 
         [n01, n02] = self.domain.npts
-        return sp_eye(n01 * n02)
+        [s1, s2] = self.domain.starts
+        [e1, e2] = self.domain.ends
+
+        i = np.arange(s1, e1 + 1)[:, None]
+        j = np.arange(s2, e2 + 1)[None, :]
+        local_cols = (i * n02 + j).ravel()
+        data = np.ones((e1 - s1 + 1) * (e2 - s2 + 1))
+
+        P = coo_matrix((data, (local_cols, local_cols)), shape=[n01 * n02, n01 * n02], dtype=self.domain.dtype)
+        P.eliminate_zeros()
+
+        return P
 
     def toarray(self):
         return self.tosparse().toarray()
@@ -553,15 +564,21 @@ class C0PolarProjection_V2(LinearOperator):
 
     def tosparse(self):
 
+        [s1, s2] = self.W2.coeff_space.starts
+        [e1, e2] = self.W2.coeff_space.ends
         [n1, n2] = self.W2.coeff_space.npts
 
-        data = np.ones(n1 * n2)
+        data = np.ones((e1 - s1 + 1) * (e2 - s2 + 1))
 
-        cols = np.arange(n1 * n2)
-        rows = np.tile(np.arange(n2, 2 * n2), 2)
-        rows = np.concatenate((rows, np.arange(2 * n2, n1 * n2)))
+        i = np.arange(s1, e1 + 1)[:, None]
+        j = np.arange(s2, e2 + 1)[None, :]
+        local_cols = (i * n2 + j).ravel()
 
-        P = coo_matrix((data, (rows, cols)), shape=(n1 * n2, n1 * n2), dtype=self.W2.coeff_space.dtype)
+        rows_to_repeat = local_cols[(local_cols >= n2) & (local_cols < 2*n2)]
+        rows = np.tile(rows_to_repeat, 2)
+        rows = np.concatenate((rows, local_cols[local_cols >= 2*n2]))
+
+        P = coo_matrix((data, (rows, local_cols)), shape=(n1 * n2, n1 * n2), dtype=self.W2.coeff_space.dtype)
         P.eliminate_zeros()
 
         return P.T if self.transposed else P
