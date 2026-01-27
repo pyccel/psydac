@@ -1,4 +1,4 @@
-ncells_list = [((2**k)*10, (2**k)*10, (2**k)*10) for k in range(0,6)]
+ncells_list = [((2**k)*10, (2**k)*10, (2**k)*10) for k in range(0,5)] #tok cluster only k=0,1,2,3,4, MAX 185GB per node
 
 for ncells in ncells_list:
     import gc
@@ -9,7 +9,7 @@ for ncells in ncells_list:
     from mpi4py                         import MPI
     comm = MPI.COMM_WORLD
     
-    per = [True, True, True]
+    per = [False, False, False]
     deg = [2,2,2]
     mult = [1,1,1]
 
