@@ -14,7 +14,7 @@
 
 #SBATCH --cpus-per-task=1           # 1 CPU per MPI process for a scaling study
 
-#SBATCH --mem 180GB                #Set mem./node requirement (default: 63000 MB, max: 185GB)
+#SBATCH --mem 185GB                #Set mem./node requirement (default: 63000 MB, max: 185GB)
 
 #SBATCH --time=02:00:00           # Set a reasonable time limit
 
