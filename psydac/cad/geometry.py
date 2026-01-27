@@ -118,7 +118,7 @@ class Geometry:
 
         # Check sanity of periodic
         if periodic is None:
-            periodic = {patch: [False]*len(ncells_i) for patch, ncells_i in ncells.items()}
+            periodic = {patch: [False] * len(n) for patch, n in ncells.items()}
         else:
             assert set(periodic.keys()) == set_interior_names
             assert all(len(p) == ldim for p in periodic.values())
@@ -276,11 +276,11 @@ class Geometry:
             periodic = [False] * domain.dim
         else:
             if len(interior) > 1 and True in periodic:
+                import warnings
                 msg = "Discretizing a multipatch domain with a periodic flag is not advised -- continue at your own risk."
                 # [MCP 18.12.2025] the following line may be causing a strange error in the CI (MPI tests for macos-14/Python 3.10)
                 # warnings.warn(msg, Warning)  
                 warnings.warn(msg, UserWarning)
-
 
         if isinstance(periodic, (list, tuple)):
             periodic = {itr.name : periodic for itr in interior}
