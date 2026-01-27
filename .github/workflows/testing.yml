@@ -166,6 +166,11 @@ jobs:
         run: |
           psydac test --mod psydac.feec -x -v
 
+      - name: Run single-process tests for API module
+        working-directory: ./pytest
+        run: |
+          psydac test --mod psydac.api -x -v
+
 #      - name: Upload coverage report to Codacy
 #        if: matrix.os == 'macos-14'
 #        uses: codacy/codacy-coverage-reporter-action@v1.3.0
