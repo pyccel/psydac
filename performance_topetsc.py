@@ -1,4 +1,4 @@
-ncells_list = [((2**k)*7, (2**k)*7, (2**k)*7) for k in range(0,6)]
+ncells_list = [((2**k)*10, (2**k)*10, (2**k)*10) for k in range(0,6)]
 
 for ncells in ncells_list:
     import gc
@@ -9,7 +9,7 @@ for ncells in ncells_list:
     from mpi4py                         import MPI
     comm = MPI.COMM_WORLD
     
-    per = [False, False, False]
+    per = [True, True, True]
     deg = [2,2,2]
     mult = [1,1,1]
 
