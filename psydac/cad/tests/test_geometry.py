@@ -25,6 +25,7 @@ from psydac.ddm.cart                 import DomainDecomposition
 
 base_dir = os.path.dirname(os.path.realpath(__file__))
 #==============================================================================
+@pytest.mark.xdist_group('h5py')
 def test_geometry_2d_1():
 
     ncells = [1,1]
@@ -61,6 +62,7 @@ def test_geometry_2d_1():
     geo_1.export('geo_1.h5')
 
 #==============================================================================
+@pytest.mark.xdist_group('h5py')
 def test_geometry_2d_2():
 
     # create a nurbs mapping
@@ -111,6 +113,7 @@ def test_geometry_2d_2():
 
 #==============================================================================
 # TODO to be removed
+@pytest.mark.xdist_group('h5py')
 def test_geometry_2d_3():
 
     # create a nurbs mapping
@@ -144,6 +147,7 @@ def test_geometry_2d_3():
 
 #==============================================================================
 # TODO to be removed
+@pytest.mark.xdist_group('h5py')
 def test_geometry_2d_4():
 
     # create a nurbs mapping
@@ -270,6 +274,7 @@ def test_from_topological_domain():
 #==============================================================================
 @pytest.mark.parametrize( 'ncells', [[8,8], [12,12], [14,14]] )
 @pytest.mark.parametrize( 'degree', [[2,2], [3,2], [2,3], [3,3], [4,4]] )
+@pytest.mark.xdist_group('h5py')
 def test_export_nurbs_to_hdf5(ncells, degree):
 
     # create pipe geometry
@@ -323,8 +328,8 @@ def test_export_nurbs_to_hdf5(ncells, degree):
 #==============================================================================
 @pytest.mark.parametrize( 'ncells', [[8,8], [12,12], [14,14]] )
 @pytest.mark.parametrize( 'degree', [[2,2], [3,2], [2,3], [3,3], [4,4]] )
+@pytest.mark.xdist_group('h5py')
 def test_import_geopdes_to_nurbs(ncells, degree):
-
 
     filename = os.path.join(base_dir, "geo_Lshaped_C1.txt")
     L_shaped = import_geopdes_to_nurbs(filename)
