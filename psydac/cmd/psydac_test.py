@@ -90,6 +90,19 @@ def psydac_test(*, mod, mpi, petsc, verbose, exitfirst):
         print(f'Removing existing Pytest cache directory: {cache_dir}\n', flush=True)
         shutil.rmtree(cache_dir)
 
+    # If no pytest.ini file exists in the current working directory, copy it
+    # from the parent directory of this script (which is installed with PSYDAC)
+    if not os.path.isfile('pytest.ini'):
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        parent_dir = os.path.dirname(script_dir)
+        pytest_ini = os.path.join(parent_dir, 'pytest.ini')
+        if not os.path.isfile(pytest_ini):
+            exit_with_error_message(f'could not find pytest.ini file in {parent_dir}')
+        else:
+            print(f'Copying pytest.ini from: {parent_dir}\n', flush=True)
+            shutil.copy(pytest_ini, os.getcwd())
+
+    # Build the list of flags for pytest
     flags = []
 
     # Set up MPI execution command, if needed
