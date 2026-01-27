@@ -84,6 +84,12 @@ def psydac_test(*, mod, mpi, petsc, verbose, exitfirst):
     import subprocess
     import time
 
+    # Clear Pytest cache from the current working directory
+    cache_dir = '.pytest_cache'
+    if os.path.isdir(cache_dir):
+        print(f'Removing existing Pytest cache directory: {cache_dir}\n', flush=True)
+        shutil.rmtree(cache_dir)
+
     flags = []
 
     # Set up MPI execution command, if needed
