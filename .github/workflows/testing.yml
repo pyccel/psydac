@@ -146,10 +146,25 @@ jobs:
 #        run: |
 #          psydac test
 
-      - name: Run single-process tests with Pytest
+      - name: Run single-process tests for CAD module
         working-directory: ./pytest
         run: |
           psydac test --mod psydac.cad -x -v
+
+      - name: Run single-process tests for Mapping module
+        working-directory: ./pytest
+        run: |
+          psydac test --mod psydac.mapping -x -v
+
+      - name: Run single-process tests for FEM module
+        working-directory: ./pytest
+        run: |
+          psydac test --mod psydac.fem -x -v
+
+      - name: Run single-process tests for FEEC module
+        working-directory: ./pytest
+        run: |
+          psydac test --mod psydac.feec -x -v
 
 #      - name: Upload coverage report to Codacy
 #        if: matrix.os == 'macos-14'
