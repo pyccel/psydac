@@ -72,10 +72,11 @@ def psydac_test(*, mod, mpi, petsc, verbose, exitfirst):
         elif submods[0] != 'psydac':
             exit_with_error_message("module name must start with 'psydac'")
         try:
+            modname = mod.split('::')[0]
             import importlib
-            importlib.import_module(mod)
+            importlib.import_module(modname)
         except ImportError:
-            exit_with_error_message(f"module '{mod}' not found")
+            exit_with_error_message(f"module '{modname}' not found")
 
     # Import modules here to speed up parser
     import os
