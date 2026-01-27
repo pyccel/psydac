@@ -1,18 +1,23 @@
+from mpi4py                         import MPI
+comm = MPI.COMM_WORLD
 
-ncells_list = [((2**k)*10, (2**k)*10, (2**k)*10) for k in range(0,6)]
+'''if comm.Get_rank() <=8:
+    ncells_list = [((2**k)*10, (2**k)*10, (2**k)*10) for k in range(0,4)]
+else:
+    ncells_list = [((2**k)*10, (2**k)*10, (2**k)*10) for k in range(1,6)]'''
+
+ncells_list = [((2**k)*10, (2**k)*10, (2**k)*10) for k in range(0,5)]
 
 for ncells in ncells_list:
     import gc
-    from mpi4py                         import MPI
     from psydac.api.discretization      import discretize
     from psydac.api.settings            import PSYDAC_BACKENDS
     from sympde.topology                import Cube, element_of, Derham
     from sympde.expr                    import BilinearForm, integral
     
     per = [False, False, False]
-    deg = [3,3,3]
+    deg = [2,2,2]
     mult = [1,1,1]
-    comm = MPI.COMM_WORLD
 
     D = Cube('D')
     derham = Derham(D)
