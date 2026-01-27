@@ -109,8 +109,12 @@ class Geometry:
         # Check sanity of ncells
         assert set(ncells.keys()) == set_interior_names
         assert all(len(n) == ldim for n in ncells.values())
-        assert all(isinstance(ni, int) for ni in chain(*ncells.values()))
+        assert all(isinstance(ni, (int, np.integer)) for ni in chain(*ncells.values()))
         assert all(ni > 0 for ni in chain(*ncells.values()))
+
+        # Although we allow the iterable values in ncells to contain NumPy
+        # integers, we convert them to lists of Python integers for consistency
+        ncells = {patch: [int(ni) for ni in n] for patch, n in ncells.items()}
 
         # Check sanity of periodic
         if periodic is None:
