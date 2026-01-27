@@ -564,7 +564,7 @@ def mat_topetsc(mat, folder):
 
 
         table_file=open(folder + f'/petsc_performance_table.txt', "a")
-        print(f'{comm.Get_size()} & {int(mat.shape[0])} & \SI{{{'{:.2e}'.format(time_kernel)}}}{{\second}} & \SI{{{'{:.2e}'.format(time_setValuesIJV)}}}{{\second}} & \SI{{{'{:.2e}'.format(time_assemble)}}}{{\second}}' + r'\\' , flush=True, file=table_file)
+        print(f'{comm.Get_size()} & {int(mat.shape[0])} & \\SI{{{'{:.2e}'.format(time_kernel)}}}{{\\second}} & \\SI{{{'{:.2e}'.format(time_setValuesIJV)}}}{{\\second}} & \\SI{{{'{:.2e}'.format(time_assemble)}}}{{\\second}}' + r'\\' , flush=True, file=table_file)
         table_file.close()
 
         np.savez(folder + f'/petsc_performance_nprocs={comm.Get_size()}_nrows={int(mat.shape[0])}', allow_pickle=True, 

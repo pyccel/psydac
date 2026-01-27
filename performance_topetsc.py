@@ -1,8 +1,8 @@
 
-ncells_list = [((2**k)*10, (2**k)*10, (2**k)*10) for k in range(2,7)] 
+ncells_list = [((2**k)*10, (2**k)*10, (2**k)*10) for k in range(0,6)]
 
 for ncells in ncells_list:
-
+    import gc
     from mpi4py                         import MPI
     from psydac.api.discretization      import discretize
     from psydac.api.settings            import PSYDAC_BACKENDS
@@ -20,7 +20,7 @@ for ncells in ncells_list:
     Dh = discretize(D, ncells=ncells, periodic=per, comm=comm)
     derham_h = discretize(derham, Dh, degree=deg, multiplicity=mult)
     V0h = derham_h.V0 #TensorFemSpace
-    V1h = derham_h.V1 #VectorFemSpace
+    #V1h = derham_h.V1 #VectorFemSpace
 
     u = element_of(derham.V0, name='u') # trial function
     w = element_of(derham.V0, name='w') # test function
@@ -34,5 +34,13 @@ for ncells in ncells_list:
     M.remove_spurious_entries()
     M.update_ghost_regions()
 
-    Mp = M.topetsc('performance_petsc')
+    M.topetsc('performance_petsc')
+
+    comm.Barrier()
+
+    # Delete the reference
+    del M
+
+    # Force the Garbage Collector to release unreferenced memory
+    gc.collect()
 
