@@ -18,7 +18,7 @@
 
 #SBATCH --time=02:00:00           # Set a reasonable time limit
 
-#SBATCH --array=4,8,16,32     # The number of processes to test
+#SBATCH --array=1,4,8,16,32     # The number of processes to test
 
 ##
 
@@ -28,7 +28,7 @@
 
 echo "Running with $SLURM_ARRAY_TASK_ID processes"
 
-
+cat /proc/meminfo
 
 echo loading modules ...
 
@@ -42,10 +42,9 @@ module load hdf5-mpi/1.14.1
 
 
 
-source ~/virtual_env/vpsydac1/bin/activate
+source ~/virtual_env/vpsydac2/bin/activate
 
 export LD_LIBRARY_PATH=$HDF5_HOME/lib:$GCC_HOME/lib:$OPENMPI_HOME/lib
-
 
 
 
@@ -65,5 +64,3 @@ export OMP_PROC_BIND=close
 # If using multiprocessing/concurrent.futures, just call python directly
 
 srun -n $SLURM_ARRAY_TASK_ID python performance_topetsc.py >> "results_${SLURM_ARRAY_TASK_ID}.out"
-
-and I am getting an error saying: sbatch: error: Batch job submission failed: Node count specification invalid

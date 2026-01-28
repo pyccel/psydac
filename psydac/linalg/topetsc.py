@@ -43,7 +43,7 @@ def get_index_shift_per_block_per_process(V):
     return index_shift_per_block_per_process #Global variable indexed as [b][k] fo block b, process k
 
 
-def toIJVrowmap(mat_block, bd, bc, I, J, V, rowmap, dspace, cspace, dnpts_block, cnpts_block, dshift_block, cshift_block, order='C'):
+def toIJVrowmap(mat_block, bd, bc, I, J, V, rowmap, dspace, cspace, dnpts_block, cnpts_block, dshift_block, cshift_block, time_dict, order='C'):
     # Extract Cartesian decomposition of the Block where the node is:
     dspace_block = dspace if isinstance(dspace, StencilVectorSpace) else dspace.spaces[bd]
     cspace_block = cspace if isinstance(cspace, StencilVectorSpace) else cspace.spaces[bc]       
@@ -81,16 +81,21 @@ def toIJVrowmap(mat_block, bd, bc, I, J, V, rowmap, dspace, cspace, dnpts_block,
 
     stencil2IJV = kernels['stencil2IJV'][order][dspace_block.cart.ndim]
 
-    mat_block.domain.cart.global_comm.Barrier()
+    #mat_block.domain.cart.global_comm.Barrier()
     t0 = time.time()
     nnz_rows, nnz = stencil2IJV(mat_block._data, Ib, Jb, Vb, rowmapb,
                       *cnl, *dng, *cs, *cp, *cm,
                       dsh, csh, *dgs, *dge, *cgs, *cge, *dnlb, *cnlb
                       )
-    time_kernel_perproc = time.time() - t0
+    
+    time_kernel = time.time() - t0
 
-    time_kernel = mat_block.domain.cart.global_comm.reduce(time_kernel_perproc, op=MPI.SUM, root=0) #returns None for every process other than root!
-    mat_block.domain.cart.global_comm.Barrier()
+    time_dict.update({
+        'time_kernel': time_kernel
+    })
+    
+    #time_kernel = mat_block.domain.cart.global_comm.reduce(time_kernel_perproc, op=MPI.SUM, root=0) #returns None for every process other than root!
+    #mat_block.domain.cart.global_comm.Barrier()
     
 
     I += list(Ib[1:nnz_rows + 1])
@@ -98,7 +103,7 @@ def toIJVrowmap(mat_block, bd, bc, I, J, V, rowmap, dspace, cspace, dnpts_block,
     J += list(Jb[:nnz])
     V += list(Vb[:nnz])
 
-    return I, J, V, rowmap, time_kernel
+    return I, J, V, rowmap
 
 
 def petsc_local_to_psydac(
@@ -510,6 +515,8 @@ def mat_topetsc(mat, folder):
     gmat.setFromOptions()
     gmat.setUp()
 
+    time_dict = {}
+
     I = [0] # Row pointers
     J = [] # Column indices
     V = [] # Values
@@ -525,29 +532,36 @@ def mat_topetsc(mat, folder):
         dshift_block = dindex_shift[bd]
         cshift_block = cindex_shift[bc]
 
-        I,J,V,rowmap, time_kernel = toIJVrowmap(mat_block, bd, bc, I, J, V, rowmap, mat.domain, mat.codomain, dnpts_block, cnpts_block, dshift_block, cshift_block)
-    
-    comm.Barrier()
+        I,J,V,rowmap = toIJVrowmap(mat_block, bd, bc, I, J, V, rowmap, mat.domain, mat.codomain, dnpts_block, cnpts_block, dshift_block, cshift_block, time_dict)
+
     t0 = time.time()   
 
     # Set the values using IJV&rowmap format. The values are stored in a cache memory.
     gmat.setValuesIJV(I, J, V, rowmap=rowmap, addv=PETSc.InsertMode.ADD_VALUES) # The addition mode is necessary when periodic BC
     
-    time_setValuesIJV_perproc = time.time() - t0
-    time_setValuesIJV = comm.reduce(time_setValuesIJV_perproc, op=MPI.SUM, root=0)
+    time_setValuesIJV = time.time() - t0
+    #time_setValuesIJV = comm.reduce(time_setValuesIJV_perproc, op=MPI.SUM, root=0)
 
-    comm.Barrier()
+    time_dict.update({
+        'time_setValuesIJV': time_setValuesIJV
+    })
+
     t0 = time.time()
 
     # Assemble the matrix with the values from the cache. Here it is where PETSc exchanges global communication.
     gmat.assemble()
 
-    time_assemble_perproc = time.time() - t0
-    time_assemble = comm.reduce(time_assemble_perproc, op=MPI.SUM, root=0)
-    
-    comm.Barrier()
+    time_assemble = time.time() - t0
+    #time_assemble = comm.reduce(time_assemble_perproc, op=MPI.SUM, root=0)
 
-    if comm.Get_rank() == 0:
+    time_dict.update({
+        'time_assemble': time_assemble
+    })
+
+    np.savez(folder + f'/petsc_performance_proc={comm.Get_rank()}_of_{comm.Get_size()}_nrows={int(mat.shape[0])}', allow_pickle=True, 
+            **time_dict)
+
+    r'''if comm.Get_rank() == 0:
         time_kernel /= comm.Get_size()
         time_setValuesIJV /= comm.Get_size()
         time_assemble /= comm.Get_size()
@@ -568,8 +582,7 @@ def mat_topetsc(mat, folder):
         table_file.close()
 
         np.savez(folder + f'/petsc_performance_nprocs={comm.Get_size()}_nrows={int(mat.shape[0])}', allow_pickle=True, 
-                 time_kernel=time_kernel, time_setValuesIJV=time_setValuesIJV, time_assemble=time_assemble)
+                 time_kernel=time_kernel, time_setValuesIJV=time_setValuesIJV, time_assemble=time_assemble)'''
 
-    comm.Barrier()
 
     return gmat

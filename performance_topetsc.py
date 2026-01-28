@@ -1,7 +1,10 @@
 ncells_list = [((2**k)*10, (2**k)*10, (2**k)*10) for k in range(0,5)] #tok cluster only k=0,1,2,3,4, MAX 185GB per node
 
+import os
+os.makedirs('performance_petsc', exist_ok=True)
+
 for ncells in ncells_list:
-    import gc
+    #import gc
     from psydac.api.discretization      import discretize
     from psydac.api.settings            import PSYDAC_BACKENDS
     from sympde.topology                import Cube, element_of, Derham
@@ -35,11 +38,9 @@ for ncells in ncells_list:
 
     M.topetsc('performance_petsc')
 
-    comm.Barrier()
-
     # Delete the reference
-    del M
+    #del M
 
     # Force the Garbage Collector to release unreferenced memory
-    gc.collect()
+    #gc.collect()
 
