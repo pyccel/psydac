@@ -72,10 +72,11 @@ def psydac_test(*, mod, mpi, petsc, verbose, exitfirst):
         elif submods[0] != 'psydac':
             exit_with_error_message("module name must start with 'psydac'")
         try:
+            modname = mod.split('::')[0]
             import importlib
-            importlib.import_module(mod)
+            importlib.import_module(modname)
         except ImportError:
-            exit_with_error_message(f"module '{mod}' not found")
+            exit_with_error_message(f"module '{modname}' not found")
 
     # Import modules here to speed up parser
     import os
@@ -83,6 +84,25 @@ def psydac_test(*, mod, mpi, petsc, verbose, exitfirst):
     import subprocess
     import time
 
+    # Clear Pytest cache from the current working directory
+    cache_dir = '.pytest_cache'
+    if os.path.isdir(cache_dir):
+        print(f'Removing existing Pytest cache directory: {cache_dir}\n', flush=True)
+        shutil.rmtree(cache_dir)
+
+    # If no pytest.ini file exists in the current working directory, copy it
+    # from the parent directory of this script (which is installed with PSYDAC)
+    if not os.path.isfile('pytest.ini'):
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        parent_dir = os.path.dirname(script_dir)
+        pytest_ini = os.path.join(parent_dir, 'pytest.ini')
+        if not os.path.isfile(pytest_ini):
+            exit_with_error_message(f'could not find pytest.ini file in {parent_dir}')
+        else:
+            print(f'Copying pytest.ini from: {parent_dir}\n', flush=True)
+            shutil.copy(pytest_ini, os.getcwd())
+
+    # Build the list of flags for pytest
     flags = []
 
     # Set up MPI execution command, if needed
@@ -112,7 +132,7 @@ def psydac_test(*, mod, mpi, petsc, verbose, exitfirst):
 
     else:
         mpi_exe = []
-        flags.extend(['-n', 'auto'])
+        flags.extend(['-n', 'auto', '--dist', 'loadgroup'])  # for pytest-xdist
 
     # If PETSc tests are requested, check that petsc4py is installed
     if petsc:
