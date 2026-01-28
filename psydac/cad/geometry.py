@@ -8,19 +8,18 @@
 # the topology i.e. connectivity, boundaries
 # For the moment, it is used as a container, that can be loaded from a file
 # (hdf5)
-from itertools import product
-from collections import abc
-import string
-import random
-import yaml
 import os
-import string
-import random
-import warnings
+from typing import Iterable
+from itertools import chain
 
 import numpy as np
 import h5py
+import yaml
 from mpi4py import MPI
+
+from sympde.topology       import Domain, Interface, Line, Square, Cube, NCubeInterior, Mapping, NCube
+from sympde.topology.basic import Union
+from sympde.topology.callable_mapping import BasicCallableMapping
 
 from psydac.fem.splines        import SplineSpace
 from psydac.fem.tensor         import TensorFemSpace
@@ -29,39 +28,48 @@ from psydac.mapping.discrete   import SplineMapping, NurbsMapping
 from psydac.linalg.block       import BlockVectorSpace, BlockVector
 from psydac.ddm.cart           import DomainDecomposition, MultiPatchDomainDecomposition
 
+__all__ = (
+    'Geometry',
+    'export_nurbs_to_hdf5',
+    'import_geopdes_to_nurbs',
+    'refine_knots',
+    'refine_nurbs',
+)
 
-from sympde.topology       import Domain, Interface, Line, Square, Cube, NCubeInterior, Mapping, NCube
-from sympde.topology.basic import Union
+NoneType = type(None)
 
 #==============================================================================
 class Geometry:
     """
     Distributed discrete geometry that works for single and multiple patches.
-    The Geometry object can be created in two ways:
-    - case 1 : through a geometry file whos name can be given to the constructor
-    - case 2 : provide the ncells, the periodicity and the mapping objects of each patch.
+
+    The Geometry object can be created in four ways:
+    - case 0 : providing a `Domain` to `__init__` with detailed parameters for each patch.
+    - case 1 : passing the path to a geometry file to `from_file`.
+    - case 2 : passing a `SplineMapping` to `from_discrete_mapping` (single patch).
+    - case 3 : passing a `Domain`, ncells, and periodicity to `from_topological_domain` (single or multi-patch).
 
     Parameters
     ----------
     domain : Sympde.topology.Domain
-        The symbolic domain to be discretized.
+        The symbolic topological domain to be discretized.
 
-    ncells : list | tuple | dict
-        The number of cells of the discretized topological domain in each direction.
+    pdim : int
+        Number of physical dimensions of the Geometry object (pdim >= ldim).
 
-    periodic : list | tuple | dict
+    ncells : dict[str, Iterable[int]]
+        The number of cells of the discretized domain in each direction.
+
+    periodic : dict[str, Iterable[bool]], optional
         The periodicity of the topological domain in each direction.
 
-    mappings : dict
-        The Mapping of each patch.
+    mappings : dict[str, BasicCallableMapping], optional
+        The discrete mappings of each patch.
 
-    filename: str
-       The path to the geometry file.
-
-    comm: MPI.Comm
+    comm: MPI.Intracomm, optional
         MPI intra-communicator.
-        
-    mpi_dims_mask: list of bool
+
+    mpi_dims_mask: Iterable[bool], optional
         True if the dimension is to be used in the domain decomposition (=default for each dimension). 
         If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
   
@@ -71,68 +79,139 @@ class Geometry:
     _patches  = []
     _topology = None
 
-    #--------------------------------------------------------------------------
-    # Option [1]: from a (domain, mappings) or a file
-    #--------------------------------------------------------------------------
-    def __init__(self, domain=None, ncells=None, periodic=None, mappings=None,
-                 filename=None, comm=None, mpi_dims_mask=None):
+    def __init__(self,
+                 domain : Domain,
+                 *,
+                 pdim     : int,
+                 ncells   : dict[str, Iterable[int]],
+                 mappings : dict[str, SplineMapping | None] = None,
+                 periodic : dict[str, Iterable[bool]] = None,
+                 comm : MPI.Intracomm = None,
+                 mpi_dims_mask : Iterable[bool] = None):
 
-        # ... read the geometry if the filename is given
-        if filename is not None:
-            self.read(filename, comm=comm, mpi_dims_mask=mpi_dims_mask)
+        # Type checks
+        assert isinstance(pdim, int)
+        assert isinstance(domain, Domain) 
+        assert isinstance(ncells, dict)
+        assert isinstance(mappings, dict)
+        assert isinstance(periodic, (NoneType, dict))
+        assert isinstance(comm, (NoneType, MPI.Intracomm))
+        assert isinstance(mpi_dims_mask, (NoneType, Iterable))
 
-        elif domain is not None:
-            assert isinstance(domain, Domain) 
-            assert isinstance(ncells, dict)
-            assert isinstance(mappings, dict)
-            if periodic is not None:
-                assert isinstance(periodic, dict)
+        # Extract info from domain
+        ldim : int = domain.dim
+        interior_names : list = domain.interior_names
+        set_interior_names = set(interior_names)
 
-            # ... check sanity
-            interior_names = domain.interior_names
-            mappings_keys  = sorted(list(mappings.keys()))
+        # Check sanity of pdim
+        assert pdim >= ldim
 
-            assert sorted(interior_names) == mappings_keys
-            # ...
+        # Check sanity of ncells
+        assert set(ncells.keys()) == set_interior_names
+        assert all(len(n) == ldim for n in ncells.values())
+        assert all(isinstance(ni, (int, np.integer)) for ni in chain(*ncells.values()))
+        assert all(ni > 0 for ni in chain(*ncells.values()))
 
-            if periodic is None:
-                periodic = {patch: [False]*len(ncells_i) for patch, ncells_i in ncells.items()}
+        # Although we allow the iterable values in ncells to contain NumPy
+        # integers, we convert them to lists of Python integers for consistency
+        ncells = {patch: [int(ni) for ni in n] for patch, n in ncells.items()}
 
-            self._domain   = domain
-            self._ldim     = domain.dim
-            self._pdim     = domain.dim # TODO must be given => only dim is defined for a Domain
-            self._ncells   = ncells
-            self._periodic = periodic
-            self._mappings = mappings
-            self._cart     = None
-            self._is_parallel = comm is not None
-
-            if len(domain) == 1:
-                #name = domain.name
-                name = interior_names[0]
-                self._ddm = DomainDecomposition(ncells[name], periodic[name], comm=comm, mpi_dims_mask=mpi_dims_mask)
-            else:
-                ncells    = [ncells[itr] for itr in interior_names]
-                periodic  = [periodic[itr] for itr in interior_names]
-                self._ddm = MultiPatchDomainDecomposition(ncells, periodic, comm=comm)
-
+        # Check sanity of periodic
+        if periodic is None:
+            periodic = {patch: [False] * len(n) for patch, n in ncells.items()}
         else:
-            raise ValueError('Wrong input')
-        # ...
+            assert set(periodic.keys()) == set_interior_names
+            assert all(len(p) == ldim for p in periodic.values())
+            assert all(isinstance(pi, bool) for pi in chain(*periodic.values()))
 
-        self._comm = comm
+        # Check sanity of mappings
+        if mappings is None:
+            mappings = {itr.name : None for itr in domain.interior}
+        else:
+            assert set(mappings.keys()) == set_interior_names
+            assert all(isinstance(m, (BasicCallableMapping, NoneType)) for m in mappings.values())
+            assert all(m.pdim == pdim for m in mappings.values() if m is not None)
+
+        # Check sanity of mpi_dims_mask
+        if mpi_dims_mask is not None:
+            assert len(mpi_dims_mask) == ldim
+            assert all(isinstance(mask, bool) for mask in mpi_dims_mask)
+
+        # Create a (multi-patch) domain decomposition
+        if len(domain) == 1:
+            #name = domain.name
+            name = interior_names[0]
+            ddm = DomainDecomposition(
+                ncells  = ncells[name],
+                periods = periodic[name],
+                comm    = comm,
+                mpi_dims_mask = mpi_dims_mask,
+            )
+        else:
+            ddm = MultiPatchDomainDecomposition(
+                ncells  = [  ncells[itr] for itr in interior_names],
+                periods = [periodic[itr] for itr in interior_names],
+                comm    = comm,
+            )
+
+        # Add attributes to the new object
+        self._domain   = domain
+        self._ldim     = domain.dim
+        self._pdim     = pdim
+        self._ncells   = ncells
+        self._mappings = mappings
+        self._periodic = periodic
+        self._comm     = comm
+        self._ddm      = ddm
+        self._cart     = None
+
+    #--------------------------------------------------------------------------
+    # Option [1]: from a file
+    #--------------------------------------------------------------------------
+    @classmethod
+    def from_file(cls,
+            filename : str,
+            *,
+            comm : MPI.Intracomm = None,
+            mpi_dims_mask : Iterable[bool] = None):
+
+        """
+        Create a Geometry instance from an HDF5 input file in Psydac format.
+
+        Parameters
+        ----------
+        filename: str
+            The path to the geometry file.
+
+        comm: MPI.Intracomm, optional
+            The MPI intra-communicator.
+
+        mpi_dims_mask: Iterable[bool], optional
+            True if the dimension is to be used in the domain decomposition
+            (=default for each dimension). If mpi_dims_mask[i]=False, the i-th
+            dimension will not be decomposed.
+    
+        Returns
+        -------
+        Geometry
+            The new instance.
+        """
+        geo = super().__new__(cls)
+        geo.read(filename, comm=comm, mpi_dims_mask=mpi_dims_mask)
+        return geo
 
     #--------------------------------------------------------------------------
     # Option [2]: from a discrete mapping
     #--------------------------------------------------------------------------
     @classmethod
     def from_discrete_mapping(cls, mapping, *, comm=None, mpi_dims_mask=None, name=None):
-        """Create a geometry from one discrete mapping.
+        """
+        Create a single-patch Geometry instance from one discrete mapping.
 
         Parameters
         ----------
-        mapping : SplineMapping
-            The Mapping from the unit square to the physical domain.
+        mapping : BasicCallableMapping
+            The mapping from the unit square to the physical domain.
 
         comm : MPI.Comm
             MPI intra-communicator.
@@ -141,25 +220,36 @@ class Geometry:
             True if the dimension is to be used in the domain decomposition (=default for each dimension). 
             If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
     
-        name : string
-            Optional name for the Mapping that will be created. 
-            Needed to avoid conflicts in case several mappings are created
+        name : str
+            Optional name for the symbolic Mapping that will be created.
+            Needed to avoid conflicts in case several mappings are created.
+
+        Returns
+        -------
+        Geometry
+            The new instance.
         """
 
         mapping_name = name if name else 'mapping'
-        dim      = mapping.ldim        
-        M        = Mapping(mapping_name, dim = dim)
+        dim      = mapping.ldim
+        M        = Mapping(mapping_name, dim = dim)  # this is a symbolic mapping
         domain   = M(NCube(name = 'Omega',
                            dim  = dim,
                            min_coords = [0.] * dim,
                            max_coords = [1.] * dim)) 
         M.set_callable_mapping(mapping)
+        pdim     = mapping.pdim
         mappings = {domain.name: mapping}
         ncells   = {domain.name: mapping.space.domain_decomposition.ncells}
         periodic = {domain.name: mapping.space.domain_decomposition.periods}
 
-        return Geometry(domain=domain, ncells=ncells, periodic=periodic, mappings=mappings, comm=comm, mpi_dims_mask=mpi_dims_mask)
-
+        return Geometry(domain   = domain,
+                        pdim     = pdim,
+                        ncells   = ncells,
+                        periodic = periodic,
+                        mappings = mappings,
+                        comm     = comm,
+                        mpi_dims_mask = mpi_dims_mask)
 
     #--------------------------------------------------------------------------
     # Option [3]: discrete topological line/square/cube
@@ -172,31 +262,36 @@ class Geometry:
 
         for itr in interior:
             if not isinstance(itr, NCubeInterior):
-                msg = "Topological domain must be an NCube;"\
+                msg = "The topological domain of each patch must be an NCube;"\
                       " got {} instead.".format(type(itr))
                 raise TypeError(msg)
 
-        mappings = {itr.name:None for itr in interior}
+        mappings = {itr.name : None for itr in interior}
+        pdim = next(iter(interior)).dim
 
         if isinstance(ncells, (list, tuple)):
-            ncells = {itr.name:ncells for itr in interior}
+            ncells = {itr.name : ncells for itr in interior}
 
         if periodic is None:
-            periodic = [False]*domain.dim
+            periodic = [False] * domain.dim
         else:
             if len(interior) > 1 and True in periodic:
+                import warnings
                 msg = "Discretizing a multipatch domain with a periodic flag is not advised -- continue at your own risk."
                 # [MCP 18.12.2025] the following line may be causing a strange error in the CI (MPI tests for macos-14/Python 3.10)
                 # warnings.warn(msg, Warning)  
                 warnings.warn(msg, UserWarning)
 
-
         if isinstance(periodic, (list, tuple)):
-            periodic = {itr.name:periodic for itr in interior}
+            periodic = {itr.name : periodic for itr in interior}
 
-        geo = Geometry(domain=domain, mappings=mappings, ncells=ncells, periodic=periodic, comm=comm, mpi_dims_mask=mpi_dims_mask)
-
-        return geo
+        return Geometry(domain   = domain,
+                        pdim     = pdim,
+                        ncells   = ncells,
+                        periodic = periodic,
+                        mappings = mappings,
+                        comm     = comm,
+                        mpi_dims_mask = mpi_dims_mask)
 
     #--------------------------------------------------------------------------
     @property
@@ -228,10 +323,6 @@ class Geometry:
         return self._ddm
 
     @property
-    def is_parallel(self):
-        return self._is_parallel
-
-    @property
     def mappings(self):
         return self._mappings
 
@@ -240,8 +331,8 @@ class Geometry:
 
     def read(self, filename, comm=None, mpi_dims_mask=None):
         # ... check extension of the file
-        basename, ext = os.path.splitext(filename)
-        if not(ext == '.h5'):
+        _, ext = os.path.splitext(filename)
+        if ext != '.h5':
             raise ValueError('> Only h5 files are supported')
         # ...
 
@@ -249,38 +340,36 @@ class Geometry:
         domain       = Domain.from_file(filename)
         connectivity = construct_connectivity(domain)
 
-        if len(domain)==1:
-            interiors  = [domain.interior]
+        if len(domain) == 1:
+            interiors = [domain.interior]
         else:
-            interiors  = list(domain.interior.args)
+            interiors = list(domain.interior.args)
 
-        if not(comm is None):
-            kwargs = dict( driver='mpio', comm=comm ) if comm.size > 1 else {}
-
+        if comm is not None:
+            kwargs = dict(driver='mpio', comm=comm) if comm.size > 1 else {}
         else:
             kwargs = {}
 
-        h5  = h5py.File( filename, mode='r', **kwargs )
-        yml = yaml.load( h5['geometry.yml'][()], Loader=yaml.SafeLoader )
+        h5  = h5py.File(filename, mode='r', **kwargs)
+        yml = yaml.load(h5['geometry.yml'][()], Loader=yaml.SafeLoader)
 
         ldim = yml['ldim']
         pdim = yml['pdim']
 
-        n_patches = len( yml['patches'] )
+        n_patches = len(yml['patches'])
 
         # ...
         if n_patches == 0:
-
             h5.close()
-            raise ValueError( "Input file contains no patches." )
+            raise ValueError("Input file contains no patches.")
         # ...
 
-        # ... read patchs
+        # ... read patches
         mappings = {}
         ncells   = {}
         periodic = {}
-        spaces   = [None]*n_patches
-        for i_patch in range( n_patches ):
+        spaces   = [None] * n_patches
+        for i_patch in range(n_patches):
 
             item  = yml['patches'][i_patch]
             patch_name = item['name']
@@ -291,38 +380,36 @@ class Geometry:
 
                 degree     = [int (p) for p in patch.attrs['degree'  ]]
                 periodic_i = [bool(b) for b in patch.attrs['periodic']]
-                knots      = [patch['knots_{}'.format(d)][:] for d in range( ldim )]
-                space_i    = [SplineSpace( degree=p, knots=k, periodic=P )
-                            for p,k,P in zip( degree, knots, periodic_i )]
+                knots      = [patch['knots_{}'.format(d)][:] for d in range(ldim)]
+                space_i    = [SplineSpace(degree=p, knots=k, periodic=P)
+                              for p, k, P in zip(degree, knots, periodic_i)]
 
                 spaces[i_patch] = space_i
 
                 ncells  [interiors[i_patch].name] = [sp.ncells for sp in space_i]
                 periodic[interiors[i_patch].name] = periodic_i
 
-        self._cart = None
         if n_patches == 1:
-            self._ddm = DomainDecomposition(ncells[domain.name], periodic[domain.name], comm=comm, mpi_dims_mask=mpi_dims_mask)
-            ddms      = [self._ddm]
+            ddm  = DomainDecomposition(ncells[domain.name], periodic[domain.name], comm=comm, mpi_dims_mask=mpi_dims_mask)
+            ddms = [ddm]
         else:
-            ncells_    = [ncells[itr.name] for itr in interiors]
-            periodic  = [periodic[itr.name] for itr in interiors]
-            self._ddm = MultiPatchDomainDecomposition(ncells_, periodic, comm=comm)
-            ddms      = self._ddm.domains
+            ncells_  = [ncells[itr.name] for itr in interiors]
+            periodic = [periodic[itr.name] for itr in interiors]
+            ddm      = MultiPatchDomainDecomposition(ncells_, periodic, comm=comm)
+            ddms     = ddm.domains
 
         carts    = create_cart(ddms, spaces)
-        g_spaces = {inter:TensorFemSpace( ddms[i], *spaces[i], cart=carts[i]) for i,inter in enumerate(interiors)}
+        g_spaces = {inter:TensorFemSpace(ddms[i], *spaces[i], cart=carts[i]) for i,inter in enumerate(interiors)}
 
-        for i,j in connectivity:
-            ((axis_i, ext_i), (axis_j , ext_j)) = connectivity[i, j]
+        for i, j in connectivity:
             minus = interiors[i]
             plus  = interiors[j]
-            max_ncells = [max(ni,nj) for ni,nj in zip(ncells[minus.name],ncells[plus.name])]
+            max_ncells = [max(ni, nj) for ni, nj in zip(ncells[minus.name], ncells[plus.name])]
             g_spaces[minus].add_refined_space(ncells=max_ncells)
-            g_spaces[plus].add_refined_space(ncells=max_ncells)
+            g_spaces[plus ].add_refined_space(ncells=max_ncells)
 
         # ... construct interface spaces
-        construct_interface_spaces(self._ddm, g_spaces, carts, interiors, connectivity)
+        construct_interface_spaces(ddm, g_spaces, carts, interiors, connectivity)
 
         for i_patch in range( n_patches ):
 
@@ -336,26 +423,26 @@ class Geometry:
                 tensor_space = g_spaces[interiors[i_patch]]
 
                 if dtype == 'SplineMapping':
-                    mapping = SplineMapping.from_control_points( tensor_space,
-                                                                 patch['points'][..., :pdim] )
+                    mapping = SplineMapping.from_control_points(tensor_space,
+                                                                patch['points'][..., :pdim])
 
                 elif dtype == 'NurbsMapping':
-                    mapping = NurbsMapping.from_control_points_weights( tensor_space,
-                                                                        patch['points'][..., :pdim],
-                                                                        patch['weights'] )
+                    mapping = NurbsMapping.from_control_points_weights(tensor_space,
+                                                                       patch['points'][..., :pdim],
+                                                                       patch['weights'])
 
-                mapping.set_name( item['name'] )
+                mapping.set_name(item['name'])
                 mappings[patch_name] = mapping
 
-        if n_patches>1:
-            coeffs   = [[e._coeffs for e in mapping._fields] for mapping in mappings.values()]
-            spaces   = [[coeffs_ij.space for coeffs_ij in coeffs_i] for coeffs_i in coeffs]
-            spaces   = [BlockVectorSpace(*space) for space in spaces]
-            w_spaces = [sp.spaces[0] for sp in spaces]
-            space    = BlockVectorSpace(*spaces, connectivity=connectivity)
-            w_space  = BlockVectorSpace(*w_spaces, connectivity=connectivity)
-            v  = BlockVector(space)
-            w  = BlockVector(w_space)
+        # ... Update ghost regions within each patch and across interfaces
+        if n_patches > 1:
+            coeffs         = [[e.coeffs for e in mapping.fields] for mapping in mappings.values()]
+            patch_spaces   = [BlockVectorSpace(*[c_ij.space for c_ij in c_i]) for c_i in coeffs]
+            patch_spaces_w = [c_i[0].space for c_i in coeffs]
+            space          = BlockVectorSpace(*patch_spaces  , connectivity=connectivity)
+            space_w        = BlockVectorSpace(*patch_spaces_w, connectivity=connectivity)
+            v = BlockVector(space)
+            w = BlockVector(space_w)
             mapping_list = list(mappings.values())
             for i in range(n_patches):
                 for j in range(len(coeffs[i])):
@@ -377,7 +464,7 @@ class Geometry:
 
             if isinstance(mapping, NurbsMapping):
                 mapping.weights_field.coeffs.update_ghost_regions()
-
+        # ...
 
         # ... close the h5 file
         h5.close()
@@ -389,14 +476,15 @@ class Geometry:
             patch.mapping.set_callable_mapping(F)
 
         # ...
+        self._domain      = domain
         self._ldim        = ldim
         self._pdim        = pdim
-        self._mappings    = mappings
-        self._domain      = domain
-        self._comm        = comm
         self._ncells      = ncells
+        self._mappings    = mappings
         self._periodic    = periodic
-        self._is_parallel = comm is not None
+        self._comm        = comm
+        self._ddm         = ddm
+        self._cart        = None
         # ...
 
     def export( self, filename ):
@@ -436,7 +524,6 @@ class Geometry:
 
         yml['patches'] = patches_info
         # ...
-
 
         # ... topology
         topo_yml = self.domain.todict()

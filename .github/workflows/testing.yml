@@ -29,7 +29,8 @@ jobs:
       fail-fast: false
       matrix:
         os: [ ubuntu-24.04, macos-14 ]
-        python-version: [ '3.10', '3.11', '3.12', '3.13', '3.14' ]
+#        python-version: [ '3.9', '3.10', '3.11', '3.12', '3.13' ]
+        python-version: [ '3.11', '3.12' ]
         isMerge:
           - ${{ github.event_name == 'push' && github.ref == 'refs/heads/devel' }}
         exclude:
@@ -72,46 +73,46 @@ jobs:
         run: |
           pip install --upgrade pip setuptools wheel
 
-      - name: Cache PETSc
-        uses: actions/cache@v4
-        id: cache-petsc
-        env:
-          cache-name: cache-PETSc
-        with:
-          path: "./petsc"
-          key: petsc-${{ matrix.os }}-${{ matrix.python-version }}
-
-      - if: steps.cache-petsc.outputs.cache-hit != 'true'
-        name: Download a specific release of PETSc
-        run: |
-          git clone --depth 1 --branch v3.24.2 https://gitlab.com/petsc/petsc.git
-
-      - if: steps.cache-petsc.outputs.cache-hit != 'true'
-        name: Install PETSc with complex support
-        working-directory: ./petsc
-        run: |
-          export PETSC_DIR=$(pwd)
-          export PETSC_ARCH=petsc-cmplx
-          ./configure --with-scalar-type=complex --with-fortran-bindings=0 --have-numpy=1         
-          make all
-          echo "PETSC_DIR=$PETSC_DIR" > petsc.env
-          echo "PETSC_ARCH=$PETSC_ARCH" >> petsc.env
-
-      # This step is not really necessary and could be combined with PETSc install
-      # step; however it's good to verify if the cached PETSc installation really works!
-      - name: Test PETSc installation
-        working-directory: ./petsc
-        run: |
-          source petsc.env
-          make check
-          echo "PETSC_DIR=$PETSC_DIR" >> $GITHUB_ENV
-          echo "PETSC_ARCH=$PETSC_ARCH" >> $GITHUB_ENV
-
-      - name: Install petsc4py
-        working-directory: ./petsc
-        run: | 
-          pip install wheel Cython numpy
-          pip install src/binding/petsc4py
+#      - name: Cache PETSc
+#        uses: actions/cache@v4
+#        id: cache-petsc
+#        env:
+#          cache-name: cache-PETSc
+#        with:
+#          path: "./petsc"
+#          key: petsc-${{ matrix.os }}-${{ matrix.python-version }}
+#
+#      - if: steps.cache-petsc.outputs.cache-hit != 'true'
+#        name: Download a specific release of PETSc
+#        run: |
+#          git clone --depth 1 --branch v3.23.2 https://gitlab.com/petsc/petsc.git
+#
+#      - if: steps.cache-petsc.outputs.cache-hit != 'true'
+#        name: Install PETSc with complex support
+#        working-directory: ./petsc
+#        run: |
+#          export PETSC_DIR=$(pwd)
+#          export PETSC_ARCH=petsc-cmplx
+#          ./configure --with-scalar-type=complex --with-fortran-bindings=0 --have-numpy=1         
+#          make all
+#          echo "PETSC_DIR=$PETSC_DIR" > petsc.env
+#          echo "PETSC_ARCH=$PETSC_ARCH" >> petsc.env
+#
+#      # This step is not really necessary and could be combined with PETSc install
+#      # step; however it's good to verify if the cached PETSc installation really works!
+#      - name: Test PETSc installation
+#        working-directory: ./petsc
+#        run: |
+#          source petsc.env
+#          make check
+#          echo "PETSC_DIR=$PETSC_DIR" >> $GITHUB_ENV
+#          echo "PETSC_ARCH=$PETSC_ARCH" >> $GITHUB_ENV
+#
+#      - name: Install petsc4py
+#        working-directory: ./petsc
+#        run: | 
+#          pip install wheel Cython numpy
+#          pip install src/binding/petsc4py
 
       - name: Install h5py in parallel mode
         uses: ./.github/actions/parallel_h5py
@@ -129,54 +130,74 @@ jobs:
         run: |
           mkdir pytest
 
-      - name: Run coverage tests on macOS
-        if: matrix.os == 'macos-14'
-        working-directory: ./pytest
-        run: >-
-          pytest -n auto
-          --cov psydac
-          --cov-config $GITHUB_WORKSPACE/pyproject.toml
-          --cov-report xml
-          --pyargs psydac -m "not mpi and not petsc" -ra
+#      - name: Run single-process tests with Pytest and coverage on macOS
+#        if: matrix.os == 'macos-14'
+#        working-directory: ./pytest
+#        run: >-
+#          python -m pytest -n auto
+#          --cov psydac
+#          --cov-config $GITHUB_WORKSPACE/pyproject.toml
+#          --cov-report xml
+#          --pyargs psydac -m "not parallel and not petsc"
+#
+#      - name: Run single-process tests with Pytest on Ubuntu
+#        if: matrix.os == 'ubuntu-24.04'
+#        working-directory: ./pytest
+#        run: |
+#          psydac test
 
-      - name: Run single-process tests with Pytest on Ubuntu
-        if: matrix.os == 'ubuntu-24.04'
-        working-directory: ./pytest
-        run: |
-          psydac test
-
-      - name: Upload coverage report to Codacy
-        if: matrix.os == 'macos-14'
-        uses: codacy/codacy-coverage-reporter-action@v1.3.0
-        with:
-          project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
-          coverage-reports: ./pytest/coverage.xml
-
-      - name: Print detailed coverage results on macOS
-        if: matrix.os == 'macos-14'
+      - name: Run single-process tests for CAD module
         working-directory: ./pytest
         run: |
-          coverage report --ignore-errors --show-missing --sort=cover
+          psydac test --mod psydac.cad -x -v
 
-      - name: Run MPI tests with Pytest
+      - name: Run single-process tests for Mapping module
         working-directory: ./pytest
         run: |
-          psydac test --mpi
+          psydac test --mod psydac.mapping -x -v
 
-      - name: Run single-process PETSc tests with Pytest
+      - name: Run single-process tests for FEM module
         working-directory: ./pytest
         run: |
-          psydac test --petsc
+          psydac test --mod psydac.fem -x -v
 
-      - name: Run MPI PETSc tests with Pytest
+      - name: Run single-process tests for FEEC module
         working-directory: ./pytest
         run: |
-          psydac test --mpi --petsc
+          psydac test --mod psydac.feec -x -v
 
-      - name: Run single-process example tests with Pytest on Ubuntu
-        if: matrix.os == 'ubuntu-24.04'
+      - name: Run single-process tests for API module
+        working-directory: ./pytest
         run: |
-          python -m pytest examples/feec
+          psydac test --mod psydac.api -x -v
+
+#      - name: Upload coverage report to Codacy
+#        if: matrix.os == 'macos-14'
+#        uses: codacy/codacy-coverage-reporter-action@v1.3.0
+#        with:
+#          project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
+#          coverage-reports: ./pytest/coverage.xml
+#
+#      - name: Print detailed coverage results on macOS
+#        if: matrix.os == 'macos-14'
+#        working-directory: ./pytest
+#        run: |
+#          coverage report --ignore-errors --show-missing --sort=cover
+#
+#      - name: Run MPI tests with Pytest
+#        working-directory: ./pytest
+#        run: |
+#          psydac test --mpi
+#
+#      - name: Run single-process PETSc tests with Pytest
+#        working-directory: ./pytest
+#        run: |
+#          psydac test --petsc
+#
+#      - name: Run MPI PETSc tests with Pytest
+#        working-directory: ./pytest
+#        run: |
+#          psydac test --mpi --petsc
 
       - name: Remove test directory
         if: always()

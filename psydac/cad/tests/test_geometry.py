@@ -25,6 +25,7 @@ from psydac.ddm.cart                 import DomainDecomposition
 
 base_dir = os.path.dirname(os.path.realpath(__file__))
 #==============================================================================
+@pytest.mark.xdist_group('h5py')
 def test_geometry_2d_1():
 
     ncells = [1,1]
@@ -43,13 +44,13 @@ def test_geometry_2d_1():
     ncells = {domain.name:ncells}
 
     # create a geometry from a topological domain and the dict of mappings
-    geo = Geometry(domain=domain, ncells=ncells, mappings=mappings)
+    geo = Geometry(domain=domain, pdim=2, ncells=ncells, mappings=mappings)
 
     # export the geometry
     geo.export('geo.h5')
 
     # read it again
-    geo_0 = Geometry(filename='geo.h5')
+    geo_0 = Geometry.from_file('geo.h5')
 
     # export it again
     geo_0.export('geo_0.h5')
@@ -61,6 +62,7 @@ def test_geometry_2d_1():
     geo_1.export('geo_1.h5')
 
 #==============================================================================
+@pytest.mark.xdist_group('h5py')
 def test_geometry_2d_2():
 
     # create a nurbs mapping
@@ -92,13 +94,13 @@ def test_geometry_2d_2():
     periodic = {domain.name:[space.periodic for space in mapping.space.spaces]}
 
     # create a geometry from a topological domain and the dict of mappings
-    geo = Geometry(domain=domain, ncells=ncells, periodic=periodic, mappings=mappings)
+    geo = Geometry(domain=domain, pdim=2, ncells=ncells, periodic=periodic, mappings=mappings)
 
     # export the geometry
     geo.export('quart_circle.h5')
 
     # read it again
-    geo_0 = Geometry(filename='quart_circle.h5')
+    geo_0 = Geometry.from_file('quart_circle.h5')
 
     # export it again
     geo_0.export('quart_circle_0.h5')
@@ -111,6 +113,7 @@ def test_geometry_2d_2():
 
 #==============================================================================
 # TODO to be removed
+@pytest.mark.xdist_group('h5py')
 def test_geometry_2d_3():
 
     # create a nurbs mapping
@@ -144,6 +147,7 @@ def test_geometry_2d_3():
 
 #==============================================================================
 # TODO to be removed
+@pytest.mark.xdist_group('h5py')
 def test_geometry_2d_4():
 
     # create a nurbs mapping
@@ -204,11 +208,11 @@ def test_geometry_with_mpi_dims_mask():
 
     # Create a geometry from a topological domain and the dict of mappings
     # Here we allow for any distribution of the domain: mpi_dims_mask is not passed
-    geo = Geometry(domain=domain, ncells=d_ncells, mappings=mappings, comm=comm)
+    geo = Geometry(domain=domain, pdim=3, ncells=d_ncells, mappings=mappings, comm=comm)
     geo.export('geo_mpi_dims.h5')
 
     # Read geometry file in parallel, but using mpi_dims_mask
-    geo_from_file = Geometry(filename='geo_mpi_dims.h5', comm=comm, mpi_dims_mask=mpi_dims_mask)
+    geo_from_file = Geometry.from_file(filename='geo_mpi_dims.h5', comm=comm, mpi_dims_mask=mpi_dims_mask)
 
     # Verify that the domain is distributed as expected
     assert geo_from_file.ddm.starts == expected_starts
@@ -219,7 +223,6 @@ def test_geometry_with_mpi_dims_mask():
     if rank == 0:
         os.remove('geo_mpi_dims.h5')
 
-
 # ==============================================================================
 @pytest.mark.mpi
 def test_from_discrete_mapping():
@@ -227,7 +230,7 @@ def test_from_discrete_mapping():
     comm = MPI.COMM_WORLD
     rank = comm.rank
     size = comm.size
-    mpi_dims_mask = [False, False, True]  # We swill verify that this has an effect
+    mpi_dims_mask = [False, False, True]  # We will verify that this has an effect
     ncells = [4, 8, 2 * size]  # Each process should have two cells along x3
     degree = [3, 3, 3]
 
@@ -271,6 +274,7 @@ def test_from_topological_domain():
 #==============================================================================
 @pytest.mark.parametrize( 'ncells', [[8,8], [12,12], [14,14]] )
 @pytest.mark.parametrize( 'degree', [[2,2], [3,2], [2,3], [3,3], [4,4]] )
+@pytest.mark.xdist_group('h5py')
 def test_export_nurbs_to_hdf5(ncells, degree):
 
     # create pipe geometry
@@ -288,7 +292,7 @@ def test_export_nurbs_to_hdf5(ncells, degree):
     export_nurbs_to_hdf5(filename, new_pipe)
 
    # read the geometry
-    geo = Geometry(filename=filename)
+    geo = Geometry.from_file(filename)
     domain = geo.domain
 
     min_coords = domain.logical_domain.min_coords
@@ -324,8 +328,8 @@ def test_export_nurbs_to_hdf5(ncells, degree):
 #==============================================================================
 @pytest.mark.parametrize( 'ncells', [[8,8], [12,12], [14,14]] )
 @pytest.mark.parametrize( 'degree', [[2,2], [3,2], [2,3], [3,3], [4,4]] )
+@pytest.mark.xdist_group('h5py')
 def test_import_geopdes_to_nurbs(ncells, degree):
-
 
     filename = os.path.join(base_dir, "geo_Lshaped_C1.txt")
     L_shaped = import_geopdes_to_nurbs(filename)
@@ -337,7 +341,7 @@ def test_import_geopdes_to_nurbs(ncells, degree):
     export_nurbs_to_hdf5(filename, L_shaped)
 
    # read the geometry
-    geo = Geometry(filename=filename)
+    geo = Geometry.from_file(filename)
     domain = geo.domain
 
     min_coords = domain.logical_domain.min_coords

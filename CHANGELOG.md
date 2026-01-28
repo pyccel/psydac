@@ -6,13 +6,17 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+-   #567 Improve `psydac test` command (with several new features)
+-   #565 Expand editable install info in `README.md`
+
 ### Fixed
 
--   #565 Expand editable install info in `README.md`
+-   #567 Fix parallel creation of folder `__psydac__` in `psydac.api.fem_bilinear_form`
 -   #566 Fix command `psydac test --mpi` on Ubuntu machines
 
 ### Changed
 
+-   #527 Improve `Geometry` class in module `psydac.cad.geometry`
 -   [DEVELOPER] Run documentation workflow whenever `README.md` is modified
 -   [DEVELOPER] Run testing workflow on PRs only when set to "ready for review"
 
