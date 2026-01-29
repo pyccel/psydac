@@ -61,6 +61,7 @@ if platform.system() == "Darwin" and platform.machine() == 'arm64' and gfortran_
     if cpu_brand.startswith("Apple M"):
         # Example: "Apple M3 Pro (virtual)" --> " -mcpu=apple-m3"
         cpu_flag = '-'.join(cpu_brand.lower().split()[:2])
+        cpu_flag = cpu_flag.replace('4', '3')
         PSYDAC_BACKEND_GPYCCEL['flags'] += f' -mcpu={cpu_flag}'
     else:
         # TODO: Support later Apple CPU models. Perhaps the CPU naming scheme could be easily guessed
