@@ -152,7 +152,7 @@ def plot_time_vs_nrows(nrows_list, nprocs_list, array, title):
             valid_times = [t for t in process_times if t is not None]
             
             # Append nrows for every valid timing found
-            x_vals.extend([nrows] * len(valid_times))
+            x_vals.extend([nrows] * len(valid_times)) #list with constant nrows, length as valid_times
             y_vals.extend(valid_times)
         
         # Plot each nprocs group as a separate scatter series
@@ -174,12 +174,13 @@ def plot_time_vs_nrows(nrows_list, nprocs_list, array, title):
 
     plt.legend()
     plt.savefig(f'time_vs_nrows_{title}.pdf')
+    plt.close()
 
 plot_time_vs_nrows(nrows_list, nprocs_list, time_kernel, 'kernel')
 plot_time_vs_nrows(nrows_list, nprocs_list, time_setValuesIJV, 'setValuesIJV')
 plot_time_vs_nrows(nrows_list, nprocs_list, time_assemble, 'assemble')
 
-def plot_time_vs_nprocs(nrows_list, nprocs_list, array, title):
+def plot_time_vs_nprocs_scatter(nrows_list, nprocs_list, array, title):
     plt.rcParams.update({'font.size': 11}) 
     plt.figure(figsize=(10, 6))
     
@@ -204,6 +205,7 @@ def plot_time_vs_nprocs(nrows_list, nprocs_list, array, title):
     plt.xlabel('number of processes')
     plt.ylabel('Time [s]')
     plt.yscale('log') # Log scale is recommended due to the wide range in your data
+    plt.xscale('log', base=2)
     plt.legend()
 
     plt.grid(True, which="major", ls="-", alpha=1)
@@ -216,12 +218,53 @@ def plot_time_vs_nprocs(nrows_list, nprocs_list, array, title):
     plt.savefig(f'time_vs_nprocs_{title}.pdf')
     plt.close()
 
+def plot_time_vs_nprocs(nrows_list, nprocs_list, array, title):
+    plt.figure(figsize=(10, 6))
+    
+    # Iterate through each problem size (nrows)
+    # The array is indexed as [procs_idx, rows_idx, process_idx]
+    for r_idx, row_val in enumerate(nrows_list):
+        means = []
+        mins = []
+        maxs = []
+        valid_procs = []
+
+        for p_idx, nprocs in enumerate(nprocs_list):
+            # Extract times for the specific proc/row combo and remove 'None'
+            times = array[p_idx, r_idx]
+            clean_times = [t for t in times if t is not None]
+            
+            if clean_times:
+                means.append(np.mean(clean_times))
+                mins.append(np.min(clean_times))
+                maxs.append(np.max(clean_times))
+                valid_procs.append(nprocs)
+
+        # Plotting
+        line, = plt.plot(valid_procs, means, '-o', label=f'#rows={row_val}')
+        plt.fill_between(
+            valid_procs, mins, maxs, 
+            color=line.get_color(), alpha=0.3
+        )
+
+    # Formatting
+    plt.xscale('log', base=2)
+    plt.yscale('log')
+    plt.xlabel('number of processes')
+    plt.xticks(nprocs_list, nprocs_list)
+    plt.ylabel('Time [s]')
+    plt.title(f'Time {title} vs. number of processes')
+    plt.legend()#bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.grid(True, which="both", ls="-", alpha=0.5)
+    plt.tight_layout()
+    plt.savefig(f'time_vs_nprocs_{title}.pdf')
+    plt.close()
 
 plot_time_vs_nprocs(nrows_list, nprocs_list, time_kernel, 'kernel')
 plot_time_vs_nprocs(nrows_list, nprocs_list, time_setValuesIJV, 'setValuesIJV')
 plot_time_vs_nprocs(nrows_list, nprocs_list, time_assemble, 'assemble')
 
-def plot_strong_scaling(nrows_list, nprocs_list, array, title):
+def plot_strong_scaling(nrows_list, nprocs_list, array, title, op):
     plt.rcParams.update({'font.size': 11})
     # Data preparation: Filtering None values and calculating statistics
     # time_kernel[nprocs_idx][nrows_idx][process_idx]
@@ -238,17 +281,20 @@ def plot_strong_scaling(nrows_list, nprocs_list, array, title):
     ## 1. Strong Scaling Plot
     plt.figure(figsize=(10, 6))
     for r_idx, nrows in enumerate(nrows_list):
-        # Strong scaling uses the maximum time (bottleneck) among all processes
-        max_times = [np.max(data[p_idx][r_idx]) for p_idx in range(len(nprocs_list))]
+        if op == 'max':
+            # Strong scaling uses the maximum time (bottleneck) among all processes
+            op_times = [np.max(data[p_idx][r_idx]) for p_idx in range(len(nprocs_list))]
+        elif op == 'mean':
+            op_times = [np.mean(data[p_idx][r_idx]) for p_idx in range(len(nprocs_list))]
         
         # Calculate speedup: T(1) / T(N)
-        t1 = max_times[0]
-        speedup = [t1 / tn for tn in max_times]
+        t1 = op_times[0]
+        speedup = [t1 / tn for tn in op_times]
         
         plt.plot(nprocs_list, speedup, marker='^', label=f'#rows={nrows}', markerfacecolor='none', markersize=10)
 
     # Ideal scaling line
-    plt.plot(nprocs_list, nprocs_list, '--', color='gray', label='ideal speedup')
+    plt.plot(nprocs_list, nprocs_list, '--', color='gray', label='linear speedup')
 
     plt.xscale('log', base=2)
     plt.yscale('log', base=2)
@@ -260,12 +306,64 @@ def plot_strong_scaling(nrows_list, nprocs_list, array, title):
     plt.legend()
     plt.grid(True, which="both", ls="-", alpha=0.5)
     plt.tight_layout()
-    plt.savefig(f'strong_scaling_{title}.pdf')
+    plt.savefig(f'strong_scaling_{title}_{op}.pdf')
     plt.close()
 
-plot_strong_scaling(nrows_list, nprocs_list, time_kernel, 'kernel')
-plot_strong_scaling(nrows_list, nprocs_list, time_setValuesIJV, 'setValuesIJV')
-plot_strong_scaling(nrows_list, nprocs_list, time_assemble, 'assemble')
+plot_strong_scaling(nrows_list, nprocs_list, time_kernel, 'kernel', 'max')
+plot_strong_scaling(nrows_list, nprocs_list, time_setValuesIJV, 'setValuesIJV', 'max')
+plot_strong_scaling(nrows_list, nprocs_list, time_assemble, 'assemble', 'max')
+
+
+def plot_efficiency(nrows_list, nprocs_list, array, title, op):
+    plt.rcParams.update({'font.size': 11})
+    # Data preparation: Filtering None values and calculating statistics
+    # time_kernel[nprocs_idx][nrows_idx][process_idx]
+    data = [] 
+    for p_idx in range(len(nprocs_list)):
+        p_data = []
+        for r_idx in range(len(nrows_list)):
+            # Extract times for active processes only
+            times = [t for t in array[p_idx][r_idx] if t is not None]
+            p_data.append(np.array(times))
+        data.append(p_data)
+
+
+    ## 1. Efficiency Plot
+    plt.figure(figsize=(10, 6))
+    for r_idx, nrows in enumerate(nrows_list):
+        if op == 'max':
+            op_times = [np.max(data[p_idx][r_idx]) for p_idx in range(len(nprocs_list))]
+        elif op == 'mean':
+            op_times = [np.mean(data[p_idx][r_idx]) for p_idx in range(len(nprocs_list))]
+        
+        # Calculate speedup: T(1) / T(N)
+        t1 = op_times[0]
+        speedup = [t1 / tn for tn in op_times]
+
+        efficiency = [speedup[p_idx]/nprocs_list[p_idx] for p_idx in range(len(nprocs_list))]
+        
+        plt.plot(nprocs_list, efficiency, marker='^', label=f'#rows={nrows}', markerfacecolor='none', markersize=10)
+
+    # Ideal efficiency
+    plt.plot(nprocs_list, [1]*len(nprocs_list), '--', color='gray', label='total efficiency')
+
+    plt.xscale('log', base=2)
+    #plt.yscale('log', base=2)
+    plt.xticks(nprocs_list, nprocs_list)
+    plt.xlabel('number of processes')
+    plt.ylabel('efficiency')
+    plt.title(f'Parallel efficiency (maximum over processes) {title}')
+    plt.legend()
+    plt.grid(True, which="both", ls="-", alpha=0.5)
+    plt.tight_layout()
+    plt.savefig(f'efficiency_{title}_{op}.pdf')
+    plt.ylim(top=1., bottom=0.)
+    plt.close()
+
+plot_efficiency(nrows_list, nprocs_list, time_kernel, 'kernel', 'max')
+plot_efficiency(nrows_list, nprocs_list, time_setValuesIJV, 'setValuesIJV', 'max')
+plot_efficiency(nrows_list, nprocs_list, time_assemble, 'assemble', 'max')
+
 
 def plot_load_imbalance(nrows_list, nprocs_list, array, title):
     data = [] 
