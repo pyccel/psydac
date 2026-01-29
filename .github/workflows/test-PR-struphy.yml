@@ -63,13 +63,6 @@ jobs:
         run: |
           ls .testmon* || echo "No .testmondata"
 
-      # # temporary - remove after feectools merge
-      # - name: Install Struphy in container
-      #   uses: ./.github/actions/install/struphy-in-container
-      #   with:
-      #     compile_language: ${{ matrix.compile_language }}
-      #     struphy_branch: 146-install-feectools
-
       - name: Install Psydac in container
         uses: ./.github/actions/install/psydac-in-container
         with:
@@ -84,17 +77,35 @@ jobs:
       - name: Run struphy unit tests
         env:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-struphy-${{ matrix.compile_language }}
+          TEST_FILES: "bsplines/tests/ \
+                      console/tests/ \
+                      feec/tests/ \
+                      fields_background/tests/ \
+                      geometry/tests/ \
+                      initial/tests/ \
+                      kinetic_background/tests/ \
+                      linear_algebra/tests/ \
+                      ode/tests/ \
+                      pic/tests/ \
+                      polar/tests/ \
+                      post_processing/tests/ \
+                      propagators/tests/"
         run: |
           source /struphy_${{ matrix.compile_language }}_/env_${{ matrix.compile_language }}_/bin/activate
-          struphy test Maxwell
-          struphy test unit
+          PYTHON=$(which python)
+          STRUPHY_PATH=$($PYTHON -c "import struphy; print(struphy.__path__[0])")
+          echo "Struphy is installed at: $STRUPHY_PATH"
+          echo "STRUPHY_PATH=${STRUPHY_PATH}" >> $GITHUB_ENV
+          mpirun -n 1 pytest -m single --testmon-forceselect -s --with-mpi --model-name Maxwell $STRUPHY_PATH
+          cd $STRUPHY_PATH
+          pytest --testmon $TEST_FILES
       
       - name: Run struphy model tests
         env:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-struphy-${{ matrix.compile_language }}
         run: |
           source /struphy_${{ matrix.compile_language }}_/env_${{ matrix.compile_language }}_/bin/activate
-          struphy test models 
+          pytest -m models --testmon-forceselect  $STRUPHY_PATH/models/tests/default_params/  
 
       - name: Install mpi4py
         run: |
@@ -106,5 +117,5 @@ jobs:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-struphy-${{ matrix.compile_language }}-mpi
         run: |
           source /struphy_${{ matrix.compile_language }}_/env_${{ matrix.compile_language }}_/bin/activate
-          struphy test Maxwell
-          struphy test models --mpi 2
+          mpirun -n 1 pytest -m single --testmon-forceselect -s --with-mpi --model-name Maxwell $STRUPHY_PATH
+          mpirun -oversubscribe -n 2 pytest -m models --testmon-forceselect --with-mpi $STRUPHY_PATH/models/tests/default_params/
