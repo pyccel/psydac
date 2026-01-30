@@ -45,9 +45,10 @@ def get_random_block_vector(space):
 @pytest.mark.parametrize( 'R', [1])
 @pytest.mark.parametrize( 'ncells', [[4, 8], [12, 12]])
 @pytest.mark.parametrize( 'degree', [[1, 1], [2, 2]])
+@pytest.mark.parametrize( 'hbc', [True, False])
 @pytest.mark.mpi
 
-def test_C0PolarProjection_V0(R, ncells, degree):
+def test_C0PolarProjection_V0(R, ncells, degree, hbc):
     mpi_comm = MPI.COMM_WORLD
     domain = get_domain(R)
 
@@ -56,7 +57,7 @@ def test_C0PolarProjection_V0(R, ncells, degree):
     V0 = ScalarFunctionSpace('V0', domain)
     V0_h = discretize(V0, domain_h, degree=degree)
 
-    P0 = C0PolarProjection_V0(V0_h, hbc=True)
+    P0 = C0PolarProjection_V0(V0_h, hbc=hbc)
 
     x = get_random_vector(V0_h)
     phiC = FemField(V0_h)
@@ -76,11 +77,12 @@ def test_C0PolarProjection_V0(R, ncells, degree):
 
 
 @pytest.mark.parametrize( 'R', [1])
-@pytest.mark.parametrize( 'ncells', [[4, 8], [12, 12]])
-@pytest.mark.parametrize( 'degree', [[1, 1], [2, 2]])
+@pytest.mark.parametrize( 'ncells', [[6, 8], [15, 12], [14, 20]])
+@pytest.mark.parametrize( 'degree', [[2, 2], [2, 3]])
+@pytest.mark.parametrize( 'hbc', [True, False])
 @pytest.mark.mpi
 
-def test_C0PolarProjection_V1(R, ncells, degree):
+def test_C0PolarProjection_V1(R, ncells, degree, hbc):
     mpi_comm = MPI.COMM_WORLD
     domain = get_domain(R)
 
@@ -89,10 +91,9 @@ def test_C0PolarProjection_V1(R, ncells, degree):
     V1 = VectorFunctionSpace('V1', domain, kind='hcurl')
     V1_h = discretize(V1, domain_h, degree=degree)
 
-    P1 = C0PolarProjection_V1(V1_h, hbc=True)
+    P1 = C0PolarProjection_V1(V1_h, hbc=hbc)
 
     x = get_random_block_vector(V1_h)
-    print(x)
     y = BlockVector(V1_h.coeff_space)
     P1.dot(x, out=y)
 
@@ -103,8 +104,10 @@ def test_C0PolarProjection_V1(R, ncells, degree):
     # Comparing results of dot and tosparse
     sp_P1 = P1.tosparse()
     y_sp = sp_P1 @ x.toarray()
+    y = mpi_comm.allreduce(y.toarray(), op=MPI.SUM)
+    y_sp = mpi_comm.allreduce(y_sp, op=MPI.SUM)
 
-    assert np.allclose(y_sp, y.toarray())
+    assert np.allclose(y_sp, y)
 
 
 @pytest.mark.parametrize( 'R', [1])

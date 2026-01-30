@@ -282,7 +282,6 @@ class C0PolarProjection_V1_10(LinearOperator):
         # The number of radial basis functions is one less than the number on the angular basis functions along dir x1
         [s1, s2] = self.domain.starts
         [e1, e2] = self.domain.ends
-        [n1, n2] = self.domain.npts
         rank_at_polar_edge = (s1 == 0)
 
         if out is None:
@@ -323,19 +322,22 @@ class C0PolarProjection_V1_10(LinearOperator):
 
         [n01, n02] = domain_P1_10.npts
         [n11, n12] = codomain_P1_10.npts
+        s1, s2 = domain_P1_10.starts
+        e1, e2 = domain_P1_10.ends
+        rank_at_polar_edge = (s1 == 0)
+
+        data, cols, rows = [], [], []
+
+        if rank_at_polar_edge:
+            len_theta = e2 - s2 + 1
+            data = np.tile([-1, 1], len_theta)
+            cols = np.repeat(np.arange(s2, e2 + 1), 2)
+            k = np.arange(s2, e2 + 1)
+            rows = np.column_stack((k, (k - 1) % n12 )).ravel() + n12
 
         dtype = domain_P1_10.dtype
-
-        r = np.zeros(n02)
-        r[:2] = [-1, 1]
-        c = np.zeros(n02)
-        c[::n02 - 1] = [-1, 1]
-
-        d_block = toeplitz(c, r)
-        P = lil_matrix((n11 * n12, n01 * n02), dtype=dtype)
-        P[n12:2 * n12, :n02] = d_block
-
-        # print(f'in C0CongaProjector1_10.tosparse : P.T.shape = {P.T.shape}, P.shape = {P.shape}, self.transposed = {self.transposed}')
+        P = coo_matrix((data, (rows, cols)), shape=[n11 * n12, n01 * n02], dtype=dtype)
+        P.eliminate_zeros()
         return P.T if self.transposed else P
 
     def toarray(self):
@@ -421,15 +423,30 @@ class C0PolarProjection_V1_11(LinearOperator):
 
     def tosparse(self):
 
+        #size of the block is (n_s*n_t)x(n_s*n_t)
+        [s1, s2] = self.domain.starts
+        [e1, e2] = self.domain.ends
         [n01, n02] = self.domain.npts
         [n11, n12] = self.codomain.npts
+        rank_at_outer_edge = (e1 == n01 - 1)
         dtype = self.domain.dtype
 
-        P = lil_matrix((n11 * n12, n01 * n02), dtype=dtype)
-        P[2 * n12:, 2 * n02:] = sp_eye((n11 - 2) * n12)
-        if self.hbc:
-            P[-n12:, -n02:] = 0
+        start_s = max(2, s1)
+        end_s = e1 + 1
+        if rank_at_outer_edge and self.hbc:
+            end_s -= 1
+        len_theta = e2 - s2 + 1
+        data = np.ones(len_theta * (end_s - start_s))
+
+        i = np.arange(start_s, end_s)[:, None]
+        j = np.arange(s2, e2 + 1)[None, :]
+        local_cols = (i * n02 + j).ravel()
+
+        P = coo_matrix((data, (local_cols, local_cols)), shape=[n11 * n12, n01 * n02], dtype=dtype)
+        P.eliminate_zeros()
+        print(P.toarray())
         return P.T if self.transposed else P
+
 
     def toarray(self):
         return self.tosparse().toarray()
