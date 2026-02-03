@@ -627,7 +627,7 @@ txt += '\n\n'
 
 if mpi_rank == 0:
     # Write performance table to MarkDown file
-    with open('matrix_assembly_speed_log.md', 'a') as f:
+    with open('README.md', 'a') as f:
         f.write(txt)
 
     # Remove temporary folders
