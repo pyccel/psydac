@@ -20,10 +20,18 @@ PSYDAC_BACKEND_PYTHON = {'name': 'python', 'tag':'python', 'openmp':False}
 
 PSYDAC_BACKEND_GPYCCEL  = {'name': 'pyccel',
                        'compiler_family': 'GNU',
-                       'flags'   : '-O3 -ffast-math',
+                       'flags'   : '-O3 -ffast-math -march=native',
                        'folder'  : '__gpyccel__',
                        'tag'     : 'gpyccel',
                        'openmp'  : False}
+
+# [MCP 10.02.2026] this flag was used previously for intel mac, should we add it ?
+# if not platform.system() == "Darwin":
+#     PSYDAC_BACKEND_GPYCCEL['flags'] += ' -mtune=native'
+
+# [MCP 10.02.2026] YG's suggestion:
+if platform.machine() == 'x86_64':
+    PSYDAC_BACKEND_GPYCCEL['flags'] += ' -mavx'
 
 PSYDAC_BACKEND_IPYCCEL  = {'name': 'pyccel',
                        'compiler_family': 'intel',
@@ -53,8 +61,8 @@ gfortran_version_string = re.search(r"(\d+\.\d+\.\d+)", gfortran_version_output)
 gfortran_version = Version(gfortran_version_string)
 
 # Platform-dependent flags
-if platform.system() == "Darwin" and platform.machine() == 'arm64':
-    PSYDAC_BACKEND_GPYCCEL['flags'] += ' -march=native'
+# if platform.system() == "Darwin" and platform.machine() == 'arm64':
+#     PSYDAC_BACKEND_GPYCCEL['flags'] += ' -march=native'
 
 # [MCP] version before PR #569, delete if OK:
 # if platform.system() == "Darwin" and platform.machine() == 'arm64' and gfortran_version >= Version("14"):
@@ -73,11 +81,11 @@ if platform.system() == "Darwin" and platform.machine() == 'arm64':
 #         # guess unless it has been manually verified. Loud errors are better than silent failures!
 #         raise SystemError(f"Unsupported Apple CPU '{cpu_brand}'.")
 
-else:
-    # Default architecture flags
-    PSYDAC_BACKEND_GPYCCEL['flags'] += ' -march=native -mtune=native'
-    if platform.machine() == 'x86_64':
-        PSYDAC_BACKEND_GPYCCEL['flags'] += ' -mavx'
+# else:
+#     # Default architecture flags
+#     PSYDAC_BACKEND_GPYCCEL['flags'] += ' -march=native -mtune=native'
+#     if platform.machine() == 'x86_64':
+#         PSYDAC_BACKEND_GPYCCEL['flags'] += ' -mavx'
 
 #==============================================================================
 
