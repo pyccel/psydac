@@ -367,7 +367,7 @@ def test_complex_poisson_2d_multipatch():
     A = Square('A',bounds1=(0, 0.5), bounds2=(0, 1))
     B = Square('B',bounds1=(0.5, 1.), bounds2=(0, 1))
 
-    domain = Domain.join([A, B], [((0, 0, 1), (1, 0, -1))], 'domain')
+    domain = Domain.join([A, B], [((0, 0, 1), (1, 0, -1), 1)], 'domain')
 
     x, y = domain.coordinates
 
@@ -495,7 +495,7 @@ def test_maxwell_2d_2_patch_dirichlet_parallel_0():
     D1 = mapping_1(A)
     D2 = mapping_2(B)
 
-    domain = Domain.join([D1, D2], [((0, 1, 1), (1, 1, -1))], 'domain')
+    domain = Domain.join([D1, D2], [((0, 1, 1), (1, 1, -1), 1)], 'domain')
 
     x, y = domain.coordinates
 

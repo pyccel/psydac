@@ -126,7 +126,7 @@ def test_maxwell_2d_2_patch_dirichlet_0():
     D1     = mapping_1(A)
     D2     = mapping_2(B)
 
-    connectivity = [((0,1,1),(1,1,-1))]
+    connectivity = [((0, 1, 1), (1, 1,-1), 1)]
     patches = [D1,D2]
     domain = Domain.join(patches, connectivity, 'domain')
 
@@ -203,7 +203,7 @@ def test_maxwell_2d_2_patch_dirichlet_parallel_0():
     D1     = mapping_1(A)
     D2     = mapping_2(B)
 
-    connectivity = [((0,1,1),(1,1,-1))]
+    connectivity = [((0, 1, 1), (1, 1,-1), 1)]
     patches = [D1,D2]
     domain = Domain.join(patches, connectivity, 'domain')
     x,y    = domain.coordinates

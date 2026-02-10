@@ -80,11 +80,11 @@ def run_poisson_2d(solution, f, domain, ncells, degree):
 
 #------------------------------------------------------------------------------
 def test_poisson_2d_2_patch_dirichlet_0():
-    A = Square('A',bounds1=(0, 0.5), bounds2=(0, 1))
-    B = Square('B',bounds1=(0.5, 1.), bounds2=(0, 1))
+    A = Square('A', bounds1=(0, 0.5), bounds2=(0, 1))
+    B = Square('B', bounds1=(0.5, 1.), bounds2=(0, 1))
 
-    connectivity = [((0,0,1),(1,0,-1))]
-    patches = [A,B]
+    patches = [A, B]
+    connectivity = [((0, 0, 1), (1, 0,-1), 1)]
     domain = Domain.join(patches, connectivity, 'domain')
 
     x,y = domain.coordinates
@@ -105,8 +105,8 @@ def test_poisson_2d_2_patch_dirichlet_1():
     A = Square('A',bounds1=(0, 0.5), bounds2=(0, 1))
     B = Square('B',bounds1=(0.5, 1.), bounds2=(0, 1))
 
-    connectivity = [((0,0,1),(1,0,-1))]
-    patches = [A,B]
+    patches = [A, B]
+    connectivity = [((0, 0, 1), (1, 0,-1), 1)]
     domain = Domain.join(patches, connectivity, 'domain')
 
     x,y = domain.coordinates
@@ -126,7 +126,7 @@ def test_poisson_2d_2_patch_dirichlet_2():
     A = Square('A',bounds1=(0, 0.5), bounds2=(0, 1))
     B = Square('B',bounds1=(0.5, 1.), bounds2=(0, 1))
 
-    connectivity = [((0,0,1),(1,0,-1))]
+    connectivity = [((0, 0, 1), (1, 0,-1), 1)]
     patches = [A,B]
     domain = Domain.join(patches, connectivity, 'domain')
 
@@ -155,8 +155,8 @@ def test_poisson_2d_2_patch_dirichlet_3():
     D1 = M1(A)
     D2 = M2(B)
 
-    connectivity = [((0,0,1),(1,0,1))]
-    patches = [D1,D2]
+    patches = [D1, D2]
+    connectivity = [((0, 0, 1), (1, 0, 1), 1)]
     domain = Domain.join(patches, connectivity, 'domain')
 
     x,y = domain.coordinates
@@ -182,8 +182,8 @@ def test_poisson_2d_2_patch_dirichlet_4():
     D1 = M1(A)
     D2 = M2(B)
 
-    connectivity = [((0,0,-1),(1,0,-1))]
-    patches = [D1,D2]
+    patches = [D1, D2]
+    connectivity = [((0, 0, -1), (1, 0, -1), 1)]
     domain = Domain.join(patches, connectivity, 'domain')
 
     x,y = domain.coordinates
