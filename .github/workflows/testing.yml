@@ -15,10 +15,6 @@ on:
     branches: [ devel, main ]
     types:
       - ready_for_review
-    paths:
-      - 'psydac/**'
-      - 'pytest.ini'
-      - 'pyproject.toml'
 
   workflow_dispatch:
 

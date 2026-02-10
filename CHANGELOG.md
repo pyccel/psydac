@@ -8,11 +8,13 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
--   #565 Expand editable install info in `README.md`
--   #566 Fix command `psydac test --mpi` on Ubuntu machines
+-   #570 : Optimize PSYDAC logo
+-   #565 : Expand editable install info in `README.md`
+-   #566 : Fix command `psydac test --mpi` on Ubuntu machines
 
 ### Changed
 
+-   [DEVELOPER] Do not check file changes to trigger testing workflow on PRs
 -   [DEVELOPER] Run documentation workflow whenever `README.md` is modified
 -   [DEVELOPER] Run testing workflow on PRs only when set to "ready for review"
 
