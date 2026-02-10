@@ -7,6 +7,7 @@ import pytest
 import numpy as np
 from scipy.sparse import csr_matrix
 
+from psydac.linalg.basic import LinearOperator
 from psydac.linalg.direct_solvers import SparseSolver
 from psydac.linalg.stencil        import StencilVectorSpace, StencilVector, StencilMatrix
 from psydac.linalg.block          import BlockVectorSpace, BlockVector
@@ -733,6 +734,93 @@ def test_block_linear_operator_serial_dot( dtype, n1, n2, p1, p2, P1, P2  ):
     # Check data in 1D array
     assert np.allclose( Y.blocks[0].toarray(), y1.toarray(), rtol=1e-14, atol=1e-14 )
     assert np.allclose( Y.blocks[1].toarray(), y2.toarray(), rtol=1e-14, atol=1e-14 )
+
+#===============================================================================
+@pytest.mark.parametrize( 'dtype', [float, complex] )
+@pytest.mark.parametrize( 'npts', [[6, 8], [10, 5]] )
+@pytest.mark.parametrize( 'p', [[1,1], [2,3]] )
+@pytest.mark.parametrize( 'P1', [True, False] )
+@pytest.mark.parametrize( 'P2', [True] )
+
+def test_block_linear_operator_partial_write(dtype, npts, p, P1, P2):
+    """
+    We test that dot method of BlockLinearOperator produces correct results when
+    dot methods of blocks (linear operators) only partially overwrite the output.
+    """
+    class PartialWriteLinOp(LinearOperator):
+        def __init__(self, V, index):
+            self._domain = V
+            self._codomain = V
+            self.index = index  # 0 or 1
+
+        @property
+        def domain(self):
+            return self._domain
+
+        @property
+        def codomain(self):
+            return self._codomain
+
+        @property
+        def dtype(self):
+            return self._domain.dtype
+
+        def dot(self, x, out=None):
+            assert isinstance(x, StencilVector)
+            if out is None:
+                out = self.codomain.zeros()
+
+            s1, s2 = self.codomain.starts
+            e1, e2 = self.codomain.ends
+
+            if self.index == 0:
+                # Only first owned s-line
+                out[s1, s2:e2+1] = x[s1, s2:e2 + 1]
+            else:
+                # Only 2nd owned s-line
+                out[s1+1, s2:e2+1] = x[s1 + 1, s2:e2 + 1]
+            out.update_ghost_regions()
+            return out
+
+        def toarray(self): pass
+        def tosparse(self): pass
+        def transpose(self, conjugate=False): pass
+
+    D = DomainDecomposition(npts, periods=[P1, P2])
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
+    cart = CartDecomposition(D, npts, global_starts, global_ends, pads=p, shifts=[1, 1])
+
+    V = StencilVectorSpace(cart, dtype=dtype)
+
+    # Create stencil vectors
+    x1 = StencilVector(V)
+    x2 = StencilVector(V)
+    [s1, s2] = V.starts
+    [e1, e2] = V.ends
+    x1[s1:e1+1, s2:e2+1] = 1.0
+    x2[s1:e1+1, s2:e2+1] = 3.0
+    x1.update_ghost_regions()
+    x2.update_ghost_regions()
+
+    W = BlockVectorSpace(V, V)
+
+    A = PartialWriteLinOp(V, index=0)
+    B = PartialWriteLinOp(V, index=1)
+
+    # One block row
+    dict_blocks = {(0,0): A, (0,1): B}
+    L = BlockLinearOperator(W, W, blocks=dict_blocks)
+
+    # Construct a BlockVector object containing x1 and x2
+    X = BlockVector(W)
+    X[0] = x1
+    X[1] = x2
+
+    #  Compare the result of dot method
+    Y = L.dot(X)
+    y_ref = A.dot(x1) + B.dot(x2)
+    assert np.allclose(Y.blocks[0].toarray(), y_ref.toarray(), rtol=1e-14, atol=1e-14)
+
 #===============================================================================
 @pytest.mark.parametrize( 'dtype', [float, complex] )
 @pytest.mark.parametrize( 'n1', [8, 16] )
