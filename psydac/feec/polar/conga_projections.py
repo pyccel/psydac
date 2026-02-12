@@ -69,6 +69,7 @@ class C0PolarProjection_V0(LinearOperator):
         else:
             assert isinstance(out, StencilVector)
             assert out.space is self.W0.coeff_space
+            out *= 0
             y = out
 
         if rank_at_polar_edge:
@@ -200,6 +201,7 @@ class C0PolarProjection_V1_00(LinearOperator):
         else:
             assert isinstance(out, StencilVector)
             assert out.space is self.W1.coeff_space[0]
+            out *= 0
             y = out
 
         y[s1:e1+1, s2:e2+1] = x[s1:e1+1, s2:e2+1]
@@ -289,6 +291,7 @@ class C0PolarProjection_V1_10(LinearOperator):
         else:
             assert isinstance(out, StencilVector)
             assert out.space is self.codomain
+            out *= 0
             y = out
 
         y[s1:e1 + 1, s2:e2 + 1] = 0
@@ -400,6 +403,7 @@ class C0PolarProjection_V1_11(LinearOperator):
         else:
             assert isinstance(out, StencilVector)
             assert out.space is self.codomain
+            out *= 0
             y = out
         if rank_at_polar_edge:
             y[0, s2:e2 + 1] = 0
@@ -550,6 +554,7 @@ class C0PolarProjection_V2(LinearOperator):
         else:
             assert isinstance(out, StencilVector)
             assert out.space is self.W2.coeff_space
+            out *= 0
             y = out
 
         if self.transposed:
@@ -695,6 +700,7 @@ class C1PolarProjection_V0(LinearOperator):
         else:
             assert isinstance(out, StencilVector)
             assert out.space is self.W0.coeff_space
+            out *= 0
             y = out
 
         if rank_at_polar_edge:
@@ -837,6 +843,7 @@ class C1PolarProjection_V1_00(LinearOperator):
         else:
             assert isinstance(out, StencilVector)
             assert out.space is self.codomain
+            out *= 0
             y = out
 
         if rank_at_polar_edge:
@@ -967,6 +974,7 @@ class C1PolarProjection_V1_10(LinearOperator):
         else:
             assert isinstance(out, StencilVector)
             assert out.space is self.codomain
+            out *= 0
             y = out
 
         if rank_at_polar_edge:
