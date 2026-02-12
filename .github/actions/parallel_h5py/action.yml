@@ -20,9 +20,18 @@ runs:
       run: |
         export CC="mpicc"
         export HDF5_MPI="ON"
-        pip install 'setuptools<81.0'
-        pip install h5py --no-cache-dir --no-binary h5py
+        git clone https://github.com/h5py/h5py.git
+        cd h5py
+        pip install -v .
         pip list
+
+#    - name: Install h5py in parallel mode
+#      shell: bash
+#      run: |
+#        export CC="mpicc"
+#        export HDF5_MPI="ON"
+#        pip install h5py --no-cache-dir --no-binary h5py
+#        pip list
 
     - name: Check parallel h5py installation
       shell: bash
