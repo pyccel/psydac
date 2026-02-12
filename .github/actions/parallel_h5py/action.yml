@@ -15,6 +15,7 @@ runs:
         echo $HDF5_DIR
         echo "HDF5_DIR=$HDF5_DIR" >> $GITHUB_ENV
 
+# To be deactivated when a new version of h5py is released on PyPI
     - name: Install h5py in parallel mode
       shell: bash
       run: |
@@ -25,6 +26,7 @@ runs:
         pip install -v .
         pip list
 
+# To be reactivated when a new version of h5py is released on PyPI
 #    - name: Install h5py in parallel mode
 #      shell: bash
 #      run: |
