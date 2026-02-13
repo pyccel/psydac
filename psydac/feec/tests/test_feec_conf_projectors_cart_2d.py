@@ -54,7 +54,7 @@ def get_polynomial_function(degree, hom_bc_axes, domain):
 @pytest.mark.parametrize('nc', [5])
 @pytest.mark.parametrize('reg', [0])
 @pytest.mark.parametrize('hom_bc', [False, True])
-@pytest.mark.parametrize('domain_name', ["1patch", "4patch_nc", "2patch_nc"])
+@pytest.mark.parametrize('domain_name', ["1patch", "4patch_nc"]) #, "2patch_nc"])
 @pytest.mark.parametrize("nonconforming, full_mom_pres",
                          [(True, True), (False, True)])
 

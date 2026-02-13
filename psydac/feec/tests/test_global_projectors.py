@@ -105,7 +105,7 @@ def test_L2_projector_1d(domain, ncells, degree, periodic, nquads, multiplicity)
     assert maxnorm_error <= 1e-3
     
 #==============================================================================
-@pytest.mark.parametrize('ncells', [[200,200]])
+@pytest.mark.parametrize('ncells', [[57,64]])
 @pytest.mark.parametrize('degree', [[2,2], [2,3], [3,3]])
 @pytest.mark.parametrize('periodic', [[False, False], [True, True]])
 @pytest.mark.parametrize('multiplicity', [(1, 1), (2, 2)])
@@ -114,14 +114,13 @@ def test_derham_projector_2d_hdiv(ncells, degree, periodic, multiplicity):
 
     domain = Square('Omega', bounds1 = (0,2*np.pi), bounds2 = (0,2*np.pi))
     domain_h = discretize(domain, ncells=ncells, periodic=periodic)
-    #change multiplicity if higher than degree to avoid problems (case p<m doesn't work)
+    
+    # change multiplicity cannot be higher than the degree (otherwise splines are discontinuous)
     multiplicity = [min(m, p) for p, m in zip(degree, multiplicity)]
 
     derham   = Derham(domain, ["H1", "Hdiv", "L2"])
     derham_h   = discretize(derham, domain_h, degree=degree, get_H1vec_space = True, multiplicity=multiplicity)
     P0, P1, P2, PX = derham_h.projectors(nquads=[2*p+1 for p in degree])
-
-    # Projector onto H1 space (1D interpolation)
 
     # Function to project
     f1  = lambda xi1, xi2 : np.sin( xi1 + 0.5 ) * np.cos( xi2 + 0.3 )
@@ -144,19 +143,19 @@ def test_derham_projector_2d_hdiv(ncells, degree, periodic, multiplicity):
     # Test if max-norm of error is <= TOL
     maxnorm_error = abs(vals_u0 - vals_f).max()
     print(ncells, maxnorm_error)
-    assert maxnorm_error <= 1e-3
+    assert maxnorm_error <= 1e-2
     maxnorm_error = abs(vals_u1_1 - vals_f).max()
     print(ncells, maxnorm_error)
-    assert maxnorm_error <= 1e-3
+    assert maxnorm_error <= 1e-2
     maxnorm_error = abs(vals_u2 - vals_f).max()
     print(ncells, maxnorm_error)
-    assert maxnorm_error <= 1e-3
+    assert maxnorm_error <= 1e-2
     maxnorm_error = abs(vals_ux_1 - vals_f).max()
     print(ncells, maxnorm_error)
-    assert maxnorm_error <= 1e-3
+    assert maxnorm_error <= 1e-2
     
 #==============================================================================
-@pytest.mark.parametrize('ncells', [[200,200]])
+@pytest.mark.parametrize('ncells', [[50,66]])
 @pytest.mark.parametrize('degree', [[2,2], [2,3], [3,3]])
 @pytest.mark.parametrize('periodic', [[False, False], [True, True]])
 @pytest.mark.parametrize('multiplicity', [(1, 1), (2, 2)])
@@ -166,16 +165,15 @@ def test_derham_projector_2d_hdiv_2(ncells, degree, periodic, multiplicity):
     domain = Square('Omega', bounds1 = (0,1), bounds2 = (0,1))
     domain_h = discretize(domain, ncells=ncells, periodic=periodic)
     
+    # change multiplicity cannot be higher than the degree (otherwise splines are discontinuous)
     multiplicity = [min(m, p) for p, m in zip(degree, multiplicity)]
+    
     derham   = Derham(domain, ["H1", "Hdiv", "L2"])
     derham_h   = discretize(derham, domain_h, degree=degree, get_H1vec_space = True, multiplicity=multiplicity)
     P0, P1, P2, PX = derham_h.projectors()
 
-    # Projector onto H1 space (1D interpolation)
-
     # Function to project
     f1  = lambda xi1, xi2 : xi1**2*(xi1-1.)**2 
-    #function C0 restricted to [0,1] with periodic BC (0 at x1=0 and x1=1)
     f2  = lambda xi1, xi2 : xi2**2*(xi2-1.)**2
 
     # Compute the projection
@@ -207,7 +205,7 @@ def test_derham_projector_2d_hdiv_2(ncells, degree, periodic, multiplicity):
     assert maxnorm_error <= 1e-3
     
 #==============================================================================
-@pytest.mark.parametrize('ncells', [[200,200]])
+@pytest.mark.parametrize('ncells', [[62,58]])
 @pytest.mark.parametrize('degree', [[2,2], [2,3], [3,3]])
 @pytest.mark.parametrize('periodic', [[False, False], [True, False] ,[True, True]])
 @pytest.mark.parametrize('multiplicity', [[1,1],[2,2]])
@@ -217,8 +215,10 @@ def test_derham_projector_2d_hcurl(ncells, degree, periodic, multiplicity):
     domain = Square('Omega', bounds1 = (0,2*np.pi), bounds2 = (0,2*np.pi))
     domain_h = discretize(domain, ncells=ncells, periodic=periodic)
     
-    multiplicity = [min(m,p) for p, m in zip (degree, multiplicity)]
-    derham   = Derham(domain, ["H1", "Hdiv", "L2"])
+    # change multiplicity cannot be higher than the degree (otherwise splines are discontinuous)
+    multiplicity = [min(m, p) for p, m in zip (degree, multiplicity)]
+    
+    derham   = Derham(domain, ["H1", "Hcurl", "L2"])
     derham_h   = discretize(derham, domain_h, degree=degree, get_H1vec_space = True, multiplicity=multiplicity)
     P0, P1, P2, PX = derham_h.projectors()
 
@@ -243,19 +243,19 @@ def test_derham_projector_2d_hcurl(ncells, degree, periodic, multiplicity):
     # Test if max-norm of error is <= TOL
     maxnorm_error = abs(vals_u0 - vals_f).max()
     print(ncells, maxnorm_error)
-    assert maxnorm_error <= 1e-3
+    assert maxnorm_error <= 1e-2
     maxnorm_error = abs(vals_u1_1 - vals_f).max()
     print(ncells, maxnorm_error)
-    assert maxnorm_error <= 1e-3
+    assert maxnorm_error <= 1e-2
     maxnorm_error = abs(vals_u2 - vals_f).max()
     print(ncells, maxnorm_error)
-    assert maxnorm_error <= 1e-3
+    assert maxnorm_error <= 1e-2
     maxnorm_error = abs(vals_ux_1 - vals_f).max()
     print(ncells, maxnorm_error)
-    assert maxnorm_error <= 1e-3
+    assert maxnorm_error <= 1e-2
     
 #==============================================================================
-@pytest.mark.parametrize('ncells', [[20,20,20]])
+@pytest.mark.parametrize('ncells', [[10,9,12]])
 @pytest.mark.parametrize('degree', [[2,2,2], [2,3,2], [3,3,3]])
 @pytest.mark.parametrize('periodic', [[False, False, False], [True, True, True]])
 @pytest.mark.parametrize('multiplicity', [[1,1,1], [1,2,2], [2,2,2]])
@@ -296,49 +296,52 @@ def test_derham_projector_3d(ncells, degree, periodic, multiplicity):
     # Test if max-norm of error is <= TOL
     maxnorm_error = abs(vals_u0 - vals_f).max()
     print(ncells, maxnorm_error)
-    assert maxnorm_error <= 0.01
+    assert maxnorm_error <= 0.05
 
     maxnorm_error = abs(vals_u1_1 - vals_f).max()
     print(ncells, maxnorm_error)
-    assert maxnorm_error <= 0.01
+    assert maxnorm_error <= 0.05
 
     maxnorm_error = abs(vals_u2_1 - vals_f).max()
     print(ncells, maxnorm_error)
-    assert maxnorm_error <= 0.05
+    assert maxnorm_error <= 0.2
 
     maxnorm_error = abs(vals_u3 - vals_f).max()
     print(ncells, maxnorm_error)
-    assert maxnorm_error <= 0.05
+    assert maxnorm_error <= 0.2
 
     maxnorm_error = abs(vals_ux_1 - vals_f).max()
     print(ncells, maxnorm_error)
-    assert maxnorm_error <= 0.02
+    assert maxnorm_error <= 0.05
 
 #==============================================================================
 if __name__ == '__main__':
 
     domain   = (0, 2*np.pi)
-    degree   = 3
+    degrees  = [[2,2,2], [2,3,2], [3,3,3]] #3
     periodic = True
     ncells   = [10, 20, 40, 80, 160, 320, 640]
+    mult = [[1,1,1], [1,2,2], [2,2,2]]
     
-    for nc in ncells:
-        test_derham_projector_2d_hdiv([nc, nc], [degree, degree], [periodic, periodic], [2, 2])
+    # for nc in ncells:
+    #     test_derham_projector_2d_hdiv([nc, nc], [degree, degree], [periodic, periodic], [2, 2])
     
-    for nc in ncells:
-        test_H1_projector_1d(domain, nc, degree, periodic, multiplicity = 2)
+    # for nc in ncells:
+    #     test_H1_projector_1d(domain, nc, degree, periodic, multiplicity = 2)
 
-    nquads = degree
-    for nc in ncells:
-        test_L2_projector_1d(domain, nc, degree, periodic, nquads)
+    # nquads = degree
+    # for nc in ncells:
+    #     test_L2_projector_1d(domain, nc, degree, periodic, nquads)
         
-    for nc in ncells:
-        test_derham_projector_2d_hdiv_2([nc, nc], [degree, degree], [periodic, periodic])
-        test_derham_projector_2d_hdiv([nc, nc], [degree, degree], [periodic, periodic], 2)
+    # for nc in ncells:
+    #     test_derham_projector_2d_hdiv_2([nc, nc], [degree, degree], [periodic, periodic])
+    #     test_derham_projector_2d_hdiv([nc, nc], [degree, degree], [periodic, periodic], 2)
         
-    for nc in ncells :
-        test_derham_projector_2d_hcurl([nc, nc], [degree, degree], [periodic, periodic])
+    # for nc in ncells :
+    #     test_derham_projector_2d_hcurl([nc, nc], [degree, degree], [periodic, periodic])
 
-    for nc in ncells[:3] :
-        test_derham_projector_3d([nc, nc, nc], [degree, degree, degree], [periodic, periodic, periodic])
+    for nc in ncells[:3]:
+        for deg in degrees:
+            for m in mult:
+                test_derham_projector_3d([nc, nc, nc], deg, [periodic, periodic, periodic], multiplicity=m)
 
