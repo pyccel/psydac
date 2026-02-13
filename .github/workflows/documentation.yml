@@ -10,10 +10,8 @@ on:
 
   pull_request:
     branches: [ devel, main ]
-    paths:
-      - 'README.md'
-      - 'docs/**'
-      - 'psydac/**.py'
+    types:
+      - ready_for_review
 
   workflow_dispatch:
 
