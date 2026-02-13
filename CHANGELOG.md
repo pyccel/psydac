@@ -11,12 +11,13 @@ All notable changes to this project will be documented in this file.
 -   #570 : Optimize PSYDAC logo
 -   #565 : Expand editable install info in `README.md`
 -   #566 : Fix command `psydac test --mpi` on Ubuntu machines
+-   [DEVELOPER] Update CI installation of `h5py` and `petsc4py` after release of `setuptools` 81.0
 
 ### Changed
 
 -   [DEVELOPER] Do not check file changes to trigger testing workflow on PRs
--   [DEVELOPER] Run documentation workflow whenever `README.md` is modified
--   [DEVELOPER] Run testing workflow on PRs only when set to "ready for review"
+-   [DEVELOPER] Run documentation workflow on pushes to `devel` whenever `README.md` is modified
+-   [DEVELOPER] Run testing and documentation workflows on PRs only when set to "ready for review"
 
 ### Deprecated
 
