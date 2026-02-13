@@ -10,7 +10,8 @@ from sympde.topology import Square
 from sympde.topology.analytical_mapping import PolarMapping
 
 from psydac.api.discretization import discretize
-from psydac.feec.polar.conga_projections import C0PolarProjection_V0, C0PolarProjection_V2, C0PolarProjection_V1
+from psydac.feec.polar.conga_projections import C0PolarProjection_V0, C0PolarProjection_V2, C0PolarProjection_V1, \
+    C1PolarProjection_V0
 from psydac.fem.basic import FemField
 from psydac.linalg.block import BlockVector
 
@@ -41,6 +42,24 @@ def get_random_block_vector(space):
         x[i][s1:e1 + 1, s2:e2 + 1] = np.random.random([e1 - s1 + 1, e2 - s2 + 1])
     return x
 
+def tests_for_P0_projections(P0, V0_h, mpi_comm):
+
+    x = get_random_vector(V0_h)
+    phiC = FemField(V0_h)
+    y = phiC.coeffs
+    P0.dot(x, out=y)
+
+    # Checking projection property P0(P0(phi)) = P0(phi)
+    assert np.allclose(P0.dot(y)[:, :], y[:, :])
+
+    # Comparing results of dot and tosparse
+    sp_P0 = P0.tosparse()
+    y_sp = sp_P0 @ x.toarray()
+    y = mpi_comm.allreduce(y.toarray(), op=MPI.SUM)
+    y_sp = mpi_comm.allreduce(y_sp, op=MPI.SUM)
+
+    assert np.allclose(y_sp, y)
+
 
 @pytest.mark.parametrize( 'R', [1])
 @pytest.mark.parametrize( 'ncells', [[4, 8], [12, 12]])
@@ -59,22 +78,27 @@ def test_C0PolarProjection_V0(R, ncells, degree, hbc, transposed):
     V0_h = discretize(V0, domain_h, degree=degree)
 
     P0 = C0PolarProjection_V0(V0_h, hbc=hbc, transposed=transposed)
+    tests_for_P0_projections(P0, V0_h, mpi_comm)
 
-    x = get_random_vector(V0_h)
-    phiC = FemField(V0_h)
-    y = phiC.coeffs
-    P0.dot(x, out=y)
 
-    # Checking projection property P0(P0(phi)) = P0(phi)
-    assert np.allclose(P0.dot(y)[:, :], y[:, :])
+@pytest.mark.parametrize( 'R', [1])
+@pytest.mark.parametrize( 'ncells', [[4, 8], [12, 12]])
+@pytest.mark.parametrize( 'degree', [[1, 1], [2, 2]])
+@pytest.mark.parametrize( 'hbc', [True, False])
+@pytest.mark.parametrize( 'transposed', [True, False])
+@pytest.mark.mpi
 
-    # Comparing results of dot and tosparse
-    sp_P0 = P0.tosparse()
-    y_sp = sp_P0 @ x.toarray()
-    y = mpi_comm.allreduce(y.toarray(), op=MPI.SUM)
-    y_sp = mpi_comm.allreduce(y_sp, op=MPI.SUM)
+def test_C1PolarProjection_V0(R, ncells, degree, hbc, transposed):
+    mpi_comm = MPI.COMM_WORLD
+    domain = get_domain(R)
 
-    assert np.allclose(y_sp, y)
+    # Discrete physical domain and discrete space
+    domain_h = discretize(domain, ncells=ncells, periodic=[False, True], comm=mpi_comm)
+    V0 = ScalarFunctionSpace('V0', domain)
+    V0_h = discretize(V0, domain_h, degree=degree)
+
+    P0 = C1PolarProjection_V0(V0_h, hbc=hbc, transposed=transposed, gamma=1.0)
+    tests_for_P0_projections(P0, V0_h, mpi_comm)
 
 
 @pytest.mark.parametrize( 'R', [1])

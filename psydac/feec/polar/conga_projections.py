@@ -634,6 +634,14 @@ def cos_sin_avg(theta, x, angle_comm, s2, e2, n2, i):
 
 
 # --------- 0-FORMS CONGA PROJECTOR P0 ----------#
+def toeplitz_columns_sym(t, s2, e2, n2):
+
+    i = np.arange(n2)[:, None]  # (n2, 1)
+    j = np.arange(s2, e2 + 1)[None, :]  # (1, m)
+    idx = np.abs(i - j).ravel('F')  # (n2, m)
+    return np.cos(t[idx])
+
+
 class C1PolarProjection_V0(LinearOperator):
     """
     CONGA Projector P0 from the full spline space S^{p1, p2} on logical domain
@@ -736,7 +744,7 @@ class C1PolarProjection_V0(LinearOperator):
         y.update_ghost_regions()
         return y
 
-    def transpose(self):
+    def transpose(self, conjugate=False):
         return C1PolarProjection_V0(self.W0, gamma=self.gamma, transposed=not self.transposed, hbc=self.hbc)
 
     @property
@@ -746,36 +754,49 @@ class C1PolarProjection_V0(LinearOperator):
     def tosparse(self):
 
         [n1, n2] = self.W0.coeff_space.npts
-        theta = np.linspace(0, 2 * pi, n2, endpoint=False)  # Warning parallel case
+        [s1, s2] = self.W0.coeff_space.starts
+        [e1, e2] = self.W0.coeff_space.ends
+        theta = np.linspace(0, 2 * pi, n2, endpoint=False)
 
-        d_block1 = (self.gamma / n2) * np.ones(n2)
-        d_block2 = (1 - self.gamma) / n2 * np.ones(n2)
+        rank_at_polar_edge = (s1 == 0)
+        rank_at_outer_edge = (e1 == n1 - 1)
+        data, cols, rows = [], [], []
+        np.set_printoptions(precision=3)
 
-        data = np.concatenate((d_block1, d_block2))
-        data = np.tile(data, n2)
+        #theta = np.linspace(0, 2 * pi, n2, endpoint=False)  # Warning parallel case
+        if rank_at_polar_edge:
+            data = (self.gamma / n2) * np.ones(2 * n2)
+            data = np.tile(data, e2 - s2 + 1)
+            cols = np.repeat(np.arange(s2, e2 + 1), 2 * n2)
+            rows = np.tile(np.arange(2 * n2), e2 - s2 + 1)
+        if e1 > 1 > s1:
+            d_block2 = (1 - self.gamma) / n2 * np.ones((e2 - s2 + 1) * n2)
+            data = np.concatenate((data, d_block2))
+            cols = np.concatenate((cols, np.repeat(np.arange(n2 + s2, n2 + e2 + 1), n2)))
+            rows = np.concatenate((rows, np.tile(np.arange(n2), e2 - s2 + 1)))
 
-        d_block1 = (self.gamma / n2) * np.ones((n2, n2))
-        d_block2 = (1 - self.gamma) / n2 * np.ones((n2, n2)) + \
-                   2 / n2 * toeplitz(np.cos(theta - theta[0]))
-        d_block = np.vstack([d_block1, d_block2]).ravel('F')
+            d_block2 = (1 - self.gamma) / n2 * np.ones((e2 - s2 + 1) * n2) + \
+                       2 / n2 * toeplitz_columns_sym(theta, s2, e2, n2)
+            data = np.concatenate((data, d_block2))
+            cols = np.concatenate((cols, np.repeat(np.arange(n2 + s2, n2 + e2 + 1), n2)))
+            rows = np.concatenate((rows, np.tile(np.arange(n2, 2 * n2), e2 - s2 + 1)))
 
-        cols = np.tile(np.arange(2 * n2), (2 * n2, 1))
-        rows = cols.T
-        cols = cols.flatten()
-        rows = rows.flatten()
+        # Assemble the rest of the matrix (identity block)
+        start_s = max(s1, 2)
+        end_s = e1 + 1
+        if rank_at_outer_edge and self.hbc:
+            end_s -= 1
+        i = np.arange(start_s, end_s)[:, None]
+        j = np.arange(s2, e2 + 1)[None, :]
+        local_cols = (i * n2 + j).ravel()
 
-        if self.hbc:
-            data = np.concatenate((data, d_block, np.ones(n2 * (n1 - 3))))
-            cols = np.concatenate((cols, np.arange(2 * n2, (n1 - 1) * n2)))
-            rows = np.concatenate((rows, np.arange(2 * n2, (n1 - 1) * n2)))
-        else:
-            data = np.concatenate((data, d_block, np.ones(n2 * (n1 - 2))))
-            cols = np.concatenate((cols, np.arange(2 * n2, n1 * n2)))
-            rows = np.concatenate((rows, np.arange(2 * n2, n1 * n2)))
+        data = np.concatenate((data, np.ones((e2 - s2 + 1) * (end_s - start_s))))
+        cols = np.concatenate((cols, local_cols))
+        rows = np.concatenate((rows, local_cols))
 
         P = coo_matrix((data, (rows, cols)), shape=[n1 * n2, n1 * n2], dtype=self.W0.coeff_space.dtype)
         P.eliminate_zeros()
-        print(P)
+        print(P.toarray())
 
         return P.T if self.transposed else P
 
