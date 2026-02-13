@@ -659,7 +659,7 @@ def discretize(a, *args, **kwargs):
     if isinstance(a, sym_BilinearForm):
         # Currently sum factorization can only be used for interior domains
         from sympde.expr.evaluation import DomainExpression
-        is_interior_expr = isinstance(kernel_expr, DomainExpression)
+        is_interior_expr = isinstance(kernel_expr[0], DomainExpression)
 
         if kwargs.pop('sum_factorization') and is_interior_expr:
             return DiscreteBilinearForm_SF(a, kernel_expr, *args, **kwargs)
