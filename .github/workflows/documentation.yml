@@ -10,10 +10,8 @@ on:
 
   pull_request:
     branches: [ devel, main ]
-    paths:
-      - 'README.md'
-      - 'docs/**'
-      - 'psydac/**.py'
+    types:
+      - ready_for_review
 
   workflow_dispatch:
 
@@ -70,7 +68,9 @@ jobs:
     - if: steps.cache-petsc.outputs.cache-hit != 'true'
       name: Download a specific release of PETSc
       run: |
-        git clone --depth 1 --branch v3.23.2 https://gitlab.com/petsc/petsc.git
+        git clone --depth 1 -b release https://gitlab.com/petsc/petsc.git
+        # when a tag will be available for the latest release we can install with 
+        # git clone --depth 1 --branch v*.**.* https://gitlab.com/petsc/petsc.git
 
     - if: steps.cache-petsc.outputs.cache-hit != 'true'
       name: Install PETSc with complex support
