@@ -1,13 +1,19 @@
 New Matrix Assembly for PSYDAC
 ------------------------------
 
-Here we keep track on the performance of the new assembly algorithm (sum factorization).
-We measure both the discretization time of `BilinearForms` as well as the matrix assembly time of a `DiscreteBilinearForm`
-and compare it to the old algorithm. Executing `compare_3d_matrix_assembly_speed.py` will add new data to this file.
-This allows us to detect whether any future changes have a positive or negative impact.
+This file can help catch bugs related to the sum factorization matrix assembly (new assembly) algorithm.
+Executing `compare_3d_matrix_assembly_speed.py` will perform the below described discretization and assembly tasks (test cases)
+using both the new assembly as well as the previous assembly (old assembly) implementation.
+The measured timings will then be added to this file.
 
-(Of course, runtime depends on the machine used to execute this file. Hence, an even decrease in runtime
-is no reason to celebrate, and an even increase in runtime no reason to worry.)
+This file contains example measurements from 2025-09-09.
+No new measurements should be added to this file.
+
+Instead, anyone can verify locally that the new assembly algorithm works as intended by executing `compare_3d_matrix_assembly_speed.py`.
+These local measurements should not be compared to the example measurements. Rather, one should be able to observe that the new assembly algorithm
+outperforms the old assembly algorithm in all test cases.
+
+Individual measurements
 
 Test cases
 ----------
@@ -83,38 +89,3 @@ Data
 | 3.4 | 0.524 | 0.044 | 1.085 | 1.547 |
 | 3.5 | 0.577 | 0.057 | 1.51 | 1.784 |
 | 3.6 | 0.598 | 0.209 | 2.411 | 1.848 |
-
-2026-02-03 09:53:14 (added by Julian O. - ThinkPad T14 in performance mode - after a suspicion that we don't use the newly added SF algorithm by default anymore) 
-----------
-
-| Test case | old assembly | new assembly | old discretization | new discretization |
-| --- | --- | --- | --- | --- |
-| 2.1 | 25.953 | 27.642 | 17.806 | 9.641 |
-| 2.2 | 2.818 | 3.324 | 6.66 | 3.463 |
-| 2.3 | 48.497 | 49.256 | 22.308 | 9.821 |
-| 3.1.1 | 0.428 | 0.476 | 2.183 | 1.238 |
-| 3.1.2 | 0.983 | 1.336 | 2.323 | 1.2 |
-| 3.1.3 | 0.848 | 0.786 | 4.028 | 2.252 |
-| 3.2 | 1.676 | 1.369 | 1.513 | 1.662 |
-| 3.3 | 0.949 | 0.586 | 1.327 | 1.288 |
-| 3.4 | 0.694 | 0.923 | 1.144 | 1.161 |
-| 3.5 | 0.612 | 0.558 | 1.564 | 1.511 |
-| 3.6 | 1.865 | 0.624 | 2.379 | 1.76 |
-
-2026-02-03 10:37:52 (added by Julian O. - ThinkPad T14 in performance mode - after fixing the above issue) 
-----------
-
-| Test case | old assembly | new assembly | old discretization | new discretization |
-| --- | --- | --- | --- | --- |
-| 2.1 | 30.908 | 2.164 | 21.086 | 21.173 |
-| 2.2 | 3.193 | 0.581 | 6.229 | 4.364 |
-| 2.3 | 43.744 | 3.914 | 21.244 | 23.042 |
-| 3.1.1 | 0.242 | 0.043 | 1.713 | 1.798 |
-| 3.1.2 | 0.561 | 0.045 | 1.701 | 1.522 |
-| 3.1.3 | 0.897 | 0.161 | 4.085 | 3.296 |
-| 3.2 | 1.043 | 0.046 | 1.364 | 1.691 |
-| 3.3 | 0.57 | 0.082 | 1.045 | 2.024 |
-| 3.4 | 1.656 | 0.073 | 1.775 | 2.204 |
-| 3.5 | 0.563 | 0.074 | 1.788 | 2.274 |
-| 3.6 | 0.768 | 0.211 | 3.307 | 1.865 |
-
