@@ -11,7 +11,7 @@ from sympde.topology.analytical_mapping import PolarMapping
 
 from psydac.api.discretization import discretize
 from psydac.feec.polar.conga_projections import C0PolarProjection_V0, C0PolarProjection_V2, C0PolarProjection_V1, \
-    C1PolarProjection_V0
+    C1PolarProjection_V0, C1PolarProjection_V1
 from psydac.fem.basic import FemField
 from psydac.linalg.block import BlockVector
 
@@ -42,7 +42,25 @@ def get_random_block_vector(space):
         x[i][s1:e1 + 1, s2:e2 + 1] = np.random.random([e1 - s1 + 1, e2 - s2 + 1])
     return x
 
-def tests_for_P0_projections(P0, V0_h, mpi_comm):
+
+@pytest.mark.parametrize('transposed', [False, True])
+@pytest.mark.parametrize('hbc', [False, True])
+@pytest.mark.parametrize('degree', [[1, 1]])
+@pytest.mark.parametrize('ncells', [[2, 3]])
+@pytest.mark.parametrize('R', [1])
+@pytest.mark.parametrize('Projector', [C0PolarProjection_V0, C1PolarProjection_V0])
+@pytest.mark.mpi
+
+def test_PolarProjection_V0(Projector, R, ncells, degree, hbc, transposed):
+    mpi_comm = MPI.COMM_WORLD
+    domain = get_domain(R)
+
+    # Discrete physical domain and discrete space
+    domain_h = discretize(domain, ncells=ncells, periodic=[False, True], comm=mpi_comm)
+    V0 = ScalarFunctionSpace('V0', domain)
+    V0_h = discretize(V0, domain_h, degree=degree)
+
+    P0 = Projector(V0_h, hbc=hbc, transposed=transposed)
 
     x = get_random_vector(V0_h)
     phiC = FemField(V0_h)
@@ -61,53 +79,16 @@ def tests_for_P0_projections(P0, V0_h, mpi_comm):
     assert np.allclose(y_sp, y)
 
 
-@pytest.mark.parametrize( 'R', [1])
-@pytest.mark.parametrize( 'ncells', [[4, 8], [12, 12]])
-@pytest.mark.parametrize( 'degree', [[1, 1], [2, 2]])
-@pytest.mark.parametrize( 'hbc', [True, False])
-@pytest.mark.parametrize( 'transposed', [True, False])
+
+@pytest.mark.parametrize('transposed', [False, True])
+@pytest.mark.parametrize('hbc', [True, False])
+@pytest.mark.parametrize('degree', [[2, 2], [2, 3]])
+@pytest.mark.parametrize('ncells', [[6, 8], [15, 12], [14, 20]])
+@pytest.mark.parametrize('R', [1])
+@pytest.mark.parametrize('Projector', [C0PolarProjection_V1, C1PolarProjection_V1])
 @pytest.mark.mpi
 
-def test_C0PolarProjection_V0(R, ncells, degree, hbc, transposed):
-    mpi_comm = MPI.COMM_WORLD
-    domain = get_domain(R)
-
-    # Discrete physical domain and discrete space
-    domain_h = discretize(domain, ncells=ncells, periodic=[False, True], comm=mpi_comm)
-    V0 = ScalarFunctionSpace('V0', domain)
-    V0_h = discretize(V0, domain_h, degree=degree)
-
-    P0 = C0PolarProjection_V0(V0_h, hbc=hbc, transposed=transposed)
-    tests_for_P0_projections(P0, V0_h, mpi_comm)
-
-
-@pytest.mark.parametrize( 'R', [1])
-@pytest.mark.parametrize( 'ncells', [[4, 8], [12, 12]])
-@pytest.mark.parametrize( 'degree', [[1, 1], [2, 2]])
-@pytest.mark.parametrize( 'hbc', [True, False])
-@pytest.mark.parametrize( 'transposed', [True, False])
-@pytest.mark.mpi
-
-def test_C1PolarProjection_V0(R, ncells, degree, hbc, transposed):
-    mpi_comm = MPI.COMM_WORLD
-    domain = get_domain(R)
-
-    # Discrete physical domain and discrete space
-    domain_h = discretize(domain, ncells=ncells, periodic=[False, True], comm=mpi_comm)
-    V0 = ScalarFunctionSpace('V0', domain)
-    V0_h = discretize(V0, domain_h, degree=degree)
-
-    P0 = C1PolarProjection_V0(V0_h, hbc=hbc, transposed=transposed, gamma=1.0)
-    tests_for_P0_projections(P0, V0_h, mpi_comm)
-
-
-@pytest.mark.parametrize( 'R', [1])
-@pytest.mark.parametrize( 'ncells', [[6, 8], [15, 12], [14, 20]])
-@pytest.mark.parametrize( 'degree', [[2, 2], [2, 3]])
-@pytest.mark.parametrize( 'hbc', [True, False])
-@pytest.mark.mpi
-
-def test_C0PolarProjection_V1(R, ncells, degree, hbc):
+def test_PolarProjection_V1(Projector, R, ncells, degree, hbc, transposed):
     mpi_comm = MPI.COMM_WORLD
     domain = get_domain(R)
 
@@ -116,7 +97,7 @@ def test_C0PolarProjection_V1(R, ncells, degree, hbc):
     V1 = VectorFunctionSpace('V1', domain, kind='hcurl')
     V1_h = discretize(V1, domain_h, degree=degree)
 
-    P1 = C0PolarProjection_V1(V1_h, hbc=hbc)
+    P1 = Projector(V1_h, hbc=hbc, transposed=transposed)
 
     x = get_random_block_vector(V1_h)
     y = BlockVector(V1_h.coeff_space)
@@ -135,13 +116,13 @@ def test_C0PolarProjection_V1(R, ncells, degree, hbc):
     assert np.allclose(y_sp, y)
 
 
-@pytest.mark.parametrize( 'R', [1])
-@pytest.mark.parametrize( 'ncells', [[4, 8], [12, 12]])
-@pytest.mark.parametrize( 'degree', [[1, 1], [2, 2]])
 @pytest.mark.parametrize( 'transposed', [True, False])
+@pytest.mark.parametrize( 'degree', [[1, 1], [2, 2]])
+@pytest.mark.parametrize( 'ncells', [[4, 8], [12, 12]])
+@pytest.mark.parametrize( 'R', [1])
 @pytest.mark.mpi
 
-def test_C0PolarProjection_V2(R, ncells, degree, transposed):
+def test_PolarProjection_V2(R, ncells, degree, transposed):
     mpi_comm = MPI.COMM_WORLD
     domain = get_domain(R)
 
