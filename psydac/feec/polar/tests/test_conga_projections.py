@@ -44,9 +44,9 @@ def get_random_block_vector(space):
 
 
 @pytest.mark.parametrize('transposed', [False, True])
-@pytest.mark.parametrize('hbc', [False, True])
-@pytest.mark.parametrize('degree', [[1, 1]])
-@pytest.mark.parametrize('ncells', [[2, 3]])
+@pytest.mark.parametrize('hbc', [True, False])
+@pytest.mark.parametrize('degree', [[2, 2], [2, 3]])
+@pytest.mark.parametrize('ncells', [[8, 10], [15, 12], [14, 20]])
 @pytest.mark.parametrize('R', [1])
 @pytest.mark.parametrize('Projector', [C0PolarProjection_V0, C1PolarProjection_V0])
 @pytest.mark.mpi
@@ -72,7 +72,8 @@ def test_PolarProjection_V0(Projector, R, ncells, degree, hbc, transposed):
 
     # Comparing results of dot and tosparse
     sp_P0 = P0.tosparse()
-    y_sp = sp_P0 @ x.toarray()
+    x_global = mpi_comm.allreduce(x.toarray(), op=MPI.SUM)
+    y_sp = sp_P0 @ x_global
     y = mpi_comm.allreduce(y.toarray(), op=MPI.SUM)
     y_sp = mpi_comm.allreduce(y_sp, op=MPI.SUM)
 
@@ -97,7 +98,9 @@ def test_PolarProjection_V1(Projector, R, ncells, degree, hbc, transposed):
     V1 = VectorFunctionSpace('V1', domain, kind='hcurl')
     V1_h = discretize(V1, domain_h, degree=degree)
 
-    P1 = Projector(V1_h, hbc=hbc, transposed=transposed)
+    P1 = Projector(V1_h, hbc=hbc)
+    if transposed:
+        P1 = P1.T
 
     x = get_random_block_vector(V1_h)
     y = BlockVector(V1_h.coeff_space)
@@ -109,7 +112,8 @@ def test_PolarProjection_V1(Projector, R, ncells, degree, hbc, transposed):
 
     # Comparing results of dot and tosparse
     sp_P1 = P1.tosparse()
-    y_sp = sp_P1 @ x.toarray()
+    x_global = mpi_comm.allreduce(x.toarray(), op=MPI.SUM)
+    y_sp = sp_P1 @ x_global
     y = mpi_comm.allreduce(y.toarray(), op=MPI.SUM)
     y_sp = mpi_comm.allreduce(y_sp, op=MPI.SUM)
 
@@ -143,7 +147,8 @@ def test_PolarProjection_V2(R, ncells, degree, transposed):
 
     # Comparing results of dot and tosparse
     sp_P2 = P2.tosparse()
-    y_sp = sp_P2 @ x.toarray()
+    x_global = mpi_comm.allreduce(x.toarray(), op=MPI.SUM)
+    y_sp = sp_P2 @ x_global
 
     assert np.allclose(y_sp, y.toarray())
 
