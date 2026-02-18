@@ -1,3 +1,8 @@
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 import re
 import string
 import random
@@ -51,7 +56,6 @@ __all__ = (
     'is_mapping',
     'logical2physical',
     'math_atoms_as_str',
-    'random_string',
     'rationalize_eval_mapping',
     'select_loops',
     'variables',
@@ -61,10 +65,6 @@ __all__ = (
 def get_max_partial_derivatives(expr, logical=False, F=None):
     """
     Compute the maximum order of partial derivatives for each coordinate in an expression.
-
-    TODO
-    ----
-    Move to SymPDE and combine the `get_index(_logical)_derivatives_atom` functions there.
 
     Parameters
     ----------
@@ -84,8 +84,11 @@ def get_max_partial_derivatives(expr, logical=False, F=None):
     -------
     d : dict[str, int]
         A dictionary with keys ('x1', 'x2', 'x3') for logical or ('x', 'y', 'z') for physical coordinates and their corresponding maximum order of partial derivatives.
-    """
 
+    Notes
+    -----
+    [TODO] Move to SymPDE and combine the `get_index(_logical)_derivatives_atom` functions there.
+    """
     if logical:
         d = {'x1': 0, 'x2': 0, 'x3': 0}
         get_index = get_index_logical_derivatives_atom
@@ -108,13 +111,6 @@ def get_max_partial_derivatives(expr, logical=False, F=None):
                 d[k] = v
 
     return d
-
-#==============================================================================
-def random_string( n ):
-    chars    = string.ascii_lowercase + string.digits
-    selector = random.SystemRandom()
-    return ''.join( selector.choice( chars ) for _ in range( n ) )
-
 
 #==============================================================================
 def is_mapping(expr):

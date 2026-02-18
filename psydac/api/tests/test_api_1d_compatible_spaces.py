@@ -1,5 +1,8 @@
-# -*- coding: UTF-8 -*-
-
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 from sympy               import pi, sin
 from scipy.sparse.linalg import spsolve
 
@@ -86,5 +89,3 @@ def test_api_system_1_1d_dir_1():
     f0 = -(2*pi)**2*sin(2*pi*x1)
     u  = sin(2*pi*x1)
     x  = run_system_1_1d_dir(f0, u,ncells=[10], degree=[2])
-
-

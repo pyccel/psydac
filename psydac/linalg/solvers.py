@@ -1,23 +1,27 @@
-# coding: utf-8
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 """
 This module provides iterative solvers and preconditioners.
 
 """
-import numpy as np
 from math import sqrt
+import numpy as np
+
+import warnings
 
 from psydac.utilities.utils  import is_real
 from psydac.linalg.utilities import _sym_ortho
-from psydac.linalg.basic     import (Vector, LinearOperator,
-        InverseLinearOperator, IdentityOperator, ScaledLinearOperator)
+from psydac.linalg.basic     import (Vector, LinearOperator, InverseLinearOperator, 
+                                     IdentityOperator, ScaledLinearOperator)
 
 __all__ = (
     'inverse',
     'ConjugateGradient',
-    'PConjugateGradient',
     'BiConjugateGradient',
     'BiConjugateGradientStabilized',
-    'PBiConjugateGradientStabilized',
     'MinimumResidual',
     'LSMR',
     'GMRES'
@@ -29,7 +33,7 @@ def inverse(A, solver, **kwargs):
     A function to create objects of all InverseLinearOperator subclasses.
 
     These are, as of June 06, 2023:
-    ConjugateGradient, PConjugateGradient, BiConjugateGradient,
+    ConjugateGradient, BiConjugateGradient,
     BiConjugateGradientStabilized, MinimumResidual, LSMR, GMRES.
 
     The kwargs given must be compatible with the chosen solver subclass.
@@ -42,9 +46,10 @@ def inverse(A, solver, **kwargs):
         function (e.g. a matrix-vector product A*p).
 
     solver : str
-        Preferred iterative solver. Options are: 'cg', 'pcg', 'bicg',
-        'bicgstab', 'pbicgstab', 'minres', 'lsmr', 'gmres'.
-
+        Preferred iterative solver. Options are: 'CG', 'BiCG',
+        'BiCGSTAB', 'MINRES', 'LSMR', 'GMRES'. Capitalization
+        is not required.
+    
     Returns
     -------
     obj : psydac.linalg.basic.InverseLinearOperator
@@ -57,27 +62,42 @@ def inverse(A, solver, **kwargs):
     # `InverseLinearOperator` subclass in this module:
     solvers_dict = {
         'cg'       : ConjugateGradient,
-        'pcg'      : PConjugateGradient,
         'bicg'     : BiConjugateGradient,
         'bicgstab' : BiConjugateGradientStabilized,
-        'pbicgstab': PBiConjugateGradientStabilized,
         'minres'   : MinimumResidual,
         'lsmr'     : LSMR,
         'gmres'    : GMRES,
     }
 
+    # Only these solvers accept a preconditioner argument for now:
+    solvers_with_pc = ['cg', 'bicgstab']
+
+    # Convert input solver string to lower case
+    solver = solver.lower()
+    
     # Check solver input
     if solver not in solvers_dict:
         raise ValueError(f"Required solver '{solver}' not understood.")
 
+    # If pc not accepted by solver: discard (if None) or raise an error
+    if 'pc' in kwargs and solver not in solvers_with_pc:
+        pc = kwargs.pop('pc')
+        if pc is not None:
+            raise ValueError(f"Invalid preconditioner '{pc}' passed with solver '{solver}'.")
+
     assert isinstance(A, LinearOperator)
+
+    # see failing tests in test_solvers.py
+    if A.dtype == complex and solver in ['lsmr', 'bicg']:
+        msg = f"Solver '{solver}' currently not tested with complex operators."
+        warnings.warn(msg, Warning)
 
     if isinstance(A, IdentityOperator):
         return A
     elif isinstance(A, ScaledLinearOperator):
-        return ScaledLinearOperator(domain=A.codomain, codomain=A.domain, c=1/A.scalar, A=inverse(A, solver, **kwargs))
+        return ScaledLinearOperator(domain=A.codomain, codomain=A.domain, c=1/A.scalar, A=inverse(A.operator, solver, **kwargs))
     elif isinstance(A, InverseLinearOperator):
-        return A.linop
+        return A.fwd_linop
 
     # Instantiate object of correct solver class
     cls = solvers_dict[solver]
@@ -88,8 +108,7 @@ def inverse(A, solver, **kwargs):
 #===============================================================================
 class ConjugateGradient(InverseLinearOperator):
     """
-    Conjugate Gradient (CG).
-
+    Conjugate Gradient (CG) with optional preconditioning.
     A LinearOperator subclass. Objects of this class are meant to be created using :func:~`solvers.inverse`.
     The .dot (and also the .solve) function are based on the 
     Conjugate gradient algorithm for solving linear system Ax=b.
@@ -101,7 +120,8 @@ class ConjugateGradient(InverseLinearOperator):
         Left-hand-side matrix A of linear system; individual entries A[i,j]
         can't be accessed, but A has 'shape' attribute and provides 'dot(p)'
         function (i.e. matrix-vector product A*p).
-
+    pc : psydac.linalg.basic.LinearOperator, optional
+        Preconditioner for A, it should approximate the inverse of A. If None, no preconditioner is used.
     x0 : psydac.linalg.basic.Vector
         First guess of solution for iterative solver (optional).
 
@@ -122,16 +142,32 @@ class ConjugateGradient(InverseLinearOperator):
     [1] A. Maister, Numerik linearer Gleichungssysteme, Springer ed. 2015.
 
     """
-    def __init__(self, A, *, x0=None, tol=1e-6, maxiter=1000, verbose=False, recycle=False):
+    def __init__(self, A, *, pc=None, x0=None, tol=1e-6, maxiter=1000, verbose=False, recycle=False):
 
-        self._options = {"x0":x0, "tol":tol, "maxiter":maxiter, "verbose":verbose, "recycle":recycle}
+        self._options = {"x0":x0, "pc": pc, "tol":tol, "maxiter":maxiter, "verbose":verbose, "recycle":recycle}
         
         super().__init__(A, **self._options)
-        
-        self._tmps = {key: self.domain.zeros() for key in ("v", "r", "p")}
+
+        if pc is None: 
+            self._tmps = {key: self.domain.zeros() for key in ("v", "r", "p")}
+
+        else: 
+            assert isinstance(pc, LinearOperator)
+            assert pc.domain is A.codomain
+            assert pc.codomain is A.domain
+            tmps_codomain = {key: self.codomain.zeros() for key in ("p", "s")}
+            tmps_domain = {key: self.domain.zeros() for key in ("v", "r")}
+            self._tmps = {**tmps_codomain, **tmps_domain}
+
         self._info = None
 
-    def solve(self, b, out=None):
+        if pc is None:
+            self.solve = self.solve_without_pc
+        else:
+            self.solve = self.solve_with_pc
+
+
+    def solve_without_pc(self, b, out=None):
         """
         Conjugate gradient algorithm for solving linear system Ax=b.
         Only working if A is an hermitian and positive-definite linear operator.
@@ -225,77 +261,14 @@ class ConjugateGradient(InverseLinearOperator):
             print( "+---------+---------------------+")
 
         # Convergence information
-        self._info = {'niter': m, 'success': am < tol_sqr, 'res_norm': sqrt(am) }
+        self._info = {'niter': m, 'success': bool(am < tol_sqr), 'res_norm': sqrt(am) }
 
         if recycle:
             x.copy(out=self._options["x0"])
 
         return x
 
-    def dot(self, b, out=None):
-        return self.solve(b, out=out)
-
-#===============================================================================
-class PConjugateGradient(InverseLinearOperator):
-    """
-    Preconditioned Conjugate Gradient (PCG).
-
-    A LinearOperator subclass. Objects of this class are meant to be created using :func:~`solvers.inverse`.
-    The .dot (and also the .solve) function are based on a preconditioned conjugate gradient method.
-    The Preconditioned Conjugate Gradient (PCG) algorithm solves the linear
-    system A x = b where A is a symmetric and positive-definite matrix, i.e.
-    A = A^T and y A y > 0 for any vector y. The preconditioner P is a matrix
-    which approximates the inverse of A. The algorithm assumes that P is also
-    symmetric and positive definite.
-
-    Since this is a matrix-free iterative method, both A and P are provided as
-    `LinearOperator` objects which must implement the `dot` method.
-
-    Parameters
-    ----------
-    A : psydac.linalg.basic.LinearOperator
-        Left-hand-side matrix A of the linear system. This should be symmetric
-        and positive definite.
-
-    pc: psydac.linalg.basic.LinearOperator
-        Preconditioner which should approximate the inverse of A (optional).
-        Like A, the preconditioner should be symmetric and positive definite.
-
-    x0 : psydac.linalg.basic.Vector
-        First guess of solution for iterative solver (optional).
-
-    tol : float
-        Absolute tolerance for L2-norm of residual r = A x - b. (Default: 1e-6)
-
-    maxiter: int
-        Maximum number of iterations. (Default: 1000)
-
-    verbose : bool
-        If True, the L2-norm of the residual r is printed at each iteration.
-        (Default: False)
-
-    recycle : bool
-        If True, a copy of the output is stored in x0 to speed up consecutive
-        calculations of slightly altered linear systems. (Default: False)
-
-    """
-    def __init__(self, A, *, pc=None, x0=None, tol=1e-6, maxiter=1000, verbose=False, recycle=False):
-
-        self._options = {"x0":x0, "pc":pc, "tol":tol, "maxiter":maxiter, "verbose":verbose, "recycle":recycle}
-        
-        super().__init__(A, **self._options)
-        
-        if pc is None:
-            self._options['pc'] = IdentityOperator(self.domain)
-        else:
-            assert isinstance(pc, LinearOperator)
-            
-        tmps_codomain = {key: self.codomain.zeros() for key in ("p", "s")}
-        tmps_domain = {key: self.domain.zeros() for key in ("v", "r")}
-        self._tmps = {**tmps_codomain, **tmps_domain}
-        self._info = None
-
-    def solve(self, b, out=None):
+    def solve_with_pc(self, b, out=None):
         """
         Preconditioned Conjugate Gradient (PCG) solves the symetric positive definte
         system Ax = b. It assumes that pc.dot(r) returns the solution to Ps = r,
@@ -397,7 +370,9 @@ class PConjugateGradient(InverseLinearOperator):
             print( "+---------+---------------------+")
 
         # Convergence information
-        self._info = {'niter': k, 'success': nrmr_sqr < tol_sqr, 'res_norm': sqrt(nrmr_sqr) }
+        self._info = {'niter': k,
+                      'success': bool(nrmr_sqr < tol_sqr),
+                      'res_norm': sqrt(nrmr_sqr)}
 
         if recycle:
             x.copy(out=self._options["x0"])
@@ -587,7 +562,9 @@ class BiConjugateGradient(InverseLinearOperator):
             print( "+---------+---------------------+")
 
         # Convergence information
-        self._info = {'niter': m, 'success': res_sqr < tol_sqr, 'res_norm': sqrt(res_sqr)}
+        self._info = {'niter': m,
+                      'success': bool(res_sqr < tol_sqr),
+                      'res_norm': sqrt(res_sqr)}
 
         if recycle:
             x.copy(out=self._options["x0"])
@@ -613,7 +590,8 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
         Left-hand-side matrix A of linear system; individual entries A[i,j]
         can't be accessed, but A has 'shape' attribute and provides 'dot(p)'
         function (i.e. matrix-vector product A*p).
-
+    pc : psydac.linalg.basic.LinearOperator, optional
+        Preconditioner for A, it should approximate the inverse of A. If None, no preconditioner is used.
     x0 : psydac.linalg.basic.Vector
         First guess of solution for iterative solver (optional).
 
@@ -634,16 +612,30 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
     [1] A. Maister, Numerik linearer Gleichungssysteme, Springer ed. 2015.
 
     """
-    def __init__(self, A, *, x0=None, tol=1e-6, maxiter=1000, verbose=False, recycle=False):
+    def __init__(self, A, *, pc=None, x0=None, tol=1e-6, maxiter=1000, verbose=False, recycle=False):
 
-        self._options = {"x0": x0, "tol": tol, "maxiter": maxiter, "verbose": verbose, "recycle":recycle}
-        
+        self._options = {"pc": pc, "x0": x0, "tol": tol, "maxiter": maxiter, "verbose": verbose, "recycle": recycle}
+
         super().__init__(A, **self._options)
-        
-        self._tmps = {key: self.domain.zeros() for key in ("v", "r", "p", "vr", "r0")}
+
+        if pc is None:
+            self._tmps = {key: self.domain.zeros() for key in ("v", "r", "p", "vr", "r0")}
+        else:
+            assert isinstance(pc, LinearOperator)
+            assert pc.domain is A.codomain
+            assert pc.codomain is A.domain
+            self._tmps = {key: self.domain.zeros() for key in ("v", "r", "s", "t", 
+                                                      "vp", "rp", "sp", "tp",
+                                                      "pp", "av", "app", "osp", 
+                                                      "rp0")}
         self._info = None
 
-    def solve(self, b, out=None):
+        if pc is None:
+            self.solve = self.solve_without_pc
+        else:
+            self.solve = self.solve_with_pc
+
+    def solve_without_pc(self, b, out=None):
         """
         Biconjugate gradient stabilized method (BCGSTAB) algorithm for solving linear system Ax=b.
         Implementation from [1], page 175.
@@ -785,65 +777,16 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
             print("+---------+---------------------+")
 
         # Convergence information
-        self._info = {'niter': m, 'success': res_sqr < tol_sqr, 'res_norm': sqrt(res_sqr)}
+        self._info = {'niter': m,
+                      'success': bool(res_sqr < tol_sqr),
+                      'res_norm': sqrt(res_sqr)}
 
         if recycle:
             x.copy(out=self._options["x0"])
 
         return x
 
-    def dot(self, b, out=None):
-        return self.solve(b, out=out)
-
-#===============================================================================
-class PBiConjugateGradientStabilized(InverseLinearOperator):
-    """
-    Preconditioned Biconjugate Gradient Stabilized (PBiCGStab).
-
-    A LinearOperator subclass. Objects of this class are meant to be created using :func:~`solvers.inverse`.
-    The .dot (and also the .solve) function are based on the
-    preconditioned Biconjugate gradient Stabilized (PBCGSTAB) algorithm for solving linear system Ax=b.
-    Implementation from [1], page 251.
-
-    Parameters
-    ----------
-    A : psydac.linalg.basic.LinearOperator
-        Left-hand-side matrix A of linear system; individual entries A[i,j]
-        can't be accessed, but A has 'shape' attribute and provides 'dot(p)'
-        function (i.e. matrix-vector product A*p).
-    pc: psydac.linalg.basic.LinearOperator
-        Preconditioner for A, it should approximate the inverse of A (can be None).
-    x0 : psydac.linalg.basic.Vector
-        First guess of solution for iterative solver (optional).
-    tol : float
-        Absolute tolerance for 2-norm of residual r = A*x - b.
-    maxiter: int
-        Maximum number of iterations.
-    verbose : bool
-        If True, 2-norm of residual r is printed at each iteration.
-    
-    References
-    ----------
-    [1] A. Maister, Numerik linearer Gleichungssysteme, Springer ed. 2015.
-    """
-    def __init__(self, A, *, pc=None, x0=None, tol=1e-6, maxiter=1000, verbose=False, recycle=False):
-
-        self._options = {"pc": pc, "x0": x0, "tol": tol, "maxiter": maxiter, "verbose": verbose, "recycle": recycle}
-
-        super().__init__(A, **self._options)
-
-        if pc is None:
-            self._options['pc'] = IdentityOperator(self.domain)
-        else:
-            assert isinstance(pc, LinearOperator)
-
-        self._tmps = {key: self.domain.zeros() for key in ("v", "r", "s", "t", 
-                                                      "vp", "rp", "sp", "tp",
-                                                      "pp", "av", "app", "osp", 
-                                                      "rp0")}
-        self._info = None
-
-    def solve(self, b, out=None):
+    def solve_with_pc(self, b, out=None):
         """
         Preconditioned biconjugate gradient stabilized method (PBCGSTAB) algorithm for solving linear system Ax=b.
         Implementation from [1], page 251.
@@ -936,6 +879,7 @@ class PBiConjugateGradientStabilized(InverseLinearOperator):
         b.copy(out=r)
         r -= v
 
+        # Apply preconditioner: rp = pc @ r
         pc.dot(r, out=rp)
         rp.copy(out=pp)
 
@@ -949,6 +893,7 @@ class PBiConjugateGradientStabilized(InverseLinearOperator):
         res_sqr = r.inner(r).real
         tol_sqr = tol**2
 
+        # Logging
         if verbose:
             print("Pre-conditioned BICGSTAB solver:")
             print("+---------+---------------------+")
@@ -976,6 +921,8 @@ class PBiConjugateGradientStabilized(InverseLinearOperator):
             # t = A @ sp, tp = PC @ t, omegap = (tp.sp)/(tp.tp)
             A.dot(sp, out=t)
             pc.dot(t, out=tp)
+
+            # omegap = (tp ⋅ sp) / (tp ⋅ tp)
             omegap = tp.inner(sp) / tp.inner(tp)
 
             # x = x + alphap*pp + omegap*sp
@@ -1018,9 +965,11 @@ class PBiConjugateGradientStabilized(InverseLinearOperator):
             print("+---------+---------------------+")
 
         # convergence information
-        self._info = {'niter': niter, 'success': res_sqr <
-                tol_sqr, 'res_norm': sqrt(res_sqr)}
+        self._info = {'niter': niter,
+                      'success': bool(res_sqr < tol_sqr),
+                      'res_norm': sqrt(res_sqr)}
 
+        # Recycle solution as next initial guess, if enabled
         if recycle:
             x.copy(out=self._options["x0"])
 
@@ -1065,7 +1014,7 @@ class MinimumResidual(InverseLinearOperator):
 
     Notes
     -----
-    This is an adaptation of the MINRES Solver in Scipy, where the method is modified to accept Psydac data structures,
+    This is an adaptation of the MINRES Solver in Scipy, where the method is modified to accept PSYDAC data structures,
     https://github.com/scipy/scipy/blob/v1.7.1/scipy/sparse/linalg/isolve/minres.py
 
     References
@@ -1117,7 +1066,7 @@ class MinimumResidual(InverseLinearOperator):
 
         Notes
         -----
-        This is an adaptation of the MINRES Solver in Scipy, where the method is modified to accept Psydac data structures,
+        This is an adaptation of the MINRES Solver in Scipy, where the method is modified to accept PSYDAC data structures,
         https://github.com/scipy/scipy/blob/v1.7.1/scipy/sparse/linalg/isolve/minres.py
         References
         ----------
@@ -1306,7 +1255,9 @@ class MinimumResidual(InverseLinearOperator):
             print( "+---------+---------------------+")
 
         # Convergence information
-        self._info = {'niter': itn, 'success': rnorm<tol, 'res_norm': rnorm }
+        self._info = {'niter': itn,
+                      'success': bool(rnorm < tol),
+                      'res_norm': rnorm}
 
         if recycle:
             x.copy(out=self._options["x0"])
@@ -1364,7 +1315,7 @@ class LSMR(InverseLinearOperator):
 
     Notes
     -----
-    This is an adaptation of the LSMR Solver in Scipy, where the method is modified to accept Psydac data structures,
+    This is an adaptation of the LSMR Solver in Scipy, where the method is modified to accept PSYDAC data structures,
     https://github.com/scipy/scipy/blob/v1.7.1/scipy/sparse/linalg/isolve/lsmr.py
 
     References
@@ -1430,7 +1381,7 @@ class LSMR(InverseLinearOperator):
 
         Notes
         -----
-        This is an adaptation of the LSMR Solver in Scipy, where the method is modified to accept Psydac data structures,
+        This is an adaptation of the LSMR Solver in Scipy, where the method is modified to accept PSYDAC data structures,
         https://github.com/scipy/scipy/blob/v1.7.1/scipy/sparse/linalg/isolve/lsmr.py
 
         References
@@ -1678,7 +1629,7 @@ class LSMR(InverseLinearOperator):
             print( "+---------+---------------------+")
 
         # Convergence information
-        self._info = {'niter': itn, 'success': istop in [1,2,3], 'res_norm': normr }
+        self._info = {'niter': itn, 'success': istop in [1,2,3], 'res_norm': normr}
         # Seems necessary, as algorithm might terminate even though rnorm > tol.
         self._successful = istop in [1,2,3]
 
@@ -1805,7 +1756,7 @@ class GMRES(InverseLinearOperator):
 
         am = sqrt(r.inner(r).real)
         if am < tol:
-            self._info = {'niter': 1, 'success': am < tol, 'res_norm': am }
+            self._info = {'niter': 1, 'success': bool(am < tol), 'res_norm': am }
             return x
 
         beta.append(am)
@@ -1852,7 +1803,7 @@ class GMRES(InverseLinearOperator):
             x.mul_iadd(y[i], self._Q[i])
 
         # Convergence information
-        self._info = {'niter': k+1, 'success': am < tol, 'res_norm': am }
+        self._info = {'niter': k+1, 'success': bool(am < tol), 'res_norm': am}
         
         if recycle:
             x.copy(out=self._options["x0"])

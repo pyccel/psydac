@@ -1,0 +1,131 @@
+name: Deploy new version to PyPI
+
+on:
+  workflow_run:
+    workflows: ["Unit tests"]
+    branches: [main]
+    types:
+      - completed
+
+jobs:
+  deployVersion:
+    runs-on: ubuntu-latest
+    if: ${{ github.repository == 'pyccel/psydac' && github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          submodules: true
+
+      - name: Install dependencies
+        uses: ./.github/actions/ubuntu_install
+
+      - name: Update build tools
+        run: |
+          pip install --upgrade pip
+          pip install --upgrade build
+          pip install --upgrade twine
+
+      - name: Build and deploy to PyPI
+        run: |
+          echo ${{ github.event.workflow_run.head_branch }}
+          python -m build --sdist
+          ls dist/*
+          twine upload --repository pypi dist/* --non-interactive
+        shell: bash
+        env:
+          TWINE_USERNAME: '__token__'
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+
+      - name: Install psydac package without extra components
+        run: |
+          pip install .
+
+      - name: "Get tag name"
+        id: tag_name
+        run: |
+          version=$(python -c "from psydac import __version__; print(__version__)")
+          echo "VERSION=${version}" >> $GITHUB_OUTPUT
+          echo "TAG_NAME=v${version}" >> $GITHUB_OUTPUT
+
+      - name: "Get release notes"
+        id: release_notes
+        run: |
+          echo "## What's Changed" > release_notes.md
+          START_LINE=$(grep "^## " CHANGELOG.md -n | head -1 | cut -d: -f -1)
+          END_LINE=$(grep "^## " CHANGELOG.md -n | head -2 | tail -1 | cut -d: -f -1)
+          START_LINE=$((${START_LINE}+1))
+          END_LINE=$((${END_LINE}-1))
+          echo "## What's Changed" > release_notes.md
+          sed -n ${START_LINE},${END_LINE}p CHANGELOG.md >> release_notes.md
+
+      - name: "Get contributors"
+        run: |
+          # Get relevant commits
+          LAST_RELEASE_COMMIT=$(git log -2 --pretty=%H | tail -1)
+          CURRENT_RELEASE_COMMIT=$(git log -1 --pretty=%H)
+
+          # Find any new lines in the AUTHORS file
+          NEW_CONTRIBUTORS=$(git diff --no-indent-heuristic --unified=0 --no-color ${LAST_RELEASE_COMMIT}..${CURRENT_RELEASE_COMMIT} AUTHORS | { grep "^\+[^+]" || true; } | cut -d ' ' -f 2-)
+          if [ -n "${NEW_CONTRIBUTORS}" ]
+          then
+            # If there are new contributors then add a section with their names
+            echo "## New Contributors" >> release_notes.md
+            while IFS= read -r c
+            do
+              echo "- ${c}" >> release_notes.md
+            done <<< "${NEW_CONTRIBUTORS}"
+            echo "" >> release_notes.md
+          fi
+
+          # Find the PR which created the release
+          PR_ID=$(gh api -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" /search/issues?q="${CURRENT_RELEASE_COMMIT}" | jq '.["items"][0]["number"]')
+          # Extract authors from all commits in the PR
+          CONTRIBUTORS=$(gh pr view ${PR_ID} --json commits | jq '.["commits"][]["authors"][]["login"]' | tr -d '"' | sort -u)
+
+          # Add a hidden section listing the user names of all authors on commits in this release
+          echo "<details>" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "## Contributors" >> release_notes.md
+          for c in ${CONTRIBUTORS}
+          do
+            echo "- @$c" >> release_notes.md
+          done
+          echo "" >> release_notes.md
+          echo "</details>" >> release_notes.md
+
+          # Get the full changelog link
+          PREVIOUS_TAG=$(gh release list --limit 1 --json tagName | jq '.[]["tagName"]' | tr -d '"')
+
+          echo "" >> release_notes.md
+          echo "**Full list of changes**: [${PREVIOUS_TAG}..${tag_name}](https://github.com/pyccel/psydac/compare/${PREVIOUS_TAG}..${tag_name})" >> release_notes.md
+
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          tag_name: ${{ steps.tag_name.outputs.TAG_NAME }}
+
+      - name: "Update repo tags"
+        uses: EndBug/latest-tag@latest
+        with:
+          ref: ${{ steps.tag_name.outputs.TAG_NAME }}
+
+      - name: "Update releases"
+        run: |
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            /repos/pyccel/psydac/releases \
+             -f "tag_name=${tag_name}" -f "name=Version ${version}" -F "body=@release_notes.md" -F "draft=false" -F "prerelease=false" -F "generate_release_notes=false"
+        shell: bash
+        env:
+          tag_name: ${{ steps.tag_name.outputs.TAG_NAME }}
+          version: ${{ steps.tag_name.outputs.VERSION }}
+          GH_TOKEN: ${{ github.token }}

@@ -1,4 +1,11 @@
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 import os
+from pathlib import Path
+
 import pytest
 import h5py as h5
 import numpy as np
@@ -9,15 +16,11 @@ from psydac.api.discretization import discretize
 from psydac.core.bsplines import cell_index
 from psydac.utilities.utils import refine_array_1d
 
+# Get the mesh directory
+import psydac.cad.mesh as mesh_mod
+mesh_dir = Path(mesh_mod.__file__).parent
 
-try:
-    mesh_dir = os.environ['PSYDAC_MESH_DIR']
-
-except:
-    base_dir = os.path.dirname(os.path.realpath(__file__))
-    base_dir = os.path.join(base_dir, '..', '..', '..')
-    mesh_dir = os.path.join(base_dir, 'mesh')
-
+#==============================================================================
 # Tolerance for testing float equality
 RTOL = 1e-15
 ATOL = 1e-15
@@ -26,8 +29,8 @@ from mpi4py import MPI
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 
-
-@pytest.mark.parallel
+#==============================================================================
+@pytest.mark.mpi
 @pytest.mark.parametrize('geometry', ('identity_2d.h5', 'identity_3d.h5', 'collela_2d.h5', 'collela_3d.h5', 'bent_pipe.h5'))
 @pytest.mark.parametrize('npts_per_cell', [2, 3, 4, 6])
 def test_eval_fields_regular(geometry, npts_per_cell):
@@ -86,8 +89,8 @@ def test_eval_fields_regular(geometry, npts_per_cell):
         fh5.close()
         os.remove('result_parallel.h5')
 
-
-@pytest.mark.parallel
+#==============================================================================
+@pytest.mark.mpi
 @pytest.mark.parametrize('geometry', ('identity_2d.h5', 'identity_3d.h5', 'collela_2d.h5', 'collela_3d.h5', 'bent_pipe.h5'))
 @pytest.mark.parametrize('npts_irregular', [2, 5, 10, 25])
 def test_eval_fields_irregular(geometry, npts_irregular):

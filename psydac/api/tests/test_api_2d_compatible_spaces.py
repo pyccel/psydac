@@ -1,5 +1,8 @@
-# -*- coding: UTF-8 -*-
-
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 import pytest
 import numpy as np
 from sympy import pi, cos, sin, sqrt, Matrix, Tuple, lambdify
@@ -399,7 +402,7 @@ def run_maxwell_time_harmonic_2d_dir(uex, f, alpha, ncells, degree):
 
     # Solve linear system
     jacobi_pc = M.diagonal(inverse=True)
-    M_inv = inverse(M, 'pcg', pc=jacobi_pc, tol=1e-8)
+    M_inv = inverse(M, 'cg', pc=jacobi_pc, tol=1e-8)
     sol = M_inv @ b
 
     uh       = FemField( Vh, sol )
@@ -526,7 +529,7 @@ def test_maxwell_time_harmonic_2d_dir_1():
 #            PARALLEL TESTS
 ###############################################################################
 
-@pytest.mark.parallel
+@pytest.mark.mpi
 @pytest.mark.petsc
 def test_stokes_2d_dir_non_homogeneous_petsc():
 

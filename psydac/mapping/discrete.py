@@ -1,34 +1,23 @@
-# coding: utf-8
-#
-# Copyright 2018 Yaman Güçlü
-
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 from itertools import product
-import numpy as np
 import string
 import random
 
-import h5py
 import yaml
+import numpy as np
+import h5py
 
 from sympde.topology.callable_mapping import BasicCallableMapping
-from sympde.topology.datatype import (H1SpaceType, L2SpaceType,
-                                      HdivSpaceType, HcurlSpaceType,
-                                      UndefinedSpaceType)
 
 from psydac.fem.basic    import FemField
 from psydac.fem.tensor   import TensorFemSpace
-from psydac.fem.vector   import VectorFemSpace
-from psydac.core.field_evaluation_kernels import (pushforward_2d_l2, pushforward_3d_l2,
-                                                  pushforward_2d_hdiv, pushforward_3d_hdiv,
-                                                  pushforward_2d_hcurl, pushforward_3d_hcurl)
+
 
 __all__ = ('SplineMapping', 'NurbsMapping')
-
-#==============================================================================
-def random_string(n):
-    chars    = string.ascii_uppercase + string.ascii_lowercase + string.digits
-    selector = random.SystemRandom()
-    return ''.join(selector.choice(chars) for _ in range(n))
 
 #==============================================================================
 class SplineMapping(BasicCallableMapping):

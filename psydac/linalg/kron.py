@@ -1,4 +1,8 @@
-#coding = utf-8
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 from functools import reduce
 
 import numpy as np
@@ -6,7 +10,7 @@ from scipy.sparse import kron
 from scipy.sparse import coo_matrix
 
 from psydac.linalg.basic   import LinearOperator, LinearSolver
-from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
+from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix, StencilDiagonalMatrix
 
 __all__ = ('KroneckerStencilMatrix',
            'KroneckerLinearSolver',
@@ -218,6 +222,57 @@ class KroneckerStencilMatrix(LinearOperator):
     def transpose(self, conjugate=False):
         mats_tr = [Mi.transpose(conjugate=conjugate) for Mi in self.mats]
         return KroneckerStencilMatrix(self.codomain, self.domain, *mats_tr)
+    
+    def diagonal(self, *, inverse=False, sqrt=False, out=None):
+        """
+        Get the coefficients on the main diagonal as a StencilDiagonalMatrix object.
+
+        Parameters
+        ----------
+        inverse : bool
+            If True, get the inverse of the diagonal. (Default: False).
+            Can be combined with sqrt to get the inverse square root.
+
+        sqrt : bool
+            If True, get the square root of the diagonal. (Default: False).
+            Can be combined with inverse to get the inverse square root.
+
+        out : StencilDiagonalMatrix
+            If provided, write the diagonal entries into this matrix. (Default: None).
+
+        Returns
+        -------
+        StencilDiagonalMatrix
+            The matrix which contains the main diagonal of self (or its inverse (square root)).
+
+        """
+        # Check `inverse` and `sqrt` argument
+        assert isinstance(inverse, bool)
+        assert isinstance(sqrt, bool)
+
+        # Determine domain and codomain of the StencilDiagonalMatrix
+        V, W = self.domain, self.codomain
+        if inverse:
+            V, W = W, V
+
+        # Check `out` argument
+        if out is not None:
+            assert isinstance(out, StencilDiagonalMatrix)
+            assert out.domain is V
+            assert out.codomain is W
+
+        # Obtain nested numpy array of diagonal entries (or their inverse (square root))
+        # by using the `diagonal` method of StencilMatrices
+        diag = 1.
+        for mat, start, end in zip(self.mats[::-1], V.starts[::-1], V.ends[::-1]):
+            diag = np.array([d*diag for d in mat.diagonal(inverse=inverse, sqrt=sqrt)._data[start:end+1]])
+
+        if out is not None:
+            np.copyto(diag, out._data)
+        else:
+            out = StencilDiagonalMatrix(V, W, diag)
+
+        return out
 
 #==============================================================================
 class KroneckerDenseMatrix(LinearOperator):

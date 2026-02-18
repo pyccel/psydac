@@ -1,24 +1,21 @@
-# coding: utf-8
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 # pylint: disable=R0201
 
 from itertools import chain
 
-from sympy.core import Tuple
-
+from sympy.core            import Tuple
 from sympy.printing.pycode import PythonCodePrinter as SympyPythonCodePrinter
 from sympy.printing.pycode import _known_functions
 from sympy.printing.pycode import _known_functions_math
 from sympy.printing.pycode import _known_constants_math
 
-
-from ...ast.core import PyccelPow, PyccelAdd, PyccelMul, PyccelDiv, PyccelMod, PyccelFloorDiv
-from ...ast.core import PyccelEq,  PyccelNe,  PyccelLt,  PyccelLe,  PyccelGt,  PyccelGe
-from ...ast.core import PyccelAnd, PyccelOr,  PyccelNot, PyccelMinus
-
-from ...ast.utilities  import build_types_decorator
-from ...ast.core       import CodeBlock
-
-from ...errors.errors import Errors
+from ...ast.utilities   import build_types_decorator
+from ...ast.core        import CodeBlock
+from ...errors.errors   import Errors
 from ...errors.messages import *
 
 errors = Errors()

@@ -1,10 +1,10 @@
 Contributing to the Docs
 ========================
 
-We highly encourage anyone working with Psydac to contribute to the library
+We highly encourage anyone working with PSYDAC to contribute to the library
 by adding new or by improving already existing docstrings.
 
-Psydac's documentation is built using Sphinx and the `numpydoc` extension.
+PSYDAC's documentation is built using Sphinx and the `numpydoc` extension.
 In particular, this means that this documentation is automatically generated from the library's docstrings, 
 and hence is only as good as the docstrings themselves.
 
@@ -28,7 +28,7 @@ To do so, execute the following commands from the root directory of the reposito
    # if on macOS
    >>> brew install graphviz
 
-   >>> python -m pip install -r docs_requirements.txt
+   >>> python -m pip install -r docs/requirements.txt
 
    # go to psydac/docs/
    >>> rm -rf source/modules/STUBDIR

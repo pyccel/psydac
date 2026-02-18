@@ -1,3 +1,8 @@
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 import pytest
 import numpy as np
 
@@ -654,8 +659,8 @@ def test_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
     assert diff.inner(diff) == 0
 
     # T,-1,-1 -> equal T
-    assert isinstance(inverse(inverse(B_T, 'cg', tol=tol), 'pcg', pc=P), BlockLinearOperator)
-    diff = inverse(inverse(B_T, 'cg', tol=tol), 'pcg', pc=P) @ u - B_T @ u
+    assert isinstance(inverse(inverse(B_T, 'cg', tol=tol), 'cg', pc=P), BlockLinearOperator)
+    diff = inverse(inverse(B_T, 'cg', tol=tol), 'cg', pc=P) @ u - B_T @ u
     assert diff.inner(diff) == 0
 
     # T,-1,T -> equal -1
@@ -691,8 +696,8 @@ def test_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
     assert diff.inner(diff) == 0
 
     # T,-1,-1 -> equal T
-    assert isinstance(inverse(inverse(S_T, 'cg', tol=tol), 'pcg', pc=P), StencilMatrix)
-    diff = inverse(inverse(S_T, 'cg', tol=tol), 'pcg', pc=P) @ v - S_T @ v
+    assert isinstance(inverse(inverse(S_T, 'cg', tol=tol), 'cg', pc=P), StencilMatrix)
+    diff = inverse(inverse(S_T, 'cg', tol=tol), 'cg', pc=P) @ v - S_T @ v
     assert diff.inner(diff) == 0
 
     # T,-1,T -> equal -1
@@ -869,8 +874,8 @@ def test_operator_evaluation(n1, n2, p1, p2):
 
     S_cg = inverse(S, 'cg', tol=tol)
     B_cg = inverse(B, 'cg', tol=tol)
-    S_pcg = inverse(S, 'pcg', pc=S.diagonal(inverse=True), tol=tol)
-    B_pcg = inverse(B, 'pcg', pc=B.diagonal(inverse=True), tol=tol)
+    S_pcg = inverse(S, 'cg', pc=S.diagonal(inverse=True), tol=tol)
+    B_pcg = inverse(B, 'cg', pc=B.diagonal(inverse=True), tol=tol)
     S_bicg = inverse(S, 'bicg', tol=tol)
     B_bicg = inverse(B, 'bicg', tol=tol)
     S_lsmr = inverse(S, 'lsmr', tol=tol)
@@ -960,9 +965,15 @@ def test_internal_storage():
     assert np.array_equal( y2_1.toarray(), y2_2.toarray() ) & np.array_equal( y2_2.toarray(), y2_3.toarray() )
 
 #===============================================================================
-@pytest.mark.parametrize('solver', ['cg', 'pcg', 'bicg', 'minres', 'lsmr'])
-
-def test_x0update(solver):
+@pytest.mark.parametrize(("solver", "use_jacobi_pc"),
+    [('CG'      , False), ('CG', True),
+     ('BiCG'    , False),
+     ('BiCGSTAB', False), ('BiCGSTAB', True),
+     ('MINRES'  , False),
+     ('LSMR'    , False),
+     ('GMRES'   , False)]
+ )
+def test_x0update(solver, use_jacobi_pc):
     n1 = 4
     n2 = 3
     p1 = 5
@@ -979,10 +990,8 @@ def test_x0update(solver):
 
     # Create Inverse
     tol = 1e-6
-    if solver == 'pcg':
-        A_inv = inverse(A, solver, pc=A.diagonal(inverse=True), tol=tol)
-    else:
-        A_inv = inverse(A, solver, tol=tol)
+    pc = A.diagonal(inverse=True) if use_jacobi_pc else None
+    A_inv = inverse(A, solver, pc=pc, tol=tol)
 
     # Check whether x0 is not None
     x0_init = A_inv.get_options("x0")

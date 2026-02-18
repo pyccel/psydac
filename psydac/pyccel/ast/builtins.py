@@ -1,23 +1,24 @@
-# coding: utf-8
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 """
 The Python interpreter has a number of built-in functions and types that are
 always available.
 
 In this module we implement some of them in alphabetical order.
-
 """
 
 from sympy import Symbol, Function, Tuple
 from sympy import Expr
 from sympy import sympify
-from sympy.core.assumptions import StdFactKB
 from sympy.tensor import Indexed, IndexedBase
 
 from .basic     import Basic, PyccelAstNode
-from .datatypes import (datatype, DataType, NativeSymbol,
-                        NativeInteger, NativeBool, NativeReal,
-                        NativeComplex, NativeRange, NativeTensor, NativeString,
-                        NativeGeneric, NativeTuple, default_precision)
+from .datatypes import (NativeInteger, NativeBool, NativeReal,
+                        NativeComplex, NativeString,
+                        NativeGeneric, default_precision)
 from .numbers   import Integer, Float
 
 __all__ = (

@@ -1,15 +1,23 @@
-# -*- coding: UTF-8 -*-
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 from mpi4py import MPI
 import numpy as np
 import pytest
 
-from psydac.feec.global_projectors import Projector_H1, Projector_L2, Projector_Hcurl, Projector_Hdiv
+from psydac.feec.global_geometric_projectors import GlobalGeometricProjectorH1
+from psydac.feec.global_geometric_projectors import GlobalGeometricProjectorL2
+from psydac.feec.global_geometric_projectors import GlobalGeometricProjectorHcurl
+from psydac.feec.global_geometric_projectors import GlobalGeometricProjectorHdiv
+
 from psydac.fem.tensor       import TensorFemSpace, SplineSpace
 from psydac.fem.vector       import VectorFemSpace
 from psydac.core.bsplines    import make_knots
-from psydac.feec.derivatives import Derivative_1D, Gradient_2D, Gradient_3D
-from psydac.feec.derivatives import ScalarCurl_2D, VectorCurl_2D, Curl_3D
-from psydac.feec.derivatives import Divergence_2D, Divergence_3D
+from psydac.feec.derivatives import Derivative1D, Gradient2D, Gradient3D
+from psydac.feec.derivatives import ScalarCurl2D, VectorCurl2D, Curl3D
+from psydac.feec.derivatives import Divergence2D, Divergence3D
 from psydac.ddm.cart         import DomainDecomposition
 from psydac.linalg.solvers   import inverse
 from psydac.linalg.basic     import IdentityOperator
@@ -57,13 +65,13 @@ def test_3d_commuting_pro_1(Nel, Nq, p, bc, m):
     Hcurl  = VectorFemSpace(*spaces)
 
     # create an instance of the H1 projector class
-    P0 = Projector_H1(H1)
+    P0 = GlobalGeometricProjectorH1(H1)
 
     # Build linear operators on stencil arrays
-    grad = Gradient_3D(H1, Hcurl)
+    grad = Gradient3D(H1, Hcurl)
 
     # create an instance of the projector class
-    P1 = Projector_Hcurl(Hcurl, Nq)
+    P1 = GlobalGeometricProjectorHcurl(Hcurl, Nq)
     #-------------------------------------
     # Projections and discrete derivatives
     #-------------------------------------
@@ -150,11 +158,11 @@ def test_3d_commuting_pro_2(Nel, Nq, p, bc, m):
     Hdiv  = VectorFemSpace(*spaces)
 
     # Build linear operators on stencil arrays
-    curl = Curl_3D(Hcurl, Hdiv)
+    curl = Curl3D(Hcurl, Hdiv)
 
     # create an instance of the projector class
-    P1 = Projector_Hcurl(Hcurl, Nq)
-    P2 = Projector_Hdiv(Hdiv, Nq)
+    P1 = GlobalGeometricProjectorHcurl(Hcurl, Nq)
+    P2 = GlobalGeometricProjectorHdiv(Hdiv, Nq)
 
     #-------------------------------------
     # Projections and discrete derivatives
@@ -232,11 +240,11 @@ def test_3d_commuting_pro_3(Nel, Nq, p, bc, m):
     # create an instance of the H1 projector class
 
     # Build linear operators on stencil arrays
-    div  = Divergence_3D(Hdiv, L2)
+    div  = Divergence3D(Hdiv, L2)
 
     # create an instance of the projector class
-    P2 = Projector_Hdiv(Hdiv, Nq)
-    P3 = Projector_L2(L2, Nq)
+    P2 = GlobalGeometricProjectorHdiv(Hdiv, Nq)
+    P3 = GlobalGeometricProjectorL2(L2, Nq)
 
     #-------------------------------------
     # Projections and discrete derivatives
@@ -269,7 +277,7 @@ def test_3d_commuting_pro_3(Nel, Nq, p, bc, m):
 #==============================================================================
 # 2D tests
 #==============================================================================
-@pytest.mark.parallel
+@pytest.mark.mpi
 @pytest.mark.parametrize('Nel', [8, 12])
 @pytest.mark.parametrize('Nq', [5])
 @pytest.mark.parametrize('p', [2,3])
@@ -307,13 +315,13 @@ def test_2d_commuting_pro_1(Nel, Nq, p, bc, m):
     Hcurl  = VectorFemSpace(*spaces)
 
     # create an instance of the H1 projector class
-    P0 = Projector_H1(H1)
+    P0 = GlobalGeometricProjectorH1(H1)
 
     # Build linear operators on stencil arrays
-    grad = Gradient_2D(H1, Hcurl)
+    grad = Gradient2D(H1, Hcurl)
 
     # create an instance of the projector class
-    P1 = Projector_Hcurl(Hcurl, Nq)
+    P1 = GlobalGeometricProjectorHcurl(Hcurl, Nq)
     #-------------------------------------
     # Projections and discrete derivatives
     #-------------------------------------
@@ -342,7 +350,7 @@ def test_2d_commuting_pro_1(Nel, Nq, p, bc, m):
     norm2_e1 = np.sqrt(e1.inner(e1))
     assert norm2_e1 < 1e-12
 
-@pytest.mark.parallel
+@pytest.mark.mpi
 @pytest.mark.parametrize('Nel', [8, 12])
 @pytest.mark.parametrize('Nq', [5])
 @pytest.mark.parametrize('p', [2,3])
@@ -380,13 +388,13 @@ def test_2d_commuting_pro_2(Nel, Nq, p, bc, m):
     Hdiv  = VectorFemSpace(*spaces)
 
     # create an instance of the H1 projector class
-    P0 = Projector_H1(H1)
+    P0 = GlobalGeometricProjectorH1(H1)
 
     # Linear operator: 2D vector curl
-    curl = VectorCurl_2D(H1, Hdiv)
+    curl = VectorCurl2D(H1, Hdiv)
 
     # create an instance of the projector class
-    P1 = Projector_Hdiv(Hdiv, Nq)
+    P1 = GlobalGeometricProjectorHdiv(Hdiv, Nq)
     #-------------------------------------
     # Projections and discrete derivatives
     #-------------------------------------
@@ -415,7 +423,7 @@ def test_2d_commuting_pro_2(Nel, Nq, p, bc, m):
     norm2_e1 = np.sqrt(e1.inner(e1))
     assert norm2_e0 < 1e-12
 
-@pytest.mark.parallel
+@pytest.mark.mpi
 @pytest.mark.parametrize('Nel', [8, 12])
 @pytest.mark.parametrize('Nq', [8])
 @pytest.mark.parametrize('p', [2,3])
@@ -461,11 +469,11 @@ def test_2d_commuting_pro_3(Nel, Nq, p, bc, m):
     # create an instance of the H1 projector class
 
     # Build linear operators on stencil arrays
-    div  = Divergence_2D(Hdiv, L2)
+    div  = Divergence2D(Hdiv, L2)
 
     # create an instance of the projector class
-    P2 = Projector_Hdiv(Hdiv, Nq)
-    P3 = Projector_L2(L2, Nq)
+    P2 = GlobalGeometricProjectorHdiv(Hdiv, Nq)
+    P3 = GlobalGeometricProjectorL2(L2, Nq)
 
     #-------------------------------------
     # Projections and discrete derivatives
@@ -495,7 +503,7 @@ def test_2d_commuting_pro_3(Nel, Nq, p, bc, m):
     norm2_e3 = np.sqrt(e3.inner(e3))
     assert norm2_e3 < 1e-12
 
-@pytest.mark.parallel
+@pytest.mark.mpi
 @pytest.mark.parametrize('Nel', [8, 12])
 @pytest.mark.parametrize('Nq', [8])
 @pytest.mark.parametrize('p', [2,3])
@@ -541,11 +549,11 @@ def test_2d_commuting_pro_4(Nel, Nq, p, bc, m):
     # create an instance of the H1 projector class
 
     # Build linear operators on stencil arrays
-    curl  = ScalarCurl_2D(Hcurl, L2)
+    curl  = ScalarCurl2D(Hcurl, L2)
 
     # create an instance of the projector class
-    P1 = Projector_Hcurl(Hcurl, Nq)
-    P2 = Projector_L2(L2, Nq)
+    P1 = GlobalGeometricProjectorHcurl(Hcurl, Nq)
+    P2 = GlobalGeometricProjectorL2(L2, Nq)
 
     #-------------------------------------
     # Projections and discrete derivatives
@@ -610,13 +618,13 @@ def test_1d_commuting_pro_1(Nel, Nq, p, bc, m):
     L2       = H1.reduce_degree(axes=[0], basis='M')
 
     # create an instance of the H1 projector class
-    P0 = Projector_H1(H1)
+    P0 = GlobalGeometricProjectorH1(H1)
 
     # Build linear operators on stencil arrays
-    grad = Derivative_1D(H1, L2)
+    grad = Derivative1D(H1, L2)
 
     # create an instance of the projector class
-    P1 = Projector_L2(L2, Nq)
+    P1 = GlobalGeometricProjectorL2(L2, Nq)
     #-------------------------------------
     # Projections and discrete derivatives
     #-------------------------------------

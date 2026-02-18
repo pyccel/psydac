@@ -1,6 +1,11 @@
-# -*- coding: UTF-8 -*-
-
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 import os
+from pathlib import Path
+
 import pytest
 import numpy as np
 from sympy import pi, cos, sin, sqrt, exp, ImmutableDenseMatrix as Matrix, Tuple, lambdify
@@ -40,14 +45,10 @@ from psydac.linalg.solvers     import inverse
 from mpi4py import MPI
 comm = MPI.COMM_WORLD
 #==============================================================================
-# ... get the mesh directory
-try:
-    mesh_dir = os.environ['PSYDAC_MESH_DIR']
 
-except:
-    base_dir = os.path.dirname(os.path.realpath(__file__))
-    base_dir = os.path.join(base_dir, '..', '..', '..')
-    mesh_dir = os.path.join(base_dir, 'mesh')
+# Get the mesh directory
+import psydac.cad.mesh as mesh_mod
+mesh_dir = Path(mesh_mod.__file__).parent
 
 #==============================================================================
 def get_boundaries(*args):
@@ -393,7 +394,7 @@ def test_navier_stokes_2d():
 ###############################################################################
 #            PARALLEL TESTS
 ###############################################################################
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_st_navier_stokes_2d_parallel():
 
     # ... Exact solution

@@ -1,0 +1,22 @@
+name: 'Ubuntu installation commands'
+
+runs:
+  using: "composite"
+  steps:
+
+    - name: Install non-Python dependencies on Ubuntu
+      uses: awalsh128/cache-apt-pkgs-action@latest
+      with:
+        packages: gfortran openmpi-bin libopenmpi-dev libhdf5-openmpi-dev
+        version: 1.0
+        execute_install_scripts: true
+
+    # When loading cached apt packages, the default MPI compiler isn't set.
+    # Workaround is to 'reinstall' openmpi-bin, which doesn't actually perform
+    # installation (since openmpi-bin already exists), but instead reruns
+    # `update-alternatives` which fixes the symlinks to mpicc/mpif90.
+    - name: Reconfigure non-Python dependencies on Ubuntu
+      run: |
+        sudo apt-get update
+        sudo apt-get install --reinstall openmpi-bin libhdf5-openmpi-dev liblapack-dev libblas-dev
+      shell: bash

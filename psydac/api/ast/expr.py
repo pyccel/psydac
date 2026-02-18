@@ -1,7 +1,27 @@
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 from sympy import symbols, Symbol, IndexedBase
 from sympy import Mul, Tuple, Range
 from sympy import Matrix, ImmutableDenseMatrix
 from sympy.core.numbers import ImaginaryUnit
+
+from sympde.core                 import Constant
+from sympde.topology.space       import ScalarFunction
+from sympde.topology.space       import VectorFunction
+from sympde.topology.space       import IndexedVectorFunction
+from sympde.topology.derivatives import _partial_derivatives
+from sympde.topology.derivatives import _logical_partial_derivatives
+from sympde.topology.derivatives import get_atom_derivatives
+from sympde.topology.derivatives import get_index_derivatives
+from sympde.topology             import LogicalExpr
+from sympde.topology             import SymbolicExpr
+from sympde.calculus.matrices    import SymbolicDeterminant
+
+from psydac.api.utilities   import random_string
+from psydac.fem.vector      import MultipatchFemSpace
 
 from psydac.pyccel.ast.core import IndexedVariable
 from psydac.pyccel.ast.core import For
@@ -16,27 +36,12 @@ from psydac.pyccel.ast.core import Len
 from psydac.pyccel.ast.core import If, Is, Return
 from psydac.pyccel.ast.core import _atomic
 
-from sympde.core                 import Constant
-from sympde.topology.space       import ScalarFunction
-from sympde.topology.space       import VectorFunction
-from sympde.topology.space       import IndexedVectorFunction
-from sympde.topology.derivatives import _partial_derivatives
-from sympde.topology.derivatives import _logical_partial_derivatives
-from sympde.topology.derivatives import get_atom_derivatives
-from sympde.topology.derivatives import get_index_derivatives
-from sympde.topology             import LogicalExpr
-from sympde.topology             import SymbolicExpr
-from sympde.calculus.matrices    import SymbolicDeterminant
-
 from .basic      import SplBasic
-from .utilities  import random_string
 from .utilities  import build_pythran_types_header, variables
 from .utilities  import build_pyccel_type_annotations
 from .utilities  import math_atoms_as_str
 from .utilities  import get_max_partial_derivatives
-
-from psydac.fem.vector import MultipatchFemSpace
-from .nodes            import Zeros
+from .nodes      import Zeros
 
 #==============================================================================
 def is_scalar_field(expr):

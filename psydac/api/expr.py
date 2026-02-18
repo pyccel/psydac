@@ -1,22 +1,23 @@
-# coding: utf-8
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 
 # TODO for the moment we assume Product of same space
 # TODO properly treat expression with mapping
 
-from itertools import product
-from sympy import Expr
 import numpy as np
+from sympy import Expr
 
 from sympde.expr import TerminalExpr
 
 from psydac.api.glt           import GltBasicCodeGen as BasicCodeGen
-from psydac.api.settings      import PSYDAC_BACKEND_PYTHON, PSYDAC_DEFAULT_FOLDER
+from psydac.api.settings      import PSYDAC_BACKEND_PYTHON
 from psydac.api.grid          import CollocationBasisValues
 from psydac.api.ast.expr      import ExprKernel, ExprInterface
 from psydac.cad.geometry      import Geometry
-from psydac.mapping.discrete  import SplineMapping, NurbsMapping
-from psydac.fem.splines       import SplineSpace
-from psydac.fem.tensor        import TensorFemSpace
+from psydac.mapping.discrete  import NurbsMapping
 from psydac.fem.vector        import MultipatchFemSpace
 
 __all__ = ('DiscreteExpr',)

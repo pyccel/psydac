@@ -1,6 +1,8 @@
-# -*- coding: UTF-8 -*-
-
-
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 from mpi4py import MPI
 from sympy import pi, cos, sin, symbols
 from sympy.utilities.lambdify import implemented_function
@@ -407,7 +409,7 @@ def test_poisson_2d_dir0_1234_user_function():
 #            PARALLEL TESTS
 ###############################################################################
 
-@pytest.mark.parallel
+@pytest.mark.mpi
 @pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
 def test_poisson_2d_dir0_1234_parallel(backend):
 

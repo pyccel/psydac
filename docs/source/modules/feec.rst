@@ -7,14 +7,10 @@ feec
     :toctree: STUBDIR
     :template: autosummary/module.rst
 
+    feec.conforming_projectors
     feec.derivatives
-    feec.global_projectors
+    feec.global_geometric_projectors
+    feec.hodge
+    feec.multipatch_domain_utilities
     feec.pull_push
     feec.pushforward
-
-feec submodules
----------------
-.. toctree::
-    :maxdepth: 1
-
-    feec.multipatch

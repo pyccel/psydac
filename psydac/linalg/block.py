@@ -1,10 +1,11 @@
-# coding: utf-8
-#
-# Copyright 2018 Jalal Lakhlili, Yaman Güçlü
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
+from types import MappingProxyType
 
 import numpy as np
-
-from types import MappingProxyType
 from scipy.sparse import bmat, lil_matrix
 
 from psydac.linalg.basic    import VectorSpace, Vector, LinearOperator
@@ -276,7 +277,7 @@ class BlockVector(Vector):
         return self._space
 
     # ...
-    def toarray(self, order='C'):
+    def toarray(self, *, order='C'):
         """ Convert to Numpy 1D array. """
         return np.concatenate([bi.toarray(order=order) for bi in self._blocks])
 
