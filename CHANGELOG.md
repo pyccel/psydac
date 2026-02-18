@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+-   #571 : Fix correct application of the sum factorization algorithm
 -   #570 : Optimize PSYDAC logo
 -   #565 : Expand editable install info in `README.md`
 -   #566 : Fix command `psydac test --mpi` on Ubuntu machines
