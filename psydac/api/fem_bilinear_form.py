@@ -1440,12 +1440,12 @@ class DiscreteBilinearForm:
         assembly_code += '\n    return\n'
         
         #------------------------- MAKE FILE -------------------------
-        import os
-        if not os.path.isdir('__psydac__'):
-            os.makedirs('__psydac__')
 
         # Root process writes the assembly code to a file
         if comm is None or comm.rank == 0:
+            import os
+            if not os.path.isdir('__psydac__'):
+                os.makedirs('__psydac__')
             filename = f'__psydac__/assemble_{file_id}.py'
             f = open(filename, 'w')
             f.writelines(assembly_code)
@@ -1996,25 +1996,22 @@ class DiscreteBilinearForm:
         assembly_backend = self.backend
         if self._pyccelize_test_trial_computation and assembly_backend['name'] == 'pyccel':
 
-            import os
-            if not os.path.isdir('__psydac__'):
-                os.makedirs('__psydac__')
-
             comm = self.comm
 
-            if comm is not None and comm.size > 1:
-                if comm.rank == 0:
-                    filename = '__psydac__/test_trial_computation.py'
-                    code = self.test_trial_template
-                    f = open(filename, 'w')
-                    f.writelines(code)
-                    f.close()
-            else:
+            # Root process writes the assembly code to a file
+            if comm is None or comm.rank == 0:
+                import os
+                if not os.path.isdir('__psydac__'):
+                    os.makedirs('__psydac__')
                 filename = '__psydac__/test_trial_computation.py'
                 code = self.test_trial_template
                 f = open(filename, 'w')
                 f.writelines(code)
                 f.close()
+
+            # Parallel case: wait for the file to be closed before proceeding
+            if comm is not None and comm.size > 1:
+                _ = comm.bcast(None, root=0)
 
             base_dirpath = os.getcwd()
             sys.path.insert(0, base_dirpath)

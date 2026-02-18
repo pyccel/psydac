@@ -58,7 +58,7 @@ pip install "psydac[test]"
 Here `<HDF5-PATH>` is the path to the HDF5 root folder, such that `<HDF5-PATH>/lib/` contains the HDF5 dynamic libraries with MPI support.
 
 The last command above installs the latest version of PSYDAC found on [PyPI](https://pypi.org), the Python Package Index, together with some optional packages needed for running the unit tests.
-A developer wanting to modify the source code should skip that command, and instead clone the PSYDAC repository to perform an **editable install**:
+A developer wanting to modify the latest source code on GitHub should skip that command, and instead clone the PSYDAC repository (by default, in the branch `devel`) to perform an **editable install**:
 
 ```bash
 git clone --recurse-submodules https://github.com/pyccel/psydac.git
@@ -68,6 +68,8 @@ pip install meson-python "pyccel>=2.1.0"
 pip install --no-build-isolation --editable ".[test]"
 ```
 
+The last install command will create a local `build/` folder, which can be inspected in the case of an error.
+We recommend removing such a folder before running the command again (e.g. when installing PSYDAC in multiple virtual environments) in order to avoid conflicts in library path resolution.
 Again, for more details we refer to our [documentation](https://pyccel.github.io/psydac/installation.html).
 
 > [!TIP]

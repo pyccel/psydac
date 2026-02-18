@@ -73,9 +73,9 @@ Tracker       = "https://github.com/pyccel/psydac/issues"
 psydac = "psydac.cmd.main:psydac_command"
 
 [tool.meson-python.args]
-setup=['-Ddefault_library=static']
-dist=['--include-subprojects']
-install=['--only=python-modules']
+setup   = ['--default-library=static']
+dist    = ['--include-subprojects']
+install = ['--only=python-modules']
 
 [tool.coverage.run]
 branch = true
