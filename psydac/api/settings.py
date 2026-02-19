@@ -3,10 +3,10 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-import subprocess # nosec B404
+# import subprocess # nosec B404
 import platform
-import re
-from packaging.version import Version
+# import re
+# from packaging.version import Version
 
 
 __all__ = ('PSYDAC_DEFAULT_FOLDER', 'PSYDAC_BACKENDS')
@@ -25,11 +25,10 @@ PSYDAC_BACKEND_GPYCCEL  = {'name': 'pyccel',
                        'tag'     : 'gpyccel',
                        'openmp'  : False}
 
-# [MCP 10.02.2026] this flag was used previously for intel mac, should we add it ?
+# [MCP 10.02.2026] this flag was used previously for intel mac but probably not needed
 # if not platform.system() == "Darwin":
 #     PSYDAC_BACKEND_GPYCCEL['flags'] += ' -mtune=native'
 
-# [MCP 10.02.2026] YG's suggestion:
 if platform.machine() == 'x86_64':
     PSYDAC_BACKEND_GPYCCEL['flags'] += ' -mavx'
 
@@ -55,16 +54,11 @@ PSYDAC_BACKEND_NVPYCCEL = {'name': 'pyccel',
                        'openmp'  : False}
 # ...
 
-# Get gfortran version
-gfortran_version_output = subprocess.check_output(['gfortran', '--version']).decode('utf-8') # nosec B603, B607
-gfortran_version_string = re.search(r"(\d+\.\d+\.\d+)", gfortran_version_output).group()
-gfortran_version = Version(gfortran_version_string)
+# Get gfortran version [MCP 19.02.2026: commented since currently not needed]
+# gfortran_version_output = subprocess.check_output(['gfortran', '--version']).decode('utf-8') # nosec B603, B607
+# gfortran_version_string = re.search(r"(\d+\.\d+\.\d+)", gfortran_version_output).group()
+# gfortran_version = Version(gfortran_version_string)
 
-# Platform-dependent flags
-# if platform.system() == "Darwin" and platform.machine() == 'arm64':
-#     PSYDAC_BACKEND_GPYCCEL['flags'] += ' -march=native'
-
-# [MCP] version before PR #569, delete if OK:
 # if platform.system() == "Darwin" and platform.machine() == 'arm64' and gfortran_version >= Version("14"):
 #
 #     # Apple silicon requires architecture-specific flags (see https://github.com/pyccel/psydac/pull/411)
