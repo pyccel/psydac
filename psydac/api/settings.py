@@ -25,10 +25,6 @@ PSYDAC_BACKEND_GPYCCEL  = {'name': 'pyccel',
                        'tag'     : 'gpyccel',
                        'openmp'  : False}
 
-# [MCP 10.02.2026] this flag was used previously for intel mac but probably not needed
-# if not platform.system() == "Darwin":
-#     PSYDAC_BACKEND_GPYCCEL['flags'] += ' -mtune=native'
-
 if platform.machine() == 'x86_64':
     PSYDAC_BACKEND_GPYCCEL['flags'] += ' -mavx'
 
@@ -67,7 +63,6 @@ PSYDAC_BACKEND_NVPYCCEL = {'name': 'pyccel',
 #     if cpu_brand.startswith("Apple M"):
 #         # Example: "Apple M3 Pro (virtual)" --> " -mcpu=apple-m3"
 #         cpu_flag = '-'.join(cpu_brand.lower().split()[:2])
-#         cpu_flag = cpu_flag.replace('4', '3')
 #         PSYDAC_BACKEND_GPYCCEL['flags'] += f' -mcpu={cpu_flag}'
 #     else:
 #         # TODO: Support later Apple CPU models. Perhaps the CPU naming scheme could be easily guessed
