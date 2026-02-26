@@ -115,7 +115,7 @@ def test_derham_projector_2d_hdiv(ncells, degree, periodic, multiplicity):
     domain = Square('Omega', bounds1 = (0,2*np.pi), bounds2 = (0,2*np.pi))
     domain_h = discretize(domain, ncells=ncells, periodic=periodic)
     
-    # change multiplicity cannot be higher than the degree (otherwise splines are discontinuous)
+    # Reduce the multiplicity if higher than the degree (otherwise splines are discontinuous)
     multiplicity = [min(m, p) for p, m in zip(degree, multiplicity)]
 
     derham   = Derham(domain, ["H1", "Hdiv", "L2"])
@@ -165,7 +165,7 @@ def test_derham_projector_2d_hdiv_2(ncells, degree, periodic, multiplicity):
     domain = Square('Omega', bounds1 = (0,1), bounds2 = (0,1))
     domain_h = discretize(domain, ncells=ncells, periodic=periodic)
     
-    # change multiplicity cannot be higher than the degree (otherwise splines are discontinuous)
+    # Reduce the multiplicity if higher than the degree (otherwise splines are discontinuous)
     multiplicity = [min(m, p) for p, m in zip(degree, multiplicity)]
     
     derham   = Derham(domain, ["H1", "Hdiv", "L2"])
@@ -215,7 +215,7 @@ def test_derham_projector_2d_hcurl(ncells, degree, periodic, multiplicity):
     domain = Square('Omega', bounds1 = (0,2*np.pi), bounds2 = (0,2*np.pi))
     domain_h = discretize(domain, ncells=ncells, periodic=periodic)
     
-    # change multiplicity cannot be higher than the degree (otherwise splines are discontinuous)
+    # Reduce the multiplicity if higher than the degree (otherwise splines are discontinuous)
     multiplicity = [min(m, p) for p, m in zip (degree, multiplicity)]
     
     derham   = Derham(domain, ["H1", "Hcurl", "L2"])
