@@ -39,11 +39,6 @@ def run_poisson_2d(solution, f, domain, ncells, degree):
 
     kappa  = 10**3
 
-    #expr_I =- dot(grad(plus(u)),nn)*minus(v)  + dot(grad(minus(v)),nn)*plus(u) - kappa*plus(u)*minus(v)\
-    #        + dot(grad(minus(u)),nn)*plus(v)  - dot(grad(plus(v)),nn)*minus(u) - kappa*plus(v)*minus(u)\
-    #        - dot(grad(plus(v)),nn)*plus(u)   + kappa*plus(u)*plus(v)\
-    #        - dot(grad(minus(v)),nn)*minus(u) + kappa*minus(u)*minus(v)
-
     expr_I =- 0.5*dot(grad(plus(u)),nn)*minus(v)  + 0.5*dot(grad(minus(v)),nn)*plus(u)  - kappa*plus(u)*minus(v)\
             + 0.5*dot(grad(minus(u)),nn)*plus(v)  - 0.5*dot(grad(plus(v)),nn)*minus(u)  - kappa*plus(v)*minus(u)\
             - 0.5*dot(grad(minus(v)),nn)*minus(u) - 0.5*dot(grad(minus(u)),nn)*minus(v) + kappa*minus(u)*minus(v)\
@@ -83,7 +78,7 @@ def test_poisson_2d_2_patch_dirichlet_0():
     A = Square('A',bounds1=(0, 0.5), bounds2=(0, 1))
     B = Square('B',bounds1=(0.5, 1.), bounds2=(0, 1))
 
-    connectivity = [((0,0,1),(1,0,-1))]
+    connectivity = [((0,0,1),(1,0,-1)), 1]
     patches = [A,B]
     domain = Domain.join(patches, connectivity, 'domain')
 
@@ -105,7 +100,7 @@ def test_poisson_2d_2_patch_dirichlet_1():
     A = Square('A',bounds1=(0, 0.5), bounds2=(0, 1))
     B = Square('B',bounds1=(0.5, 1.), bounds2=(0, 1))
 
-    connectivity = [((0,0,1),(1,0,-1))]
+    connectivity = [((0,0,1),(1,0,-1)), 1]
     patches = [A,B]
     domain = Domain.join(patches, connectivity, 'domain')
 
@@ -126,7 +121,7 @@ def test_poisson_2d_2_patch_dirichlet_2():
     A = Square('A',bounds1=(0, 0.5), bounds2=(0, 1))
     B = Square('B',bounds1=(0.5, 1.), bounds2=(0, 1))
 
-    connectivity = [((0,0,1),(1,0,-1))]
+    connectivity = [((0,0,1),(1,0,-1)), 1]
     patches = [A,B]
     domain = Domain.join(patches, connectivity, 'domain')
 
@@ -155,7 +150,7 @@ def test_poisson_2d_2_patch_dirichlet_3():
     D1 = M1(A)
     D2 = M2(B)
 
-    connectivity = [((0,0,1),(1,0,1))]
+    connectivity = [((0,0,1),(1,0,1)), 1]
     patches = [D1,D2]
     domain = Domain.join(patches, connectivity, 'domain')
 
@@ -182,7 +177,7 @@ def test_poisson_2d_2_patch_dirichlet_4():
     D1 = M1(A)
     D2 = M2(B)
 
-    connectivity = [((0,0,-1),(1,0,-1))]
+    connectivity = [((0,0,-1),(1,0,-1)), 1]
     patches = [D1,D2]
     domain = Domain.join(patches, connectivity, 'domain')
 

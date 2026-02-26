@@ -11,9 +11,6 @@ import numpy as np
 from sympde.topology import Square, Domain
 from sympde.topology import IdentityMapping, PolarMapping, AffineMapping, Mapping
 
-# remove after sympde PR #155 is merged and call Domain.join instead
-from psydac.feec.multipatch_domain_utilities import sympde_Domain_join
-
 #==============================================================================
 # small extension to SymPDE:
 class TransposedPolarMapping(Mapping):
@@ -65,10 +62,34 @@ def flip_axis(name='no_name', c1=0., c2=0.):
 
 #==============================================================================
 
+def build_2_patch_domain():
+    """
+    build simple 2-patch domain domain
+    """
+    bounds1   = (0.5, 1.)
+    bounds2_A = (0, np.pi/2)
+    bounds2_B = (np.pi/2, np.pi)
+
+    A = Square('A',bounds1=bounds1, bounds2=bounds2_A)
+    B = Square('B',bounds1=bounds1, bounds2=bounds2_B)
+
+    mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
+    mapping_2 = PolarMapping('M2',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
+
+    D1     = mapping_1(A)
+    D2     = mapping_2(B)
+
+    connectivity = [((0,1,1), (1,1,-1), 1)]
+    patches = [D1, D2]
+    
+    domain = Domain.join(patches, connectivity, '2_patch_domain')
+    
+    return domain
+
 # todo: use build_multipatch_domain instead
 def build_pretzel(domain_name='pretzel', r_min=None, r_max=None):
     """
-    design pretzel-like domain
+    build pretzel-like domain
     """
 
     if r_min is None:
@@ -222,8 +243,7 @@ def build_pretzel(domain_name='pretzel', r_min=None, r_max=None):
         [(domain_12, axis_0, ext_0), (domain_14, axis_0, ext_1), 1],
         ]
 
-    # domain = Domain.join(patches, connectivity, name=domain_name)
-    domain = sympde_Domain_join(patches, connectivity, name=domain_name)
-
+    domain = Domain.join(patches, connectivity, name=domain_name)
+    
     return domain
 

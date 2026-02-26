@@ -29,6 +29,7 @@ from sympde.expr     import find, EssentialBC
 
 from psydac.api.discretization import discretize
 from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL
+from psydac.api.tests.build_domain import build_2_patch_domain
 
 # Get the mesh directory
 import psydac.cad.mesh as mesh_mod
@@ -153,11 +154,6 @@ def run_poisson_2d(solution, f, domain, ncells=None, degree=None, filename=None,
     I = domain.interfaces
 
     kappa = 10**3
-
-    #expr_I =- dot(grad(plus(u)),nn)*minus(v)  + dot(grad(minus(v)),nn)*plus(u) - kappa*plus(u)*minus(v)\
-    #        + dot(grad(minus(u)),nn)*plus(v)  - dot(grad(plus(v)),nn)*minus(u) - kappa*plus(v)*minus(u)\
-    #        - dot(grad(plus(v)),nn)*plus(u)   + kappa*plus(u)*plus(v)\
-    #        - dot(grad(minus(v)),nn)*minus(u) + kappa*minus(u)*minus(v)
 
     expr_I =- 0.5*dot(grad( plus(u)), nn) * minus(v) + 0.5*dot(grad(minus(v)), nn) *  plus(u) - kappa * plus(u)*minus(v)\
             + 0.5*dot(grad(minus(u)), nn) *  plus(v) - 0.5*dot(grad( plus(v)), nn) * minus(u) - kappa * plus(v)*minus(u)\
@@ -460,7 +456,8 @@ def test_complex_helmholtz_2d(plot_sol=False):
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
-def test_maxwell_2d_2_patch_dirichlet_2():
+def test_maxwell_2d_1_patch_dirichlet_2():
+
     # This test solve the maxwell problem with non-homogeneous dirichlet condition with penalization on the border of the exact solution
     domain = Square('domain', bounds1=(0, 1), bounds2=(0, 1))
     x,y      = domain.coordinates
@@ -480,23 +477,9 @@ def test_maxwell_2d_2_patch_dirichlet_2():
 
 @pytest.mark.mpi
 def test_maxwell_2d_2_patch_dirichlet_parallel_0():
+
     # This test solve the maxwell problem with non-homogeneous dirichlet condition with penalization on the border of the exact solution
-
-    bounds1   = (0.5, 1.)
-    bounds2_A = (0, np.pi/2)
-    bounds2_B = (np.pi/2, np.pi)
-
-    A = Square('A', bounds1=bounds1, bounds2=bounds2_A)
-    B = Square('B', bounds1=bounds1, bounds2=bounds2_B)
-
-    mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
-    mapping_2 = PolarMapping('M2',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
-
-    D1 = mapping_1(A)
-    D2 = mapping_2(B)
-
-    domain = Domain.join([D1, D2], [((0, 1, 1), (1, 1, -1))], 'domain')
-
+    domain = build_2_patch_domain()
     x, y = domain.coordinates
 
     omega = 1.5

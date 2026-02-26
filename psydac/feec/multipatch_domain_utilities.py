@@ -34,18 +34,6 @@ class TransposedPolarMapping(Mapping):
     _pdim = 2
 
 
-def sympde_Domain_join(patches, connectivity, name):
-    """
-    temporary fix while sympde PR #155 is not merged
-    """        
-    connectivity_by_indices = []
-    for I in connectivity:           
-        connectivity_by_indices.append(
-            [(patches.index(I[0][0]), I[0][1], I[0][2]), 
-             (patches.index(I[1][0]), I[1][1], I[1][2]),
-             I[2]])
-    return Domain.join(patches, connectivity_by_indices, name)
-
 
 def get_2D_rotation_mapping(name='no_name', c1=0., c2=0., alpha=None):
 
@@ -912,8 +900,7 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
     else:
         raise NotImplementedError
 
-    # domain = Domain.join(patches, connectivity, name='domain')
-    domain = sympde_Domain_join(patches, connectivity, name='domain')
+    domain = Domain.join(patches, connectivity, name='domain')
     
     return domain
 
@@ -1005,8 +992,7 @@ def build_cartesian_multipatch_domain(ncells, log_interval_x, log_interval_y, ma
              (list_patches[j][i+1], axis_1, ext_1), 1] 
             for i in range(nb_patchx -1) if ncells[i][j] is not None and ncells[i+1][j] is not None])
 
-    # domain = Domain.join(patches, connectivity, name='domain')
-    domain = sympde_Domain_join(patches, connectivity, name='domain')
+    domain = Domain.join(patches, connectivity, name='domain')
 
     return domain
     
