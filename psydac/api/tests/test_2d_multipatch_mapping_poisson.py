@@ -275,6 +275,22 @@ def test_poisson_2d_4_patch_dirichlet_0():
     assert ( abs(l2_error - expected_l2_error) < 1e-7 )
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
 
+def test_poisson_2d_bretzel_dirichlet_0():
+
+    domain = build_pretzel()
+
+    x,y       = domain.coordinates
+    solution  = x**2 + y**2
+    f         = -4
+
+    l2_error, h1_error, uh = run_poisson_2d(solution, f, domain, ncells=[2**2,2**2], degree=[2,2])
+
+    expected_l2_error = 0.009824734742571888
+    expected_h1_error = 0.10615177751253213
+
+    assert ( abs(l2_error - expected_l2_error) < 1e-7 )
+    assert ( abs(h1_error - expected_h1_error) < 1e-7 )
+
 ###############################################################################
 #            PARALLEL TESTS
 ###############################################################################
