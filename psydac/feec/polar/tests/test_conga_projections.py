@@ -1,3 +1,6 @@
+from itertools import product
+
+import h5py
 import numpy as np
 from numpy import pi
 
@@ -43,10 +46,51 @@ def get_random_block_vector(space):
     return x
 
 
+def create_reference_file(proj_name, projections_list):
+    """
+    Save global sparse matrices (after checking their correctness by hand) in h5 format for tests
+    This function is needed only if the parameters for the tests are changed
+    """
+    f = h5py.File(proj_name + '.h5', mode='w')
+    params = dict(
+        transposed=[False, True],
+        hbc=[True, False],
+        degree=[[2, 2], [2, 3]],
+        ncells=[[8, 10], [15, 12]],
+        projector=projections_list,
+    )
+
+    for (tr, hbc, deg, nc, proj) in product(params["transposed"], params["hbc"], params["degree"], params["ncells"],
+                                            params["projector"]):
+
+        if proj_name == "P2" and hbc is True:
+            continue
+        domain = get_domain(1)
+        domain_h = discretize(domain, ncells=nc, periodic=[False, True])
+        if proj_name == 'P1':
+            V = VectorFunctionSpace('V', domain, kind='hcurl')
+        else:
+            V = ScalarFunctionSpace('V', domain)
+        V_h = discretize(V, domain_h, degree=deg)
+
+        if proj_name == 'P2': P = proj(V_h)
+        else: P = proj(V_h, hbc=hbc)
+        if tr: P = P.T
+
+        key = f"{proj.__name__}/n{nc[0]}x{nc[1]}/p{deg[0]}-{deg[1]}/hbc{hbc}/T{tr}"
+        if key in f:
+            del f[key]
+        g = f.require_group(key)
+        g.create_dataset("P", data=P.toarray())
+        print("saved", key)
+
+    f.close()
+
+
 @pytest.mark.parametrize('transposed', [False, True])
 @pytest.mark.parametrize('hbc', [True, False])
 @pytest.mark.parametrize('degree', [[2, 2], [2, 3]])
-@pytest.mark.parametrize('ncells', [[8, 10], [15, 12], [14, 20]])
+@pytest.mark.parametrize('ncells', [[8, 10], [15, 12]])
 @pytest.mark.parametrize('R', [1])
 @pytest.mark.parametrize('Projector', [C0PolarProjection_V0, C1PolarProjection_V0])
 @pytest.mark.mpi
@@ -72,6 +116,12 @@ def test_PolarProjection_V0(Projector, R, ncells, degree, hbc, transposed):
 
     # Comparing results of dot and tosparse
     sp_P0 = P0.tosparse()
+    name = Projector.__name__
+    with h5py.File('P0.h5', "r") as f:
+        key = f"{name}/n{ncells[0]}x{ncells[1]}/p{degree[0]}-{degree[1]}/hbc{hbc}/T{transposed}/P"
+        sp_P0_ref = f[key][()]
+        assert np.allclose(sp_P0.toarray(), sp_P0_ref)
+
     x_global = mpi_comm.allreduce(x.toarray(), op=MPI.SUM)
     y_sp = sp_P0 @ x_global
     y = mpi_comm.allreduce(y.toarray(), op=MPI.SUM)
@@ -84,7 +134,7 @@ def test_PolarProjection_V0(Projector, R, ncells, degree, hbc, transposed):
 @pytest.mark.parametrize('transposed', [False, True])
 @pytest.mark.parametrize('hbc', [True, False])
 @pytest.mark.parametrize('degree', [[2, 2], [2, 3]])
-@pytest.mark.parametrize('ncells', [[6, 8], [15, 12], [14, 20]])
+@pytest.mark.parametrize('ncells', [[8, 10], [15, 12]])
 @pytest.mark.parametrize('R', [1])
 @pytest.mark.parametrize('Projector', [C0PolarProjection_V1, C1PolarProjection_V1])
 @pytest.mark.mpi
@@ -112,6 +162,12 @@ def test_PolarProjection_V1(Projector, R, ncells, degree, hbc, transposed):
 
     # Comparing results of dot and tosparse
     sp_P1 = P1.tosparse()
+    name = Projector.__name__
+    with h5py.File('P1.h5', "r") as f:
+        key = f"{name}/n{ncells[0]}x{ncells[1]}/p{degree[0]}-{degree[1]}/hbc{hbc}/T{transposed}/P"
+        sp_P0_ref = f[key][()]
+        assert np.allclose(sp_P1.toarray(), sp_P0_ref)
+
     x_global = mpi_comm.allreduce(x.toarray(), op=MPI.SUM)
     y_sp = sp_P1 @ x_global
     y = mpi_comm.allreduce(y.toarray(), op=MPI.SUM)
@@ -121,8 +177,8 @@ def test_PolarProjection_V1(Projector, R, ncells, degree, hbc, transposed):
 
 
 @pytest.mark.parametrize( 'transposed', [True, False])
-@pytest.mark.parametrize( 'degree', [[1, 1], [2, 2]])
-@pytest.mark.parametrize( 'ncells', [[4, 8], [12, 12]])
+@pytest.mark.parametrize('degree', [[2, 2], [2, 3]])
+@pytest.mark.parametrize('ncells', [[8, 10], [15, 12]])
 @pytest.mark.parametrize( 'R', [1])
 @pytest.mark.mpi
 
@@ -147,8 +203,18 @@ def test_PolarProjection_V2(R, ncells, degree, transposed):
 
     # Comparing results of dot and tosparse
     sp_P2 = P2.tosparse()
+    name = 'C0PolarProjection_V2'
+    with h5py.File('P2.h5', "r") as f:
+        key = f"{name}/n{ncells[0]}x{ncells[1]}/p{degree[0]}-{degree[1]}/hbc{False}/T{transposed}/P"
+        sp_P0_ref = f[key][()]
+        assert np.allclose(sp_P2.toarray(), sp_P0_ref)
+
     x_global = mpi_comm.allreduce(x.toarray(), op=MPI.SUM)
     y_sp = sp_P2 @ x_global
 
     assert np.allclose(y_sp, y.toarray())
 
+if __name__ == '__main__':
+    create_reference_file("P0", [C0PolarProjection_V0, C1PolarProjection_V0])
+    create_reference_file("P1", [C0PolarProjection_V1, C1PolarProjection_V1])
+    create_reference_file("P2", [C0PolarProjection_V2])
