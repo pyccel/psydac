@@ -65,6 +65,9 @@ def flip_axis(name='no_name', c1=0., c2=0.):
 def build_2_patch_domain():
     """
     build simple 2-patch domain domain
+def build_2_patch_annulus():
+    """
+    Build a 180º annulus by connecting two 90º annular patches.
     """
     bounds1   = (0.5, 1.)
     bounds2_A = (0, np.pi/2)
