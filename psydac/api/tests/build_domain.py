@@ -87,7 +87,7 @@ def build_2_patch_domain():
     return domain
 
 # todo: use build_multipatch_domain instead
-def build_pretzel(domain_name='pretzel', r_min=None, r_max=None):
+def build_11_patch_pretzel(domain_name='pretzel', r_min=None, r_max=None):
     """
     Build a pretzel-like 2D domain by connecting 11 patches through 13 conforming interfaces.
     """
