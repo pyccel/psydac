@@ -995,4 +995,4 @@ def build_cartesian_multipatch_domain(ncells, log_interval_x, log_interval_y, ma
     domain = Domain.join(patches, connectivity, name='domain')
 
     return domain
-    
+
