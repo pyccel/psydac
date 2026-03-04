@@ -1,4 +1,5 @@
 from itertools import product
+from pathlib import Path
 
 import h5py
 import numpy as np
@@ -114,14 +115,19 @@ def test_PolarProjection_V0(Projector, R, ncells, degree, hbc, transposed):
     # Checking projection property P0(P0(phi)) = P0(phi)
     assert np.allclose(P0.dot(y)[:, :], y[:, :])
 
-    # Comparing results of dot and tosparse
+    # Comparing the global sparse matrix to reference file
     sp_P0 = P0.tosparse()
-    name = Projector.__name__
-    with h5py.File('P0.h5', "r") as f:
-        key = f"{name}/n{ncells[0]}x{ncells[1]}/p{degree[0]}-{degree[1]}/hbc{hbc}/T{transposed}/P"
-        sp_P0_ref = f[key][()]
-        assert np.allclose(sp_P0.toarray(), sp_P0_ref)
+    sp_P0_global = mpi_comm.allreduce(sp_P0.toarray(), op=MPI.SUM)
+    if mpi_comm.rank == 0:
+        name = Projector.__name__
+        h5_path = Path(__file__).absolute().parent / "P0.h5"
 
+        with h5py.File(h5_path, "r") as f:
+            key = f"{name}/n{ncells[0]}x{ncells[1]}/p{degree[0]}-{degree[1]}/hbc{hbc}/T{transposed}/P"
+            sp_P0_ref = f[key][()]
+            assert np.allclose(sp_P0_global, sp_P0_ref)
+
+    # Comparing results of dot and tosparse
     x_global = mpi_comm.allreduce(x.toarray(), op=MPI.SUM)
     y_sp = sp_P0 @ x_global
     y = mpi_comm.allreduce(y.toarray(), op=MPI.SUM)
@@ -160,14 +166,19 @@ def test_PolarProjection_V1(Projector, R, ncells, degree, hbc, transposed):
     assert np.allclose(P1.dot(y)[0][:, :], y[0][:, :])
     assert np.allclose(P1.dot(y)[1][:, :], y[1][:, :])
 
-    # Comparing results of dot and tosparse
+    # Comparing the global sparse matrix to reference file
     sp_P1 = P1.tosparse()
-    name = Projector.__name__
-    with h5py.File('P1.h5', "r") as f:
-        key = f"{name}/n{ncells[0]}x{ncells[1]}/p{degree[0]}-{degree[1]}/hbc{hbc}/T{transposed}/P"
-        sp_P0_ref = f[key][()]
-        assert np.allclose(sp_P1.toarray(), sp_P0_ref)
+    sp_P1_global = mpi_comm.allreduce(sp_P1.toarray(), op=MPI.SUM)
+    if mpi_comm.rank == 0:
+        name = Projector.__name__
+        h5_path = (Path(__file__).absolute().parent / "P1.h5")
 
+        with h5py.File(h5_path, "r") as f:
+            key = f"{name}/n{ncells[0]}x{ncells[1]}/p{degree[0]}-{degree[1]}/hbc{hbc}/T{transposed}/P"
+            sp_P1_ref = f[key][()]
+            assert np.allclose(sp_P1_global, sp_P1_ref)
+
+    # Comparing results of dot and tosparse
     x_global = mpi_comm.allreduce(x.toarray(), op=MPI.SUM)
     y_sp = sp_P1 @ x_global
     y = mpi_comm.allreduce(y.toarray(), op=MPI.SUM)
@@ -201,14 +212,20 @@ def test_PolarProjection_V2(R, ncells, degree, transposed):
     # Checking projection property P0(P0(phi)) = P0(phi)
     assert np.allclose(P2.dot(y)[:, :], y[:, :])
 
-    # Comparing results of dot and tosparse
+    # Comparing the global sparse matrix to reference file
     sp_P2 = P2.tosparse()
-    name = 'C0PolarProjection_V2'
-    with h5py.File('P2.h5', "r") as f:
-        key = f"{name}/n{ncells[0]}x{ncells[1]}/p{degree[0]}-{degree[1]}/hbc{False}/T{transposed}/P"
-        sp_P0_ref = f[key][()]
-        assert np.allclose(sp_P2.toarray(), sp_P0_ref)
+    sp_P2_global = mpi_comm.allreduce(sp_P2.toarray(), op=MPI.SUM)
+    if mpi_comm.rank == 0:
 
+        name = 'C0PolarProjection_V2'
+        h5_path = (Path(__file__).absolute().parent / "P2.h5")
+
+        with h5py.File(h5_path, "r") as f:
+            key = f"{name}/n{ncells[0]}x{ncells[1]}/p{degree[0]}-{degree[1]}/hbc{False}/T{transposed}/P"
+            sp_P1_ref = f[key][()]
+            assert np.allclose(sp_P2_global, sp_P1_ref)
+
+    # Comparing results of dot and tosparse
     x_global = mpi_comm.allreduce(x.toarray(), op=MPI.SUM)
     y_sp = sp_P2 @ x_global
 
