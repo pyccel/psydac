@@ -448,7 +448,6 @@ class C0PolarProjection_V1_11(LinearOperator):
 
         P = coo_matrix((data, (local_cols, local_cols)), shape=[n11 * n12, n01 * n02], dtype=dtype)
         P.eliminate_zeros()
-        print(P.toarray())
         return P.T if self.transposed else P
 
 
@@ -634,6 +633,8 @@ def cos_sin_avg(theta, x, angle_comm, s2, e2, n2, i):
 
 
 # --------- 0-FORMS CONGA PROJECTOR P0 ----------#
+
+# matrix p in the paper notation
 def toeplitz_columns_sym(t, s2, e2, n2):
 
     i = np.arange(n2)[:, None]  # (n2, 1)
@@ -796,7 +797,6 @@ class C1PolarProjection_V0(LinearOperator):
 
         P = coo_matrix((data, (rows, cols)), shape=[n1 * n2, n1 * n2], dtype=self.W0.coeff_space.dtype)
         P.eliminate_zeros()
-        print(P.toarray())
 
         return P.T if self.transposed else P
 
@@ -848,8 +848,6 @@ class C1PolarProjection_V1_00(LinearOperator):
     def dtype(self):
         return float
 
-    # Warning: this dot method has to be revised for mpi!
-    # the toeplitz multiplication requires all processes along the theta-dir to communicate.
     def dot(self, x, out=None):
         assert isinstance(x, StencilVector)
 
@@ -898,38 +896,49 @@ class C1PolarProjection_V1_00(LinearOperator):
 
         [n01, n02] = self.domain.npts
         theta = np.linspace(0, 2 * pi, n02, endpoint=False)  # Warning not mpi!
+        [s1, s2] = self.domain.starts
+        [e1, e2] = self.domain.ends
+        print(n01, n02)
 
-        ntot = n01 * n02
-        dtype = self.domain.dtype
-        P = lil_matrix((ntot, ntot), dtype=dtype)
+        data, cols, rows = [], [], []
+        rank_at_polar_edge = (s1 == 0)
 
-        # c = (2/n02) * (np.cos(np.roll(theta, -1) - theta[0]) - np.cos(theta - theta[0]))
-        # r = (2/n02) * (np.cos(theta[1] - theta) - np.cos(theta[0] - theta))
-        # p_block = 2/n02 * toeplitz(np.cos(theta - theta[0]))
+        if rank_at_polar_edge:
+            #block p
+            data = (2 / n02) * toeplitz_columns_sym(theta, s2, e2, n02)
+            # block I - p
+            i_minus_p = -1 * data.copy()
+            diag_js = np.arange(s2, e2 + 1)
+            diag_pos = (diag_js - s2) * n02 + diag_js
+            i_minus_p[diag_pos] += 1.0
 
-        c = (2 / n02) * np.cos(theta - theta[0])  # first column
-        r = (2 / n02) * np.cos(theta[0] - theta)  # first row
+            data = np.concatenate((data, i_minus_p))
 
-        p_block = toeplitz(c, r)
+            rows_theta = np.tile(np.arange(n02), e2 - s2 + 1)
+            cols_theta = np.repeat(np.arange(s2, e2 + 1), n02)
+            rows = np.concatenate((rows, rows_theta))
+            cols = np.concatenate((cols, cols_theta))
+            rows = np.concatenate((rows, rows_theta + 1 * n02))
+            cols = np.concatenate((cols, cols_theta))
 
-        P[:n02, :n02] = p_block
-        P[n02:2 * n02, :n02] += sp_eye(n02)  # - p_block
-        P[n02:2 * n02, :n02] -= p_block
-        P[n02:, n02:] = sp_eye(ntot - n02)
+            print(data)
+            print(cols)
+            print(rows)
 
-        # p2 = p_block @ p_block
-        # print(f'p-p2 = {p_block - p2}')
-        # Imp = sp_eye(n02) - p_block
+        # Assemble the rest of the matrix (identity block)
+        start_s = max(s1, 1)
+        end_s = e1 + 1
+        i = np.arange(start_s, end_s)[:, None]
+        j = np.arange(s2, e2 + 1)[None, :]
+        local_cols = (i * n02 + j).ravel()
 
-        # imp_b = P[n02:2*n02, :n02]
-        # print(f'check 2 = {Imp - imp_b}')
+        data = np.concatenate((data, np.ones((e2 - s2 + 1) * (end_s - start_s))))
+        cols = np.concatenate((cols, local_cols))
+        rows = np.concatenate((rows, local_cols))
 
-        # prod_b = Imp @ p_block + p_block @ Imp
-        # print(f'check 3 = {Imp - prod_b}')
-
-        # print( f" ---- PU1_00 -> to sparse:  {self.transposed} ---- ")
-
-        # exit()
+        P = coo_matrix((data, (rows, cols)), shape=[n01 * n02, n01 * n02], dtype=self.domain.dtype)
+        P.eliminate_zeros()
+        np.set_printoptions(precision=3)
 
         return P.T if self.transposed else P
 
@@ -952,7 +961,6 @@ class C1PolarProjection_V1_10(LinearOperator):
     """
 
     def __init__(self, W1, transposed=False):
-        # assert isinstance(W1, ProductFemSpace)
         assert isinstance(W1, VectorFemSpace)
 
         self.W1 = W1
@@ -974,9 +982,6 @@ class C1PolarProjection_V1_10(LinearOperator):
     def dtype(self):
         return float
 
-    # Warning: this dot method has to be revised for mpi!
-    # the toeplitz multiplication requires all processes along the theta-dir to communicate.
-    # We also use np.roll which should be changed with the use of ghost regions
     def dot(self, x, out=None):
         assert isinstance(x, StencilVector)
         if not x.ghost_regions_in_sync:
@@ -1038,26 +1043,26 @@ class C1PolarProjection_V1_10(LinearOperator):
 
         [n01, n02] = domain_P1_10.npts  # radial grid
         [n11, n12] = codomain_P1_10.npts  # angular grid
+        [s1, s2] = domain_P1_10.starts
+        [e1, e2] = domain_P1_10.ends
 
-        theta = np.linspace(0, 2 * pi, n02, endpoint=False)  # Warning not mpi!
+        rank_at_polar_edge = (s1 == 0)
+        data, cols, rows = [], [], []
+        if rank_at_polar_edge:
+            theta = np.linspace(0, 2 * pi, n02, endpoint=False)  # Warning not mpi!
+            cols = np.repeat(np.arange(s2, e2 + 1), n02)
+            rows = np.tile(np.arange(n02, 2*n02), e2 - s2 + 1)
+            i = np.arange(n02)[:, None]
+            j = np.arange(s2, e2 + 1)[None, :]
+            idx = np.abs(i - j)
+            p_cols = np.cos(theta[idx])
 
-        dtype = domain_P1_10.dtype
-        P = lil_matrix((n11 * n12, n01 * n02), dtype=dtype)
+            p_next = np.roll(p_cols, shift=-1, axis=0)
+            data = (2.0 / n02) * (p_next - p_cols).ravel('F')
 
-        c = (2 / n02) * (np.cos(np.roll(theta, -1) - theta[0]) - np.cos(theta - theta[0]))  # correct ?
-        # c = (2/n02) * (np.cos(np.roll(theta, 1) - theta[0]) - np.cos(theta - theta[0]))
-        r = (2 / n02) * (np.cos(theta[1] - theta) - np.cos(theta[0] - theta))
 
-        q_block = toeplitz(c, r)
-        # print(f'domain V1_s:       [n01, n02] = {[n01, n02]}')
-        # print(f'codomain V1_theta: [n11, n12] = {[n11, n12]}')
-
-        # print(f'n01 * n02 + n12:n01 * n02 + 2 * n12 = {n01 * n02 + n12}:{n01 * n02 + 2 * n12}')
-        # print(f'P.shape = {P.shape}')
-        # print(f'q_block.shape = {q_block.shape}')
-        # print(f'P[n01 * n02 + n12:n01 * n02 + 2 * n12, :n12].shape = {P[n01 * n02 + n12:n01 * n02 + 2 * n12, :n12].shape}')
-        # P[n01 * n02 + n12:n01 * n02 + 2 * n12, :n12] = q_block  # seems wrong
-        P[n12:2 * n12, :n02] = q_block
+        P = coo_matrix((data, (rows, cols)), shape=[n11 * n12, n01 * n02], dtype=self.domain.dtype)
+        print(P.toarray())
 
         return P.T if self.transposed else P
 
