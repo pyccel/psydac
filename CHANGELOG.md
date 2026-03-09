@@ -6,12 +6,15 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+-   #577 : Add an installation configuration option to choose the backend language.
+
 ### Fixed
 
 -   #571 : Fix correct application of the sum factorization algorithm
 -   #570 : Optimize PSYDAC logo
 -   #565 : Expand editable install info in `README.md`
 -   #566 : Fix command `psydac test --mpi` on Ubuntu machines
+-   #577 : Fix installation following release of Pyccel v2.1.0.
 -   [DEVELOPER] Update CI installation of `h5py` and `petsc4py` after release of `setuptools` 81.0
 
 ### Changed
