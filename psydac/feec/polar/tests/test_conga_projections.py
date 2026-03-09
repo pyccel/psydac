@@ -161,10 +161,10 @@ def test_PolarProjection_V1(Projector, R, ncells, degree, hbc, transposed):
     x = get_random_block_vector(V1_h)
     y = BlockVector(V1_h.coeff_space)
     P1.dot(x, out=y)
-
+    z = P1.dot(y)
     # Checking projection property P1(P1(phi)) = P1(phi)
-    assert np.allclose(P1.dot(y)[0][:, :], y[0][:, :])
-    assert np.allclose(P1.dot(y)[1][:, :], y[1][:, :])
+    assert np.allclose(z[0][:, :], y[0][:, :])
+    assert np.allclose(z[1][:, :], y[1][:, :])
 
     # Comparing the global sparse matrix to reference file
     sp_P1 = P1.tosparse()
