@@ -4,7 +4,13 @@ project(
   meson_version: '>=1.1.0',
 )
 
-run_command('pyccel', 'make', '-g', 'psydac/**/*_kernels.py', '--convert-only',
+pyccel_main_language = get_option('pyccel_language')
+
+message('Translating kernels to ' + pyccel_main_language)
+
+language_flag = '--language=' + pyccel_main_language
+
+run_command('pyccel', 'make', '-g', 'psydac/**/*_kernels.py', '--convert-only', '--language=' + pyccel_main_language,
     check: true)
 
 find = find_program('find', required: true)
