@@ -64,7 +64,7 @@ A developer wanting to modify the latest source code on GitHub should skip that 
 git clone --recurse-submodules https://github.com/pyccel/psydac.git
 cd psydac
 
-pip install meson-python "pyccel>=2.1.0"
+pip install meson-python "pyccel>=2.2.2"
 pip install --no-build-isolation --editable ".[test]"
 ```
 
