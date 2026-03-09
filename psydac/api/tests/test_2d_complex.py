@@ -29,7 +29,7 @@ from sympde.expr     import find, EssentialBC
 
 from psydac.api.discretization import discretize
 from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL
-from psydac.api.tests.build_domain import build_2_patch_domain
+from psydac.api.tests.build_domain import build_2_patch_annulus
 
 # Get the mesh directory
 import psydac.cad.mesh as mesh_mod
@@ -479,7 +479,7 @@ def test_maxwell_2d_1_patch_dirichlet_2():
 def test_maxwell_2d_2_patch_dirichlet_parallel_0():
 
     # This test solve the maxwell problem with non-homogeneous dirichlet condition with penalization on the border of the exact solution
-    domain = build_2_patch_domain()
+    domain = build_2_patch_annulus()
     x, y = domain.coordinates
 
     omega = 1.5
@@ -519,10 +519,10 @@ if __name__ == '__main__':
 
         from psydac.fem.plotting_utilities import get_plotting_grid, get_grid_vals
         from psydac.fem.plotting_utilities import get_patch_knots_gridlines, my_small_plot
-        from psydac.api.tests.build_domain             import build_pretzel
+        from psydac.api.tests.build_domain             import build_11_patch_pretzel
         from psydac.feec.pull_push                     import pull_2d_hcurl
         
-        domain = build_pretzel()
+        domain = build_11_patch_pretzel()
         x,y    = domain.coordinates
 
         omega = 1.5

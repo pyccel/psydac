@@ -8,12 +8,12 @@ from mpi4py import MPI
 from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
 
 from psydac.api.discretization     import discretize
-from psydac.api.tests.build_domain import build_pretzel
+from psydac.api.tests.build_domain import build_11_patch_pretzel
 from psydac.api.postprocessing     import OutputManager, PostProcessManager
 from psydac.fem.basic import FemField
 
 def save_sample_data(ncells, degree, vector, kind, comm=None):
-    domain = build_pretzel()
+    domain = build_11_patch_pretzel()
 
     if vector or kind in ['hdiv', 'hcurl']:
         space = VectorFunctionSpace('V', domain, kind=kind)
@@ -41,7 +41,7 @@ def save_sample_data(ncells, degree, vector, kind, comm=None):
 
 def export_sample_data(npts_per_cell, comm=None):
     Pm = PostProcessManager(
-        domain=build_pretzel(),
+        domain=build_11_patch_pretzel(),
         space_file='sample_data_pretzel.yml',
         fields_file='sample_data_pretzel.h5',
         comm=comm,

@@ -24,7 +24,7 @@ from sympde.expr.expr     import Norm, SemiNorm
 from sympde.expr.equation import find, EssentialBC
 
 from psydac.api.discretization     import discretize
-from psydac.api.tests.build_domain import build_pretzel, build_2_patch_domain
+from psydac.api.tests.build_domain import build_11_patch_pretzel, build_2_patch_annulus
 from psydac.api.settings           import PSYDAC_BACKEND_GPYCCEL
 from psydac.fem.plotting_utilities import plot_field_2d as plot_field
 
@@ -99,7 +99,7 @@ def run_poisson_2d(solution, f, domain, ncells=None, degree=None, filename=None,
 #------------------------------------------------------------------------------
 def test_poisson_2d_2_patches_dirichlet_0():
 
-    domain = build_2_patch_domain()    
+    domain = build_2_patch_annulus()
 
     x,y = domain.coordinates
     solution = x**2 + y**2
@@ -116,7 +116,7 @@ def test_poisson_2d_2_patches_dirichlet_0():
 #------------------------------------------------------------------------------
 def test_poisson_2d_2_patches_dirichlet_1():
 
-    domain = build_2_patch_domain()
+    domain = build_2_patch_annulus()
 
     x,y = domain.coordinates
     solution = sin(pi*x)*sin(pi*y)
@@ -167,7 +167,7 @@ def test_poisson_2d_3_patches_dirichlet_2():
 #------------------------------------------------------------------------------
 def test_poisson_2d_2_patches_dirichlet_3():
 
-    domain = build_2_patch_domain()
+    domain = build_2_patch_annulus()
     x,y       = domain.coordinates
     solution  = (2.654-x)**2 + (1.1-y)**2
     f         = -4
@@ -277,7 +277,7 @@ def test_poisson_2d_4_patch_dirichlet_0():
 
 def test_poisson_2d_bretzel_dirichlet_0():
 
-    domain = build_pretzel()
+    domain = build_11_patch_pretzel()
 
     x,y       = domain.coordinates
     solution  = x**2 + y**2
@@ -299,7 +299,7 @@ def test_poisson_2d_bretzel_dirichlet_0():
 @pytest.mark.mpi
 def test_poisson_2d_2_patches_dirichlet_parallel_0():
 
-    domain = build_2_patch_domain()
+    domain = build_2_patch_annulus()
 
     x,y = domain.coordinates
     solution = sin(pi*x)*sin(pi*y)
@@ -370,7 +370,7 @@ if __name__ == '__main__':
     from psydac.fem.plotting_utilities import get_patch_knots_gridlines, my_small_plot
     from collections                               import OrderedDict
 
-    domain    = build_pretzel()
+    domain    = build_11_patch_pretzel()
     x,y       = domain.coordinates
     solution  = x**2 + y**2
     f         = -4

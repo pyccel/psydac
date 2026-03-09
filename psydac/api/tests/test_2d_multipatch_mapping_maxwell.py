@@ -24,7 +24,7 @@ from sympde.expr.expr     import Norm
 from sympde.expr.equation import find, EssentialBC
 
 from psydac.api.discretization       import discretize
-from psydac.api.tests.build_domain   import build_pretzel, build_2_patch_domain
+from psydac.api.tests.build_domain   import build_11_patch_pretzel, build_2_patch_annulus
 from psydac.fem.basic                import FemField
 from psydac.api.settings             import PSYDAC_BACKEND_GPYCCEL
 from psydac.feec.pull_push           import pull_2d_hcurl
@@ -113,7 +113,7 @@ def run_maxwell_2d(uex, f, alpha, domain, *, ncells=None, degree=None, filename=
 #------------------------------------------------------------------------------
 def test_maxwell_2d_2_patch_dirichlet_0():
 
-    domain = build_2_patch_domain()
+    domain = build_2_patch_annulus()
     x,y    = domain.coordinates
 
     omega = 1.5
@@ -157,7 +157,7 @@ def test_maxwell_2d_2_patch_dirichlet_1():
 @pytest.mark.mpi
 def test_maxwell_2d_2_patch_dirichlet_parallel_0():
 
-    domain = build_2_patch_domain()
+    domain = build_2_patch_annulus()
     x,y    = domain.coordinates
 
     omega = 1.5
@@ -209,7 +209,7 @@ if __name__ == '__main__':
     from psydac.fem.plotting_utilities   import get_plotting_grid, get_grid_vals
     from psydac.fem.plotting_utilities   import get_patch_knots_gridlines, my_small_plot
 
-    domain    = build_pretzel()
+    domain    = build_11_patch_pretzel()
     x,y       = domain.coordinates
 
     omega = 1.5
