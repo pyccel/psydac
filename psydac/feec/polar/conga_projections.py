@@ -921,10 +921,6 @@ class C1PolarProjection_V1_00(LinearOperator):
             rows = np.concatenate((rows, rows_theta + 1 * n02))
             cols = np.concatenate((cols, cols_theta))
 
-            print(data)
-            print(cols)
-            print(rows)
-
         # Assemble the rest of the matrix (identity block)
         start_s = max(s1, 1)
         end_s = e1 + 1
@@ -982,6 +978,28 @@ class C1PolarProjection_V1_10(LinearOperator):
     def dtype(self):
         return float
 
+    def forward_theta_diff_local(self, z, angle_comm):
+
+        # Compute result[j] = z[j+1] - z[j] for distributed array z (periodic)
+        result = np.empty_like(z)
+
+        if angle_comm is None or angle_comm.size == 1:
+            result[:] = np.roll(z, -1) - z
+            return result
+
+        result[:-1] = z[1:] - z[:-1]
+
+        rank = angle_comm.rank
+        size = angle_comm.size
+        right_rank = (rank + 1) % size
+        left_rank = (rank - 1) % size
+
+        recvbuf = np.empty(1, dtype=z.dtype)
+        angle_comm.Sendrecv(sendbuf=z[0], dest=left_rank, recvbuf=recvbuf, source=right_rank)
+
+        result[-1] = recvbuf[0] - z[-1]
+        return result
+
     def dot(self, x, out=None):
         assert isinstance(x, StencilVector)
         if not x.ghost_regions_in_sync:
@@ -1014,9 +1032,8 @@ class C1PolarProjection_V1_10(LinearOperator):
             else:
                 y[0, s2:e2 + 1] = 0
                 sum_cos, sum_sin = cos_sin_avg(theta_local, x, angle_comm, s2, e2, n2, 0)
-                y[1, s2:e2 + 1] = np.cos(theta_local) * sum_cos + np.sin(theta_local) * sum_sin
-                y.update_ghost_regions()
-                y[1, s2:e2 + 1] = y[1, s2 + 1:e2 + 2] - y[1, s2:e2 + 1]
+                row = np.cos(theta_local) * sum_cos + np.sin(theta_local) * sum_sin
+                y[1, s2:e2 + 1] = self.forward_theta_diff_local(row, angle_comm)
                 y[2:e1 + 1, s2:e2 + 1] = 0
         else:
             y[s1:e1 + 1, s2:e2 + 1] = 0
