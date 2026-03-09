@@ -15,6 +15,11 @@ run_command('pyccel', 'make', '-g', 'psydac/**/*_kernels.py', '--convert-only', 
 
 find = find_program('find', required: true)
 
+# Python dependencies
+py = import('python').find_installation('/usr/bin/python3.13', modules: ['numpy'])
+cc = meson.get_compiler('c')
+m_dep = cc.find_library('m', required : false)
+
 pyccel_meson_math_file = run_command(find, '__pyccel__/math', '-name', 'meson.build',
     check: true).stdout().strip()
 pyccel_meson_cwrapper_file = run_command(find, '__pyccel__/cwrapper', '-name', 'meson.build',
