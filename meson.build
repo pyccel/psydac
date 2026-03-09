@@ -13,8 +13,9 @@ run_command('pyccel', 'make', '-g', 'psydac/**/*_kernels.py', '--convert-only', 
 
 find = find_program('find', required: true)
 
-# Python dependencies
-py = import('python').find_installation('/usr/bin/python3.13', modules: ['numpy'])
+py = import('python').find_installation(modules: ['numpy'], pure: false)
+
+# Math dependencies
 cc = meson.get_compiler('c')
 m_dep = cc.find_library('m', required : false)
 
@@ -42,8 +43,6 @@ endforeach
 
 
 igakit_proj = subproject('igakit')
-
-py = import('python').find_installation(modules: ['numpy'], pure: false)
 
 subdir('__pyccel__/math')
 subdir('__pyccel__/cwrapper')
