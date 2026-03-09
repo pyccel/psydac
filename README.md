@@ -77,6 +77,10 @@ Again, for more details we refer to our [documentation](https://pyccel.github.io
 > This gives the user access to a wide variety of linear solvers and other algorithms.
 > Instructions for installing [PETSc](https://petsc.org) and `petsc4py` can be found in our [documentation](https://pyccel.github.io/psydac/installation.html#id9).
 
+> [!TIP]
+> PSYDAC is installed with a Fortran backend by default however it is possible to request a different language backend by adding `-Csetup-args="-Dpyccel_language=<language>"` to the pip command (e.g. `-Csetup-args="-Dpyccel_language=c"`).
+> This is particularly useful if you want to use psydac in a project which also uses Pyccel for acceleration.
+
 ## Running Tests
 
 We strongly advice users and developers to run the test suite of PSYDAC to verify the correct installation on their machine (possibly a supercomputer).
