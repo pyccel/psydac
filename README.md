@@ -73,13 +73,12 @@ We recommend removing such a folder before running the command again (e.g. when 
 Again, for more details we refer to our [documentation](https://pyccel.github.io/psydac/installation.html).
 
 > [!TIP]
+> By default Pyccel provides PSYDAC with a Fortran backend, however it is possible to request a different language as described [below](#speeding-up-psydacs-core).
+
+> [!TIP]
 > PSYDAC provides the functionality to convert its MPI-parallel matrices and vectors to their [PETSc](https://petsc.org) equivalent, and back.
 > This gives the user access to a wide variety of linear solvers and other algorithms.
 > Instructions for installing [PETSc](https://petsc.org) and `petsc4py` can be found in our [documentation](https://pyccel.github.io/psydac/installation.html#id9).
-
-> [!TIP]
-> PSYDAC is installed with a Fortran backend by default however it is possible to request a different language backend by adding `-Csetup-args="-Dpyccel_language=<language>"` to the pip command (e.g. `-Csetup-args="-Dpyccel_language=c"`).
-> This is particularly useful if you want to use psydac in a project which also uses Pyccel for acceleration.
 
 ## Running Tests
 
@@ -105,6 +104,12 @@ Many of PSYDAC's low-level Python functions can be translated to a compiled lang
 Currently, all of those functions are collected in modules which follow the name pattern `[module]_kernels.py`.
 
 For both classical and editable installations, *all kernel files are translated to Fortran __without user intervention__*.
+Another language supported by Pyccel can be chosen by adding the `-Csetup-args="-Dpyccel_language=<language>"` to the `pip install` command.
+For example, a classical installation of PSYDAC with C is obtained by running the command
+```bash
+pip install "psydac[test]" -Csetup-args="-Dpyccel_language=C"
+```
+
 If the user adds or edits a kernel file within an editable install, they should use the command `psydac compile` in order to be able to see the changes at runtime.
 This command applies Pyccel to all the kernel files in the source directory.
 The default language is Fortran, and C is also available.
