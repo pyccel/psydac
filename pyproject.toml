@@ -1,5 +1,5 @@
 [build-system]
-requires = ["meson-python", "pyccel >= 2.1.0"]
+requires = ["meson-python", "pyccel >= 2.2.2"]
 build-backend = "mesonpy"
 
 [project]
@@ -32,7 +32,7 @@ dependencies = [
 
     # Our packages from PyPi
     'sympde == 0.19.2',
-    'pyccel >= 2.1.0',
+    'pyccel >= 2.2.2',
     'gelato == 0.12',
 
     # MPI for Python provides Python bindings for the
