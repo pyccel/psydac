@@ -30,6 +30,10 @@ echo "Running with $SLURM_ARRAY_TASK_ID processes"
 
 cat /proc/meminfo
 
+echo "This task is running on: $SLURMD_NODENAME"
+echo "All nodes for this job: $SLURM_JOB_NODELIST"
+
+
 echo loading modules ...
 
 module purge

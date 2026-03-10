@@ -22,6 +22,28 @@ for i in range(len(nprocs_list)):
             time_assemble[i,j,k] = data['time_assemble'].item()
 
 
+
+def write_time_to_table(nprocs_list, nrows_list, time_kernel, time_setValuesIJV, time_assemble):
+    table = open(f'table_petsc_performance.txt', "w")
+    print(f'$K$ & $N$ & $T^P(K,N)$ (\\si{{\\second}}) & $T^S(K,N)$ (\\si{{\\second}}) & $T^A(K,N)$ (\\si{{\\second}})' + r'\\ \hline', flush=True, file=table)
+    for i in range(len(nprocs_list)):
+        print(f'\\SetCell[r=5]{{c}} {nprocs_list[i]}', flush=True, file=table)
+        for j in range(len(nrows_list)):
+            max_kernel = np.max([t for t in time_kernel[i,j] if t is not None])
+            max_setValuesIJV = np.max([t for t in time_setValuesIJV[i,j] if t is not None])
+            max_assemble = np.max([t for t in time_assemble[i,j] if t is not None])
+
+            print(f' & {nrows_list[j]} & {'{:.2e}'.format(max_kernel)} & {'{:.2e}'.format(max_setValuesIJV)} & {'{:.2e}'.format(max_assemble)}' + r'\\', flush=True, file=table)
+
+        print(r'\hline', flush=True, file=table)
+
+    table.close()
+write_time_to_table(nprocs_list, nrows_list, time_kernel, time_setValuesIJV, time_assemble)
+
+
+
+
+
 """
 # Plotting Configuration
 datasets = [
@@ -218,8 +240,9 @@ def plot_time_vs_nprocs_scatter(nrows_list, nprocs_list, array, title):
     plt.savefig(f'time_vs_nprocs_{title}.pdf')
     plt.close()
 
-def plot_time_vs_nprocs(nrows_list, nprocs_list, array, title):
-    plt.figure(figsize=(10, 6))
+def plot_time_vs_nprocs(nrows_list, nprocs_list, array, title, op):
+    plt.figure(figsize=(7, 5))
+    plt.rcParams.update({'font.size': 12})  
     
     # Iterate through each problem size (nrows)
     # The array is indexed as [procs_idx, rows_idx, process_idx]
@@ -241,31 +264,42 @@ def plot_time_vs_nprocs(nrows_list, nprocs_list, array, title):
                 valid_procs.append(nprocs)
 
         # Plotting
-        line, = plt.plot(valid_procs, means, '-o', label=f'#rows={row_val}')
-        plt.fill_between(
-            valid_procs, mins, maxs, 
-            color=line.get_color(), alpha=0.3
-        )
+        if op == 'mean':
+            line, = plt.plot(valid_procs, means, '-o', label=f'nr={row_val}')
+            plt.fill_between(
+                valid_procs, mins, maxs, 
+                color=line.get_color(), alpha=0.3
+            )
+        elif op == 'max':
+            line, = plt.plot(valid_procs, maxs, '-', marker='^', label=f'$N={row_val}$', markerfacecolor='none', markersize=10)
 
     # Formatting
     plt.xscale('log', base=2)
     plt.yscale('log')
-    plt.xlabel('number of processes')
+    plt.xlabel(r'$K$')
     plt.xticks(nprocs_list, nprocs_list)
-    plt.ylabel('Time [s]')
-    plt.title(f'Time {title} vs. number of processes')
-    plt.legend()#bbox_to_anchor=(1.05, 1), loc='upper left')
+    if title == 'kernel':
+        plt.title(f'$T^P(K,N)$')
+    elif title == 'setValuesIJV':
+        plt.title(f'$T^S(K,N)$')
+    elif title == 'assemble':
+        plt.title(f'$T^A(K,N)$')
+
+    #plt.title(f'{title}')
+    #plt.legend(loc='lower left', fontsize=10)#bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+    #plt.legend(loc='lower left', fontsize=11)
     plt.grid(True, which="both", ls="-", alpha=0.5)
     plt.tight_layout()
-    plt.savefig(f'time_vs_nprocs_{title}.pdf')
+    plt.savefig(f'time_vs_nprocs_{title}_{op}.pdf')
     plt.close()
 
-plot_time_vs_nprocs(nrows_list, nprocs_list, time_kernel, 'kernel')
-plot_time_vs_nprocs(nrows_list, nprocs_list, time_setValuesIJV, 'setValuesIJV')
-plot_time_vs_nprocs(nrows_list, nprocs_list, time_assemble, 'assemble')
+plot_time_vs_nprocs(nrows_list, nprocs_list, time_kernel, 'kernel', 'max')
+plot_time_vs_nprocs(nrows_list, nprocs_list, time_setValuesIJV, 'setValuesIJV', 'max')
+plot_time_vs_nprocs(nrows_list, nprocs_list, time_assemble, 'assemble', 'max')
 
 def plot_strong_scaling(nrows_list, nprocs_list, array, title, op):
-    plt.rcParams.update({'font.size': 11})
+    plt.rcParams.update({'font.size': 12})
     # Data preparation: Filtering None values and calculating statistics
     # time_kernel[nprocs_idx][nrows_idx][process_idx]
     data = [] 
@@ -279,7 +313,11 @@ def plot_strong_scaling(nrows_list, nprocs_list, array, title, op):
 
 
     ## 1. Strong Scaling Plot
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(5, 5))
+
+    # Ideal scaling line
+    plt.plot(nprocs_list, nprocs_list, '--', color='black', label='linear speedup')
+
     for r_idx, nrows in enumerate(nrows_list):
         if op == 'max':
             # Strong scaling uses the maximum time (bottleneck) among all processes
@@ -291,19 +329,35 @@ def plot_strong_scaling(nrows_list, nprocs_list, array, title, op):
         t1 = op_times[0]
         speedup = [t1 / tn for tn in op_times]
         
-        plt.plot(nprocs_list, speedup, marker='^', label=f'#rows={nrows}', markerfacecolor='none', markersize=10)
+        line, = plt.plot(nprocs_list, speedup, marker='^', label=f'$N={nrows}$', markerfacecolor='none', markersize=10)
 
-    # Ideal scaling line
-    plt.plot(nprocs_list, nprocs_list, '--', color='gray', label='linear speedup')
+    for s, nprocs in zip(speedup[1:], nprocs_list[1:]):
+        plt.annotate(str(round(s,1)), (nprocs, s), 
+            xytext=(-17, -6),      # Offset
+            textcoords='offset points', 
+            ha='right',            # Horizontal alignment: end of text is at the offset
+            va='bottom',
+            color=line.get_color(), fontsize=11, 
+            bbox=dict(boxstyle="square,pad=0.2", 
+                                fc='#F5F5F5', 
+                                ec="gray",
+                                alpha=1,
+                                lw=0))
 
     plt.xscale('log', base=2)
     plt.yscale('log', base=2)
     plt.xticks(nprocs_list, nprocs_list)
     plt.yticks([2**k for k in range(len(nprocs_list)+1)], [2**k for k in range(len(nprocs_list)+1)])
-    plt.xlabel('number of processes')
-    plt.ylabel('speedup')
-    plt.title(f'Strong scaling (maximum over processes) {title}')
-    plt.legend()
+    #plt.yticks([round(s,1) for s in speedup], [round(s,1) for s in speedup])
+    plt.xlabel(r'$K$')
+    #plt.ylabel('speedup')
+    if title == 'kernel':
+        plt.title(f'$\mathcal{{S}}^P(K,N)$')
+    elif title == 'setValuesIJV':
+        plt.title(f'$\mathcal{{S}}^S(K,N)$')
+    elif title == 'assemble':
+        plt.title(f'$\mathcal{{S}}^A(K,N)$')
+    plt.legend(fontsize=11)
     plt.grid(True, which="both", ls="-", alpha=0.5)
     plt.tight_layout()
     plt.savefig(f'strong_scaling_{title}_{op}.pdf')
@@ -315,7 +369,7 @@ plot_strong_scaling(nrows_list, nprocs_list, time_assemble, 'assemble', 'max')
 
 
 def plot_efficiency(nrows_list, nprocs_list, array, title, op):
-    plt.rcParams.update({'font.size': 11})
+    plt.rcParams.update({'font.size': 12})
     # Data preparation: Filtering None values and calculating statistics
     # time_kernel[nprocs_idx][nrows_idx][process_idx]
     data = [] 
@@ -329,7 +383,10 @@ def plot_efficiency(nrows_list, nprocs_list, array, title, op):
 
 
     ## 1. Efficiency Plot
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(5, 5))
+    # Ideal efficiency
+    plt.plot(nprocs_list, [1]*len(nprocs_list), '--', color='black')
+
     for r_idx, nrows in enumerate(nrows_list):
         if op == 'max':
             op_times = [np.max(data[p_idx][r_idx]) for p_idx in range(len(nprocs_list))]
@@ -342,22 +399,35 @@ def plot_efficiency(nrows_list, nprocs_list, array, title, op):
 
         efficiency = [speedup[p_idx]/nprocs_list[p_idx] for p_idx in range(len(nprocs_list))]
         
-        plt.plot(nprocs_list, efficiency, marker='^', label=f'#rows={nrows}', markerfacecolor='none', markersize=10)
+        line, = plt.plot(nprocs_list, efficiency, marker='^', label=f'$N={nrows}$', markerfacecolor='none', markersize=10)
 
-    # Ideal efficiency
-    plt.plot(nprocs_list, [1]*len(nprocs_list), '--', color='gray', label='total efficiency')
-
+    for e, nprocs in zip(efficiency[1:], nprocs_list[1:]):
+        plt.annotate(f'{int(round(e,2)*1e2)}%', (nprocs, e), 
+            xytext=(-15, 15),      # Offset
+            textcoords='offset points', color=line.get_color(), fontsize=11, annotation_clip=False, clip_on=True,
+            bbox=dict(boxstyle="square,pad=0.2", 
+                                fc='#F5F5F5', 
+                                ec="gray",
+                                alpha=1,
+                                lw=0))
     plt.xscale('log', base=2)
-    #plt.yscale('log', base=2)
+    #plt.yscale('log', base=10)
     plt.xticks(nprocs_list, nprocs_list)
-    plt.xlabel('number of processes')
-    plt.ylabel('efficiency')
-    plt.title(f'Parallel efficiency (maximum over processes) {title}')
-    plt.legend()
+    plt.yticks([round(n,1) for n in np.linspace(0,1, 6)] + [1.1], [round(n,1) for n in np.linspace(0,1, 6)] + [''])
+    plt.xlabel(r'$K$')
+    #plt.ylabel('efficiency')
+    if title == 'kernel':
+        plt.title(f'$\mathcal{{E}}^P(K,N)$')
+    elif title == 'setValuesIJV':
+        plt.title(f'$\mathcal{{E}}^S(K,N)$')
+    elif title == 'assemble':
+        plt.title(f'$\mathcal{{E}}^A(K,N)$')
+
+    plt.legend(fontsize=11)
     plt.grid(True, which="both", ls="-", alpha=0.5)
     plt.tight_layout()
     plt.savefig(f'efficiency_{title}_{op}.pdf')
-    plt.ylim(top=1., bottom=0.)
+    plt.ylim(top=1.2, bottom=-0.1)
     plt.close()
 
 plot_efficiency(nrows_list, nprocs_list, time_kernel, 'kernel', 'max')
@@ -365,36 +435,52 @@ plot_efficiency(nrows_list, nprocs_list, time_setValuesIJV, 'setValuesIJV', 'max
 plot_efficiency(nrows_list, nprocs_list, time_assemble, 'assemble', 'max')
 
 
-def plot_load_imbalance(nrows_list, nprocs_list, array, title):
-    data = [] 
-    for p_idx in range(len(nprocs_list)):
+def plot_load_imbalance(nrows_list, nprocs_list, array_list):
+    data = []
+    for k in range(len(array_list)):
         p_data = []
-        for r_idx in range(len(nrows_list)):
-            # Extract times for active processes only
-            times = [t for t in array[p_idx][r_idx] if t is not None]
-            p_data.append(np.array(times))
+        for p_idx in range(len(nprocs_list)):
+            p2_data = []
+            for r_idx in range(len(nrows_list)):
+                # Extract times for active processes only
+                times = [t for t in array_list[k][p_idx][r_idx] if t is not None]
+                p2_data.append(np.array(times))
+            p_data.append(p2_data)
         data.append(p_data)
-    plt.rcParams.update({'font.size': 11})
+    plt.rcParams.update({'font.size': 12})
     ## 2. Load Imbalance Plot (Boxplots)
     # We will create a subplot for each nrows_list entry to see imbalance evolution
-    fig, axes = plt.subplots(1, len(nrows_list), figsize=(20, 6), sharey=False)
+    fig, axes = plt.subplots(len(array_list), len(nrows_list), figsize=(15, 10), sharey=False)
 
-    for r_idx, nrows in enumerate(nrows_list):
-        # Group data by nprocs for this specific row count
-        plot_data = [data[p_idx][r_idx] for p_idx in range(len(nprocs_list))]
-        
-        axes[r_idx].boxplot(plot_data, labels=nprocs_list)
-        axes[r_idx].set_title(f'#rows={nrows}')
-        axes[r_idx].set_xlabel('#processes')
-        if r_idx == 0:
-            axes[r_idx].set_ylabel('Time [s]')
-        axes[r_idx].grid(axis='y', alpha=0.3)
+    for k in range(len(array_list)):
+        for r_idx, nrows in enumerate(nrows_list):
+            # Group data by nprocs for this specific row count
+            plot_data = [data[k][p_idx][r_idx] for p_idx in range(len(nprocs_list))]
+            
+            axes[k,r_idx].boxplot(plot_data, labels=nprocs_list, 
+                                medianprops={"color": f'C{r_idx}', "linewidth": 1.2})
+            if k == 0:
+                axes[k,r_idx].set_title(f'$N={nrows}$')
+            if k == 2:
+                axes[k,r_idx].set_xlabel(r'$K$')
+            if r_idx == 0:
+                if k == 0:
+                    axes[k,r_idx].set_ylabel(f'$t^P(K,N,\cdot)$')
+                elif k == 1:
+                    axes[k,r_idx].set_ylabel(f'$t^S(K,N,\cdot)$')
+                elif k == 2:
+                    axes[k,r_idx].set_ylabel(f'$t^A(K,N,\cdot)$')
 
-    plt.suptitle(f'Load imbalance across processes for {title}', fontsize=16)
-    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-    plt.savefig(f'load_imbalance_{title}.pdf')
+            axes[k,r_idx].grid(axis='y', alpha=0.3)
+
+    plt.suptitle(f'Load imbalance across processes')
+    #plt.xscale('log', base=2)
+    #plt.yscale('log')
+    #plt.xlabel(r'$K$')
+    #plt.xticks(nprocs_list, nprocs_list)
+    plt.tight_layout()#rect=[0, 0.03, 1, 0.95])
+    plt.savefig(f'load_imbalance.pdf')
     plt.close()
 
-plot_load_imbalance(nrows_list, nprocs_list, time_kernel, 'kernel')
-plot_load_imbalance(nrows_list, nprocs_list, time_setValuesIJV, 'setValuesIJV')
-plot_load_imbalance(nrows_list, nprocs_list, time_assemble, 'assemble')
+
+plot_load_imbalance(nrows_list, nprocs_list, [time_kernel, time_setValuesIJV, time_assemble])
