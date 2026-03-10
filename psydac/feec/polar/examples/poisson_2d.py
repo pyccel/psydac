@@ -277,7 +277,7 @@ class CongaLaplacian(LinearOperator):
         y.update_ghost_regions()
         return y
 
-    def transpose(self):
+    def transpose(self, conjugate=False):
         return CongaLaplacian(self.S.T, self.M.T, self.P.T, self.alpha)
 
     def tosparse(self):
