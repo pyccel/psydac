@@ -391,134 +391,6 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         f2_with_det = lambda eta1, eta2: f_log(eta1, eta2) ** 2 * np.sqrt(F.metric_det(eta1, eta2))
         return np.sqrt(derham_h.V0.integral(f2_with_det))
 
-    #TODO Remove this! It's only for debugging
-    def compare_serial_parallel():
-
-        if mpi_rank == 0:
-            if use_spline_mapping:
-                #geometry = Geometry(filename='geo.h5')
-                domain_h_s = discretize(domain, filename='geo.h5')
-                #F_serial = [*domain_h_serial.mappings.values()].pop()
-            derham_h_s = discretize(derham, domain_h_s, degree=degree)
-            V0_s, V1_s, V2_s = derham_h_s.spaces
-            V1_sx, V1_sy = V1_s.spaces
-            ex_field, = V1_sx.import_fields('Ex.h5', 'Ex_field')
-            ey_field, = V1_sy.import_fields('Ey.h5', 'Ey_field')
-            ex_data = ex_field.coeffs._data
-            ey_data = ey_field.coeffs._data
-            #B_serial, = V2_s.import_fields('B.h5', 'B_field')
-
-
-            if mpi_size == 1:
-                np.save('Ex_coeffs_ser.npy', ex_data)
-            else:
-                np.save('Ex_coeffs_par.npy', ex_data)
-
-            if mpi_size == 1:
-                np.save('Ey_coeffs_ser.npy', ey_data)
-            else:
-                np.save('Ey_coeffs_par.npy', ey_data)
-
-            Ex_coeffs_ser = np.load('Ex_coeffs_ser.npy')
-            Ex_coeffs_par = np.load('Ex_coeffs_par.npy')
-            Ey_coeffs_ser = np.load('Ey_coeffs_ser.npy')
-            Ey_coeffs_par = np.load('Ey_coeffs_par.npy')
-            print(Ex_coeffs_ser - Ex_coeffs_par)
-            print(np.linalg.norm(Ex_coeffs_ser - Ex_coeffs_par))
-            print(Ey_coeffs_ser - Ey_coeffs_par)
-            print(np.linalg.norm(Ey_coeffs_ser - Ey_coeffs_par))
-            a = input()
-        exit()
-
-    def compare_P():
-
-        if mpi_rank == 0:
-            if use_spline_mapping:
-                #geometry = Geometry(filename='geo.h5')
-                domain_h_s = discretize(domain, filename='geo.h5')
-                #F_serial = [*domain_h_serial.mappings.values()].pop()
-            derham_h_s = discretize(derham, domain_h_s, degree=degree)
-            V0_s, V1_s, V2_s = derham_h_s.spaces
-            V1_sx, V1_sy = V1_s.spaces
-            print("NCELLS")
-            print(V1_sx.degree, V1_sx.ncells, V1_sx.nbasis)
-            print(V1_sy.degree, V1_sy.ncells, V1_sy.nbasis)
-            ex_field, = V1_sx.import_fields('Ex.h5', 'Ex_field')
-            ey_field, = V1_sy.import_fields('Ey.h5', 'Ey_field')
-
-            ex_fieldP, = V1_sx.import_fields('ExP.h5', 'Ex_field')
-            ey_fieldP, = V1_sy.import_fields('EyP.h5', 'Ey_field')
-
-            ex_fieldPP, = V1_sx.import_fields('ExPP.h5', 'Ex_field')
-            ey_fieldPP, = V1_sy.import_fields('EyPP.h5', 'Ey_field')
-
-            ex_data = ex_field.coeffs._data
-            ey_data = ey_field.coeffs._data
-            ex_dataP = ex_fieldP.coeffs._data
-            ey_dataP = ey_fieldP.coeffs._data
-            ex_dataPP = ex_fieldPP.coeffs._data
-            ey_dataPP = ey_fieldPP.coeffs._data
-            #B_serial, = V2_s.import_fields('B.h5', 'B_field')
-
-
-            print(ey_data)
-            print(ey_dataP)
-            print(ex_data.shape)
-            print(ey_data.shape)
-            # print(ex_dataP - ex_dataPP)
-            # print(np.linalg.norm(ex_dataP - ex_dataPP))
-            # print(ey_dataP - ey_dataPP)
-            # print(np.linalg.norm(ey_dataP - ey_dataPP))
-            a = input()
-        exit()
-
-    def test_P1(V1, P1):
-
-        e = V1.coeff_space.zeros()
-        Ex, Ey = e[0], e[1]
-
-        [s1, s2] = Ey.starts
-        [e1, e2] = Ey.ends
-
-        # for i in range(s1, e1 + 1):
-        #     for j in range(s2, e2 + 1):
-        #         Ex[i, j] = 0.1 * i + 0.01 * j
-        #         Ey[i, j] = -0.2 * i + 0.03 * j
-        print("RANK")
-        print(mpi_rank, s1, e1, s2, e2)
-        print(Ey._data)
-        Ey[0, 0] = 1
-
-        e.update_ghost_regions()
-        print(Ex._data)
-
-        Ex_field = FemField(V1x, coeffs=Ex)
-        Ey_field = FemField(V1y, coeffs=Ey)
-        V1x.export_fields('Ex.h5', Ex_field=Ex_field)
-        V1y.export_fields('Ey.h5', Ey_field=Ey_field)
-
-        eP = V1.coeff_space.zeros()
-        P1.dot(e, out=eP)
-        ExP, EyP = eP[0], eP[1]
-        ExP.update_ghost_regions()
-        EyP.update_ghost_regions()
-        Ex_field = FemField(V1x, coeffs=ExP)
-        Ey_field = FemField(V1y, coeffs=EyP)
-        V1x.export_fields('ExP.h5', Ex_field=Ex_field)
-        V1y.export_fields('EyP.h5', Ey_field=Ey_field)
-
-        P1.dot(eP.copy(), out=eP)
-        ExP, EyP = eP[0], eP[1]
-        ExP.update_ghost_regions()
-        EyP.update_ghost_regions()
-        Ex_field = FemField(V1x, coeffs=ExP)
-        Ey_field = FemField(V1y, coeffs=EyP)
-        V1x.export_fields('ExPP.h5', Ex_field=Ex_field)
-        V1y.export_fields('EyPP.h5', Ey_field=Ey_field)
-        compare_P()
-
-        exit()
-
     def run_study_L2_proj():
         omega = 4
         print(f'studying L2 proj of f in H_0(curl) .. with omega = {omega}')
@@ -611,41 +483,41 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
 
         # plot
 
-        fx_values = np.empty_like(x1)
-        fy_values = np.empty_like(x1)
-        fx_filter_values = np.empty_like(x1)
-        fy_filter_values = np.empty_like(x1)
+        # fx_values = np.empty_like(x1)
+        # fy_values = np.empty_like(x1)
+        # fx_filter_values = np.empty_like(x1)
+        # fy_filter_values = np.empty_like(x1)
+        #
+        # fx_ex_values = np.empty_like(x1)
+        # fy_ex_values = np.empty_like(x1)
+        #
+        # for i, x1i in enumerate(x1[:, 0]):
+        #     for j, x2j in enumerate(x2[0, :]):
+        #
+        #
+        #         xij, yij = F(x1i, x2j)
+        #         fx_values[i, j], fy_values[i, j] = \
+        #             push_2d_hcurl(fh.fields[0], fh.fields[1], x1i, x2j, F)
+        #         fx_filter_values[i, j], fy_filter_values[i, j] = \
+        #             push_2d_hcurl(fh_filter.fields[0], fh_filter.fields[1], x1i, x2j, F)
+        #         fx_ex_values[i, j], fy_ex_values[i, j] = \
+        #             fx_call(xij, yij), fy_call(xij, yij)
 
-        fx_ex_values = np.empty_like(x1)
-        fy_ex_values = np.empty_like(x1)
-
-        for i, x1i in enumerate(x1[:, 0]):
-            for j, x2j in enumerate(x2[0, :]):
-
-
-                xij, yij = F(x1i, x2j)
-                fx_values[i, j], fy_values[i, j] = \
-                    push_2d_hcurl(fh.fields[0], fh.fields[1], x1i, x2j, F)
-                fx_filter_values[i, j], fy_filter_values[i, j] = \
-                    push_2d_hcurl(fh_filter.fields[0], fh_filter.fields[1], x1i, x2j, F)
-                fx_ex_values[i, j], fy_ex_values[i, j] = \
-                    fx_call(xij, yij), fy_call(xij, yij)
-
-        fig2 = plot_field_and_error(r'f^x', 0, x, y, fx_values, fx_ex_values, *gridlines)
-        fig2.savefig(f'{visdir}/fx_{rp_str}.png')
-
-        fig3 = plot_field_and_error(r'f^y', 0, x, y, fy_values, fy_ex_values, *gridlines)
-        fig3.savefig(f'{visdir}/fy_{rp_str}.png')
-
-        print('done: showing fh')
-
-        fig2.clf()
-        fig2 = plot_field_and_error(r'f^x filter', 0, x, y, fx_filter_values, fx_ex_values, *gridlines)
-        fig2.savefig(f'{visdir}/fx_filter_{rp_str}.png')
-
-        fig3.clf()
-        fig3 = plot_field_and_error(r'f^y filter', 0, x, y, fy_filter_values, fy_ex_values, *gridlines)
-        fig3.savefig(f'{visdir}/fy_filter_{rp_str}.png')
+        # fig2 = plot_field_and_error(r'f^x', 0, x, y, fx_values, fx_ex_values, *gridlines)
+        # fig2.savefig(f'{visdir}/fx_{rp_str}.png')
+        #
+        # fig3 = plot_field_and_error(r'f^y', 0, x, y, fy_values, fy_ex_values, *gridlines)
+        # fig3.savefig(f'{visdir}/fy_{rp_str}.png')
+        #
+        # print('done: showing fh')
+        #
+        # fig2.clf()
+        # fig2 = plot_field_and_error(r'f^x filter', 0, x, y, fx_filter_values, fx_ex_values, *gridlines)
+        # fig2.savefig(f'{visdir}/fx_filter_{rp_str}.png')
+        #
+        # fig3.clf()
+        # fig3 = plot_field_and_error(r'f^y filter', 0, x, y, fy_filter_values, fy_ex_values, *gridlines)
+        # fig3.savefig(f'{visdir}/fy_filter_{rp_str}.png')
 
 
         print('done: showing fh_filter')
@@ -748,8 +620,6 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         P1.dot(e.copy(), out=e)
         P2.dot(b.copy(), out=b)
 
-        # compare_serial_parallel()
-
         V1x, V1y = V1.spaces #call them s, theta
         Ex_field = FemField(V1x, coeffs=e[0])
         Ey_field = FemField(V1y, coeffs=e[1])
@@ -757,8 +627,6 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         V1x.export_fields('Ex.h5', Ex_field=Ex_field)
         V1y.export_fields('Ey.h5', Ey_field=Ey_field)
         V2.export_fields('B.h5', B_field=B_field)
-        #test_P1(V1, P1)
-
 
         if use_scipy:
 
@@ -814,33 +682,33 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
 
     # print( x2)
 
-    def plot_fields_along_s(tstr):  # , j0=0, j1=0):
-
-        # if j1 is None:
-        j0 = 0
-        j1 = x2.shape[1] // 2
-        theta0 = x2[0, j0]
-        theta1 = x2[0, j1]
-        name = 'Ex'
-        fig_line = plot_curve_along_s(name, 's', tstr, f'{theta0} and {theta1}',
-                                      x1[:, j0], Ex_values[:, j0], Ex_ex_values[:, j0],
-                                      -x1[:, j1], Ex_values[:, j1], Ex_ex_values[:, j1])
-        # fig_line = plot_curve_along_s(name, 's', tstr, -x1[:,j1], f'{theta1}', Ex_values[:,j1], Ex_ex_values[:,j1])
-        fig_line.savefig(f'{visdir}/{name}_line_{tstr}_{rp_str}.png')
-        # plt.close(fig_line)
-        fig_line.clf()
-        name = 'Ey'
-        fig_line = plot_curve_along_s(name, 's', tstr, f'{theta0} and {theta1}',
-                                      x1[:, j0], Ey_values[:, j0], Ey_ex_values[:, j0],
-                                      -x1[:, j1], Ey_values[:, j1], Ey_ex_values[:, j1])
-        fig_line.savefig(f'{visdir}/{name}_line_{tstr}_{rp_str}.png')
-        fig_line.clf()
-        name = 'Bz'
-        fig_line = plot_curve_along_s(name, 's', tstr, f'{theta0} and {theta1}',
-                                      x1[:, j0], Bz_values[:, j0], Bz_ex_values[:, j0],
-                                      -x1[:, j1], Bz_values[:, j1], Bz_ex_values[:, j1])
-        fig_line.savefig(f'{visdir}/{name}_line_{tstr}_{rp_str}.png')
-        plt.close(fig_line)
+    # def plot_fields_along_s(tstr):  # , j0=0, j1=0):
+    #
+    #     # if j1 is None:
+    #     j0 = 0
+    #     j1 = x2.shape[1] // 2
+    #     theta0 = x2[0, j0]
+    #     theta1 = x2[0, j1]
+    #     name = 'Ex'
+    #     fig_line = plot_curve_along_s(name, 's', tstr, f'{theta0} and {theta1}',
+    #                                   x1[:, j0], Ex_values[:, j0], Ex_ex_values[:, j0],
+    #                                   -x1[:, j1], Ex_values[:, j1], Ex_ex_values[:, j1])
+    #     # fig_line = plot_curve_along_s(name, 's', tstr, -x1[:,j1], f'{theta1}', Ex_values[:,j1], Ex_ex_values[:,j1])
+    #     fig_line.savefig(f'{visdir}/{name}_line_{tstr}_{rp_str}.png')
+    #     # plt.close(fig_line)
+    #     fig_line.clf()
+    #     name = 'Ey'
+    #     fig_line = plot_curve_along_s(name, 's', tstr, f'{theta0} and {theta1}',
+    #                                   x1[:, j0], Ey_values[:, j0], Ey_ex_values[:, j0],
+    #                                   -x1[:, j1], Ey_values[:, j1], Ey_ex_values[:, j1])
+    #     fig_line.savefig(f'{visdir}/{name}_line_{tstr}_{rp_str}.png')
+    #     fig_line.clf()
+    #     name = 'Bz'
+    #     fig_line = plot_curve_along_s(name, 's', tstr, f'{theta0} and {theta1}',
+    #                                   x1[:, j0], Bz_values[:, j0], Bz_ex_values[:, j0],
+    #                                   -x1[:, j1], Bz_values[:, j1], Bz_ex_values[:, j1])
+    #     fig_line.savefig(f'{visdir}/{name}_line_{tstr}_{rp_str}.png')
+    #     plt.close(fig_line)
 
     # Prepare plots
     if plot_interval:
@@ -1345,4 +1213,4 @@ if __name__ == '__main__':
 
 ## example of run:
 
-## python conga_polar_maxwell_2d.py -S -n 16 32 -d 3 3 -T 1 -D 0.2 -s 1 -p 100
+## python maxwell_2d.py -S -n 16 32 -d 3 3 -T 1 -D 0.2 -s 1 -p 100
