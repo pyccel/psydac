@@ -495,6 +495,7 @@ def run_poisson_2d(*, test_case, ncells, degree,
     # If required by user, create C1 projector and then restrict
     # stiffness/mass matrices and right-hand-side vector to C1 space
     t0 = time()
+    bc = None
     if smooth_method == 'polar-spec':
         proj = C1Projector(F)
         Sp = proj.change_matrix_basis(S)
@@ -949,4 +950,4 @@ if __name__ == '__main__':
             plt.show()
 
 ## example of run:
-# mpirun -n 2 python poisson_2d.py -S -n 2 3 -d 2 2  -t disk -D 0.2 -m 'C0conga'
+# mpirun -n 2 python poisson_2d.py -S -n 8 10 -d 2 2  -t disk -D 0.2 -m 'C0conga'
