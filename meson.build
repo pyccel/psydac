@@ -4,10 +4,20 @@ project(
   meson_version: '>=1.1.0',
 )
 
-run_command('pyccel', 'make', '-g', 'psydac/**/*_kernels.py', '--convert-only',
+pyccel_main_language = get_option('pyccel_language')
+
+message('Translating kernels to ' + pyccel_main_language)
+
+run_command('pyccel', 'make', '-g', 'psydac/**/*_kernels.py', '--convert-only', '--language=' + pyccel_main_language,
     check: true)
 
 find = find_program('find', required: true)
+
+py = import('python').find_installation(modules: ['numpy'], pure: false)
+
+# Math dependencies
+cc = meson.get_compiler('c')
+m_dep = cc.find_library('m', required : false)
 
 pyccel_meson_math_file = run_command(find, '__pyccel__/math', '-name', 'meson.build',
     check: true).stdout().strip()
@@ -33,8 +43,6 @@ endforeach
 
 
 igakit_proj = subproject('igakit')
-
-py = import('python').find_installation(modules: ['numpy'], pure: false)
 
 subdir('__pyccel__/math')
 subdir('__pyccel__/cwrapper')

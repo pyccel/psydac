@@ -64,13 +64,16 @@ A developer wanting to modify the latest source code on GitHub should skip that 
 git clone --recurse-submodules https://github.com/pyccel/psydac.git
 cd psydac
 
-pip install meson-python "pyccel>=2.1.0"
+pip install meson-python "pyccel>=2.2.2"
 pip install --no-build-isolation --editable ".[test]"
 ```
 
 The last install command will create a local `build/` folder, which can be inspected in the case of an error.
 We recommend removing such a folder before running the command again (e.g. when installing PSYDAC in multiple virtual environments) in order to avoid conflicts in library path resolution.
 Again, for more details we refer to our [documentation](https://pyccel.github.io/psydac/installation.html).
+
+> [!TIP]
+> By default Pyccel provides PSYDAC with a Fortran backend, however it is possible to request a different language as described [below](#speeding-up-psydacs-core).
 
 > [!TIP]
 > PSYDAC provides the functionality to convert its MPI-parallel matrices and vectors to their [PETSc](https://petsc.org) equivalent, and back.
@@ -101,6 +104,12 @@ Many of PSYDAC's low-level Python functions can be translated to a compiled lang
 Currently, all of those functions are collected in modules which follow the name pattern `[module]_kernels.py`.
 
 For both classical and editable installations, *all kernel files are translated to Fortran __without user intervention__*.
+Another language supported by Pyccel can be chosen by adding the `-Csetup-args="-Dpyccel_language=<language>"` to the `pip install` command.
+For example, a classical installation of PSYDAC with C is obtained by running the command
+```bash
+pip install "psydac[test]" -Csetup-args="-Dpyccel_language=C"
+```
+
 If the user adds or edits a kernel file within an editable install, they should use the command `psydac compile` in order to be able to see the changes at runtime.
 This command applies Pyccel to all the kernel files in the source directory.
 The default language is Fortran, and C is also available.

@@ -6,8 +6,11 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+-   #577 : Add an installation configuration option to choose the backend language
+
 ### Fixed
 
+-   #577 : Fix installation following release of Pyccel 2.2
 -   #571 : Fix correct application of the sum factorization algorithm
 -   #570 : Optimize PSYDAC logo
 -   #565 : Expand editable install info in `README.md`
