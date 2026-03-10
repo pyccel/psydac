@@ -26,7 +26,9 @@ from sympde.topology               import element_of, Derham
 @pytest.mark.parametrize('periodic', [False, True])
 @pytest.mark.parametrize('multiplicity', [1, 2])
 
-def test_H1_projector_1d(domain, ncells, degree, periodic, multiplicity):
+def test_H1_projector_1d(domain, ncells, degree, periodic, multiplicity, verbose=False):
+    if verbose:
+        print('\n1d_h1')
 
     #change mulitplicity if higher than degree to avoid problems (case p<m doesn't work)
     multiplicity = min(multiplicity,degree)
@@ -56,7 +58,8 @@ def test_H1_projector_1d(domain, ncells, degree, periodic, multiplicity):
     # Test max-norm of error is converging with right order
     maxnorm_error = abs(vals_u0 - vals_f).max()
     error_estim = ncells**(-degree-1)
-    print(ncells, maxnorm_error / error_estim)
+    if verbose:
+        print(ncells, maxnorm_error / error_estim)
     assert maxnorm_error <= 5 * error_estim
 
 #==============================================================================
@@ -67,7 +70,9 @@ def test_H1_projector_1d(domain, ncells, degree, periodic, multiplicity):
 @pytest.mark.parametrize('nquads', [100, 120, 140, 160])
 @pytest.mark.parametrize('multiplicity', [1, 2])
 
-def test_L2_projector_1d(domain, ncells, degree, periodic, nquads, multiplicity):
+def test_L2_projector_1d(domain, ncells, degree, periodic, nquads, multiplicity, verbose=False):
+    if verbose:
+        print('\n1d_l2')
 
     #change mulitplicity if higher than degree to avoid problems (case p<m doesn't work)
     multiplicity = min(multiplicity,degree)
@@ -103,7 +108,8 @@ def test_L2_projector_1d(domain, ncells, degree, periodic, nquads, multiplicity)
     # Test max-norm of error is converging with right order
     maxnorm_error = abs(vals_u1 - vals_f).max()
     error_estim = ncells**(-degree-1)
-    print(ncells, maxnorm_error / error_estim)
+    if verbose:
+        print(ncells, maxnorm_error / error_estim)
     assert maxnorm_error <= 10 * error_estim
     
 #==============================================================================
@@ -112,7 +118,9 @@ def test_L2_projector_1d(domain, ncells, degree, periodic, nquads, multiplicity)
 @pytest.mark.parametrize('periodic', [[False, False], [True, True]])
 @pytest.mark.parametrize('multiplicity', [(1, 1), (2, 2)])
 
-def test_derham_projector_2d_hdiv(ncells, degree, periodic, multiplicity):
+def test_derham_projector_2d_hdiv(ncells, degree, periodic, multiplicity, verbose=False):
+    if verbose:
+        print('\n2d_hdiv')
 
     domain = Square('Omega', bounds1 = (0,2*np.pi), bounds2 = (0,2*np.pi))
     domain_h = discretize(domain, ncells=ncells, periodic=periodic)
@@ -143,23 +151,29 @@ def test_derham_projector_2d_hdiv(ncells, degree, periodic, multiplicity):
     vals_f    = np.array([[f1(x, y) for x in xgrid] for y in xgrid])
 
     # Test max-norm of error is converging with right order
-    print('2d_hdiv')
     nc_min = min(ncells)
     deg_min = min(degree)
     error_estim = nc_min**(-deg_min-1)
     error_estim_low = nc_min**(-deg_min)  # deg-1 for certain components
 
     maxnorm_error = abs(vals_u0 - vals_f).max()
-    print(ncells, maxnorm_error / error_estim)
+    if verbose:
+        print(ncells, maxnorm_error / error_estim)
     assert maxnorm_error <= 10 * error_estim
+
     maxnorm_error = abs(vals_u1_1 - vals_f).max()
-    print(ncells, maxnorm_error / error_estim_low)
+    if verbose:
+        print(ncells, maxnorm_error / error_estim_low)
     assert maxnorm_error <= 10 * error_estim_low
+
     maxnorm_error = abs(vals_u2 - vals_f).max()
-    print(ncells, maxnorm_error / error_estim_low)
+    if verbose:
+        print(ncells, maxnorm_error / error_estim_low)
     assert maxnorm_error <= 10 * error_estim_low
+
     maxnorm_error = abs(vals_ux_1 - vals_f).max()
-    print(ncells, maxnorm_error / error_estim)    
+    if verbose:
+        print(ncells, maxnorm_error / error_estim)
     assert maxnorm_error <= 10 * error_estim
 
 #==============================================================================
@@ -168,7 +182,9 @@ def test_derham_projector_2d_hdiv(ncells, degree, periodic, multiplicity):
 @pytest.mark.parametrize('periodic', [[False, False], [True, True]])
 @pytest.mark.parametrize('multiplicity', [(1, 1), (2, 2)])
 
-def test_derham_projector_2d_hdiv_2(ncells, degree, periodic, multiplicity):
+def test_derham_projector_2d_hdiv_2(ncells, degree, periodic, multiplicity, verbose=False):
+    if verbose:
+        print('\n2d_hdiv_2')
 
     domain = Square('Omega', bounds1 = (0,1), bounds2 = (0,1))
     domain_h = discretize(domain, ncells=ncells, periodic=periodic)
@@ -200,23 +216,29 @@ def test_derham_projector_2d_hdiv_2(ncells, degree, periodic, multiplicity):
     vals_f2   = np.array([[f2(x, y) for x in xgrid] for y in xgrid])
 
     # Test max-norm of error is converging with right order
-    print('2d_hdiv_2')
     nc_min = min(ncells)
     deg_min = min(degree)
     error_estim = nc_min**(-deg_min-1)
     error_estim_low = nc_min**(-deg_min) # deg-1 for certain components
 
     maxnorm_error = abs(vals_u0 - vals_f1).max()
-    print(ncells, maxnorm_error / error_estim)
+    if verbose:
+        print(ncells, maxnorm_error / error_estim)
     assert maxnorm_error <= 10 * error_estim
+
     maxnorm_error = abs(vals_u1_2 - vals_f2).max()
-    print(ncells, maxnorm_error / error_estim_low)
+    if verbose:
+        print(ncells, maxnorm_error / error_estim_low)
     assert maxnorm_error <= 10 * error_estim_low
+
     maxnorm_error = abs(vals_u2 - vals_f1).max()
-    print(ncells, maxnorm_error / error_estim_low) 
+    if verbose:
+        print(ncells, maxnorm_error / error_estim_low)
     assert maxnorm_error <= 10 * error_estim_low
+
     maxnorm_error = abs(vals_ux_2 - vals_f2).max()
-    print(ncells, maxnorm_error / error_estim)
+    if verbose:
+        print(ncells, maxnorm_error / error_estim)
     assert maxnorm_error <= 10 * error_estim
     
 #==============================================================================
@@ -225,7 +247,9 @@ def test_derham_projector_2d_hdiv_2(ncells, degree, periodic, multiplicity):
 @pytest.mark.parametrize('periodic', [[False, False], [True, False] ,[True, True]])
 @pytest.mark.parametrize('multiplicity', [[1,1],[2,2]])
 
-def test_derham_projector_2d_hcurl(ncells, degree, periodic, multiplicity):
+def test_derham_projector_2d_hcurl(ncells, degree, periodic, multiplicity, verbose=False):
+    if verbose:
+        print('\n2d_hcurl')
 
     domain = Square('Omega', bounds1 = (0,2*np.pi), bounds2 = (0,2*np.pi))
     domain_h = discretize(domain, ncells=ncells, periodic=periodic)
@@ -256,23 +280,29 @@ def test_derham_projector_2d_hcurl(ncells, degree, periodic, multiplicity):
     vals_f    = np.array([[f1(x, y) for x in xgrid] for y in xgrid])
 
     # Test max-norm of error is converging with right order
-    print('2d_curl')
     nc_min = min(ncells)
     deg_min = min(degree)
     error_estim = nc_min**(-deg_min-1)
     error_estim_low = nc_min**(-deg_min) # deg-1 for certain components
 
     maxnorm_error = abs(vals_u0 - vals_f).max()
-    print(ncells, maxnorm_error / error_estim)
+    if verbose:
+        print(ncells, maxnorm_error / error_estim)
     assert maxnorm_error <= 10 * error_estim
+
     maxnorm_error = abs(vals_u1_1 - vals_f).max()
-    print(ncells, maxnorm_error / error_estim_low)
+    if verbose:
+        print(ncells, maxnorm_error / error_estim_low)
     assert maxnorm_error <= 10 * error_estim_low
+
     maxnorm_error = abs(vals_u2 - vals_f).max()
-    print(ncells, maxnorm_error / error_estim_low)
+    if verbose:
+        print(ncells, maxnorm_error / error_estim_low)
     assert maxnorm_error <= 10 * error_estim_low
+
     maxnorm_error = abs(vals_ux_1 - vals_f).max()
-    print(ncells, maxnorm_error / error_estim)
+    if verbose:
+        print(ncells, maxnorm_error / error_estim)
     assert maxnorm_error <= 10 * error_estim
     
 #==============================================================================
@@ -281,7 +311,7 @@ def test_derham_projector_2d_hcurl(ncells, degree, periodic, multiplicity):
 @pytest.mark.parametrize('periodic', [[False, False, False], [True, True, True]])
 @pytest.mark.parametrize('multiplicity', [[1,1,1], [1,2,2], [2,2,2]])
 
-def test_derham_projector_3d(ncells, degree, periodic, multiplicity):
+def test_derham_projector_3d(ncells, degree, periodic, multiplicity, verbose=False):
 
     domain = Cube('Omega', bounds1 = (0,2*np.pi), bounds2 = (0,2*np.pi), bounds3 = (0,2*np.pi))
     domain_h = discretize(domain, ncells=ncells, periodic=periodic)
@@ -315,32 +345,37 @@ def test_derham_projector_3d(ncells, degree, periodic, multiplicity):
     vals_f    = np.array([[[f1(x, y, z) for x in xgrid] for y in xgrid] for z in xgrid])
 
     # Test max-norm of error is converging with right order
-    print('3d')
     nc_min = min(ncells)
     deg_min = min(degree)
     error_estim = nc_min**(-deg_min-1)
     error_estim_low = nc_min**(-deg_min) # deg-1 for certain components
 
     maxnorm_error = abs(vals_u0 - vals_f).max()
-    print(ncells, maxnorm_error / error_estim)
+    if verbose:
+        print(ncells, maxnorm_error / error_estim)
     assert maxnorm_error <= 15 * error_estim
 
     maxnorm_error = abs(vals_u1_1 - vals_f).max()
-    print(ncells, maxnorm_error / error_estim_low)
+    if verbose:
+        print(ncells, maxnorm_error / error_estim_low)
     assert maxnorm_error <= 10 * error_estim_low
 
     maxnorm_error = abs(vals_u2_1 - vals_f).max()
-    print(ncells, maxnorm_error / error_estim_low)
+    if verbose:
+        print(ncells, maxnorm_error / error_estim_low)
     assert maxnorm_error <= 10 * error_estim_low
 
     maxnorm_error = abs(vals_u3 - vals_f).max()
-    print(ncells, maxnorm_error / error_estim_low)
+    if verbose:
+        print(ncells, maxnorm_error / error_estim_low)
     assert maxnorm_error <= 10 * error_estim_low
 
     maxnorm_error = abs(vals_ux_1 - vals_f).max()
-    print(ncells, maxnorm_error / error_estim)
+    if verbose:
+        print(ncells, maxnorm_error / error_estim)
     assert maxnorm_error <= 15 * error_estim
 
+#==============================================================================
 def manual_convergence_tests(dim):
     """
     compute several projections and check that the errors converge at least with expected order
@@ -352,33 +387,34 @@ def manual_convergence_tests(dim):
         degree = 3
         ncells = [10, 20, 40, 80, 160, 320, 640]
         for nc in ncells:
-            test_H1_projector_1d(domain, nc, degree, periodic, multiplicity=1)
-            test_H1_projector_1d(domain, nc, degree, periodic, multiplicity=2)
-            test_L2_projector_1d(domain, nc, degree, periodic, nquads=degree, multiplicity=1)
+            test_H1_projector_1d(domain, nc, degree, periodic, multiplicity=1, verbose=True)
+            test_H1_projector_1d(domain, nc, degree, periodic, multiplicity=2, verbose=True)
+            test_L2_projector_1d(domain, nc, degree, periodic, nquads=degree, multiplicity=1, verbose=True)
     
     elif dim == 2:
         degree = [3, 3]
         ncells = [10, 20, 40, 80, 160]
         for nc in ncells:
-            test_derham_projector_2d_hcurl ([nc, nc], degree, [periodic, periodic], multiplicity=[1,1])
-            test_derham_projector_2d_hdiv  ([nc, nc], degree, [periodic, periodic], multiplicity=[1,1])
-            test_derham_projector_2d_hdiv  ([nc, nc], degree, [periodic, periodic], multiplicity=[2,2])
-            test_derham_projector_2d_hdiv_2([nc, nc], degree, [periodic, periodic], multiplicity=[1,1])
+            test_derham_projector_2d_hcurl ([nc, nc], degree, [periodic, periodic], multiplicity=[1,1], verbose=True)
+            test_derham_projector_2d_hdiv  ([nc, nc], degree, [periodic, periodic], multiplicity=[1,1], verbose=True)
+            test_derham_projector_2d_hdiv  ([nc, nc], degree, [periodic, periodic], multiplicity=[2,2], verbose=True)
+            test_derham_projector_2d_hdiv_2([nc, nc], degree, [periodic, periodic], multiplicity=[1,1], verbose=True)
     
     elif dim == 3:
+        print("\n3d")
         degrees  = [[2,2,2], [2,3,2], [3,3,3]]
-        ncells = [10, 20, 40, 80]
         mult = [[1,1,1], [1,2,2], [2,2,2]]
-        for nc in ncells:
-            for deg in degrees:
-                for m in mult:
-                    print(f"degree       = {deg}")
-                    print(f"multiplicity = {m}")
-                    test_derham_projector_3d([nc, nc, nc], deg, [periodic, periodic, periodic], multiplicity=m)
+        ncells = [10, 20, 40]
+        for deg in degrees:
+            for m in mult:
+                print(f"degree       = {deg}")
+                print(f"multiplicity = {m}")
+                for nc in ncells:
+                    test_derham_projector_3d([nc, nc, nc], deg, [periodic, periodic, periodic], multiplicity=m, verbose=True)
+                    print()
 
 #==============================================================================
 if __name__ == '__main__':
 
-    for dim in [1,2,3]:        
+    for dim in [1, 2, 3]:
         manual_convergence_tests(dim)
-
