@@ -113,7 +113,7 @@ def test_PolarProjection_V0(Projector, R, ncells, degree, hbc, transposed):
     P0.dot(x, out=y)
 
     # Checking projection property P0(P0(phi)) = P0(phi)
-    assert np.allclose(P0.dot(y)[:, :], y[:, :])
+    assert np.allclose(P0.dot(y)[:, :], y[:, :], atol=1e-12, rtol=1e-12)
 
     # Comparing the global sparse matrix to reference file
     sp_P0 = P0.tosparse()
@@ -125,7 +125,7 @@ def test_PolarProjection_V0(Projector, R, ncells, degree, hbc, transposed):
         with h5py.File(h5_path, "r") as f:
             key = f"{name}/n{ncells[0]}x{ncells[1]}/p{degree[0]}-{degree[1]}/hbc{hbc}/T{transposed}/P"
             sp_P0_ref = f[key][()]
-            assert np.allclose(sp_P0_global, sp_P0_ref)
+            assert np.allclose(sp_P0_global, sp_P0_ref, atol=1e-12, rtol=1e-12)
 
     # Comparing results of dot and tosparse
     x_global = mpi_comm.allreduce(x.toarray(), op=MPI.SUM)
@@ -133,7 +133,7 @@ def test_PolarProjection_V0(Projector, R, ncells, degree, hbc, transposed):
     y = mpi_comm.allreduce(y.toarray(), op=MPI.SUM)
     y_sp = mpi_comm.allreduce(y_sp, op=MPI.SUM)
 
-    assert np.allclose(y_sp, y)
+    assert np.allclose(y_sp, y, atol=1e-12, rtol=1e-12)
 
 
 
@@ -163,8 +163,8 @@ def test_PolarProjection_V1(Projector, R, ncells, degree, hbc, transposed):
     P1.dot(x, out=y)
     z = P1.dot(y)
     # Checking projection property P1(P1(phi)) = P1(phi)
-    assert np.allclose(z[0][:, :], y[0][:, :])
-    assert np.allclose(z[1][:, :], y[1][:, :])
+    assert np.allclose(z[0][:, :], y[0][:, :], atol=1e-12, rtol=1e-12)
+    assert np.allclose(z[1][:, :], y[1][:, :], atol=1e-12, rtol=1e-12)
 
     # Comparing the global sparse matrix to reference file
     sp_P1 = P1.tosparse()
@@ -176,7 +176,7 @@ def test_PolarProjection_V1(Projector, R, ncells, degree, hbc, transposed):
         with h5py.File(h5_path, "r") as f:
             key = f"{name}/n{ncells[0]}x{ncells[1]}/p{degree[0]}-{degree[1]}/hbc{hbc}/T{transposed}/P"
             sp_P1_ref = f[key][()]
-            assert np.allclose(sp_P1_global, sp_P1_ref)
+            assert np.allclose(sp_P1_global, sp_P1_ref, atol=1e-12, rtol=1e-12)
 
     # Comparing results of dot and tosparse
     x_global = mpi_comm.allreduce(x.toarray(), op=MPI.SUM)
@@ -184,7 +184,7 @@ def test_PolarProjection_V1(Projector, R, ncells, degree, hbc, transposed):
     y = mpi_comm.allreduce(y.toarray(), op=MPI.SUM)
     y_sp = mpi_comm.allreduce(y_sp, op=MPI.SUM)
 
-    assert np.allclose(y_sp, y)
+    assert np.allclose(y_sp, y, atol=1e-12, rtol=1e-12)
 
 
 @pytest.mark.parametrize( 'transposed', [True, False])
@@ -210,7 +210,7 @@ def test_PolarProjection_V2(R, ncells, degree, transposed):
     P2.dot(x, out=y)
 
     # Checking projection property P0(P0(phi)) = P0(phi)
-    assert np.allclose(P2.dot(y)[:, :], y[:, :])
+    assert np.allclose(P2.dot(y)[:, :], y[:, :], atol=1e-12, rtol=1e-12)
 
     # Comparing the global sparse matrix to reference file
     sp_P2 = P2.tosparse()
@@ -223,13 +223,13 @@ def test_PolarProjection_V2(R, ncells, degree, transposed):
         with h5py.File(h5_path, "r") as f:
             key = f"{name}/n{ncells[0]}x{ncells[1]}/p{degree[0]}-{degree[1]}/hbc{False}/T{transposed}/P"
             sp_P1_ref = f[key][()]
-            assert np.allclose(sp_P2_global, sp_P1_ref)
+            assert np.allclose(sp_P2_global, sp_P1_ref, atol=1e-12, rtol=1e-12)
 
     # Comparing results of dot and tosparse
     x_global = mpi_comm.allreduce(x.toarray(), op=MPI.SUM)
     y_sp = sp_P2 @ x_global
 
-    assert np.allclose(y_sp, y.toarray())
+    assert np.allclose(y_sp, y.toarray(), atol=1e-12, rtol=1e-12)
 
 if __name__ == '__main__':
     create_reference_file("P0", [C0PolarProjection_V0, C1PolarProjection_V0])
