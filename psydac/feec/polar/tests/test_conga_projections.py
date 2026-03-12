@@ -115,8 +115,46 @@ def test_PolarProjection_V0(Projector, R, ncells, degree, hbc, transposed):
     # Checking projection property P0(P0(phi)) = P0(phi)
     assert np.allclose(P0.dot(y)[:, :], y[:, :], atol=1e-12, rtol=1e-12)
 
-    # Comparing the global sparse matrix to reference file
+    # gather sparse matrix entries (rows, columns, data) on root process
     sp_P0 = P0.tosparse()
+    payload = (sp_P0.row, sp_P0.col, sp_P0.data)
+    parts = mpi_comm.gather(payload, root=0)
+
+    if mpi_comm.rank == 0:
+
+        # Concatenate the result of gather (equivalent to summation of local matrices)
+        rows = np.concatenate([p[0] for p in parts])
+        cols = np.concatenate([p[1] for p in parts])
+        data = np.concatenate([p[2] for p in parts])
+
+        [n1, n2] = ncells
+
+        # Check the number of non-zero entries in the sparse matrix
+        if Projector == C0PolarProjection_V0:
+            if not hbc: assert len(data) == n2 * n2 + n2 * (n1 + degree[0] - 1)
+            else: assert len(data) == n2 * n2 + n2 * (n1 + degree[0] - 2)
+        else:
+            if not hbc: assert len(data) == 3 * n2 * n2 + n2 * (n1 + degree[0] - 2)
+            else: assert len(data) == 3 * n2 * n2 + n2 * (n1 + degree[0] - 3)
+
+        if transposed:
+            rows, cols = cols, rows
+
+        # Check all non-zero entries
+        for i, j, v in zip(rows, cols, data):
+            if i < n2 and j < n2:
+                assert np.allclose(v, 1 / n2, atol=1e-12, rtol=1e-12)
+            elif Projector == C1PolarProjection_V0 and j < n2 <= i < 2 * n2:
+                assert np.allclose(v, 1 / n2, atol=1e-12, rtol=1e-12)
+            elif Projector == C1PolarProjection_V0 and n2 <= i < 2 * n2 and n2 <= j < 2 * n2:
+                assert np.allclose(v, 2 / n2 * np.cos( (i - j) * 2 * np.pi / n2), atol=1e-12, rtol=1e-12)
+            else:
+                # diagonal
+                assert i == j
+                assert v == 1.0
+
+
+    # Comparing the global sparse matrix to reference file
     sp_P0_global = mpi_comm.allreduce(sp_P0.toarray(), op=MPI.SUM)
     if mpi_comm.rank == 0:
         name = Projector.__name__
@@ -232,6 +270,4 @@ def test_PolarProjection_V2(R, ncells, degree, transposed):
     assert np.allclose(y_sp, y.toarray(), atol=1e-12, rtol=1e-12)
 
 if __name__ == '__main__':
-    create_reference_file("P0", [C0PolarProjection_V0, C1PolarProjection_V0])
-    create_reference_file("P1", [C0PolarProjection_V1, C1PolarProjection_V1])
-    create_reference_file("P2", [C0PolarProjection_V2])
+    test_PolarProjection_V0(C0PolarProjection_V0, 1, [8, 10], [2, 2], False, False)
