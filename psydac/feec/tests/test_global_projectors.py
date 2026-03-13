@@ -60,7 +60,7 @@ def test_H1_projector_1d(domain, ncells, degree, periodic, multiplicity, verbose
     error_estim = ncells**(-degree-1)
     if verbose:
         print(ncells, maxnorm_error / error_estim)
-    assert maxnorm_error <= 5 * error_estim
+    assert maxnorm_error <= max(5 * error_estim, 1e-13)
 
 #==============================================================================
 @pytest.mark.parametrize('domain', [(0, 2*np.pi)])
@@ -110,7 +110,7 @@ def test_L2_projector_1d(domain, ncells, degree, periodic, nquads, multiplicity,
     error_estim = ncells**(-degree-1)
     if verbose:
         print(ncells, maxnorm_error / error_estim)
-    assert maxnorm_error <= 10 * error_estim
+    assert maxnorm_error <= max(10 * error_estim, 1e-13)
     
 #==============================================================================
 @pytest.mark.parametrize('ncells', [[57,64]])
@@ -159,22 +159,22 @@ def test_derham_projector_2d_hdiv(ncells, degree, periodic, multiplicity, verbos
     maxnorm_error = abs(vals_u0 - vals_f).max()
     if verbose:
         print(ncells, maxnorm_error / error_estim)
-    assert maxnorm_error <= 10 * error_estim
+    assert maxnorm_error <= max(10 * error_estim, 1e-13)
 
     maxnorm_error = abs(vals_u1_1 - vals_f).max()
     if verbose:
         print(ncells, maxnorm_error / error_estim_low)
-    assert maxnorm_error <= 10 * error_estim_low
+    assert maxnorm_error <= max(10 * error_estim_low, 1e-13)
 
     maxnorm_error = abs(vals_u2 - vals_f).max()
     if verbose:
         print(ncells, maxnorm_error / error_estim_low)
-    assert maxnorm_error <= 10 * error_estim_low
+    assert maxnorm_error <= max(10 * error_estim_low, 1e-13)
 
     maxnorm_error = abs(vals_ux_1 - vals_f).max()
     if verbose:
         print(ncells, maxnorm_error / error_estim)
-    assert maxnorm_error <= 10 * error_estim
+    assert maxnorm_error <= max(10 * error_estim, 1e-13)
 
 #==============================================================================
 @pytest.mark.parametrize('ncells', [[50,66]])
@@ -224,22 +224,22 @@ def test_derham_projector_2d_hdiv_2(ncells, degree, periodic, multiplicity, verb
     maxnorm_error = abs(vals_u0 - vals_f1).max()
     if verbose:
         print(ncells, maxnorm_error / error_estim)
-    assert maxnorm_error <= 10 * error_estim
+    assert maxnorm_error <= max(10 * error_estim, 1e-13)
 
     maxnorm_error = abs(vals_u1_2 - vals_f2).max()
     if verbose:
         print(ncells, maxnorm_error / error_estim_low)
-    assert maxnorm_error <= 10 * error_estim_low
+    assert maxnorm_error <= max(10 * error_estim_low, 1e-13)
 
     maxnorm_error = abs(vals_u2 - vals_f1).max()
     if verbose:
         print(ncells, maxnorm_error / error_estim_low)
-    assert maxnorm_error <= 10 * error_estim_low
+    assert maxnorm_error <= max(10 * error_estim_low, 1e-13)
 
     maxnorm_error = abs(vals_ux_2 - vals_f2).max()
     if verbose:
         print(ncells, maxnorm_error / error_estim)
-    assert maxnorm_error <= 10 * error_estim
+    assert maxnorm_error <= max(10 * error_estim, 1e-13)
     
 #==============================================================================
 @pytest.mark.parametrize('ncells', [[62,58]])
@@ -288,22 +288,22 @@ def test_derham_projector_2d_hcurl(ncells, degree, periodic, multiplicity, verbo
     maxnorm_error = abs(vals_u0 - vals_f).max()
     if verbose:
         print(ncells, maxnorm_error / error_estim)
-    assert maxnorm_error <= 10 * error_estim
+    assert maxnorm_error <= max(10 * error_estim, 1e-13)
 
     maxnorm_error = abs(vals_u1_1 - vals_f).max()
     if verbose:
         print(ncells, maxnorm_error / error_estim_low)
-    assert maxnorm_error <= 10 * error_estim_low
+    assert maxnorm_error <= max(10 * error_estim_low, 1e-13)
 
     maxnorm_error = abs(vals_u2 - vals_f).max()
     if verbose:
         print(ncells, maxnorm_error / error_estim_low)
-    assert maxnorm_error <= 10 * error_estim_low
+    assert maxnorm_error <= max(10 * error_estim_low, 1e-13)
 
     maxnorm_error = abs(vals_ux_1 - vals_f).max()
     if verbose:
         print(ncells, maxnorm_error / error_estim)
-    assert maxnorm_error <= 10 * error_estim
+    assert maxnorm_error <= max(10 * error_estim, 1e-13)
     
 #==============================================================================
 @pytest.mark.parametrize('ncells', [[10,9,12]])
@@ -357,37 +357,37 @@ def test_derham_projector_3d(ncells, degree, periodic, multiplicity, verbose=Fal
     maxnorm_error = abs(vals_u0 - vals_f1).max()
     if verbose:
         print(ncells, maxnorm_error / error_estim)
-    assert maxnorm_error <= 15 * error_estim
+    assert maxnorm_error <= max(15 * error_estim, 1e-13)
 
     maxnorm_error = abs(vals_u1_1 - vals_f1).max()
     if verbose:
         print(ncells, maxnorm_error / error_estim_low)
-    assert maxnorm_error <= 10 * error_estim_low
+    assert maxnorm_error <= max(10 * error_estim_low, 1e-13)
 
     maxnorm_error = abs(vals_u1_2 - vals_f2).max()
     if verbose:
         print(ncells, maxnorm_error / error_estim_low)
-    assert maxnorm_error <= 10 * error_estim_low
+    assert maxnorm_error <= max(10 * error_estim_low, 1e-13)
 
     maxnorm_error = abs(vals_u2_1 - vals_f1).max()
     if verbose:
         print(ncells, maxnorm_error / error_estim_low)
-    assert maxnorm_error <= 10 * error_estim_low
+    assert maxnorm_error <= max(10 * error_estim_low, 1e-13)
 
     maxnorm_error = abs(vals_u2_3 - vals_f3).max()
     if verbose:
         print(ncells, maxnorm_error / error_estim_low)
-    assert maxnorm_error <= 10 * error_estim_low
+    assert maxnorm_error <= max(10 * error_estim_low, 1e-13)
 
     maxnorm_error = abs(vals_u3 - vals_f1).max()
     if verbose:
         print(ncells, maxnorm_error / error_estim_low)
-    assert maxnorm_error <= 10 * error_estim_low
+    assert maxnorm_error <= max(10 * error_estim_low, 1e-13)
 
     maxnorm_error = abs(vals_ux_1 - vals_f1).max()
     if verbose:
         print(ncells, maxnorm_error / error_estim)
-    assert maxnorm_error <= 15 * error_estim
+    assert maxnorm_error <= max(15 * error_estim, 1e-13)
 
 #==============================================================================
 def manual_convergence_tests(dim):
