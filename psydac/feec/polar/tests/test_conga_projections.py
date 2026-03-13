@@ -115,8 +115,12 @@ def test_PolarProjection_V0(Projector, R, ncells, degree, hbc, transposed):
     # Checking projection property P0(P0(phi)) = P0(phi)
     assert np.allclose(P0.dot(y)[:, :], y[:, :], atol=1e-12, rtol=1e-12)
 
-    # gather sparse matrix entries (rows, columns, data) on root process
     sp_P0 = P0.tosparse()
+
+    [n1, n2] = V0_h.coeff_space.npts
+    assert sp_P0.shape == (n1 * n2, n1 * n2)
+
+    # gather sparse matrix entries (rows, columns, data) on root process
     payload = (sp_P0.row, sp_P0.col, sp_P0.data)
     parts = mpi_comm.gather(payload, root=0)
 
@@ -127,13 +131,11 @@ def test_PolarProjection_V0(Projector, R, ncells, degree, hbc, transposed):
         cols = np.concatenate([p[1] for p in parts])
         data = np.concatenate([p[2] for p in parts])
 
-        [n1, n2] = ncells
-
         # Check the number of non-zero entries in the sparse matrix
         if Projector == C0PolarProjection_V0:
-            assert len(data) == n2 * n2 + n2 * (n1 + degree[0] - (2 if hbc else 1))
+            assert len(data) == n2 * n2 + n2 * (n1 - (2 if hbc else 1))
         else:
-            assert len(data) == 3 * n2 * n2 + n2 * (n1 + degree[0] - (3 if hbc else 2))
+            assert len(data) == 3 * n2 * n2 + n2 * (n1 - (3 if hbc else 2))
 
         if transposed:
             rows, cols = cols, rows
@@ -250,6 +252,35 @@ def test_PolarProjection_V2(R, ncells, degree, transposed):
 
     # Comparing the global sparse matrix to reference file
     sp_P2 = P2.tosparse()
+    print(mpi_comm.rank, sp_P2.shape, sp_P2.nnz, V2_h.coeff_space.npts)
+
+    payload = (sp_P2.row, sp_P2.col, sp_P2.data)
+    parts = mpi_comm.gather(payload, root=0)
+
+    [n1, n2] = V2_h.coeff_space.npts
+    assert sp_P2.shape == (n1 * n2, n1 * n2)
+
+    if mpi_comm.rank == 0:
+
+        # Concatenate the result of gather (equivalent to summation of local matrices)
+        rows = np.concatenate([p[0] for p in parts])
+        cols = np.concatenate([p[1] for p in parts])
+        data = np.concatenate([p[2] for p in parts])
+
+        # Check the number of non-zero entries in the sparse matrix
+        assert len(data) == n1  * n2
+
+        if transposed:
+            rows, cols = cols, rows
+
+        # Check all non-zero entries
+        for i, j, v in zip(rows, cols, data):
+            assert np.isclose(v, 1.0, atol=1e-12, rtol=1e-12)
+            if j < n2:
+                assert i == j + n2
+            else:
+                assert i == j
+
     sp_P2_global = mpi_comm.allreduce(sp_P2.toarray(), op=MPI.SUM)
     if mpi_comm.rank == 0:
 
@@ -268,4 +299,4 @@ def test_PolarProjection_V2(R, ncells, degree, transposed):
     assert np.allclose(y_sp, y.toarray(), atol=1e-12, rtol=1e-12)
 
 if __name__ == '__main__':
-    test_PolarProjection_V0(C0PolarProjection_V0, 1, [8, 10], [2, 2], False, False)
+    test_PolarProjection_V2(1, [8, 10], [2, 2], False)
