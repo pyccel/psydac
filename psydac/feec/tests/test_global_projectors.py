@@ -339,10 +339,14 @@ def test_derham_projector_3d(ncells, degree, periodic, multiplicity, verbose=Fal
     xgrid = np.linspace(0, 2*np.pi, num=37)
     vals_u0   = np.array([[[u0(x, y, z) for x in xgrid] for y in xgrid] for z in xgrid])
     vals_u1_1 = np.array([[[u1(x, y, z)[0] for x in xgrid] for y in xgrid] for z in xgrid])
+    vals_u1_2 = np.array([[[u1(x, y, z)[1] for x in xgrid] for y in xgrid] for z in xgrid])
     vals_u2_1 = np.array([[[u2(x, y, z)[0] for x in xgrid] for y in xgrid] for z in xgrid])
+    vals_u2_3 = np.array([[[u2(x, y, z)[2] for x in xgrid] for y in xgrid] for z in xgrid])
     vals_ux_1 = np.array([[[ux(x, y, z)[0] for x in xgrid] for y in xgrid] for z in xgrid])
     vals_u3   = np.array([[[u3(x, y, z) for x in xgrid] for y in xgrid] for z in xgrid])
-    vals_f    = np.array([[[f1(x, y, z) for x in xgrid] for y in xgrid] for z in xgrid])
+    vals_f1   = np.array([[[f1(x, y, z) for x in xgrid] for y in xgrid] for z in xgrid])
+    vals_f2   = np.array([[[f2(x, y, z) for x in xgrid] for y in xgrid] for z in xgrid])
+    vals_f3   = np.array([[[f3(x, y, z) for x in xgrid] for y in xgrid] for z in xgrid])
 
     # Test max-norm of error is converging with right order
     nc_min = min(ncells)
@@ -350,27 +354,37 @@ def test_derham_projector_3d(ncells, degree, periodic, multiplicity, verbose=Fal
     error_estim = nc_min**(-deg_min-1)
     error_estim_low = nc_min**(-deg_min) # deg-1 for certain components
 
-    maxnorm_error = abs(vals_u0 - vals_f).max()
+    maxnorm_error = abs(vals_u0 - vals_f1).max()
     if verbose:
         print(ncells, maxnorm_error / error_estim)
     assert maxnorm_error <= 15 * error_estim
 
-    maxnorm_error = abs(vals_u1_1 - vals_f).max()
+    maxnorm_error = abs(vals_u1_1 - vals_f1).max()
     if verbose:
         print(ncells, maxnorm_error / error_estim_low)
     assert maxnorm_error <= 10 * error_estim_low
 
-    maxnorm_error = abs(vals_u2_1 - vals_f).max()
+    maxnorm_error = abs(vals_u1_2 - vals_f2).max()
     if verbose:
         print(ncells, maxnorm_error / error_estim_low)
     assert maxnorm_error <= 10 * error_estim_low
 
-    maxnorm_error = abs(vals_u3 - vals_f).max()
+    maxnorm_error = abs(vals_u2_1 - vals_f1).max()
     if verbose:
         print(ncells, maxnorm_error / error_estim_low)
     assert maxnorm_error <= 10 * error_estim_low
 
-    maxnorm_error = abs(vals_ux_1 - vals_f).max()
+    maxnorm_error = abs(vals_u2_3 - vals_f3).max()
+    if verbose:
+        print(ncells, maxnorm_error / error_estim_low)
+    assert maxnorm_error <= 10 * error_estim_low
+
+    maxnorm_error = abs(vals_u3 - vals_f1).max()
+    if verbose:
+        print(ncells, maxnorm_error / error_estim_low)
+    assert maxnorm_error <= 10 * error_estim_low
+
+    maxnorm_error = abs(vals_ux_1 - vals_f1).max()
     if verbose:
         print(ncells, maxnorm_error / error_estim)
     assert maxnorm_error <= 15 * error_estim
