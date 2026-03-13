@@ -131,11 +131,9 @@ def test_PolarProjection_V0(Projector, R, ncells, degree, hbc, transposed):
 
         # Check the number of non-zero entries in the sparse matrix
         if Projector == C0PolarProjection_V0:
-            if not hbc: assert len(data) == n2 * n2 + n2 * (n1 + degree[0] - 1)
-            else: assert len(data) == n2 * n2 + n2 * (n1 + degree[0] - 2)
+            assert len(data) == n2 * n2 + n2 * (n1 + degree[0] - (2 if hbc else 1))
         else:
-            if not hbc: assert len(data) == 3 * n2 * n2 + n2 * (n1 + degree[0] - 2)
-            else: assert len(data) == 3 * n2 * n2 + n2 * (n1 + degree[0] - 3)
+            assert len(data) == 3 * n2 * n2 + n2 * (n1 + degree[0] - (3 if hbc else 2))
 
         if transposed:
             rows, cols = cols, rows
@@ -143,15 +141,15 @@ def test_PolarProjection_V0(Projector, R, ncells, degree, hbc, transposed):
         # Check all non-zero entries
         for i, j, v in zip(rows, cols, data):
             if i < n2 and j < n2:
-                assert np.allclose(v, 1 / n2, atol=1e-12, rtol=1e-12)
+                assert np.isclose(v, 1 / n2, atol=1e-12, rtol=1e-12)
             elif Projector == C1PolarProjection_V0 and j < n2 <= i < 2 * n2:
-                assert np.allclose(v, 1 / n2, atol=1e-12, rtol=1e-12)
+                assert np.isclose(v, 1 / n2, atol=1e-12, rtol=1e-12)
             elif Projector == C1PolarProjection_V0 and n2 <= i < 2 * n2 and n2 <= j < 2 * n2:
-                assert np.allclose(v, 2 / n2 * np.cos( (i - j) * 2 * np.pi / n2), atol=1e-12, rtol=1e-12)
+                assert np.isclose(v, 2 / n2 * np.cos( (i - j) * 2 * np.pi / n2), atol=1e-12, rtol=1e-12)
             else:
-                # diagonal
+                # identity
                 assert i == j
-                assert v == 1.0
+                assert np.isclose(v, 1.0, atol=1e-12, rtol=1e-12)
 
 
     # Comparing the global sparse matrix to reference file
