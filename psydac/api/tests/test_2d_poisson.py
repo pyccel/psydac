@@ -409,7 +409,7 @@ def test_poisson_2d_dir0_1234_user_function():
 #            PARALLEL TESTS
 ###############################################################################
 
-@pytest.mark.parallel
+@pytest.mark.mpi
 @pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
 def test_poisson_2d_dir0_1234_parallel(backend):
 

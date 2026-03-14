@@ -200,7 +200,7 @@ def test_function_space_boundary_projector(dim):
 
 #===============================================================================
 @pytest.mark.parametrize('dim', [1, 3])
-@pytest.mark.parallel
+@pytest.mark.mpi
 
 def test_discrete_derham_boundary_projector(dim):
 

@@ -171,7 +171,7 @@ class Vector(ABC):
         """ Vector space to which this vector belongs. """
 
     @abstractmethod
-    def toarray(self, **kwargs):
+    def toarray(self):
         """ Convert to Numpy 1D array. """
 
     @abstractmethod

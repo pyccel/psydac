@@ -345,5 +345,3 @@ class BasicDiscrete(BasicCodeGen):
         return AST(expr, kernel_expr, discrete_space, mapping_space=mapping_space,
                    tag=tag, nquads=nquads, mapping=mapping, is_rational_mapping=is_rational_mapping,
                    backend=backend, num_threads=num_threads)
-
-

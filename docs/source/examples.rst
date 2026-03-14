@@ -7,6 +7,7 @@ Examples
 
 .. The notebooks get copied into the source directory by the continuous integration pipeline. 
 .. The notebooks should have all output cleared before being committed to the repository.
+
 Notebooks
 ---------
 For the documentation, we provide several Jupyter notebooks that illustrate how to use PSYDAC to solve different types of problems.

@@ -18,10 +18,12 @@
 #      Please note that the logical coordinates (x1, x2) correspond to the polar
 #      coordinates (r, theta), but with reversed order: hence x1=theta and x2=r
 
+import os
+from pathlib import Path
+
 from mpi4py import MPI
 from sympy import pi, cos, sin, symbols
 import pytest
-import os
 import numpy as np
 
 from sympde.calculus import grad, dot
@@ -37,15 +39,10 @@ from sympde.expr import find, EssentialBC
 
 from psydac.api.discretization import discretize
 
-# ... get the mesh directory
-try:
-    mesh_dir = os.environ['PSYDAC_MESH_DIR']
+# Get the mesh directory
+import psydac.cad.mesh as mesh_mod
+mesh_dir = Path(mesh_mod.__file__).parent
 
-except:
-    base_dir = os.path.dirname(os.path.realpath(__file__))
-    base_dir = os.path.join(base_dir, '..', '..', '..')
-    mesh_dir = os.path.join(base_dir, 'mesh')
-# ...
 x,y = symbols('x,y', real=True)
 
 #==============================================================================

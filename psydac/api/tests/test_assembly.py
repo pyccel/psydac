@@ -31,10 +31,9 @@ def backend(request):
 def dtype(request):
     return request.param
 
-
-    # The assembly method of a BilinearForm applied a conjugate on the theoretical matrices to solve the good equation.
-    # In theory, we have the system A.conj(u)=conj(b) due to the complex dot product between the tests functions.
-    # In psydac, we have decided to assemble the matrix conj(A) and b to get the good solution.
+# The assembly method of a BilinearForm applied a conjugate on the theoretical matrices to solve the good equation.
+# In theory, we have the system A.conj(u)=conj(b) due to the complex dot product between the tests functions.
+# In psydac, we have decided to assemble the matrix conj(A) and b to get the good solution.
 
 #==============================================================================
 def test_field_and_constant(backend, dtype):
@@ -325,7 +324,7 @@ def test_Norm_complex(backend):
     print("PASSED")
 
 #==============================================================================
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_assemble_complex_parallel(backend):
 
     # If 'backend' is specified, accelerate Python code by passing **kwargs
@@ -388,6 +387,7 @@ def test_assemble_complex_parallel(backend):
 
     # Test Norm nc and nr
     assert abs(nc - nr) < 1e-8
+
 #==============================================================================
 def test_multiple_fields(backend, dtype):
 
@@ -591,9 +591,8 @@ def test_assembly_no_synchr_args(backend):
 #==============================================================================
 if __name__ == '__main__':
     test_Norm_complex(None)
-    exit()
-    test_field_and_constant(None)
-    test_multiple_fields(None)
+    test_field_and_constant(None, 'real')
+    test_multiple_fields(None, 'real')
     test_math_imports(None)
     test_non_symmetric_BilinearForm(None)
     test_non_symmetric_different_space_BilinearForm(None)

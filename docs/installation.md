@@ -1,9 +1,10 @@
-# Installation
+# Installation details
 
 -   [Requirements](#requirements)
--   [Python setup and project download](#python-setup-and-project-download)
+-   [Python setup](#python-setup)
 -   [Installing the library](#installing-the-library)
 -   [Optional PETSc installation](#optional-petsc-installation)
+-   [Running tests and examples](#running-tests-and-examples)
 -   [Uninstall](#uninstall)
 
 ## Requirements
@@ -35,7 +36,7 @@ sudo apt install libhdf5-openmpi-dev
 
 To install all the requirements on a macOS operating system we recommend using [Homebrew](https://brew.sh/):
 
-```eh
+```sh
 brew update
 brew install gcc
 brew install openblas
@@ -62,7 +63,7 @@ module load hdf5-mpi/1.14.1
 OpenMP instructions should work out of the box.
 For access to BLAS and LAPACK routines there are usually different options, we refer therefore to any documentation provided by the supercomputer's maintainers.
 
-## Python setup and project download
+## Python setup
 
 We recommend creating a clean Python virtual environment using [venv](https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/#creating-a-virtual-environment):
 ```sh
@@ -80,16 +81,6 @@ It is good practice to keep `pip` up to date with
 ```sh
 pip install --upgrade pip
 ```
-
-One can clone the PSYDAC repository at any location `<ROOT-PATH>` in the filesystem which does not require administrator privileges, using either
-```sh
-git clone https://github.com/pyccel/psydac.git
-```
-or
-```sh
-git clone git@github.com:pyccel/psydac.git
-```
-The latter command requires a GitHub account.
 
 ## Installing the library
 
@@ -146,18 +137,22 @@ export HDF5_MPI="ON"
 pip install h5py --no-cache-dir --no-binary h5py
 ```
 
-At this point the PSYDAC library may be installed from the cloned directory `<ROOT-PATH>/psydac` in **standard mode**, which copies the relevant files to the correct locations of the virtual environment, or in **development mode**, which only installs symbolic links to the PSYDAC directory. The latter mode allows one to affect the behavior of PSYDAC by modifying the source files.
+At this point the PSYDAC library may be installed from PyPI in **standard mode**, which copies the relevant files to the correct locations of the virtual environment, or it may be installed from a cloned directory in **development mode**, which only installs symbolic links. The latter mode allows one to affect the behavior of PSYDAC by modifying the source files.
 
--   **Standard mode**:
+-   **Standard mode** from PyPI:
     ```bash
-    pip install .
+    pip install "psydac[test]"
     ```
 
--   **Development mode**:
+-   **Development mode** from GitHub:
     ```bash
+    git clone --recurse-submodules https://github.com/pyccel/psydac.git
+    cd psydac
+
     pip install meson-python "pyccel>=2.1.0"
-    pip install --no-build-isolation --editable .
+    pip install --no-build-isolation --editable ".[test]"
     ```
+    An equivalent repository address for the `clone` command is `git@github.com:pyccel/psydac.git`, which requires a GitHub account.
 
 ## Optional PETSc installation
 
@@ -187,6 +182,11 @@ Finally, we install the Python package `petsc4py` which is included in the `PETS
 pip install wheel Cython numpy
 pip install petsc/src/binding/petsc4py
 ```
+
+## Running tests and examples
+
+After installing the library, the test suite may be run by following these [instructions](https://pyccel.github.io/psydac/index.html#running-tests).
+Users may also run complete examples, which can be found [here](https://pyccel.github.io/psydac/examples.html).
 
 ## Uninstall
 

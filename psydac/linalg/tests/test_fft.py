@@ -103,7 +103,7 @@ def test_kron_fft_ser(seed, params, ffttype):
 @pytest.mark.parametrize( 'seed', [0, 2] )
 @pytest.mark.parametrize( 'params', [([16], [2], [False]), ([16,18], [2,3], [False,True]), ([16,18,37], [2,3,7], [False,True,False])] )
 @pytest.mark.parametrize( 'ffttype', ['fft', 'ifft', 'dct', 'idct', 'dst', 'idst'] )
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_kron_fft_par(seed, params, ffttype):
     method_test(seed, MPI.COMM_WORLD, params, *decode_fft_type(ffttype), verbose=False)
 

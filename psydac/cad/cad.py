@@ -4,20 +4,12 @@
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
 import numpy as np
-import string
-import random
 
 from psydac.fem.splines      import SplineSpace
 from psydac.fem.tensor       import TensorFemSpace
 from psydac.fem.basic        import FemField
 from psydac.mapping.discrete import SplineMapping, NurbsMapping
 from psydac.ddm.cart         import DomainDecomposition
-#==============================================================================
-def random_string( n ):
-    chars    = string.ascii_uppercase + string.ascii_lowercase + string.digits
-    selector = random.SystemRandom()
-    return ''.join( selector.choice( chars ) for _ in range( n ) )
-
 
 #==============================================================================
 def translate(mapping, displ):

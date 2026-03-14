@@ -247,13 +247,10 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
 
     if use_spline_mapping:
 
-        try:
-            mesh_dir = os.environ['PSYDAC_MESH_DIR']
-        except KeyError:
-            base_dir = os.path.dirname(os.path.realpath(__file__))
-            mesh_dir = os.path.join(base_dir, '..', '..', '..', 'mesh')
+        from pathlib import Path
+        import psydac.cad.mesh as mesh_mod
 
-        filename = os.path.join(mesh_dir, 'collela_2d.h5')
+        filename = Path(mesh_mod.__file__).parent / 'collela_2d.h5'
         domain   = Domain.from_file(filename)
         mapping  = domain.mapping
 
@@ -858,7 +855,7 @@ def test_maxwell_2d_dirichlet_spline_mapping():
     assert abs(namespace['error_Bz'] - ref['error_Bz']) / ref['error_Bz'] <= TOL
 
 
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_maxwell_2d_periodic_par():
 
     namespace = run_maxwell_2d_TE(
@@ -886,7 +883,7 @@ def test_maxwell_2d_periodic_par():
     assert abs(namespace['error_l2_Ey'] - ref['error_l2_Ey']) / ref['error_l2_Ey'] <= TOL
     assert abs(namespace['error_l2_Bz'] - ref['error_l2_Bz']) / ref['error_l2_Bz'] <= TOL
 
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_maxwell_2d_dirichlet_par():
 
     namespace = run_maxwell_2d_TE(

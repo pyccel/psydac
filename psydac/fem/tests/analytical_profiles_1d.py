@@ -9,7 +9,7 @@ import numpy as np
 from psydac.fem.tests.analytical_profiles_base import AnalyticalProfile
 from psydac.fem.tests.utilities                import horner, falling_factorial
 
-__all__ = ('AnalyticalProfile_1d_cos', 'AnalyticalProfile1D_Poly')
+__all__ = ('AnalyticalProfile1D_Cos', 'AnalyticalProfile1D_Poly')
 
 #===============================================================================
 class AnalyticalProfile1D_Cos( AnalyticalProfile ):

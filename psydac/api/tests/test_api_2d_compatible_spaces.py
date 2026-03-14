@@ -529,7 +529,7 @@ def test_maxwell_time_harmonic_2d_dir_1():
 #            PARALLEL TESTS
 ###############################################################################
 
-@pytest.mark.parallel
+@pytest.mark.mpi
 @pytest.mark.petsc
 def test_stokes_2d_dir_non_homogeneous_petsc():
 

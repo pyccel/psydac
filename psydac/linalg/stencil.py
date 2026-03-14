@@ -2010,22 +2010,15 @@ class StencilDiagonalMatrix(LinearOperator):
             assert isinstance(out, StencilDiagonalMatrix)
             assert out.domain is self.codomain
             assert out.codomain is self.domain
-
-        if not (conjugate and self.dtype is complex):
-
-            if out is None:
-                data = self._data.copy()
+            if conjugate and self.dtype is complex:
+                np.conjugate(self._data, out=out._data, casting='no')
             else:
                 np.copyto(out._data, self._data, casting='no')
-
         else:
-
-            if out is None:
+            if conjugate and self.dtype is complex:
                 data = np.conjugate(self._data, casting='no')
             else:
-                np.conjugate(self._data, out=out._data, casting='no')
-
-        if out is None:
+                data = self._data.copy()
             out = StencilDiagonalMatrix(self.codomain, self.domain, data)
 
         return out

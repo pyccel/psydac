@@ -18,7 +18,7 @@ jobs:
         uses: fkirc/skip-duplicate-actions@v5
         with:
           skip_after_successful_duplicate: 'true'
-          paths: '["psydac/**", "pyproject.toml", "setup.py", ".github/workflows/deploy_check.yml", ".github/actions/**"]'
+          paths: '["psydac/**", "pyproject.toml", ".github/workflows/deploy_check.yml", ".github/actions/**"]'
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
@@ -63,6 +63,10 @@ jobs:
           TWINE_USERNAME: '__token__'
           TWINE_PASSWORD: ${{ secrets.TEST_PYPI_API_TOKEN }}
 
+      - name: Install h5py in parallel mode
+        if: steps.duplicate_check.outputs.should_skip != 'true'
+        uses: ./.github/actions/parallel_h5py
+
       - name: Download psydac package from TestPyPI and install it
         if: steps.duplicate_check.outputs.should_skip != 'true'
         timeout-minutes: 60
@@ -92,10 +96,15 @@ jobs:
         if: steps.duplicate_check.outputs.should_skip != 'true'
         run: |
           mkdir pytest
-          cp mpi_tester.py pytest
 
       - name: Run single-process tests with Pytest
         if: steps.duplicate_check.outputs.should_skip != 'true'
         working-directory: ./pytest
         run: |
-          pytest -n auto --pyargs psydac -m "not parallel and not petsc"
+          psydac test -x
+
+      - name: Run MPI tests with Pytest
+        if: steps.duplicate_check.outputs.should_skip != 'true'
+        working-directory: ./pytest
+        run: |
+          psydac test --mpi -x

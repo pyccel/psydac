@@ -12,21 +12,6 @@ from sympy import simplify, expand
 from sympy import Range
 from sympy.core.numbers import ImaginaryUnit
 
-from psydac.pyccel.ast.core import IndexedVariable
-from psydac.pyccel.ast.core import For
-from psydac.pyccel.ast.core import Assign
-from psydac.pyccel.ast.core import Slice
-from psydac.pyccel.ast.core import FunctionDef
-from psydac.pyccel.ast.core import FunctionCall
-from psydac.pyccel.ast.core import Import
-from psydac.pyccel.ast.core import DottedName
-from psydac.pyccel.ast.core import Nil
-from psydac.pyccel.ast.core import Len
-from psydac.pyccel.ast.core import If, Is, Return
-from psydac.pyccel.ast.core import _atomic
-
-from psydac.pyccel.ast.numpyext import Zeros
-
 from sympde.topology.space       import ScalarFunction
 from sympde.topology.space       import VectorFunction
 from sympde.topology.space       import IndexedVectorFunction
@@ -36,22 +21,35 @@ from sympde.topology             import LogicalExpr
 from sympde.topology             import SymbolicExpr
 from sympde.calculus.matrices    import SymbolicDeterminant
 from sympde.topology             import IdentityMapping
-
-from sympde.expr.evaluation import TerminalExpr
+from sympde.expr.evaluation      import TerminalExpr
 
 from gelato.expr import gelatize
 
+from psydac.api.utilities import random_string
+from psydac.fem.vector    import MultipatchFemSpace
+
+from psydac.pyccel.ast.core     import IndexedVariable
+from psydac.pyccel.ast.core     import For
+from psydac.pyccel.ast.core     import Assign
+from psydac.pyccel.ast.core     import Slice
+from psydac.pyccel.ast.core     import FunctionDef
+from psydac.pyccel.ast.core     import FunctionCall
+from psydac.pyccel.ast.core     import Import
+from psydac.pyccel.ast.core     import DottedName
+from psydac.pyccel.ast.core     import Nil
+from psydac.pyccel.ast.core     import Len
+from psydac.pyccel.ast.core     import If, Is, Return
+from psydac.pyccel.ast.core     import _atomic
+from psydac.pyccel.ast.numpyext import Zeros
+
 from .basic      import SplBasic
-from .utilities  import random_string
 from .utilities  import build_pythran_types_header, variables
 from .utilities  import build_pyccel_type_annotations
 from .utilities  import is_mapping
 from .utilities  import math_atoms_as_str
 from .utilities  import get_max_partial_derivatives
 from .evaluation import EvalArrayMapping, EvalArrayField
-
-from psydac.fem.vector  import MultipatchFemSpace
-from .nodes             import Zeros
+from .nodes      import Zeros
 
 #==============================================================================
 class GltKernel(SplBasic):

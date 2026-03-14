@@ -2,7 +2,7 @@ name: Deploy new version to PyPI
 
 on:
   workflow_run:
-    workflows: [testing]
+    workflows: ["Unit tests"]
     branches: [main]
     types:
       - completed
@@ -10,7 +10,7 @@ on:
 jobs:
   deployVersion:
     runs-on: ubuntu-latest
-    if: github.repository == 'pyccel/psydac'
+    if: ${{ github.repository == 'pyccel/psydac' && github.event.workflow_run.conclusion == 'success' }}
     steps:
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
@@ -18,8 +18,9 @@ jobs:
           python-version: '3.12'
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
+          ref: main
           submodules: true
 
       - name: Install dependencies
@@ -57,13 +58,12 @@ jobs:
         id: release_notes
         run: |
           echo "## What's Changed" > release_notes.md
-# TODO: CHANGELOG parsing can be enabled when file is ready
-#          START_LINE=$(grep "^## " CHANGELOG.md -n | head -1 | cut -d: -f -1)
-#          END_LINE=$(grep "^## " CHANGELOG.md -n | head -2 | tail -1 | cut -d: -f -1)
-#          START_LINE=$((${START_LINE}+1))
-#          END_LINE=$((${END_LINE}-1))
-#          echo "## What's Changed" > release_notes.md
-#          sed -n ${START_LINE},${END_LINE}p CHANGELOG.md >> release_notes.md
+          START_LINE=$(grep "^## " CHANGELOG.md -n | head -1 | cut -d: -f -1)
+          END_LINE=$(grep "^## " CHANGELOG.md -n | head -2 | tail -1 | cut -d: -f -1)
+          START_LINE=$((${START_LINE}+1))
+          END_LINE=$((${END_LINE}-1))
+          echo "## What's Changed" > release_notes.md
+          sed -n ${START_LINE},${END_LINE}p CHANGELOG.md >> release_notes.md
 
       - name: "Get contributors"
         run: |
@@ -104,7 +104,7 @@ jobs:
           PREVIOUS_TAG=$(gh release list --limit 1 --json tagName | jq '.[]["tagName"]' | tr -d '"')
 
           echo "" >> release_notes.md
-          echo "**Full list of changes**: [${PREVIOUS_TAG}..${tag_name}](https://github.com/pyccel/pyccel/compare/${PREVIOUS_TAG}..${tag_name})" >> release_notes.md
+          echo "**Full list of changes**: [${PREVIOUS_TAG}..${tag_name}](https://github.com/pyccel/psydac/compare/${PREVIOUS_TAG}..${tag_name})" >> release_notes.md
 
         shell: bash
         env:
@@ -122,7 +122,7 @@ jobs:
             --method POST \
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
-            /repos/pyccel/pyccel/releases \
+            /repos/pyccel/psydac/releases \
              -f "tag_name=${tag_name}" -f "name=Version ${version}" -F "body=@release_notes.md" -F "draft=false" -F "prerelease=false" -F "generate_release_notes=false"
         shell: bash
         env:

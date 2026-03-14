@@ -20,12 +20,6 @@ from psydac.fem.tensor   import TensorFemSpace
 __all__ = ('SplineMapping', 'NurbsMapping')
 
 #==============================================================================
-def random_string(n):
-    chars    = string.ascii_uppercase + string.ascii_lowercase + string.digits
-    selector = random.SystemRandom()
-    return ''.join(selector.choice(chars) for _ in range(n))
-
-#==============================================================================
 class SplineMapping(BasicCallableMapping):
 
     def __init__(self, *components, name=None):

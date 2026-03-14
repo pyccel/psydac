@@ -277,7 +277,7 @@ class BlockVector(Vector):
         return self._space
 
     # ...
-    def toarray(self, order='C'):
+    def toarray(self, *, order='C'):
         """ Convert to Numpy 1D array. """
         return np.concatenate([bi.toarray(order=order) for bi in self._blocks])
 

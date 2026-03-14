@@ -560,7 +560,7 @@ def global_quad_basis_span_2d_matrix_2():
 #==============================================================================
 def assembly_linear_form_2d_1():
     b = LinearForm(v, integral(domain, v*cos(x)))
-    ast = AST(b)
+    ast = AST(b, TerminalExpr(b, domain)[0], v.space, nquads=(3, 3))
 
     stmt = parse(ast.expr, settings={'dim': ast.dim, 'nderiv': ast.nderiv, 'mapping': M})
     print(pycode(stmt))
@@ -569,7 +569,7 @@ def assembly_linear_form_2d_1():
 #==============================================================================
 def assembly_bilinear_form_2d_1():
     a = BilinearForm((u,v), integral(domain, dot(grad(u), grad(v))))
-    ast = AST(a)
+    ast = AST(a, TerminalExpr(a, domain)[0], [u.space, v.space], nquads=(3, 3))
 
     stmt = parse(ast.expr, settings={'dim': ast.dim, 'nderiv': ast.nderiv, 'mapping': M})
     print(pycode(stmt))

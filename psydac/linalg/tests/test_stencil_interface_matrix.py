@@ -225,7 +225,7 @@ def test_stencil_interface_matrix_3d_serial_init(dtype, n1, n2, n3, p1, p2, p3, 
                                                   (12,12,1,1, 3023467041788.0),
                                                   (12,12,2,2, 19555497680544.0),
                                                   (12,12,3,3, 62573623909332.0)])
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_stencil_interface_matrix_2d_parallel_dot(n1, n2, p1, p2, expected):
 
     from mpi4py              import MPI

@@ -215,7 +215,7 @@ def test_KroneckerStencilMatrix_diagonal(comm=None):
                 check_linop_equality_using_rng(M_diag, M_kron_diag, tol=1e-13)
 
 #==============================================================================
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_KroneckerStencilMatrix_diagonal_parallel():
     comm = MPI.COMM_WORLD
     test_KroneckerStencilMatrix_diagonal(comm=comm)
