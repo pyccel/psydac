@@ -204,8 +204,87 @@ def test_PolarProjection_V1(Projector, R, ncells, degree, hbc, transposed):
     assert np.allclose(z[0][:, :], y[0][:, :], atol=1e-12, rtol=1e-12)
     assert np.allclose(z[1][:, :], y[1][:, :], atol=1e-12, rtol=1e-12)
 
-    # Comparing the global sparse matrix to reference file
     sp_P1 = P1.tosparse()
+    print(sp_P1.toarray())
+
+    [n01, n02] = V1_h.coeff_space[0].npts
+    [n11, n12] = V1_h.coeff_space[1].npts
+
+    assert sp_P1.shape == (n01 * n02 + n11 * n12, n01 * n02 + n11 * n12)
+
+    # gather sparse matrix entries (rows, columns, data) on root process
+    payload = (sp_P1.row, sp_P1.col, sp_P1.data)
+    parts = mpi_comm.gather(payload, root=0)
+
+    if mpi_comm.rank == 0:
+
+        # Concatenate the result of gather (equivalent to summation of local matrices)
+        rows = np.concatenate([p[0] for p in parts])
+        cols = np.concatenate([p[1] for p in parts])
+        data = np.concatenate([p[2] for p in parts])
+
+        # Check the number of non-zero entries in the sparse matrix
+        if Projector == C0PolarProjection_V1:
+            assert len(data) == n01 * n02 + 2 * n02 + (n11 - (3 if hbc else 2)) * n12
+        else:
+            print(len(data))
+            assert len(data) == 3 * n02 * n02 + n02 * (n01 - 1) + (n11 - (3 if hbc else 2)) * n12
+
+        if transposed:
+            rows, cols = cols, rows
+
+        # Check all non-zero entries
+        for i, j, v in zip(rows, cols, data):
+            if Projector == C0PolarProjection_V1:
+                # Block P1_00
+                if i < n01 * n02:
+                    # identity
+                    assert i == j
+                    assert np.isclose(v, 1.0, atol=1e-12, rtol=1e-12)
+                # Block P1_10
+                elif n01 * n02 + n02 <= i < n01 * n02 + 2 * n02:
+                    # d matrix
+                    if j == i - n02 * (n01 + 1):
+                        assert np.isclose(v, -1.0, atol=1e-12, rtol=1e-12)
+                    else:
+                        assert np.isclose(v, 1.0, atol=1e-12, rtol=1e-12)
+                        assert j == (i - n02 * (n01 + 1) + 1) % n02
+                # Block P1_11
+                else:
+                    assert i >= n01 * n02 + 2 * n02
+                    assert j == i
+                    assert np.isclose(v, 1.0, atol=1e-12, rtol=1e-12)
+
+            if Projector == C1PolarProjection_V1:
+                p_ij = 2 / n02 * np.cos((i - j) * 2 * np.pi / n02)
+                # Block P1_00
+                if i < n02:
+                    # matrix p
+                    assert j < n02
+                    assert np.isclose(v, p_ij, atol=1e-12, rtol=1e-12)
+                elif 2 * n02 > i >= n02 > j:
+                    # matrix I - p
+                    if i == j + n02:
+                        assert np.isclose(v, 1 - p_ij, atol=1e-12, rtol=1e-12)
+                    else:
+                        assert np.isclose(v, - p_ij, atol=1e-12, rtol=1e-12)
+                elif n02 <= i < n01 * n02:
+                    assert j == i
+                    assert np.isclose(v, 1.0, atol=1e-12, rtol=1e-12)
+
+                # Block P1_10
+                elif j < n02:
+                    # matrix q
+                    q_ij = (2 / n02 * np.cos((i + 1 - j) * 2 * np.pi / n02) - p_ij)
+                    assert np.isclose(v, q_ij, atol=1e-12, rtol=1e-12)
+
+                # Block P1_11
+                else:
+                    assert i == j
+                    assert i >= n01 * n02 + 2 * n02
+                    assert np.isclose(v, 1.0, atol=1e-12, rtol=1e-12)
+
+    # Comparing the global sparse matrix to reference file
     sp_P1_global = mpi_comm.allreduce(sp_P1.toarray(), op=MPI.SUM)
     if mpi_comm.rank == 0:
         name = Projector.__name__
