@@ -94,13 +94,12 @@ class C0PolarProjection_V0(LinearOperator):
         return y
 
     def transpose(self, conjugate=False):
-        #should just return self since it's symmetric?
         return C0PolarProjection_V0(self.W0, transposed=not self.transposed, hbc=self.hbc)
 
     def tosparse(self):
 
-        # Matrix size is n1*n2. Columns with numbers i*n2 + j with
-        # s1 <= i <= e1, s2 <= j <= e2 belong to the process
+        # Matrix size is n1*n2. Rows with global indices i*n2 + j (C-style flattening) with
+        # s1 <= i <= e1, s2 <= j <= e2 are filled for the current process
 
         [n1, n2] = self.W0.coeff_space.npts
         [s1, s2] = self.W0.coeff_space.starts
@@ -113,24 +112,22 @@ class C0PolarProjection_V0(LinearOperator):
         len_theta = e2 - s2 + 1
         if rank_at_polar_edge:
             data = np.tile((1 / n2) * np.ones(n2), len_theta)
-            cols = np.repeat(np.arange(s2, e2 + 1), n2)
-            rows = np.tile(np.arange(n2), len_theta)
+            rows = np.repeat(np.arange(s2, e2 + 1), n2)
+            cols = np.tile(np.arange(n2), len_theta)
 
         # Assemble the rest of the matrix (identity block)
-        start_s = s1
-        end_s = e1 + 1
         # We do not need entries with s1 = 0 (already accounted for)
-        if rank_at_polar_edge:
-            start_s += 1
-        if rank_at_outer_edge and self.hbc:
-            end_s -= 1
+        start_s = s1 + 1 if rank_at_polar_edge else s1
+        end_s = e1 if (rank_at_outer_edge and self.hbc) else e1 + 1
+
         i = np.arange(start_s, end_s)[:, None]
         j = np.arange(s2, e2 + 1)[None, :]
-        local_cols = (i * n2 + j).ravel()
+        # rows of identity owned by the process
+        local_rows = (i * n2 + j).ravel()
 
         data = np.concatenate((data, np.ones(len_theta * (end_s - start_s))))
-        cols = np.concatenate((cols, local_cols))
-        rows = np.concatenate((rows, local_cols))
+        cols = np.concatenate((cols, local_rows))
+        rows = np.concatenate((rows, local_rows))
 
         P = coo_matrix((data, (rows, cols)), shape=[n1 * n2, n1 * n2], dtype=self.W0.coeff_space.dtype)
         P.eliminate_zeros()
@@ -224,10 +221,10 @@ class C0PolarProjection_V1_00(LinearOperator):
 
         i = np.arange(s1, e1 + 1)[:, None]
         j = np.arange(s2, e2 + 1)[None, :]
-        local_cols = (i * n02 + j).ravel()
+        local_rows = (i * n02 + j).ravel()
         data = np.ones((e1 - s1 + 1) * (e2 - s2 + 1))
 
-        P = coo_matrix((data, (local_cols, local_cols)), shape=[n01 * n02, n01 * n02], dtype=self.domain.dtype)
+        P = coo_matrix((data, (local_rows, local_rows)), shape=[n01 * n02, n01 * n02], dtype=self.domain.dtype)
         P.eliminate_zeros()
 
         return P
@@ -272,9 +269,6 @@ class C0PolarProjection_V1_10(LinearOperator):
     def dtype(self):
         return float
 
-        # Warning: this dot method has to be revised for mpi!
-        # the toeplitz multiplication requires all processes along the theta dir. to communicate.
-
     def dot(self, x, out=None):
         assert isinstance(x, StencilVector)
 
@@ -316,32 +310,32 @@ class C0PolarProjection_V1_10(LinearOperator):
 
     def tosparse(self):
 
-        if self.transposed:
-            domain_P1_10 = self.codomain
-            codomain_P1_10 = self.domain
-        else:
-            domain_P1_10 = self.domain
-            codomain_P1_10 = self.codomain
-
-        [n01, n02] = domain_P1_10.npts
-        [n11, n12] = codomain_P1_10.npts
-        s1, s2 = domain_P1_10.starts
-        e1, e2 = domain_P1_10.ends
+        [n01, n02] = self.domain.npts
+        [n11, n12] = self.codomain.npts
+        s1, s2 = self.domain.starts
+        e1, e2 = self.codomain.ends
         rank_at_polar_edge = (s1 == 0)
 
         data, cols, rows = [], [], []
 
+        # matrix d (derivatives of periodic splines)
+        # for example: n_theta = 3, single rank at polar edge, not transposed. Then:
+        # data = [-1 1 -1 1 -1 1], rows = [3 3 4 4 5 5], cols = [0 1 1 2 2 0]
         if rank_at_polar_edge:
             len_theta = e2 - s2 + 1
             data = np.tile([-1, 1], len_theta)
-            cols = np.repeat(np.arange(s2, e2 + 1), 2)
             k = np.arange(s2, e2 + 1)
-            rows = np.column_stack((k, (k - 1) % n12 )).ravel() + n12
+            if self.transposed:
+                rows = np.repeat(np.arange(s2, e2 + 1), 2)
+                cols = np.column_stack((k, (k - 1) % n12)).ravel() + n12
+            else:
+                rows = np.repeat(np.arange(s2, e2 + 1), 2) + n12
+                cols = np.column_stack((k, (k + 1) % n12 )).ravel()
 
-        dtype = domain_P1_10.dtype
+        dtype = self.domain.dtype
         P = coo_matrix((data, (rows, cols)), shape=[n11 * n12, n01 * n02], dtype=dtype)
         P.eliminate_zeros()
-        return P.T if self.transposed else P
+        return P
 
     def toarray(self):
         return self.tosparse().toarray()
@@ -427,28 +421,26 @@ class C0PolarProjection_V1_11(LinearOperator):
 
     def tosparse(self):
 
-        #size of the block is (n_s*n_t)x(n_s*n_t)
-        [s1, s2] = self.domain.starts
-        [e1, e2] = self.domain.ends
+        [s1, s2] = self.codomain.starts
+        [e1, e2] = self.codomain.ends
         [n01, n02] = self.domain.npts
         [n11, n12] = self.codomain.npts
         rank_at_outer_edge = (e1 == n01 - 1)
         dtype = self.domain.dtype
 
+        # identity block of size n12(n12 - 2)
         start_s = max(2, s1)
-        end_s = e1 + 1
-        if rank_at_outer_edge and self.hbc:
-            end_s -= 1
+        end_s = e1 if (rank_at_outer_edge and self.hbc) else e1 + 1
         len_theta = e2 - s2 + 1
         data = np.ones(len_theta * (end_s - start_s))
 
         i = np.arange(start_s, end_s)[:, None]
         j = np.arange(s2, e2 + 1)[None, :]
-        local_cols = (i * n02 + j).ravel()
+        local_rows = (i * n02 + j).ravel()
 
-        P = coo_matrix((data, (local_cols, local_cols)), shape=[n11 * n12, n01 * n02], dtype=dtype)
+        P = coo_matrix((data, (local_rows, local_rows)), shape=[n11 * n12, n01 * n02], dtype=dtype)
         P.eliminate_zeros()
-        return P.T if self.transposed else P
+        return P
 
 
     def toarray(self):
@@ -593,13 +585,15 @@ class C0PolarProjection_V2(LinearOperator):
 
         i = np.arange(s1, e1 + 1)[:, None]
         j = np.arange(s2, e2 + 1)[None, :]
-        local_cols = (i * n2 + j).ravel()
+        local_rows = (i * n2 + j).ravel()
+        rows_to_repeat = local_rows[(local_rows >= n2) & (local_rows < 2 * n2)]
 
-        rows_to_repeat = local_cols[(local_cols >= n2) & (local_cols < 2*n2)]
         rows = np.tile(rows_to_repeat, 2)
-        rows = np.concatenate((rows, local_cols[local_cols >= 2*n2]))
+        cols = rows_to_repeat - n2
+        rows = np.concatenate((rows, local_rows[local_rows >= 2 * n2]))
+        cols = np.concatenate((cols, local_rows[local_rows >= n2]))
 
-        P = coo_matrix((data, (rows, local_cols)), shape=(n1 * n2, n1 * n2), dtype=self.W2.coeff_space.dtype)
+        P = coo_matrix((data, (rows, cols)), shape=(n1 * n2, n1 * n2), dtype=self.W2.coeff_space.dtype)
         P.eliminate_zeros()
 
         return P.T if self.transposed else P
@@ -764,7 +758,6 @@ class C1PolarProjection_V0(LinearOperator):
         data, cols, rows = [], [], []
         np.set_printoptions(precision=3)
 
-        #theta = np.linspace(0, 2 * pi, n2, endpoint=False)  # Warning parallel case
         if rank_at_polar_edge:
             data = (self.gamma / n2) * np.ones(2 * n2)
             data = np.tile(data, e2 - s2 + 1)
