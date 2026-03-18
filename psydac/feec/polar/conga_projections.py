@@ -762,34 +762,38 @@ class C1PolarProjection_V0(LinearOperator):
         np.set_printoptions(precision=3)
 
         if rank_at_polar_edge:
-            data = (self.gamma / n2) * np.ones(2 * n2)
-            data = np.tile(data, e2 - s2 + 1)
-            cols = np.repeat(np.arange(s2, e2 + 1), 2 * n2)
-            rows = np.tile(np.arange(2 * n2), e2 - s2 + 1)
+            # matrix of size n2*n2 with all entries equal to gamma / n2
+            data = (self.gamma / n2) * np.ones(n2 * (e2 - s2 + 1))
+            # matrix of size n2*n2 with all entries equal to (1 - gamma) / n2
+            data = np.concatenate((data, (1 - self.gamma) / n2 * np.ones((e2 - s2 + 1) * n2)))
+            rows = np.tile(np.repeat(np.arange(s2, e2 + 1), n2), 2)
+            cols = np.tile(np.arange(n2), e2 - s2 + 1)
+            cols = np.concatenate((cols, np.tile(np.arange(n2, 2 * n2), e2 - s2 + 1)))
+            print(rows, cols)
         if e1 > 1 > s1:
-            d_block2 = (1 - self.gamma) / n2 * np.ones((e2 - s2 + 1) * n2)
+            # matrix of size n2*n2 with all entries equal to gamma / n2
+            d_block2 = (self.gamma / n2) * np.ones((e2 - s2 + 1) * n2)
             data = np.concatenate((data, d_block2))
-            cols = np.concatenate((cols, np.repeat(np.arange(n2 + s2, n2 + e2 + 1), n2)))
-            rows = np.concatenate((rows, np.tile(np.arange(n2), e2 - s2 + 1)))
+            rows = np.concatenate((rows, np.repeat(np.arange(n2 + s2, n2 + e2 + 1), n2)))
+            cols = np.concatenate((cols, np.tile(np.arange(n2), e2 - s2 + 1)))
 
+            # matrix p
             d_block2 = (1 - self.gamma) / n2 * np.ones((e2 - s2 + 1) * n2) + \
                        2 / n2 * toeplitz_columns_sym(theta, s2, e2, n2)
             data = np.concatenate((data, d_block2))
-            cols = np.concatenate((cols, np.repeat(np.arange(n2 + s2, n2 + e2 + 1), n2)))
-            rows = np.concatenate((rows, np.tile(np.arange(n2, 2 * n2), e2 - s2 + 1)))
+            rows = np.concatenate((rows, np.repeat(np.arange(n2 + s2, n2 + e2 + 1), n2)))
+            cols = np.concatenate((cols, np.tile(np.arange(n2, 2 * n2), e2 - s2 + 1)))
 
         # Assemble the rest of the matrix (identity block)
         start_s = max(s1, 2)
-        end_s = e1 + 1
-        if rank_at_outer_edge and self.hbc:
-            end_s -= 1
+        end_s = e1 if (rank_at_outer_edge and self.hbc) else e1 + 1
         i = np.arange(start_s, end_s)[:, None]
         j = np.arange(s2, e2 + 1)[None, :]
-        local_cols = (i * n2 + j).ravel()
+        local_rows = (i * n2 + j).ravel()
 
         data = np.concatenate((data, np.ones((e2 - s2 + 1) * (end_s - start_s))))
-        cols = np.concatenate((cols, local_cols))
-        rows = np.concatenate((rows, local_cols))
+        cols = np.concatenate((cols, local_rows))
+        rows = np.concatenate((rows, local_rows))
 
         P = coo_matrix((data, (rows, cols)), shape=[n1 * n2, n1 * n2], dtype=self.W0.coeff_space.dtype)
         P.eliminate_zeros()
@@ -894,7 +898,6 @@ class C1PolarProjection_V1_00(LinearOperator):
         theta = np.linspace(0, 2 * pi, n02, endpoint=False)  # Warning not mpi!
         [s1, s2] = self.domain.starts
         [e1, e2] = self.domain.ends
-        print(n01, n02)
 
         data, cols, rows = [], [], []
         rank_at_polar_edge = (s1 == 0)
@@ -910,8 +913,8 @@ class C1PolarProjection_V1_00(LinearOperator):
 
             data = np.concatenate((data, i_minus_p))
 
-            rows_theta = np.tile(np.arange(n02), e2 - s2 + 1)
-            cols_theta = np.repeat(np.arange(s2, e2 + 1), n02)
+            cols_theta = np.tile(np.arange(n02), e2 - s2 + 1)
+            rows_theta = np.repeat(np.arange(s2, e2 + 1), n02)
             rows = np.concatenate((rows, rows_theta))
             cols = np.concatenate((cols, cols_theta))
             rows = np.concatenate((rows, rows_theta + 1 * n02))
@@ -922,15 +925,16 @@ class C1PolarProjection_V1_00(LinearOperator):
         end_s = e1 + 1
         i = np.arange(start_s, end_s)[:, None]
         j = np.arange(s2, e2 + 1)[None, :]
-        local_cols = (i * n02 + j).ravel()
+        local_rows = (i * n02 + j).ravel()
 
         data = np.concatenate((data, np.ones((e2 - s2 + 1) * (end_s - start_s))))
-        cols = np.concatenate((cols, local_cols))
-        rows = np.concatenate((rows, local_cols))
+        cols = np.concatenate((cols, local_rows))
+        rows = np.concatenate((rows, local_rows))
 
         P = coo_matrix((data, (rows, cols)), shape=[n01 * n02, n01 * n02], dtype=self.domain.dtype)
         P.eliminate_zeros()
-        np.set_printoptions(precision=3)
+        np.set_printoptions(precision=3, suppress=True)
+        print(P.toarray())
 
         return P.T if self.transposed else P
 
@@ -1062,16 +1066,15 @@ class C1PolarProjection_V1_10(LinearOperator):
         rank_at_polar_edge = (s1 == 0)
         data, cols, rows = [], [], []
         if rank_at_polar_edge:
-            theta = np.linspace(0, 2 * pi, n02, endpoint=False)  # Warning not mpi!
-            cols = np.repeat(np.arange(s2, e2 + 1), n02)
-            rows = np.tile(np.arange(n02, 2*n02), e2 - s2 + 1)
+            theta = np.linspace(0, 2 * pi, n02, endpoint=False)
+            cols = np.tile(np.arange(n02), e2 - s2 + 1)
+            rows = np.repeat(np.arange(s2, e2 + 1), n02) + n02
             i = np.arange(n02)[:, None]
             j = np.arange(s2, e2 + 1)[None, :]
-            idx = np.abs(i - j)
-            p_cols = np.cos(theta[idx])
+            p_cols = np.cos(theta[np.abs(i - j)])
 
             p_next = np.roll(p_cols, shift=-1, axis=0)
-            data = (2.0 / n02) * (p_next - p_cols).ravel('F')
+            data = (2.0 / n02) * (p_next - p_cols).ravel('C')
 
 
         P = coo_matrix((data, (rows, cols)), shape=[n11 * n12, n01 * n02], dtype=self.domain.dtype)
