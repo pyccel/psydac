@@ -586,17 +586,20 @@ class C0PolarProjection_V2(LinearOperator):
         i = np.arange(s1, e1 + 1)[:, None]
         j = np.arange(s2, e2 + 1)[None, :]
         local_rows = (i * n2 + j).ravel()
-        rows_to_repeat = local_rows[(local_rows >= n2) & (local_rows < 2 * n2)]
-
-        rows = np.tile(rows_to_repeat, 2)
-        cols = rows_to_repeat - n2
-        rows = np.concatenate((rows, local_rows[local_rows >= 2 * n2]))
+        if self.transposed:
+            rows = local_rows
+            cols = local_rows[local_rows < n2] + n2
+        else:
+            rows_to_repeat = local_rows[(local_rows >= n2) & (local_rows < 2 * n2)]
+            rows = np.tile(rows_to_repeat, 2)
+            cols = rows_to_repeat - n2
+            rows = np.concatenate((rows, local_rows[local_rows >= 2 * n2]))
         cols = np.concatenate((cols, local_rows[local_rows >= n2]))
 
         P = coo_matrix((data, (rows, cols)), shape=(n1 * n2, n1 * n2), dtype=self.W2.coeff_space.dtype)
         P.eliminate_zeros()
 
-        return P.T if self.transposed else P
+        return P
 
     def toarray(self):
         return self.tosparse().toarray()
