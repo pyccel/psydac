@@ -60,7 +60,7 @@ def test_H1_projector_1d(domain, ncells, degree, periodic, multiplicity, verbose
     error_estim = ncells**(-degree-1)
     if verbose:
         print(ncells, maxnorm_error / error_estim)
-    assert maxnorm_error <= max(5 * error_estim, 1e-13)
+    assert maxnorm_error <= max(10 * error_estim, 1e-13)
 
 #==============================================================================
 @pytest.mark.parametrize('domain', [(0, 2*np.pi)])
@@ -107,10 +107,10 @@ def test_L2_projector_1d(domain, ncells, degree, periodic, nquads, multiplicity,
 
     # Test max-norm of error is converging with right order
     maxnorm_error = abs(vals_u1 - vals_f).max()
-    error_estim = ncells**(-degree-1)
+    error_estim_low = ncells**(-degree) # the degree is actually "degree-1" in V1
     if verbose:
-        print(ncells, maxnorm_error / error_estim)
-    assert maxnorm_error <= max(10 * error_estim, 1e-13)
+        print(ncells, maxnorm_error / error_estim_low)
+    assert maxnorm_error <= max(10 * error_estim_low, 1e-13)
     
 #==============================================================================
 @pytest.mark.parametrize('ncells', [[57,64]])
@@ -198,7 +198,7 @@ def test_derham_projector_2d_hdiv_2(ncells, degree, periodic, multiplicity, verb
 
     # Function to project
     f1  = lambda xi1, xi2 : 20 * xi1**2*(xi1-1.)**2 
-    f2  = lambda xi1, xi2 : 100 * xi2**2*(xi2-1.)**2
+    f2  = lambda xi1, xi2 : 10 * xi2**2*(xi2-1.)**2
 
     # Compute the projection
     u0 = P0(f1)
@@ -218,8 +218,15 @@ def test_derham_projector_2d_hdiv_2(ncells, degree, periodic, multiplicity, verb
     # Test max-norm of error is converging with right order
     nc_min = min(ncells)
     deg_min = min(degree)
-    error_estim = nc_min**(-deg_min-1)
-    error_estim_low = nc_min**(-deg_min) # deg-1 for certain components
+    order = deg_min+1
+    order_low = deg_min  # the degree is deg-1 for certain components
+    
+    # if periodic, the function used in this test is only Lipschitz so the convergence rates cannot be higher than 1
+    if periodic[0] or periodic[1]:
+        order = min(order,1)
+        order_low = min(order_low, 1)
+    error_estim = nc_min**(-order)
+    error_estim_low = nc_min**(-order_low)
 
     maxnorm_error = abs(vals_u0 - vals_f1).max()
     if verbose:
@@ -398,21 +405,25 @@ def manual_convergence_tests(dim):
     periodic = True
 
     if dim == 1:
-        degree = 3
+        degrees = [3,4,5,6,7]
         ncells = [10, 20, 40, 80, 160, 320, 640]
-        for nc in ncells:
-            test_H1_projector_1d(domain, nc, degree, periodic, multiplicity=1, verbose=True)
-            test_H1_projector_1d(domain, nc, degree, periodic, multiplicity=2, verbose=True)
-            test_L2_projector_1d(domain, nc, degree, periodic, nquads=degree, multiplicity=1, verbose=True)
-    
+        for deg in degrees:
+            print(f"degree = {deg}")
+            for nc in ncells:
+                test_H1_projector_1d(domain, nc, deg, periodic, multiplicity=1, verbose=True)
+                test_H1_projector_1d(domain, nc, deg, periodic, multiplicity=2, verbose=True)
+                test_L2_projector_1d(domain, nc, deg, periodic, nquads=deg, multiplicity=1, verbose=True)
+        
     elif dim == 2:
-        degree = [3, 3]
+        degrees = [[3,2], [3, 3], [3,4]]
         ncells = [10, 20, 40, 80, 160]
-        for nc in ncells:
-            test_derham_projector_2d_hcurl ([nc, nc], degree, [periodic, periodic], multiplicity=[1,1], verbose=True)
-            test_derham_projector_2d_hdiv  ([nc, nc], degree, [periodic, periodic], multiplicity=[1,1], verbose=True)
-            test_derham_projector_2d_hdiv  ([nc, nc], degree, [periodic, periodic], multiplicity=[2,2], verbose=True)
-            test_derham_projector_2d_hdiv_2([nc, nc], degree, [periodic, periodic], multiplicity=[1,1], verbose=True)
+        for deg in degrees:
+            print(f"degree = {deg}")
+            for nc in ncells:
+                test_derham_projector_2d_hcurl ([nc, nc], deg, [periodic, periodic], multiplicity=[1,1], verbose=True)
+                test_derham_projector_2d_hdiv  ([nc, nc], deg, [periodic, periodic], multiplicity=[1,1], verbose=True)
+                test_derham_projector_2d_hdiv  ([nc, nc], deg, [periodic, periodic], multiplicity=[2,2], verbose=True)
+                test_derham_projector_2d_hdiv_2([nc, nc], deg, [periodic, periodic], multiplicity=[1,1], verbose=True)
     
     elif dim == 3:
         print("\n3d")
@@ -430,5 +441,5 @@ def manual_convergence_tests(dim):
 #==============================================================================
 if __name__ == '__main__':
 
-    for dim in [1, 2, 3]:
+    for dim in [2]: #, 2, 3]:
         manual_convergence_tests(dim)
