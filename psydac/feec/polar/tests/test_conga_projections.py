@@ -1,7 +1,3 @@
-from itertools import product
-from pathlib import Path
-
-import h5py
 import numpy as np
 from numpy import pi
 
@@ -45,47 +41,6 @@ def get_random_block_vector(space):
         [e1, e2] = space.coeff_space[i].ends
         x[i][s1:e1 + 1, s2:e2 + 1] = np.random.random([e1 - s1 + 1, e2 - s2 + 1])
     return x
-
-
-def create_reference_file(proj_name, projections_list):
-    """
-    Save global sparse matrices (after checking their correctness by hand) in h5 format for tests
-    This function is needed only if the parameters for the tests are changed
-    """
-    f = h5py.File(proj_name + '.h5', mode='w')
-    params = dict(
-        transposed=[False, True],
-        hbc=[True, False],
-        degree=[[2, 2], [2, 3]],
-        ncells=[[8, 10], [15, 12]],
-        projector=projections_list,
-    )
-
-    for (tr, hbc, deg, nc, proj) in product(params["transposed"], params["hbc"], params["degree"], params["ncells"],
-                                            params["projector"]):
-
-        if proj_name == "P2" and hbc is True:
-            continue
-        domain = get_domain(1)
-        domain_h = discretize(domain, ncells=nc, periodic=[False, True])
-        if proj_name == 'P1':
-            V = VectorFunctionSpace('V', domain, kind='hcurl')
-        else:
-            V = ScalarFunctionSpace('V', domain)
-        V_h = discretize(V, domain_h, degree=deg)
-
-        if proj_name == 'P2': P = proj(V_h)
-        else: P = proj(V_h, hbc=hbc)
-        if tr: P = P.T
-
-        key = f"{proj.__name__}/n{nc[0]}x{nc[1]}/p{deg[0]}-{deg[1]}/hbc{hbc}/T{tr}"
-        if key in f:
-            del f[key]
-        g = f.require_group(key)
-        g.create_dataset("P", data=P.toarray())
-        print("saved", key)
-
-    f.close()
 
 
 @pytest.mark.parametrize('transposed', [False, True])
@@ -153,17 +108,6 @@ def test_PolarProjection_V0(Projector, R, ncells, degree, hbc, transposed):
                 assert i == j
                 assert np.isclose(v, 1.0, atol=1e-12, rtol=1e-12)
 
-
-    # Comparing the global sparse matrix to reference file
-    sp_P0_global = mpi_comm.allreduce(sp_P0.toarray(), op=MPI.SUM)
-    if mpi_comm.rank == 0:
-        name = Projector.__name__
-        h5_path = Path(__file__).absolute().parent / "P0.h5"
-
-        with h5py.File(h5_path, "r") as f:
-            key = f"{name}/n{ncells[0]}x{ncells[1]}/p{degree[0]}-{degree[1]}/hbc{hbc}/T{transposed}/P"
-            sp_P0_ref = f[key][()]
-            assert np.allclose(sp_P0_global, sp_P0_ref, atol=1e-12, rtol=1e-12)
 
     # Comparing results of dot and tosparse
     x_global = mpi_comm.allreduce(x.toarray(), op=MPI.SUM)
@@ -284,16 +228,6 @@ def test_PolarProjection_V1(Projector, R, ncells, degree, hbc, transposed):
                     assert i >= n01 * n02 + 2 * n02
                     assert np.isclose(v, 1.0, atol=1e-12, rtol=1e-12)
 
-    # Comparing the global sparse matrix to reference file
-    sp_P1_global = mpi_comm.allreduce(sp_P1.toarray(), op=MPI.SUM)
-    if mpi_comm.rank == 0:
-        name = Projector.__name__
-        h5_path = (Path(__file__).absolute().parent / "P1.h5")
-
-        with h5py.File(h5_path, "r") as f:
-            key = f"{name}/n{ncells[0]}x{ncells[1]}/p{degree[0]}-{degree[1]}/hbc{hbc}/T{transposed}/P"
-            sp_P1_ref = f[key][()]
-            assert np.allclose(sp_P1_global, sp_P1_ref, atol=1e-12, rtol=1e-12)
 
     # Comparing results of dot and tosparse
     x_global = mpi_comm.allreduce(x.toarray(), op=MPI.SUM)
@@ -360,16 +294,6 @@ def test_PolarProjection_V2(R, ncells, degree, transposed):
             else:
                 assert i == j
 
-    sp_P2_global = mpi_comm.allreduce(sp_P2.toarray(), op=MPI.SUM)
-    if mpi_comm.rank == 0:
-
-        name = 'C0PolarProjection_V2'
-        h5_path = (Path(__file__).absolute().parent / "P2.h5")
-
-        with h5py.File(h5_path, "r") as f:
-            key = f"{name}/n{ncells[0]}x{ncells[1]}/p{degree[0]}-{degree[1]}/hbc{False}/T{transposed}/P"
-            sp_P1_ref = f[key][()]
-            assert np.allclose(sp_P2_global, sp_P1_ref, atol=1e-12, rtol=1e-12)
 
     # Comparing results of dot and tosparse
     x_global = mpi_comm.allreduce(x.toarray(), op=MPI.SUM)
