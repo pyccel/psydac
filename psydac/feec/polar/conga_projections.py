@@ -759,7 +759,6 @@ class C1PolarProjection_V0(LinearOperator):
         rank_at_polar_edge = (s1 == 0)
         rank_at_outer_edge = (e1 == n1 - 1)
         data, cols, rows = [], [], []
-        np.set_printoptions(precision=3)
 
         if rank_at_polar_edge:
             # matrix of size n2*n2 with all entries equal to gamma / n2
@@ -769,7 +768,6 @@ class C1PolarProjection_V0(LinearOperator):
             rows = np.tile(np.repeat(np.arange(s2, e2 + 1), n2), 2)
             cols = np.tile(np.arange(n2), e2 - s2 + 1)
             cols = np.concatenate((cols, np.tile(np.arange(n2, 2 * n2), e2 - s2 + 1)))
-            print(rows, cols)
         if e1 > 1 > s1:
             # matrix of size n2*n2 with all entries equal to gamma / n2
             d_block2 = (self.gamma / n2) * np.ones((e2 - s2 + 1) * n2)
@@ -933,8 +931,6 @@ class C1PolarProjection_V1_00(LinearOperator):
 
         P = coo_matrix((data, (rows, cols)), shape=[n01 * n02, n01 * n02], dtype=self.domain.dtype)
         P.eliminate_zeros()
-        np.set_printoptions(precision=3, suppress=True)
-        print(P.toarray())
 
         return P.T if self.transposed else P
 
@@ -1066,16 +1062,21 @@ class C1PolarProjection_V1_10(LinearOperator):
         rank_at_polar_edge = (s1 == 0)
         data, cols, rows = [], [], []
         if rank_at_polar_edge:
-            theta = np.linspace(0, 2 * pi, n02, endpoint=False)
-            cols = np.tile(np.arange(n02), e2 - s2 + 1)
-            rows = np.repeat(np.arange(s2, e2 + 1), n02) + n02
-            i = np.arange(n02)[:, None]
-            j = np.arange(s2, e2 + 1)[None, :]
-            p_cols = np.cos(theta[np.abs(i - j)])
+            local_j = np.arange(s2, e2 + 1)  # rows
+            all_k = np.arange(n02)  # cols
 
-            p_next = np.roll(p_cols, shift=-1, axis=0)
-            data = (2.0 / n02) * (p_next - p_cols).ravel('C')
+            rows = np.repeat(local_j + n02, n02)
+            cols = np.tile(all_k, len(local_j))
 
+            theta = 2.0 * pi * np.arange(n02) / n02
+
+            j = local_j[:, None]
+            i = all_k[None, :]
+
+            p = np.cos(theta[j - i])
+            p_next = np.cos(theta[(j + 1) % n02 - i])
+            q = (2 / n02) * (p_next - p)
+            data = q.ravel(order='C')
 
         P = coo_matrix((data, (rows, cols)), shape=[n11 * n12, n01 * n02], dtype=self.domain.dtype)
         print(P.toarray())
