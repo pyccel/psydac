@@ -7,7 +7,11 @@
 The purpose of this module is to pyccelize all PSYDAC kernels, in the case
 that these were modified after an editable installation of PSYDAC.
 """
-from psydac.cmd.argparse_helpers import add_help_flag, add_version_flag, exit_with_error_message
+from psydac.cmd.argparse_helpers import (
+    add_help_flag,
+    add_version_flag,
+    exit_with_error_message,
+)
 
 __all__ = (
     'setup_psydac_test_parser',
@@ -166,4 +170,9 @@ def psydac_test(*, mod, mpi, petsc, verbose, exitfirst):
     time.sleep(0.1)  # ensure the print is shown before subprocess output
 
     # Execute the command
-    subprocess.run(cmd, shell=False, env=os.environ)
+    result = subprocess.run(cmd, shell=False, env=os.environ)
+
+    if result.returncode != 0:
+        msg = 'the PSYDAC test suite failed. '\
+              'Please check the output above for details.'
+        exit_with_error_message(msg)
