@@ -45,8 +45,8 @@ dependencies = [
     # export CC="mpicc"
     # export HDF5_MPI="ON"
     # export HDF5_DIR=<PATH-TO-HDF5-ROOT-FOLDER>
-    # pip install --no-cache-dir --no-binary h5py
-    'h5py',
+    # pip install h5py --no-cache-dir --no-binary h5py
+    'h5py >= 3.16',
 
     # When pyccel is run in parallel with MPI, it uses tblib to pickle
     # tracebacks, which allows mpi4py to broadcast exceptions
