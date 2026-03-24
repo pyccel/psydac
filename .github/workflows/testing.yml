@@ -139,7 +139,7 @@ jobs:
         if: matrix.os == 'macos-14'
         working-directory: ./pytest
         run: >-
-          cp $GITHUB_WORKSPACE/psydac/pytest.ini . &&
+          cp $GITHUB_WORKSPACE/psydac/pytest.toml . &&
           pytest -n auto
           --cov psydac
           --cov-report xml
