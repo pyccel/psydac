@@ -125,10 +125,10 @@ jobs:
 
       - name: Initialize test directory
         run: |
-          mkdir pytest
+          mkdir scratch
 
       - name: Verify that 'psydac test' reports failures correctly
-        working-directory: ./pytest
+        working-directory: ./scratch
         # We run a test which is not collected by pytest by default, and we expect it to fail.
         # If it fails (non-zero), the "echo" runs and the script exits with 0 (success).
         # If it passes (zero), the "exit 1" runs and the GitHub Action fails.
@@ -137,7 +137,7 @@ jobs:
 
       - name: Run coverage tests on macOS
         if: matrix.os == 'macos-14'
-        working-directory: ./pytest
+        working-directory: ./scratch
         run: >-
           cp $GITHUB_WORKSPACE/psydac/pytest.toml . &&
           pytest -n auto
@@ -147,7 +147,7 @@ jobs:
 
       - name: Run single-process tests with Pytest on Ubuntu
         if: matrix.os == 'ubuntu-24.04'
-        working-directory: ./pytest
+        working-directory: ./scratch
         run: |
           psydac test
 
@@ -156,32 +156,32 @@ jobs:
         uses: codacy/codacy-coverage-reporter-action@v1.3.0
         with:
           project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
-          coverage-reports: ./pytest/coverage.xml
+          coverage-reports: ./scratch/coverage.xml
 
       - name: Print detailed coverage results on macOS
         if: matrix.os == 'macos-14'
-        working-directory: ./pytest
+        working-directory: ./scratch
         run: |
           coverage report --ignore-errors --show-missing --sort=cover
 
       - name: Run MPI tests with Pytest
-        working-directory: ./pytest
+        working-directory: ./scratch
         run: |
           psydac test --mpi
 
       - name: Run single-process PETSc tests with Pytest
-        working-directory: ./pytest
+        working-directory: ./scratch
         run: |
           psydac test --petsc
 
       - name: Run MPI PETSc tests with Pytest
-        working-directory: ./pytest
+        working-directory: ./scratch
         run: |
           psydac test --mpi --petsc
 
       - name: Run single-process example tests with Pytest on Ubuntu
         if: matrix.os == 'ubuntu-24.04'
-        working-directory: ./pytest
+        working-directory: ./scratch
         run: >-
           cp $GITHUB_WORKSPACE/psydac/pytest.toml . &&
           cp -r $GITHUB_WORKSPACE/examples . &&
@@ -190,4 +190,4 @@ jobs:
       - name: Remove test directory
         if: always()
         run: |
-          rm -rf pytest
+          rm -rf scratch
