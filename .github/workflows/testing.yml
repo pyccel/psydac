@@ -134,7 +134,6 @@ jobs:
           cp $GITHUB_WORKSPACE/psydac/pytest.ini . &&
           pytest -n auto
           --cov psydac
-          --cov-config $GITHUB_WORKSPACE/pyproject.toml
           --cov-report xml
           --pyargs psydac -m "not mpi and not petsc" -ra
 
