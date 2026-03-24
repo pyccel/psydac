@@ -127,6 +127,14 @@ jobs:
         run: |
           mkdir pytest
 
+      - name: Verify that 'psydac test' reports failures correctly
+        working-directory: ./pytest
+        # We run a test which is not collected by pytest by default, and we expect it to fail.
+        # If it fails (non-zero), the "echo" runs and the script exits with 0 (success).
+        # If it passes (zero), the "exit 1" runs and the GitHub Action fails.
+        run: |
+          psydac test --mod psydac.cmd.tests.failing_test && { echo "Test passed but should have failed!"; exit 1; } || echo "Test failed as expected."
+
       - name: Run coverage tests on macOS
         if: matrix.os == 'macos-14'
         working-directory: ./pytest
