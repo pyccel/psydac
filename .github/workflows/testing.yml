@@ -181,7 +181,10 @@ jobs:
 
       - name: Run single-process example tests with Pytest on Ubuntu
         if: matrix.os == 'ubuntu-24.04'
-        run: |
+        working-directory: ./pytest
+        run: >-
+          cp $GITHUB_WORKSPACE/psydac/pytest.toml . &&
+          cp -r $GITHUB_WORKSPACE/examples . &&
           python -m pytest examples/feec
 
       - name: Remove test directory
