@@ -118,13 +118,15 @@ jobs:
           pip install .[test]
           pip freeze
 
-      - name: Test Pyccel optimization flags
-        run: |
-          pytest --pyargs psydac -m pyccel --capture=no
-
       - name: Initialize test directory
         run: |
           mkdir scratch
+
+      - name: Test Pyccel optimization flags
+        working-directory: ./scratch
+        run: >-
+          cp $GITHUB_WORKSPACE/psydac/pytest.toml . &&
+          pytest --pyargs psydac -m pyccel --capture=no
 
       - name: Verify that 'psydac test' reports failures correctly
         working-directory: ./scratch
