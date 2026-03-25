@@ -10,15 +10,24 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+-   #579 : Require `h5py>=3.16` which installs correctly with `setuptools>=81.0`
+-   #579 : Don't run postprocessing unit tests with `pytest-xdist` because `h5py` is not thread-safe
+-   #579 : Return error code on failure of the `psydac test` and `psydac compile` commands
 -   #577 : Fix installation following release of Pyccel 2.2
 -   #571 : Fix correct application of the sum factorization algorithm
 -   #570 : Optimize PSYDAC logo
 -   #565 : Expand editable install info in `README.md`
 -   #566 : Fix command `psydac test --mpi` on Ubuntu machines
--   [DEVELOPER] Update CI installation of `h5py` and `petsc4py` after release of `setuptools` 81.0
+-   [DEVELOPER] Update CI installation of `petsc4py` after release of `setuptools` 81.0
+-   [DEVELOPER] Check correct reporting of failure for `psydac test` command in CI testing
+-   [DEVELOPER] Use correct configuration file in coverage CI tests
 
 ### Changed
 
+-   #579 : Require `pyccel>=2.2.3` which can compile all kernels with C
+-   #579 : Require `numpy>=2.1` to support Python >= 3.10
+-   #579 : Require `pytest>=9.0` and use `pytest.toml` instead of `pytest.ini` for Pytest configuration
+-   #579 : Move coverage configuration from `pyproject.toml` to `psydac/pytest.toml`
 -   [DEVELOPER] Do not check file changes to trigger testing workflow on PRs
 -   [DEVELOPER] Run documentation workflow on pushes to `devel` whenever `README.md` is modified
 -   [DEVELOPER] Run testing and documentation workflows on PRs only when set to "ready for review"

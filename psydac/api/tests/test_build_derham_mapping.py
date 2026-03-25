@@ -24,7 +24,6 @@ import os
 @pytest.mark.parametrize('degree', [[2], [3]])
 @pytest.mark.parametrize('ncells', [[4], [10]])
 @pytest.mark.parametrize('periodic', [[True], [False]])
-
 def test_build_derham_spline_mapping_id_1d(degree, ncells, periodic):
     
     p1,  = degree
@@ -78,10 +77,11 @@ def test_build_derham_spline_mapping_id_1d(degree, ncells, periodic):
     #                 snapshots='all', fields=('f'))     
     #Pm.close()
 
+
+@pytest.mark.xdist_group('h5py')
 @pytest.mark.parametrize('degree', [[2,2], [3,4]])
 @pytest.mark.parametrize('ncells', [[5,6], [10,10]])
 @pytest.mark.parametrize('periodic', [[True,True], [True,False]])
-
 def test_build_derham_spline_mapping_id_2d(degree, ncells, periodic):
 
     p1 , p2 = degree
@@ -139,10 +139,11 @@ def test_build_derham_spline_mapping_id_2d(degree, ncells, periodic):
     os.remove("./export_sol.h5")
     os.remove("./fields_test.0000.vtu")
 
+
+@pytest.mark.xdist_group('h5py')
 @pytest.mark.parametrize('degree', [[2,2,2], [2,3,4]])
 @pytest.mark.parametrize('ncells', [[4,6,7], [10,10,10]])
 @pytest.mark.parametrize('periodic', [[True,True,True], [True,False,False]])
-
 def test_build_derham_spline_mapping_id_3d(degree, ncells, periodic):
 
     p1 , p2, p3  = degree

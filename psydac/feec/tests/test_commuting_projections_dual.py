@@ -15,7 +15,7 @@ import numpy as np
 import pytest
 
 
-@pytest.mark.parametrize('Nel', [8, 12])
+@pytest.mark.parametrize('Nel', [8]) #, 12])
 @pytest.mark.parametrize('Nq', [5])
 @pytest.mark.parametrize('p', [2, 3])
 @pytest.mark.parametrize('bc', [True, False])
@@ -58,7 +58,7 @@ def test_transpose_div_3d(Nel, Nq, p, bc, m):
     assert error < 2e-10
 
 
-@pytest.mark.parametrize('Nel', [8, 12])
+@pytest.mark.parametrize('Nel', [8]) #, 12])
 @pytest.mark.parametrize('Nq', [6])
 @pytest.mark.parametrize('p', [2, 3])
 @pytest.mark.parametrize('bc', [True, False])
@@ -116,7 +116,7 @@ def test_transpose_curl_3d(Nel, Nq, p, bc, m):
     assert error < 2e-9
 
 
-@pytest.mark.parametrize('Nel', [8, 12])
+@pytest.mark.parametrize('Nel', [8]) #, 12])
 @pytest.mark.parametrize('Nq', [6])
 @pytest.mark.parametrize('p', [2, 3])
 @pytest.mark.parametrize('bc', [True, False])

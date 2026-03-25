@@ -165,7 +165,7 @@ if __name__ == '__main__':
 
     from collections                               import OrderedDict
     from sympy                                     import lambdify
-    from psydac.api.tests.build_domain             import build_pretzel
+    from psydac.api.tests.build_domain             import build_11_patch_pretzel
     
     A1 = Cube('A1', bounds1=(0, 0.5), bounds2=(0, 0.5), bounds3=(0, 1))
     A2 = Cube('A2', bounds1=(0.5, 1), bounds2=(0, 0.5), bounds3=(0, 1))
