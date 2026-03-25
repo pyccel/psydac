@@ -15,32 +15,20 @@ runs:
         echo $HDF5_DIR
         echo "HDF5_DIR=$HDF5_DIR" >> $GITHUB_ENV
 
-# To be deactivated when a new version of h5py is released on PyPI
     - name: Install h5py in parallel mode
       shell: bash
       run: |
         export CC="mpicc"
         export HDF5_MPI="ON"
-        git clone https://github.com/h5py/h5py.git
-        cd h5py
-        pip install -v .
+        pip install h5py --no-cache-dir --no-binary h5py
         pip list
-
-# To be reactivated when a new version of h5py is released on PyPI
-#    - name: Install h5py in parallel mode
-#      shell: bash
-#      run: |
-#        export CC="mpicc"
-#        export HDF5_MPI="ON"
-#        pip install h5py --no-cache-dir --no-binary h5py
-#        pip list
 
     - name: Check parallel h5py installation
       shell: bash
       run: |
-          python -c "
-          from mpi4py import MPI
-          import h5py
-          # This particular instantiation of h5py.File will fail if parallel h5py isn't installed
-          f = h5py.File('parallel_test.hdf5', 'w', driver='mpio', comm=MPI.COMM_WORLD)
-          print(f)"
+        python -c "
+        from mpi4py import MPI
+        import h5py
+        # This particular instantiation of h5py.File will fail if parallel h5py isn't installed
+        f = h5py.File('parallel_test.hdf5', 'w', driver='mpio', comm=MPI.COMM_WORLD)
+        print(f)"
