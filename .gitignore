@@ -4,7 +4,7 @@
 *.so
 *.lock
 __psydac__/
-__*pyccel__/
+__*pyccel__*/
 docs/source/modules/STUBDIR/*
 
 build
@@ -12,6 +12,7 @@ build
 *egg*
 *dist*
 *cache*
+prof
 
 *.swp
 *.log
