@@ -15,6 +15,9 @@ from psydac.feec.polar.conga_projections import C0PolarProjection_V0, C0PolarPro
 from psydac.fem.basic import FemField
 from psydac.linalg.block import BlockVector
 
+ATOL = 1e-12
+RTOL = 1e-12
+
 
 def get_domain(R):
     # Build physical domain - disk of radius R
@@ -68,7 +71,7 @@ def test_PolarProjection_V0(Projector, R, ncells, degree, hbc, transposed):
     P0.dot(x, out=y)
 
     # Checking projection property P0(P0(phi)) = P0(phi)
-    assert np.allclose(P0.dot(y)[:, :], y[:, :], atol=1e-12, rtol=1e-12)
+    assert np.allclose(P0.dot(y)[:, :], y[:, :], atol=ATOL, rtol=RTOL)
 
     sp_P0 = P0.tosparse().tocoo()
 
@@ -98,15 +101,15 @@ def test_PolarProjection_V0(Projector, R, ncells, degree, hbc, transposed):
         # Check all non-zero entries
         for i, j, v in zip(rows, cols, data):
             if i < n2 and j < n2:
-                assert np.isclose(v, 1 / n2, atol=1e-12, rtol=1e-12)
+                assert np.isclose(v, 1 / n2, atol=ATOL, rtol=RTOL)
             elif Projector == C1PolarProjection_V0 and j < n2 <= i < 2 * n2:
-                assert np.isclose(v, 1 / n2, atol=1e-12, rtol=1e-12)
+                assert np.isclose(v, 1 / n2, atol=ATOL, rtol=RTOL)
             elif Projector == C1PolarProjection_V0 and n2 <= i < 2 * n2 and n2 <= j < 2 * n2:
-                assert np.isclose(v, 2 / n2 * np.cos( (i - j) * 2 * np.pi / n2), atol=1e-12, rtol=1e-12)
+                assert np.isclose(v, 2 / n2 * np.cos( (i - j) * 2 * np.pi / n2), atol=ATOL, rtol=RTOL)
             else:
                 # identity
                 assert i == j
-                assert np.isclose(v, 1.0, atol=1e-12, rtol=1e-12)
+                assert np.isclose(v, 1.0, atol=ATOL, rtol=RTOL)
 
 
     # Comparing results of dot and tosparse
@@ -115,7 +118,7 @@ def test_PolarProjection_V0(Projector, R, ncells, degree, hbc, transposed):
     y = mpi_comm.allreduce(y.toarray(), op=MPI.SUM)
     y_sp = mpi_comm.allreduce(y_sp, op=MPI.SUM)
 
-    assert np.allclose(y_sp, y, atol=1e-12, rtol=1e-12)
+    assert np.allclose(y_sp, y, atol=ATOL, rtol=RTOL)
 
 
 
@@ -145,8 +148,8 @@ def test_PolarProjection_V1(Projector, R, ncells, degree, hbc, transposed):
     P1.dot(x, out=y)
     z = P1.dot(y)
     # Checking projection property P1(P1(phi)) = P1(phi)
-    assert np.allclose(z[0][:, :], y[0][:, :], atol=1e-12, rtol=1e-12)
-    assert np.allclose(z[1][:, :], y[1][:, :], atol=1e-12, rtol=1e-12)
+    assert np.allclose(z[0][:, :], y[0][:, :], atol=ATOL, rtol=RTOL)
+    assert np.allclose(z[1][:, :], y[1][:, :], atol=ATOL, rtol=RTOL)
 
     sp_P1 = P1.tosparse().tocoo()
     print(sp_P1.toarray())
@@ -184,20 +187,20 @@ def test_PolarProjection_V1(Projector, R, ncells, degree, hbc, transposed):
                 if i < n01 * n02:
                     # identity
                     assert i == j
-                    assert np.isclose(v, 1.0, atol=1e-12, rtol=1e-12)
+                    assert np.isclose(v, 1.0, atol=ATOL, rtol=RTOL)
                 # Block P1_10
                 elif n01 * n02 + n02 <= i < n01 * n02 + 2 * n02:
                     # d matrix
                     if j == i - n02 * (n01 + 1):
-                        assert np.isclose(v, -1.0, atol=1e-12, rtol=1e-12)
+                        assert np.isclose(v, -1.0, atol=ATOL, rtol=RTOL)
                     else:
-                        assert np.isclose(v, 1.0, atol=1e-12, rtol=1e-12)
+                        assert np.isclose(v, 1.0, atol=ATOL, rtol=RTOL)
                         assert j == (i - n02 * (n01 + 1) + 1) % n02
                 # Block P1_11
                 else:
                     assert i >= n01 * n02 + 2 * n02
                     assert j == i
-                    assert np.isclose(v, 1.0, atol=1e-12, rtol=1e-12)
+                    assert np.isclose(v, 1.0, atol=ATOL, rtol=RTOL)
 
             if Projector == C1PolarProjection_V1:
                 p_ij = 2 / n02 * np.cos((i - j) * 2 * np.pi / n02)
@@ -205,28 +208,28 @@ def test_PolarProjection_V1(Projector, R, ncells, degree, hbc, transposed):
                 if i < n02:
                     # matrix p
                     assert j < n02
-                    assert np.isclose(v, p_ij, atol=1e-12, rtol=1e-12)
+                    assert np.isclose(v, p_ij, atol=ATOL, rtol=RTOL)
                 elif 2 * n02 > i >= n02 > j:
                     # matrix I - p
                     if i == j + n02:
-                        assert np.isclose(v, 1 - p_ij, atol=1e-12, rtol=1e-12)
+                        assert np.isclose(v, 1 - p_ij, atol=ATOL, rtol=RTOL)
                     else:
-                        assert np.isclose(v, - p_ij, atol=1e-12, rtol=1e-12)
+                        assert np.isclose(v, - p_ij, atol=ATOL, rtol=RTOL)
                 elif n02 <= i < n01 * n02:
                     assert j == i
-                    assert np.isclose(v, 1.0, atol=1e-12, rtol=1e-12)
+                    assert np.isclose(v, 1.0, atol=ATOL, rtol=RTOL)
 
                 # Block P1_10
                 elif j < n02:
                     # matrix q
                     q_ij = (2 / n02 * np.cos((i + 1 - j) * 2 * np.pi / n02) - p_ij)
-                    assert np.isclose(v, q_ij, atol=1e-12, rtol=1e-12)
+                    assert np.isclose(v, q_ij, atol=ATOL, rtol=RTOL)
 
                 # Block P1_11
                 else:
                     assert i == j
                     assert i >= n01 * n02 + 2 * n02
-                    assert np.isclose(v, 1.0, atol=1e-12, rtol=1e-12)
+                    assert np.isclose(v, 1.0, atol=ATOL, rtol=RTOL)
 
 
     # Comparing results of dot and tosparse
@@ -235,7 +238,7 @@ def test_PolarProjection_V1(Projector, R, ncells, degree, hbc, transposed):
     y = mpi_comm.allreduce(y.toarray(), op=MPI.SUM)
     y_sp = mpi_comm.allreduce(y_sp, op=MPI.SUM)
 
-    assert np.allclose(y_sp, y, atol=1e-12, rtol=1e-12)
+    assert np.allclose(y_sp, y, atol=ATOL, rtol=RTOL)
 
 
 @pytest.mark.parametrize( 'transposed', [True, False])
@@ -261,7 +264,7 @@ def test_PolarProjection_V2(R, ncells, degree, transposed):
     P2.dot(x, out=y)
 
     # Checking projection property P0(P0(phi)) = P0(phi)
-    assert np.allclose(P2.dot(y)[:, :], y[:, :], atol=1e-12, rtol=1e-12)
+    assert np.allclose(P2.dot(y)[:, :], y[:, :], atol=ATOL, rtol=RTOL)
 
     # Comparing the global sparse matrix to reference file
     sp_P2 = P2.tosparse().tocoo()
@@ -288,7 +291,7 @@ def test_PolarProjection_V2(R, ncells, degree, transposed):
 
         # Check all non-zero entries
         for i, j, v in zip(rows, cols, data):
-            assert np.isclose(v, 1.0, atol=1e-12, rtol=1e-12)
+            assert np.isclose(v, 1.0, atol=ATOL, rtol=RTOL)
             if j < n2:
                 assert i == j + n2
             else:
@@ -299,7 +302,7 @@ def test_PolarProjection_V2(R, ncells, degree, transposed):
     x_global = mpi_comm.allreduce(x.toarray(), op=MPI.SUM)
     y_sp = sp_P2 @ x_global
 
-    assert np.allclose(y_sp, y.toarray(), atol=1e-12, rtol=1e-12)
+    assert np.allclose(y_sp, y.toarray(), atol=ATOL, rtol=RTOL)
 
 if __name__ == '__main__':
     test_PolarProjection_V2(1, [8, 10], [2, 2], False)
