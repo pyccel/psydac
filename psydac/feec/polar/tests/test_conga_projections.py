@@ -70,7 +70,7 @@ def test_PolarProjection_V0(Projector, R, ncells, degree, hbc, transposed):
     # Checking projection property P0(P0(phi)) = P0(phi)
     assert np.allclose(P0.dot(y)[:, :], y[:, :], atol=1e-12, rtol=1e-12)
 
-    sp_P0 = P0.tosparse()
+    sp_P0 = P0.tosparse().tocoo()
 
     [n1, n2] = V0_h.coeff_space.npts
     assert sp_P0.shape == (n1 * n2, n1 * n2)
@@ -148,7 +148,7 @@ def test_PolarProjection_V1(Projector, R, ncells, degree, hbc, transposed):
     assert np.allclose(z[0][:, :], y[0][:, :], atol=1e-12, rtol=1e-12)
     assert np.allclose(z[1][:, :], y[1][:, :], atol=1e-12, rtol=1e-12)
 
-    sp_P1 = P1.tosparse()
+    sp_P1 = P1.tosparse().tocoo()
     print(sp_P1.toarray())
 
     [n01, n02] = V1_h.coeff_space[0].npts
@@ -264,7 +264,7 @@ def test_PolarProjection_V2(R, ncells, degree, transposed):
     assert np.allclose(P2.dot(y)[:, :], y[:, :], atol=1e-12, rtol=1e-12)
 
     # Comparing the global sparse matrix to reference file
-    sp_P2 = P2.tosparse()
+    sp_P2 = P2.tosparse().tocoo()
     print(mpi_comm.rank, sp_P2.shape, sp_P2.nnz, V2_h.coeff_space.npts)
 
     payload = (sp_P2.row, sp_P2.col, sp_P2.data)
