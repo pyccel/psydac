@@ -54,7 +54,7 @@ def get_random_block_vector(space):
 @pytest.mark.parametrize('Projector', [C0PolarProjection_V0, C1PolarProjection_V0])
 @pytest.mark.mpi
 
-def test_PolarProjection_V0(Projector, R, ncells, degree, hbc, transposed):
+def test_PolarProjection_V0(Projector, R, ncells, degree, hbc, transposed, verbose=False):
     mpi_comm = MPI.COMM_WORLD
     domain = get_domain(R)
 
@@ -74,6 +74,10 @@ def test_PolarProjection_V0(Projector, R, ncells, degree, hbc, transposed):
     assert np.allclose(P0.dot(y)[:, :], y[:, :], atol=ATOL, rtol=RTOL)
 
     sp_P0 = P0.tosparse().tocoo()
+    if verbose:
+        print("Projection P0 in matrix form on rank", mpi_comm.rank)
+        print(sp_P0.toarray())
+
 
     [n1, n2] = V0_h.coeff_space.npts
     assert sp_P0.shape == (n1 * n2, n1 * n2)
@@ -130,7 +134,7 @@ def test_PolarProjection_V0(Projector, R, ncells, degree, hbc, transposed):
 @pytest.mark.parametrize('Projector', [C0PolarProjection_V1, C1PolarProjection_V1])
 @pytest.mark.mpi
 
-def test_PolarProjection_V1(Projector, R, ncells, degree, hbc, transposed):
+def test_PolarProjection_V1(Projector, R, ncells, degree, hbc, transposed, verbose=False):
     mpi_comm = MPI.COMM_WORLD
     domain = get_domain(R)
 
@@ -152,7 +156,9 @@ def test_PolarProjection_V1(Projector, R, ncells, degree, hbc, transposed):
     assert np.allclose(z[1][:, :], y[1][:, :], atol=ATOL, rtol=RTOL)
 
     sp_P1 = P1.tosparse().tocoo()
-    print(sp_P1.toarray())
+    if verbose:
+        print("Projection P1 in matrix form on rank", mpi_comm.rank)
+        print(sp_P1.toarray())
 
     [n01, n02] = V1_h.coeff_space[0].npts
     [n11, n12] = V1_h.coeff_space[1].npts
@@ -174,7 +180,6 @@ def test_PolarProjection_V1(Projector, R, ncells, degree, hbc, transposed):
         if Projector == C0PolarProjection_V1:
             assert len(data) == n01 * n02 + 2 * n02 + (n11 - (3 if hbc else 2)) * n12
         else:
-            print(len(data))
             assert len(data) == 3 * n02 * n02 + n02 * (n01 - 1) + (n11 - (3 if hbc else 2)) * n12
 
         if transposed:
@@ -247,7 +252,7 @@ def test_PolarProjection_V1(Projector, R, ncells, degree, hbc, transposed):
 @pytest.mark.parametrize( 'R', [1])
 @pytest.mark.mpi
 
-def test_PolarProjection_V2(R, ncells, degree, transposed):
+def test_PolarProjection_V2(R, ncells, degree, transposed, verbose=False):
     mpi_comm = MPI.COMM_WORLD
     domain = get_domain(R)
 
@@ -268,7 +273,9 @@ def test_PolarProjection_V2(R, ncells, degree, transposed):
 
     # Comparing the global sparse matrix to reference file
     sp_P2 = P2.tosparse().tocoo()
-    print(mpi_comm.rank, sp_P2.shape, sp_P2.nnz, V2_h.coeff_space.npts)
+    if verbose:
+        print("Projection P2 in matrix form on rank", mpi_comm.rank)
+        print(sp_P2.toarray())
 
     payload = (sp_P2.row, sp_P2.col, sp_P2.data)
     parts = mpi_comm.gather(payload, root=0)
@@ -305,4 +312,6 @@ def test_PolarProjection_V2(R, ncells, degree, transposed):
     assert np.allclose(y_sp, y.toarray(), atol=ATOL, rtol=RTOL)
 
 if __name__ == '__main__':
-    test_PolarProjection_V2(1, [8, 10], [2, 2], False)
+    test_PolarProjection_V0(C0PolarProjection_V0, 1, [3, 3], [1, 1], False, False, verbose=False)
+    test_PolarProjection_V1(C0PolarProjection_V1, 1, [2, 3], [1, 1], False, False, verbose=True)
+    test_PolarProjection_V2(1, [8, 10], [2, 2], False, verbose=True)
