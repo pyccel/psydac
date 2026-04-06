@@ -12,6 +12,7 @@ from sympde.topology.analytical_mapping import PolarMapping
 from psydac.api.discretization import discretize
 from psydac.feec.polar.conga_projections import C0PolarProjection_V0, C0PolarProjection_V2, C0PolarProjection_V1, \
     C1PolarProjection_V0, C1PolarProjection_V1
+from psydac.feec.polar.utils import gather_vlen_array
 from psydac.fem.basic import FemField
 from psydac.linalg.block import BlockVector
 
@@ -83,15 +84,11 @@ def test_PolarProjection_V0(Projector, R, ncells, degree, hbc, transposed, verbo
     assert sp_P0.shape == (n1 * n2, n1 * n2)
 
     # gather sparse matrix entries (rows, columns, data) on root process
-    payload = (sp_P0.row, sp_P0.col, sp_P0.data)
-    parts = mpi_comm.gather(payload, root=0)
+    data = gather_vlen_array(sp_P0.data, mpi_comm)
+    cols = gather_vlen_array(sp_P0.col, mpi_comm)
+    rows = gather_vlen_array(sp_P0.row, mpi_comm)
 
     if mpi_comm.rank == 0:
-
-        # Concatenate the result of gather (equivalent to summation of local matrices)
-        rows = np.concatenate([p[0] for p in parts])
-        cols = np.concatenate([p[1] for p in parts])
-        data = np.concatenate([p[2] for p in parts])
 
         # Check the number of non-zero entries in the sparse matrix
         if Projector == C0PolarProjection_V0:
@@ -166,15 +163,11 @@ def test_PolarProjection_V1(Projector, R, ncells, degree, hbc, transposed, verbo
     assert sp_P1.shape == (n01 * n02 + n11 * n12, n01 * n02 + n11 * n12)
 
     # gather sparse matrix entries (rows, columns, data) on root process
-    payload = (sp_P1.row, sp_P1.col, sp_P1.data)
-    parts = mpi_comm.gather(payload, root=0)
+    data = gather_vlen_array(sp_P1.data, mpi_comm)
+    cols = gather_vlen_array(sp_P1.col, mpi_comm)
+    rows = gather_vlen_array(sp_P1.row, mpi_comm)
 
     if mpi_comm.rank == 0:
-
-        # Concatenate the result of gather (equivalent to summation of local matrices)
-        rows = np.concatenate([p[0] for p in parts])
-        cols = np.concatenate([p[1] for p in parts])
-        data = np.concatenate([p[2] for p in parts])
 
         # Check the number of non-zero entries in the sparse matrix
         if Projector == C0PolarProjection_V1:
@@ -277,18 +270,14 @@ def test_PolarProjection_V2(R, ncells, degree, transposed, verbose=False):
         print("Projection P2 in matrix form on rank", mpi_comm.rank)
         print(sp_P2.toarray())
 
-    payload = (sp_P2.row, sp_P2.col, sp_P2.data)
-    parts = mpi_comm.gather(payload, root=0)
-
     [n1, n2] = V2_h.coeff_space.npts
     assert sp_P2.shape == (n1 * n2, n1 * n2)
 
-    if mpi_comm.rank == 0:
+    data = gather_vlen_array(sp_P2.data, mpi_comm)
+    cols = gather_vlen_array(sp_P2.col, mpi_comm)
+    rows = gather_vlen_array(sp_P2.row, mpi_comm)
 
-        # Concatenate the result of gather (equivalent to summation of local matrices)
-        rows = np.concatenate([p[0] for p in parts])
-        cols = np.concatenate([p[1] for p in parts])
-        data = np.concatenate([p[2] for p in parts])
+    if mpi_comm.rank == 0:
 
         # Check the number of non-zero entries in the sparse matrix
         assert len(data) == n1  * n2
@@ -312,6 +301,6 @@ def test_PolarProjection_V2(R, ncells, degree, transposed, verbose=False):
     assert np.allclose(y_sp, y.toarray(), atol=ATOL, rtol=RTOL)
 
 if __name__ == '__main__':
-    test_PolarProjection_V0(C0PolarProjection_V0, 1, [3, 3], [1, 1], False, False, verbose=False)
+    test_PolarProjection_V0(C0PolarProjection_V0, 1, [3, 3], [1, 1], False, False, verbose=True)
     test_PolarProjection_V1(C0PolarProjection_V1, 1, [2, 3], [1, 1], False, False, verbose=True)
     test_PolarProjection_V2(1, [8, 10], [2, 2], False, verbose=True)
