@@ -129,6 +129,9 @@ class C0PolarProjection_V0(LinearOperator):
         cols = np.concatenate((cols, local_rows))
         rows = np.concatenate((rows, local_rows))
 
+        rows = np.asarray(rows, dtype=np.int64)
+        cols = np.asarray(cols, dtype=np.int64)
+
         P = coo_matrix((data, (rows, cols)), shape=[n1 * n2, n1 * n2], dtype=self.W0.coeff_space.dtype)
         P.eliminate_zeros()
 
@@ -223,6 +226,8 @@ class C0PolarProjection_V1_00(LinearOperator):
         j = np.arange(s2, e2 + 1)[None, :]
         local_rows = (i * n02 + j).ravel()
         data = np.ones((e1 - s1 + 1) * (e2 - s2 + 1))
+
+        local_rows = np.asarray(local_rows, dtype=np.int64)
 
         P = coo_matrix((data, (local_rows, local_rows)), shape=[n01 * n02, n01 * n02], dtype=self.domain.dtype)
         P.eliminate_zeros()
@@ -333,6 +338,9 @@ class C0PolarProjection_V1_10(LinearOperator):
                 cols = np.column_stack((k, (k + 1) % n12 )).ravel()
 
         dtype = self.domain.dtype
+        rows = np.asarray(rows, dtype=np.int64)
+        cols = np.asarray(cols, dtype=np.int64)
+
         P = coo_matrix((data, (rows, cols)), shape=[n11 * n12, n01 * n02], dtype=dtype)
         P.eliminate_zeros()
         return P
@@ -437,6 +445,7 @@ class C0PolarProjection_V1_11(LinearOperator):
         i = np.arange(start_s, end_s)[:, None]
         j = np.arange(s2, e2 + 1)[None, :]
         local_rows = (i * n02 + j).ravel()
+        local_rows = np.asarray(local_rows, dtype=np.int64)
 
         P = coo_matrix((data, (local_rows, local_rows)), shape=[n11 * n12, n01 * n02], dtype=dtype)
         P.eliminate_zeros()
@@ -595,6 +604,9 @@ class C0PolarProjection_V2(LinearOperator):
             cols = rows_to_repeat - n2
             rows = np.concatenate((rows, local_rows[local_rows >= 2 * n2]))
         cols = np.concatenate((cols, local_rows[local_rows >= n2]))
+
+        rows = np.asarray(rows, dtype=np.int64)
+        cols = np.asarray(cols, dtype=np.int64)
 
         P = coo_matrix((data, (rows, cols)), shape=(n1 * n2, n1 * n2), dtype=self.W2.coeff_space.dtype)
         P.eliminate_zeros()
@@ -793,6 +805,9 @@ class C1PolarProjection_V0(LinearOperator):
         cols = np.concatenate((cols, local_rows))
         rows = np.concatenate((rows, local_rows))
 
+        rows = np.asarray(rows, dtype=np.int64)
+        cols = np.asarray(cols, dtype=np.int64)
+
         P = coo_matrix((data, (rows, cols)), shape=[n1 * n2, n1 * n2], dtype=self.W0.coeff_space.dtype)
         P.eliminate_zeros()
 
@@ -928,6 +943,9 @@ class C1PolarProjection_V1_00(LinearOperator):
         data = np.concatenate((data, np.ones((e2 - s2 + 1) * (end_s - start_s))))
         cols = np.concatenate((cols, local_rows))
         rows = np.concatenate((rows, local_rows))
+
+        rows = np.asarray(rows, dtype=np.int64)
+        cols = np.asarray(cols, dtype=np.int64)
 
         P = coo_matrix((data, (rows, cols)), shape=[n01 * n02, n01 * n02], dtype=self.domain.dtype)
         P.eliminate_zeros()
@@ -1078,8 +1096,10 @@ class C1PolarProjection_V1_10(LinearOperator):
             q = (2 / n02) * (p_next - p)
             data = q.ravel(order='C')
 
+        rows = np.asarray(rows, dtype=np.int64)
+        cols = np.asarray(cols, dtype=np.int64)
+
         P = coo_matrix((data, (rows, cols)), shape=[n11 * n12, n01 * n02], dtype=self.domain.dtype)
-        print(P.toarray())
 
         return P.T if self.transposed else P
 
