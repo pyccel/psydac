@@ -112,7 +112,7 @@ jobs:
           pip install src/binding/petsc4py
 
       - name: Install h5py in parallel mode
-        uses: ./.github/actions/parallel_h5py
+        uses: ./.github/actions/install_h5py
 
       - name: Install project
         run: |
