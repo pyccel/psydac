@@ -24,7 +24,7 @@ jobs:
           submodules: true
 
       - name: Install dependencies
-        uses: ./.github/actions/ubuntu_install
+        uses: ./.github/actions/ubuntu_installations
 
       - name: Update build tools
         run: |
