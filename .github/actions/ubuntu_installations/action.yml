@@ -1,4 +1,5 @@
 name: 'Ubuntu installation commands'
+description: 'Install non-Python dependencies on Ubuntu'
 
 runs:
   using: "composite"

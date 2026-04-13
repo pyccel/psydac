@@ -56,51 +56,11 @@ jobs:
       run: |
         pip install --upgrade pip setuptools wheel
 
-    - name: Cache PETSc
-      uses: actions/cache@v4
-      id: cache-petsc
-      env:
-        cache-name: cache-PETSc
-      with:
-        path: "./petsc"
-        key: petsc-${{ matrix.os }}-${{ matrix.python-version }}
-
-    - if: steps.cache-petsc.outputs.cache-hit != 'true'
-      name: Download a specific release of PETSc
-      run: |
-        git clone --depth 1 -b release https://gitlab.com/petsc/petsc.git
-        # when a tag will be available for the latest release we can install with 
-        # git clone --depth 1 --branch v*.**.* https://gitlab.com/petsc/petsc.git
-
-    - if: steps.cache-petsc.outputs.cache-hit != 'true'
-      name: Install PETSc with complex support
-      working-directory: ./petsc
-      run: |
-        export PETSC_DIR=$(pwd)
-        export PETSC_ARCH=petsc-cmplx
-        ./configure --with-scalar-type=complex --with-fortran-bindings=0 --have-numpy=1         
-        make all
-        echo "PETSC_DIR=$PETSC_DIR" > petsc.env
-        echo "PETSC_ARCH=$PETSC_ARCH" >> petsc.env
-
-    # This step is not really necessary and could be combined with PETSc install
-    # step; however it's good to verify if the cached PETSc installation really works!
-    - name: Test PETSc installation
-      working-directory: ./petsc
-      run: |
-        source petsc.env
-        make check
-        echo "PETSC_DIR=$PETSC_DIR" >> $GITHUB_ENV
-        echo "PETSC_ARCH=$PETSC_ARCH" >> $GITHUB_ENV
-
-    - name: Install petsc4py
-      working-directory: ./petsc
-      run: | 
-        pip install wheel Cython numpy
-        pip install src/binding/petsc4py
+    - name: Install PETSc and petsc4py with complex support
+      uses: ./.github/actions/install_petsc4py
 
     - name: Install h5py in parallel mode
-      uses: ./.github/actions/parallel_h5py
+      uses: ./.github/actions/install_h5py
 
     - name: Install project
       run: |

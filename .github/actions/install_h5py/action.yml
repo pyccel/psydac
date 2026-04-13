@@ -1,4 +1,5 @@
 name: 'Parallel h5py installation'
+description: 'Install h5py in parallel mode using the system MPI and HDF5 libraries'
 
 runs:
   using: "composite"

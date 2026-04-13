@@ -1,4 +1,5 @@
 name: 'MacOS installation commands'
+description: 'Install non-Python dependencies on macOS'
 
 runs:
   using: "composite"
