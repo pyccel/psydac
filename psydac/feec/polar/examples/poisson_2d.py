@@ -108,7 +108,7 @@ class Poisson2D:
         - The angular coordinate theta belongs to the interval [0, 2 * pi).
 
         : code
-        $\phi(x,y) = sin(3.5 \pi (R^2 - x^2 - y^2)/R^2)$.
+        $\phi(x,y) = (1 - ((x^2 + y^2) / R^2) ** 4) * sin(kx * x) * cos(ky * y)$.
         """
         domain = ((0, R), (0, 2 * np.pi))
         mapping = TargetMapping('TM', c1=shift_D * R * R, c2=0, k=0, D=shift_D)
@@ -121,7 +121,6 @@ class Poisson2D:
         ky = 2 * pi / (R * (1 + k))
         x, y = sympy.symbols('x, y')
         phi = (1 - ((x * x + y * y) / (R * R)) ** 4) * sin(kx * x) * cos(ky * y)
-        # phi = (1 - ((X * X + Y * Y) / (R * R)) ** 4)
         rho = - phi.diff(x, x) - phi.diff(y, y)
         obj = Poisson2D(domain, mapping, phi, rho)
         obj.coordinates = (x, y)
