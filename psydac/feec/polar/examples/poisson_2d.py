@@ -169,16 +169,6 @@ class Poisson2D:
         phi = (1 - s ** 8) * sin(kx * (x - 0.5)) * cos(ky * y)
         rho = - lapl(phi)
 
-        # c1    = params['c1']
-        # c2    = params['c2']
-        # y_tilde = (y - c2)/(1 + k)
-        # x_tilde = (x - c1)/(1 - k)
-        # D_tilde = (2 * D)/(1 - k)
-        # r = (x_tilde**2 + y_tilde**2)
-        # R = sqrt((2 * r)/(1 - D_tilde * x_tilde + sqrt((1 - D_tilde)**2 - D_tilde**2 * r)))
-        # phi = (1 - R**8) * sin(kx * (x - 0.5)) * cos(ky * y)
-        # rho = - laplace(phi)
-
         return Poisson2D(domain, mapping, phi, rho)
 
     # ...
@@ -412,13 +402,6 @@ def run_poisson_2d(*, test_case, ncells, degree,
     # but needs to comment "Check linearity" in LinearForm._init_
     # rhs = LinearForm(v0, integral(domain, model.rho * v0))
 
-    from sympy.abc import x, y  # try
-
-    # f = 2 * 7 * pi * cos(7 * pi / 2 * (1 - x ** 2 - y ** 2)) + (7 * pi) ** 2 * (x ** 2 + y ** 2) * sin(
-    #     7 * pi / 2 * (1 - x ** 2 - y ** 2))
-    # f = x+y
-
-    # f = model.rho
     X, Y = model.coordinates
     x, y = model.mapping.expressions
     f = model.rho.subs({X: x, Y: y})
@@ -433,10 +416,6 @@ def run_poisson_2d(*, test_case, ncells, degree,
 
     u0L2norm = Norm(u0, domain, kind='L2')
     u0H1norm = Norm(u0, domain, kind='H1')
-
-    # L2norm = Norm(err_diff*sqrt(mapping.jacobian.det()), logical_domain, kind = 'L2')
-    # H1norm = Norm(mapping.jacobian.T**(-1) * grad(err_diff)
-    #               * sqrt(mapping.jacobian.det()), logical_domain, kind = 'L2')
 
     # ============================= DISCRETIZATION ================================#
     if use_spline_mapping:
@@ -551,14 +530,6 @@ def run_poisson_2d(*, test_case, ncells, degree,
         xp = Sp_inv.dot(bp)
         xsol = proj.convert_to_tensor_basis(xp)
         info = Sp_inv.get_info()
-        # from psydac.linalg.utilities import array_to_psydac
-        # import scipy
-        # L = proj.L[:, :, p2: -p2].reshape(3, 2 * ne2)
-        # E = np.block([[L, np.zeros((3, (ne1 + p1 - 2) * ne2))],
-        #               [np.zeros(((ne1 + p1 - 2) * ne2, 2 * ne2)), np.eye((ne1 + p1 - 2) * ne2)]])
-        # xparray = scipy.linalg.solve(Sp.toarray(), bp.toarray())
-        # xarray = E.T @ xparray
-        # xsol = array_to_psydac(xarray, V0_h.coeff_space)
     elif smooth_method == 'C1conga':
         Sc_inv = inverse(Sc, 'cg', tol=cgtol, maxiter=cgiter, verbose=verbose)
         xsol = Sc_inv.dot(bc)
@@ -608,28 +579,9 @@ def run_poisson_2d(*, test_case, ncells, degree,
     rel_err_l2 = err_l2 / ref_u0L2
     rel_err_h1 = err_h1 / ref_u0H1
 
-    # previous option: ok but H1 norm has problems ?
-    # ref_u0L2 = u0L2norm_h.assemble(u0 = phi_ref)
-    # err2 = L2norm_h.assemble(u0 = phi_ref - phi)
-    # err2 = L2norm_h.assemble(u0 = phi)
-
-    # assert np.allclose(err2, err2_matrix, rtol = 1e-7, atol = 1e-7)
-
-    # and H1 error
-    # t0 = time()
-    # errh1_semi = H1norm_h.assemble(u0 = phi_ref - phi)
-    # errh1_semi = errH1_h.assemble(u0 = phi)  # BUG ??
-    # u0H1_semi = u0H1norm_h.assemble(u0 = phi)
-    # errh1 = np.sqrt(errh1_semi**2 + err2**2)
-    # u0H1 = np.sqrt(u0H1_semi**2 + u0L2**2)
-    # errh1 = np.sqrt(errh1_semi**2 + err2**2)
-    # errh1_semi_sq = phi_diff.dot(S_nobc.dot(phi_diff))
-    # errh1_matrix = np.sqrt(err2_sq + errh1_semi_sq)
-
     t1 = time()
     timing['diagnostics'] = t1 - t0
 
-    # assert np.allclose(errh1, errh1_matrix, rtol = 1e-7, atol = 1e-7)
     # Write solution to HDF5 file
     t0 = time()
     V0_h.export_fields('fields.h5', phi=phi)
