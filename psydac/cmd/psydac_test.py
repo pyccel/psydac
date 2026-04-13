@@ -7,7 +7,11 @@
 The purpose of this module is to pyccelize all PSYDAC kernels, in the case
 that these were modified after an editable installation of PSYDAC.
 """
-from psydac.cmd.argparse_helpers import add_help_flag, add_version_flag, exit_with_error_message
+from psydac.cmd.argparse_helpers import (
+    add_help_flag,
+    add_version_flag,
+    exit_with_error_message,
+)
 
 __all__ = (
     'setup_psydac_test_parser',
@@ -72,15 +76,37 @@ def psydac_test(*, mod, mpi, petsc, verbose, exitfirst):
         elif submods[0] != 'psydac':
             exit_with_error_message("module name must start with 'psydac'")
         try:
+            modname = mod.split('::')[0]
             import importlib
-            importlib.import_module(mod)
+            importlib.import_module(modname)
         except ImportError:
-            exit_with_error_message(f"module '{mod}' not found")
+            exit_with_error_message(f"module '{modname}' not found")
 
     # Import modules here to speed up parser
+    import os
     import shutil
     import subprocess
+    import time
 
+    # Clear Pytest cache from the current working directory
+    cache_dir = '.pytest_cache'
+    if os.path.isdir(cache_dir):
+        print(f'Removing existing Pytest cache directory: {cache_dir}\n', flush=True)
+        shutil.rmtree(cache_dir)
+
+    # If no pytest.toml file exists in the current working directory, copy it
+    # from the parent directory of this script (which is installed with PSYDAC)
+    if not os.path.isfile('pytest.toml'):
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        parent_dir = os.path.dirname(script_dir)
+        pytest_cfg = os.path.join(parent_dir, 'pytest.toml')
+        if not os.path.isfile(pytest_cfg):
+            exit_with_error_message(f'could not find pytest.toml file in {parent_dir}')
+        else:
+            print(f'Copying pytest.toml from: {parent_dir}\n', flush=True)
+            shutil.copy(pytest_cfg, os.getcwd())
+
+    # Build the list of flags for pytest
     flags = []
 
     # Set up MPI execution command, if needed
@@ -110,7 +136,7 @@ def psydac_test(*, mod, mpi, petsc, verbose, exitfirst):
 
     else:
         mpi_exe = []
-        flags.extend(['-n', 'auto'])
+        flags.extend(['-n', 'auto', '--dist', 'loadgroup'])  # for pytest-xdist
 
     # If PETSc tests are requested, check that petsc4py is installed
     if petsc:
@@ -123,7 +149,7 @@ def psydac_test(*, mod, mpi, petsc, verbose, exitfirst):
     flags.extend(['--pyargs', mod])
     mpi_mark = 'mpi' if mpi else 'not mpi'
     petsc_mark = 'petsc' if petsc else 'not petsc'
-    flags.extend(['-m', f'{mpi_mark} and {petsc_mark}'])
+    flags.extend(['-m', f'({mpi_mark} and {petsc_mark})'])
 
     # Default flags for pytest
     flags.append('-ra')  # show extra test summary info for skipped, failed, etc.
@@ -137,7 +163,16 @@ def psydac_test(*, mod, mpi, petsc, verbose, exitfirst):
     # Command to be executed
     cmd = [*mpi_exe, shutil.which('pytest'), *flags]
 
-    # Execute the command
+    # Print command
+    cmd_to_print = [a.replace('(', '"(',).replace(')', ')"') for a in cmd]
     print('Executing command:')
-    print(f' {" ".join(cmd)}\n')
-    subprocess.run(cmd, shell=False)
+    print(f' {" ".join(cmd_to_print)}', end='\n\n', flush=True)
+    time.sleep(0.1)  # ensure the print is shown before subprocess output
+
+    # Execute the command
+    result = subprocess.run(cmd, shell=False, env=os.environ)
+
+    if result.returncode != 0:
+        msg = 'the PSYDAC test suite failed. '\
+              'Please check the output above for details.'
+        exit_with_error_message(msg)

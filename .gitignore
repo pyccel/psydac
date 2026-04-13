@@ -4,26 +4,18 @@
 *.so
 *.lock
 __psydac__/
-__*pyccel__/
+__*pyccel__*/
 docs/source/modules/STUBDIR/*
 
 build
 *build*
 *egg*
 *dist*
-usr
 *cache*
+prof
 
 *.swp
 *.log
-
-doc/_static
-doc/_build
-doc/api-python
-
-psydac/core/bsp-f2py*
-psydac/core/bspmodule.c
-.env
 
 # pytest directories
 __test__/
@@ -31,8 +23,9 @@ __test__/
 # pycharm directory
 .idea
 
-# Visual Studio Code workspace files
+# Visual Studio Code
 *.code-workspace
+**/.vscode/
 
 # Meson lock files
 */.wraplock

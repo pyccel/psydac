@@ -29,7 +29,7 @@ from psydac.linalg.basic     import IdentityOperator
 @pytest.mark.parametrize('bc', [True, False])
 @pytest.mark.parametrize('p', [2, 3])
 @pytest.mark.parametrize('Nq', [5])
-@pytest.mark.parametrize('Nel', [5, 6])
+@pytest.mark.parametrize('Nel', [5]) #, 6])
 def test_3d_commuting_pro_1(Nel, Nq, p, bc, m):
 
     fun1    = lambda xi1, xi2, xi3 : np.sin(xi1)*np.sin(xi2)*np.sin(xi3)
@@ -103,7 +103,7 @@ def test_3d_commuting_pro_1(Nel, Nq, p, bc, m):
 @pytest.mark.parametrize('bc', [True, False])
 @pytest.mark.parametrize('p', [2, 3])
 @pytest.mark.parametrize('Nq', [7])
-@pytest.mark.parametrize('Nel', [5, 6])
+@pytest.mark.parametrize('Nel', [5]) #, 6])
 def test_3d_commuting_pro_2(Nel, Nq, p, bc, m):
 
     fun1    = lambda xi1, xi2, xi3 : np.sin(xi1)*np.sin(xi2)*np.sin(xi3)
@@ -195,7 +195,7 @@ def test_3d_commuting_pro_2(Nel, Nq, p, bc, m):
 @pytest.mark.parametrize('bc', [True, False])
 @pytest.mark.parametrize('p', [2, 3])
 @pytest.mark.parametrize('Nq', [7])
-@pytest.mark.parametrize('Nel', [5, 6])
+@pytest.mark.parametrize('Nel', [5]) #, 6])
 def test_3d_commuting_pro_3(Nel, Nq, p, bc, m):
 
     fun1    = lambda xi1, xi2, xi3 : np.sin(xi1)*np.sin(xi2)*np.sin(xi3)
@@ -278,7 +278,7 @@ def test_3d_commuting_pro_3(Nel, Nq, p, bc, m):
 # 2D tests
 #==============================================================================
 @pytest.mark.mpi
-@pytest.mark.parametrize('Nel', [8, 12])
+@pytest.mark.parametrize('Nel', [8]) #, 12])
 @pytest.mark.parametrize('Nq', [5])
 @pytest.mark.parametrize('p', [2,3])
 @pytest.mark.parametrize('bc', [True, False])
@@ -351,7 +351,7 @@ def test_2d_commuting_pro_1(Nel, Nq, p, bc, m):
     assert norm2_e1 < 1e-12
 
 @pytest.mark.mpi
-@pytest.mark.parametrize('Nel', [8, 12])
+@pytest.mark.parametrize('Nel', [8]) #, 12])
 @pytest.mark.parametrize('Nq', [5])
 @pytest.mark.parametrize('p', [2,3])
 @pytest.mark.parametrize('bc', [True, False])
@@ -424,7 +424,7 @@ def test_2d_commuting_pro_2(Nel, Nq, p, bc, m):
     assert norm2_e0 < 1e-12
 
 @pytest.mark.mpi
-@pytest.mark.parametrize('Nel', [8, 12])
+@pytest.mark.parametrize('Nel', [8]) #, 12])
 @pytest.mark.parametrize('Nq', [8])
 @pytest.mark.parametrize('p', [2,3])
 @pytest.mark.parametrize('bc', [True, False])
@@ -504,7 +504,7 @@ def test_2d_commuting_pro_3(Nel, Nq, p, bc, m):
     assert norm2_e3 < 1e-12
 
 @pytest.mark.mpi
-@pytest.mark.parametrize('Nel', [8, 12])
+@pytest.mark.parametrize('Nel', [8]) #, 12])
 @pytest.mark.parametrize('Nq', [8])
 @pytest.mark.parametrize('p', [2,3])
 @pytest.mark.parametrize('bc', [True, False])

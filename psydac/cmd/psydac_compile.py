@@ -7,7 +7,11 @@
 The purpose of this module is to pyccelize all PSYDAC kernels, in the case
 that these were modified after an editable installation of PSYDAC.
 """
-from psydac.cmd.argparse_helpers import add_help_flag, add_version_flag
+from psydac.cmd.argparse_helpers import (
+    add_help_flag,
+    add_version_flag,
+    exit_with_error_message,
+)
 
 __all__ = (
     'setup_psydac_compile_parser',
@@ -72,4 +76,7 @@ def psydac_compile(*, language):
 
     print('Executing command:')
     print(f' {" ".join(cmd)}\n')
-    subprocess.run(cmd, shell=False)
+    result = subprocess.run(cmd, shell=False)
+
+    if result.returncode != 0:
+        exit_with_error_message('failed to compile PSYDAC kernels.')

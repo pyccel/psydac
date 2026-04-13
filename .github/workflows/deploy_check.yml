@@ -33,7 +33,7 @@ jobs:
 
       - name: Install dependencies
         if: steps.duplicate_check.outputs.should_skip != 'true'
-        uses: ./.github/actions/ubuntu_install
+        uses: ./.github/actions/ubuntu_installations
 
       - name: Update build tools
         if: steps.duplicate_check.outputs.should_skip != 'true'

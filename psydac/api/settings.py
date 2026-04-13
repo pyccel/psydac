@@ -3,10 +3,10 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-import subprocess # nosec B404
+# import subprocess # nosec B404
 import platform
-import re
-from packaging.version import Version
+# import re
+# from packaging.version import Version
 
 
 __all__ = ('PSYDAC_DEFAULT_FOLDER', 'PSYDAC_BACKENDS')
@@ -20,10 +20,13 @@ PSYDAC_BACKEND_PYTHON = {'name': 'python', 'tag':'python', 'openmp':False}
 
 PSYDAC_BACKEND_GPYCCEL  = {'name': 'pyccel',
                        'compiler_family': 'GNU',
-                       'flags'   : '-O3 -ffast-math',
+                       'flags'   : '-O3 -ffast-math -march=native',
                        'folder'  : '__gpyccel__',
                        'tag'     : 'gpyccel',
                        'openmp'  : False}
+
+if platform.machine() == 'x86_64':
+    PSYDAC_BACKEND_GPYCCEL['flags'] += ' -mavx'
 
 PSYDAC_BACKEND_IPYCCEL  = {'name': 'pyccel',
                        'compiler_family': 'intel',
@@ -47,32 +50,31 @@ PSYDAC_BACKEND_NVPYCCEL = {'name': 'pyccel',
                        'openmp'  : False}
 # ...
 
-# Get gfortran version
-gfortran_version_output = subprocess.check_output(['gfortran', '--version']).decode('utf-8') # nosec B603, B607
-gfortran_version_string = re.search(r"(\d+\.\d+\.\d+)", gfortran_version_output).group()
-gfortran_version = Version(gfortran_version_string)
+# Get gfortran version [MCP 19.02.2026: commented since currently not needed]
+# gfortran_version_output = subprocess.check_output(['gfortran', '--version']).decode('utf-8') # nosec B603, B607
+# gfortran_version_string = re.search(r"(\d+\.\d+\.\d+)", gfortran_version_output).group()
+# gfortran_version = Version(gfortran_version_string)
 
-# Platform-dependent flags
-if platform.system() == "Darwin" and platform.machine() == 'arm64' and gfortran_version >= Version("14"):
+# if platform.system() == "Darwin" and platform.machine() == 'arm64' and gfortran_version >= Version("14"):
+#
+#     # Apple silicon requires architecture-specific flags (see https://github.com/pyccel/psydac/pull/411)
+#     # which are only available on GCC version >= 14
+#     cpu_brand = subprocess.check_output(['sysctl','-n','machdep.cpu.brand_string']).decode('utf-8').strip() # nosec B603, B607
+#     if cpu_brand.startswith("Apple M"):
+#         # Example: "Apple M3 Pro (virtual)" --> " -mcpu=apple-m3"
+#         cpu_flag = '-'.join(cpu_brand.lower().split()[:2])
+#         PSYDAC_BACKEND_GPYCCEL['flags'] += f' -mcpu={cpu_flag}'
+#     else:
+#         # TODO: Support later Apple CPU models. Perhaps the CPU naming scheme could be easily guessed
+#         # based on the output of 'sysctl -n machdep.cpu.brand_string', but I wouldn't rely on this
+#         # guess unless it has been manually verified. Loud errors are better than silent failures!
+#         raise SystemError(f"Unsupported Apple CPU '{cpu_brand}'.")
 
-    # Apple silicon requires architecture-specific flags (see https://github.com/pyccel/psydac/pull/411)
-    # which are only available on GCC version >= 14
-    cpu_brand = subprocess.check_output(['sysctl','-n','machdep.cpu.brand_string']).decode('utf-8').strip() # nosec B603, B607
-    if cpu_brand.startswith("Apple M"):
-        # Example: "Apple M3 Pro (virtual)" --> " -mcpu=apple-m3"
-        cpu_flag = '-'.join(cpu_brand.lower().split()[:2])
-        PSYDAC_BACKEND_GPYCCEL['flags'] += f' -mcpu={cpu_flag}'
-    else:
-        # TODO: Support later Apple CPU models. Perhaps the CPU naming scheme could be easily guessed
-        # based on the output of 'sysctl -n machdep.cpu.brand_string', but I wouldn't rely on this
-        # guess unless it has been manually verified. Loud errors are better than silent failures!
-        raise SystemError(f"Unsupported Apple CPU '{cpu_brand}'.")
-
-else:
-    # Default architecture flags
-    PSYDAC_BACKEND_GPYCCEL['flags'] += ' -march=native -mtune=native'
-    if platform.machine() == 'x86_64':
-        PSYDAC_BACKEND_GPYCCEL['flags'] += ' -mavx'
+# else:
+#     # Default architecture flags
+#     PSYDAC_BACKEND_GPYCCEL['flags'] += ' -march=native -mtune=native'
+#     if platform.machine() == 'x86_64':
+#         PSYDAC_BACKEND_GPYCCEL['flags'] += ' -mavx'
 
 #==============================================================================
 
