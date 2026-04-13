@@ -1,7 +1,7 @@
 import numpy as np
 from mpi4py.util.dtlib import from_numpy_dtype
 
-def gather_vlen_array(v, mpi_comm):
+def gather_vlen_array(v, mpi_comm, mpi_root=0):
 
     """ Gather 1D arrays of possibly different lengths onto root process
         Other processes return None
@@ -13,10 +13,10 @@ def gather_vlen_array(v, mpi_comm):
     local_len = np.array(v.size, dtype=np.int64)
 
     # Gather local array sizes on root process
-    recvcounts = np.empty(mpi_comm.size, dtype=np.int64) if mpi_comm.rank == 0 else None
-    mpi_comm.Gather(local_len, recvcounts, root=0)
+    recvcounts = np.empty(mpi_comm.size, dtype=np.int64) if mpi_comm.rank == mpi_root else None
+    mpi_comm.Gather(local_len, recvcounts, root=mpi_root)
 
-    if mpi_comm.rank == 0:
+    if mpi_comm.rank == mpi_root:
         displs = np.empty(mpi_comm.size, dtype=np.int64)
         displs[0] = 0
         displs[1:] = np.cumsum(recvcounts[:-1])
@@ -29,6 +29,6 @@ def gather_vlen_array(v, mpi_comm):
         global_array = None
     mpi_type = from_numpy_dtype(dtype)
 
-    mpi_comm.Gatherv(v, [global_array, recvcounts, displs, mpi_type], root=0)
+    mpi_comm.Gatherv(v, [global_array, recvcounts, displs, mpi_type], root=mpi_root)
 
     return global_array
