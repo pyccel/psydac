@@ -12,7 +12,7 @@ from sympde.topology.analytical_mapping import PolarMapping
 from psydac.api.discretization import discretize
 from psydac.feec.polar.conga_projections import C0PolarProjection_V0, C0PolarProjection_V2, C0PolarProjection_V1, \
     C1PolarProjection_V0, C1PolarProjection_V1
-from psydac.feec.polar.utils import gather_vlen_array
+from psydac.utilities.gather_variable_len_arrays import gather_vlen_array, gather_vlen_arrays
 from psydac.fem.basic import FemField
 from psydac.linalg.block import BlockVector
 
@@ -85,10 +85,12 @@ def test_PolarProjection_V0(Projector, R, ncells, degree, hbc, transposed, verbo
 
     # gather sparse matrix entries (rows, columns, data) on root process
     data = gather_vlen_array(sp_P0.data, mpi_comm)
-    cols = gather_vlen_array(sp_P0.col, mpi_comm)
-    rows = gather_vlen_array(sp_P0.row, mpi_comm)
+    cols_rows = gather_vlen_arrays((sp_P0.col, sp_P0.row), mpi_comm)
 
     if mpi_comm.rank == 0:
+
+        cols = cols_rows[0]
+        rows = cols_rows[1]
 
         # Check the number of non-zero entries in the sparse matrix
         if Projector == C0PolarProjection_V0:
@@ -164,10 +166,12 @@ def test_PolarProjection_V1(Projector, R, ncells, degree, hbc, transposed, verbo
 
     # gather sparse matrix entries (rows, columns, data) on root process
     data = gather_vlen_array(sp_P1.data, mpi_comm)
-    cols = gather_vlen_array(sp_P1.col, mpi_comm)
-    rows = gather_vlen_array(sp_P1.row, mpi_comm)
+    cols_rows = gather_vlen_arrays((sp_P1.col, sp_P1.row),  mpi_comm)
 
     if mpi_comm.rank == 0:
+
+        cols = cols_rows[0]
+        rows = cols_rows[1]
 
         # Check the number of non-zero entries in the sparse matrix
         if Projector == C0PolarProjection_V1:
@@ -274,10 +278,12 @@ def test_PolarProjection_V2(R, ncells, degree, transposed, verbose=False):
     assert sp_P2.shape == (n1 * n2, n1 * n2)
 
     data = gather_vlen_array(sp_P2.data, mpi_comm)
-    cols = gather_vlen_array(sp_P2.col, mpi_comm)
-    rows = gather_vlen_array(sp_P2.row, mpi_comm)
+    cols_rows = gather_vlen_arrays((sp_P2.col, sp_P2.row),  mpi_comm)
 
     if mpi_comm.rank == 0:
+
+        cols = cols_rows[0]
+        rows = cols_rows[1]
 
         # Check the number of non-zero entries in the sparse matrix
         assert len(data) == n1  * n2
