@@ -402,12 +402,6 @@ def run_poisson_2d(*, test_case, ncells, degree,
         mapping = model.mapping
         domain = mapping(logical_domain)
 
-    rp_str = f'{ncells[0]}_{ncells[1]}_p={degree[0]}_t={test_case}_D{shift_D}_m={smooth_method}'
-    if use_spline_mapping:
-        rp_str += '_sm'
-    else:
-        rp_str += '_pm'  # WARNING: check that polar_mapping == True ?
-
     # ========================== SYMBOLIC DEFINITION ==============================#
 
     # Equations
@@ -755,9 +749,7 @@ def run_poisson_2d(*, test_case, ncells, degree,
         ax.plot(xx[::N, :].T, yy[::N, :].T, 'k')
         ax.set_aspect('equal')
 
-        # fig.savefig(f'plots/phi_{rp_str}.png')
         fig.show()
-        # plt.cla()
 
         # Plot numerical error
         fig, axes = plt.subplots(1, 1, figsize=(4.8, 4.8))
@@ -767,14 +759,9 @@ def run_poisson_2d(*, test_case, ncells, degree,
         ax.set_xlabel(r'$x$', rotation='horizontal')
         ax.set_ylabel(r'$y$', rotation='horizontal')
         ax.set_title(r'$\phi(x,y) - \phi_{ex}(x,y)$')
-        # ax.plot( xx[:,::N]  , yy[:,::N]  , 'k' )
-        # ax.plot( xx[::N,:].T, yy[::N,:].T, 'k' )
         ax.set_aspect('equal')
 
-        # fig.savefig(f'plots/err_{rp_str}.png')
         fig.show()
-        # plt.clf()
-        # fig.clf()
 
 
     else:
@@ -826,7 +813,6 @@ def run_poisson_2d(*, test_case, ncells, degree,
         ax.set_aspect('equal')
 
         # Show figure
-        #fig.savefig(f'plots/phi_and_err_{rp_str}.png')
         fig.suptitle(f'Rank {mpi_rank}')
         fig.tight_layout()
         fig.show()
