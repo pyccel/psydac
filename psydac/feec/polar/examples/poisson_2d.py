@@ -322,15 +322,13 @@ class CongaLaplacian(LinearOperator):
 
 def run_poisson_2d(*, test_case, ncells, degree,
                    shift_D, R, use_spline_mapping, smooth_method,
-                   cgtol, cgiter, alphaCONGA, study='poisson', verbose=False):
+                   cgtol, cgiter, alphaCONGA, verbose=False):
     timing = {}
     timing['assembly'] = 0.0
     timing['projection'] = 0.0
     timing['solution'] = 0.0
     timing['diagnostics'] = 0.0
     timing['export'] = 0.0
-
-    assert study == 'poisson'  # for now
 
     # Method of manufactured solution
     if test_case == 'disk':
