@@ -410,13 +410,6 @@ def run_poisson_2d(*, test_case, ncells, degree,
 
     err_diff = model.phi - u0
 
-    # NOTE (mcp, dec 2024): norms and errors now computed only for discrete solutions (using M and S matrices)
-    errL2 = Norm(err_diff, domain, kind='L2')
-    errH1 = Norm(err_diff, domain, kind='H1')
-
-    u0L2norm = Norm(u0, domain, kind='L2')
-    u0H1norm = Norm(u0, domain, kind='H1')
-
     # ============================= DISCRETIZATION ================================#
     if use_spline_mapping:
         domain_h = discretize(domain, filename='geo.h5', comm = mpi_comm)
@@ -430,13 +423,6 @@ def run_poisson_2d(*, test_case, ncells, degree,
     aM_h = discretize(aM, domain_h, (V0_h, V0_h), backend=backend)
     aS_h = discretize(aS, domain_h, (V0_h, V0_h), backend=backend)
     rhs_h = discretize(rhs, domain_h, V0_h, backend=backend)
-
-
-    errL2_h = discretize(errL2, domain_h, V0_h, backend=backend)
-    errH1_h = discretize(errH1, domain_h, V0_h, backend=backend)
-
-    u0L2norm_h = discretize(u0L2norm, domain_h, V0_h, backend=backend)
-    u0H1norm_h = discretize(u0H1norm, domain_h, V0_h, backend=backend)
 
     M = aM_h.assemble()
     S = aS_h.assemble()
