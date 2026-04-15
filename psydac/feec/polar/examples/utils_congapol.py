@@ -2,38 +2,28 @@ import numpy as np
 
 
 def print_map_polar_coeffs(map_discrete):
+    """
+    Used for debugging purposes. Prints information about discrete polar coefficients
+    """
     # Print spline mapping
     print('Spline mapping:')
-    # print(map_discrete)
+    print(map_discrete)
     print('vars(map_discrete):')
     print(vars(map_discrete))
     print()
-    # print(vars(map_discrete._control_points))
-    # print(vars(map_discrete._control_points._mapping))
-    # print(vars(map_discrete._control_points._mapping._control_points))
-    # print(map_discrete._control_points._mapping._fields)
     print('vars(map_discrete._fields[0]) :')
     print(vars(map_discrete._fields[0]))
 
     print()
     print('vars(map_discrete._fields[0]._space._spaces[0]) :')
-    # print(vars(map_discrete._fields[0]._space))
     print(vars(map_discrete._fields[0]._space._spaces[0]))
     print('vars(map_discrete._fields[0]._space._spaces[1]) :')
     print(vars(map_discrete._fields[0]._space._spaces[1]))
     n_s = map_discrete._fields[0]._space._spaces[0]._nbasis
     n_theta = map_discrete._fields[0]._space._spaces[1]._nbasis
-    assert n_s == map_discrete._fields[1]._space._spaces[0]._nbasis
-    assert n_theta == map_discrete._fields[1]._space._spaces[1]._nbasis
-    # deg_s = degree[0]
-    # print('ncells_s = ', n_s-deg_s, ' = ', ncells[0])
     print('n_s = ', n_s)
     print('n_theta = ', n_theta)
     print()
-
-    # print('map_discrete._fields[0]._coeffs :')
-    # print(map_discrete._fields[0]._coeffs)
-    # print()
 
     map_0_c = map_discrete._fields[0]._coeffs.toarray()
     map_1_c = map_discrete._fields[1]._coeffs.toarray()
@@ -52,19 +42,10 @@ def print_map_polar_coeffs(map_discrete):
     cs = map_0_c[n_theta:2 * n_theta] / rho_1
     sn = map_1_c[n_theta:2 * n_theta] / rho_1
     theta = np.arctan2(sn, cs)
-    # print('cos theta_j ?', map_0_c[4:8]/rho_1)
-    # print('sin theta_j ?', map_1_c[4:8]/rho_1)
 
-    # print('theta_j:', theta)
     print('radius_pole:', radius_pole)
     print('radius first ring:', radius_first_ring)
     print('D theta_j:', np.mod(theta[1:] - theta[:-1], 2 * np.pi))
-    # print('theta_j ?', np.arcsin(map_1_c[4:8]/rho_1))
-    # exit()
-
-    # angle2 =
-    # print(vars(map_discrete._control_points._mapping._fields[0]._coeffs))
-    # exit()
 
 
 def check_regular_ring_map(map_discrete, verbose=False):
@@ -75,7 +56,7 @@ def check_regular_ring_map(map_discrete, verbose=False):
     1. that the pole ring (i=0) collapses to a single point
     2. the 1st ring (i=1) has constant radius
     3. the 1st ring is uniformly spaced in angle
-    and prints diagnostic information
+    and prints diagnostic information. Used for debugging purposes.
 
     """
     n_s = map_discrete._fields[0]._space._spaces[0]._nbasis
