@@ -41,6 +41,10 @@ backend = PSYDAC_BACKENDS['python']
 
 # ==============================================================================
 class Laplacian:
+    """
+    Symbolic Laplace operator associated with a mapping F from logical to physical coordinates.
+    Builds Laplacian in logical coordinates using the metric induced by F.
+    """
 
     def __init__(self, mapping):
         assert isinstance(mapping, Mapping)
