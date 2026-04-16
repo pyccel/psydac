@@ -126,10 +126,7 @@ class Poisson2D:
         phi_log = phi.subs({x: x_log, y: y_log})
         rho_log = rho.subs({x: x_log, y: y_log})
 
-        obj = Poisson2D(domain, mapping, phi_log, rho_log)
-        obj.coordinates = (x, y)
-
-        return obj
+        return Poisson2D(domain, mapping, phi_log, rho_log)
 
     # ...
     @staticmethod
@@ -531,14 +528,6 @@ def run_poisson_2d(*, test_case, ncells, degree,
     # Create potential field for discrete solution
     phi = FemField(V0_h, coeffs=xsol)
     phi.coeffs.update_ghost_regions()
-
-    # ref solution: projected exact solution
-
-    # phi_ref = Pi0(model.phi_callable)
-
-    # def P0_phys(f_phys, P0, domain, mappings_list):
-    # phi = lambdify(domain.coordinates, f_phys)
-    # P0(f_log)
 
     # L2 and H1 norms
     ref_u0L2_2 = phi_ref.coeffs.inner(M.dot(phi_ref.coeffs))  # l2 norm of ref solution
