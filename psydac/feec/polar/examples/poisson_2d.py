@@ -110,10 +110,10 @@ class Poisson2D:
         $\phi(x,y) = (1 - ((x^2 + y^2) / R^2) ** 4) * sin(kx * x) * cos(ky * y)$.
         """
         domain = ((0, R), (0, 2 * np.pi))
-        mapping = TargetMapping('TM', c1=shift_D * R * R, c2=0, k=0, D=shift_D)
+        params = dict(c1=shift_D * R * R, c2=0, k=0, D=shift_D)
+        mapping = TargetMapping('TM', **params)
 
         # physical field (cf use of physical ref solution in Maxwell case)
-        params = dict(c1=0, c2=0, k=0, D=shift_D)
         k = params['k']
         D = params['D']
         kx = 2 * pi / (R * (1 - k + D))
