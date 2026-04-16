@@ -92,14 +92,9 @@ class Poisson2D:
         self._phi = phi
         self._rho = rho
 
-
         s, t = mapping.logical_coordinates
         self._phi_callable = sympy.lambdify([s, t], phi)
         self._rho_callable = sympy.lambdify([s, t], rho)
-
-        # x, y  = mapping.coordinates
-        # self._phi_callable = sympy.lambdify([x, y], phi)
-        # # self._rho_callable = sympy.lambdify([x, y], rho)
 
     # ...
     @staticmethod
@@ -126,7 +121,12 @@ class Poisson2D:
         x, y = sympy.symbols('x, y')
         phi = (1 - ((x * x + y * y) / (R * R)) ** 4) * sin(kx * x) * cos(ky * y)
         rho = - phi.diff(x, x) - phi.diff(y, y)
-        obj = Poisson2D(domain, mapping, phi, rho)
+
+        x_log, y_log = mapping.expressions
+        phi_log = phi.subs({x: x_log, y: y_log})
+        rho_log = rho.subs({x: x_log, y: y_log})
+
+        obj = Poisson2D(domain, mapping, phi_log, rho_log)
         obj.coordinates = (x, y)
 
         return obj
@@ -404,13 +404,8 @@ def run_poisson_2d(*, test_case, ncells, degree,
     aS = BilinearForm((u0, v0), integral(domain, dot(grad(u0), grad(v0))))
     # model.rho is in logical coordinates instead of physical but it works anyways
     # but needs to comment "Check linearity" in LinearForm._init_
-    # rhs = LinearForm(v0, integral(domain, model.rho * v0))
 
-    X, Y = model.coordinates
-    x, y = model.mapping.expressions
-    f = model.rho.subs({X: x, Y: y})
-
-    rhs = LinearForm(v0, integral(domain, f * v0))
+    rhs = LinearForm(v0, integral(domain, model.rho * v0), check_linearity=False)
 
     err_diff = model.phi - u0
 
@@ -438,15 +433,10 @@ def run_poisson_2d(*, test_case, ncells, degree,
 
     # =================== PROJECT THE EXACT SOLUTION  =========================#
 
-    from psydac.feec.pull_push import pull_2d_h1
-    from sympy import lambdify
     from psydac.feec.global_geometric_projectors import GlobalGeometricProjectorH1
 
     Pi0 = GlobalGeometricProjectorH1(V0_h)
-    phi_symref = model.phi
-    phi_calref = lambdify(domain.coordinates, phi_symref)
-    phi_callog = pull_2d_h1(phi_calref, F)
-    phi_ref = Pi0(phi_callog)
+    phi_ref = Pi0(model.phi_callable)
     phi_ref.coeffs.update_ghost_regions()
 
 
@@ -634,11 +624,7 @@ def run_poisson_2d(*, test_case, ncells, degree,
     phi, = Vnew.import_fields('fields.h5', 'phi')
 
     # Callable exact solution in logical coordinates
-    X, Y = model.coordinates
-    x, y = model.mapping.expressions
-    expr_phi_e = model.phi.subs({X: x, Y: y})
-    x1, x2 = model.mapping.logical_coordinates
-    phi_e = sympy.lambdify([x1, x2], expr_phi_e)
+    phi_e = model.phi_callable
 
     # Compute numerical solution (and error) on refined logical grid
     [sk1, sk2], [ek1, ek2] = Vnew.local_domain
