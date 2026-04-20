@@ -20,8 +20,32 @@ import pytest
 @pytest.mark.parametrize('p', [2, 3])
 @pytest.mark.parametrize('bc', [True, False])
 @pytest.mark.parametrize('m', [1,2])
-def test_transpose_div_3d(Nel, Nq, p, bc, m):
-    # Test transpose div
+def test_weak_gradient_3d(Nel, Nq, p, bc, m):
+    """Test weak gradient on a 3D domain, where the dual sequence is homogeneous.
+
+    This test checks that for $f \in V_3^* = H_0^1$ it holds:
+    $$ \int_{\Omega} \nabla f \cdot \boldsymbol{v}_2 dV = \int_{\Omega} f \widetilde{\mathrm{grad}_h} \boldsymbol{v}_2 dV $$
+    for all $\boldsymbol{v}_2 \in V_2^* = H_0^{\mathrm{curl}}$. In particular, $f = 0$ on $\partial \Omega$.
+    In such case the weak gradient corresponds to the operator $-\mathbb{D^T}$ where $\mathbb{D}$ is the divergence matrix.
+    
+    Parameters
+    ----------
+    Nel : int
+        Number of cells in each direction.
+
+    Nq : int
+        Number of quadrature points in each direction.
+
+    p : int
+        B-Spline degree in each direction.
+
+    bc : bool
+        If True, periodic boundary conditions are applied in the domain boundary.
+
+    m : int
+        Knot multiplicity in each direction.
+
+    """
 
     fun1    = lambda xi1, xi2, xi3 : sin(xi1)*sin(xi2)*sin(xi3)
     D1fun1  = lambda xi1, xi2, xi3 : cos(xi1)*sin(xi2)*sin(xi3)
@@ -63,8 +87,31 @@ def test_transpose_div_3d(Nel, Nq, p, bc, m):
 @pytest.mark.parametrize('p', [2, 3])
 @pytest.mark.parametrize('bc', [True, False])
 @pytest.mark.parametrize('m', [1,2])
-def test_transpose_curl_3d(Nel, Nq, p, bc, m):
-    # Test transpose curl
+def test_weak_curl_3d(Nel, Nq, p, bc, m):
+    """Test weak curl on a 3D domain, where the dual sequence is homogeneous. 
+    This test checks that for $\boldsymbol{f} \in V_2^* = H_0^{\mathrm{curl}}$ it holds:
+    $$ \int_{\Omega} (\nabla \times \boldsymbol{f}) \cdot \boldsymbol{v}_1 dV = \int_{\Omega} \boldsymbol{f} \cdot \widetilde{\mathrm{curl}_h} \boldsymbol{v}_1 dV $$
+    for all $\boldsymbol{v}_1 \in V_1^* = H_0^{\mathrm{div}}$. In particular,  $\boldsymbol{n} \times \boldsymbol{f} = 0$ on $\partial \Omega$ where $\boldsymbol{n}$ is the outward unit normal vector. 
+    # In such case the weak curl corresponds to the operator $\mathbb{C^T}$ where $\mathbb{C}$ is the curl matrix.
+    
+    Parameters
+    ----------
+    Nel : int
+        Number of cells in each direction.
+
+    Nq : int
+        Number of quadrature points in each direction.
+
+    p : int
+        B-Spline degree in each direction.
+
+    bc : bool
+        If True, periodic boundary conditions are applied in the domain boundary.
+
+    m : int
+        Knot multiplicity in each direction.
+
+    """
 
     fun1    = lambda xi1, xi2, xi3 : sin(xi1)*sin(xi2)*sin(xi3)
     D1fun1  = lambda xi1, xi2, xi3 : cos(xi1)*sin(xi2)*sin(xi3)
@@ -121,9 +168,32 @@ def test_transpose_curl_3d(Nel, Nq, p, bc, m):
 @pytest.mark.parametrize('p', [2, 3])
 @pytest.mark.parametrize('bc', [True, False])
 @pytest.mark.parametrize('m', [1,2])
-def test_transpose_grad_3d(Nel, Nq, p, bc, m):
-    # Test transpose grad
-        
+def test_weak_divergence_3d(Nel, Nq, p, bc, m):
+    """Test weak divergence on a 3D domain, where the dual sequence is homogeneous.
+    This test checks that for $\boldsymbol{f} \in V_1^* = H_0^{\mathrm{div}}$ it holds:
+    $$ \int_{\Omega} (\nabla \cdot \boldsymbol{f}) v_0 dV = \int_{\Omega} \boldsymbol{f} \cdot \widetilde{\mathrm{div}_h} v_0 dV $$
+    for all $v_0 \in V_0^* = H_0^1$. In particular,  $\boldsymbol{n} \cdot \boldsymbol{f} = 0$ on $\partial \Omega$ where $\boldsymbol{n}$ is the outward unit normal vector. 
+    In such case the weak divergence corresponds to the operator $-\mathbb{G^T}$ where $\mathbb{G}$ is the gradient matrix.
+    
+    Parameters
+    ----------
+    Nel : int
+        Number of cells in each direction.
+
+    Nq : int
+        Number of quadrature points in each direction.
+
+    p : int
+        B-Spline degree in each direction.
+
+    bc : bool
+        If True, periodic boundary conditions are applied in the domain boundary.
+
+    m : int
+        Knot multiplicity in each direction.
+
+    """
+
     fun1    = lambda xi1, xi2, xi3 : sin(xi1)*sin(xi2)*sin(xi3)
     D1fun1  = lambda xi1, xi2, xi3 : cos(xi1)*sin(xi2)*sin(xi3)
 
@@ -172,6 +242,6 @@ if __name__ == '__main__':
     bc  = True
     m   = 2
 
-    test_transpose_div_3d (Nel, Nq, p, bc, m)
-    test_transpose_curl_3d(Nel, Nq, p, bc, m)
-    test_transpose_grad_3d(Nel, Nq, p, bc, m)
+    test_weak_gradient_3d (Nel, Nq, p, bc, m)
+    test_weak_curl_3d(Nel, Nq, p, bc, m)
+    test_weak_divergence_3d(Nel, Nq, p, bc, m)

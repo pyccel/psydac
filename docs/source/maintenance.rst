@@ -9,7 +9,7 @@ In particular, this means that this documentation is automatically generated fro
 and hence is only as good as the docstrings themselves.
 
 Contributing is as simple as adding docstrings and creating a pull request. 
-Alternatively, you can add your docstring suggestions to an already existing "Improve docstrings CWxx" PR.
+Alternatively, you can add your docstring suggestions to an already existing "Improve developers' documentation" PR.
 
 This documentation supports the math-dollar-sign in docstrings, which means that you can use LaTeX to write mathematical expressions.
 We have started using this feature in the `linalg.basic` module, and we encourage you to use it as well.
