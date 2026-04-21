@@ -1,4 +1,5 @@
 name: 'Parallel h5py installation'
+description: 'Install h5py in parallel mode using the system MPI and HDF5 libraries'
 
 runs:
   using: "composite"
@@ -27,9 +28,9 @@ runs:
     - name: Check parallel h5py installation
       shell: bash
       run: |
-          python -c "
-          from mpi4py import MPI
-          import h5py
-          # This particular instantiation of h5py.File will fail if parallel h5py isn't installed
-          f = h5py.File('parallel_test.hdf5', 'w', driver='mpio', comm=MPI.COMM_WORLD)
-          print(f)"
+        python -c "
+        from mpi4py import MPI
+        import h5py
+        # This particular instantiation of h5py.File will fail if parallel h5py isn't installed
+        f = h5py.File('parallel_test.hdf5', 'w', driver='mpio', comm=MPI.COMM_WORLD)
+        print(f)"

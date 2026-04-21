@@ -149,7 +149,7 @@ At this point the PSYDAC library may be installed from PyPI in **standard mode**
     git clone --recurse-submodules https://github.com/pyccel/psydac.git
     cd psydac
 
-    pip install meson-python "pyccel>=2.1.0"
+    pip install meson-python "pyccel>=2.2.3"
     pip install --no-build-isolation --editable ".[test]"
     ```
     An equivalent repository address for the `clone` command is `git@github.com:pyccel/psydac.git`, which requires a GitHub account.
@@ -162,7 +162,7 @@ Although PSYDAC provides several iterative linear solvers which work with our na
 In order to use these additional feature, PETSc and petsc4py must be installed as follows.
 First, we download the latest release of PETSc from its [official Git repository](https://gitlab.com/petsc/petsc):
 ```sh
-git clone --depth 1 --branch v3.24.2 https://gitlab.com/petsc/petsc.git
+git clone --depth 1 --branch v3.25.0 https://gitlab.com/petsc/petsc.git
 ```
 Next, we specify a configuration for complex numbers, and install PETSc in a local directory:
 ```sh

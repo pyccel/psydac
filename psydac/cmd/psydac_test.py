@@ -7,7 +7,11 @@
 The purpose of this module is to pyccelize all PSYDAC kernels, in the case
 that these were modified after an editable installation of PSYDAC.
 """
-from psydac.cmd.argparse_helpers import add_help_flag, add_version_flag, exit_with_error_message
+from psydac.cmd.argparse_helpers import (
+    add_help_flag,
+    add_version_flag,
+    exit_with_error_message,
+)
 
 __all__ = (
     'setup_psydac_test_parser',
@@ -90,17 +94,17 @@ def psydac_test(*, mod, mpi, petsc, verbose, exitfirst):
         print(f'Removing existing Pytest cache directory: {cache_dir}\n', flush=True)
         shutil.rmtree(cache_dir)
 
-    # If no pytest.ini file exists in the current working directory, copy it
+    # If no pytest.toml file exists in the current working directory, copy it
     # from the parent directory of this script (which is installed with PSYDAC)
-    if not os.path.isfile('pytest.ini'):
+    if not os.path.isfile('pytest.toml'):
         script_dir = os.path.dirname(os.path.abspath(__file__))
         parent_dir = os.path.dirname(script_dir)
-        pytest_ini = os.path.join(parent_dir, 'pytest.ini')
-        if not os.path.isfile(pytest_ini):
-            exit_with_error_message(f'could not find pytest.ini file in {parent_dir}')
+        pytest_cfg = os.path.join(parent_dir, 'pytest.toml')
+        if not os.path.isfile(pytest_cfg):
+            exit_with_error_message(f'could not find pytest.toml file in {parent_dir}')
         else:
-            print(f'Copying pytest.ini from: {parent_dir}\n', flush=True)
-            shutil.copy(pytest_ini, os.getcwd())
+            print(f'Copying pytest.toml from: {parent_dir}\n', flush=True)
+            shutil.copy(pytest_cfg, os.getcwd())
 
     # Build the list of flags for pytest
     flags = []
@@ -166,4 +170,9 @@ def psydac_test(*, mod, mpi, petsc, verbose, exitfirst):
     time.sleep(0.1)  # ensure the print is shown before subprocess output
 
     # Execute the command
-    subprocess.run(cmd, shell=False, env=os.environ)
+    result = subprocess.run(cmd, shell=False, env=os.environ)
+
+    if result.returncode != 0:
+        msg = 'the PSYDAC test suite failed. '\
+              'Please check the output above for details.'
+        exit_with_error_message(msg)

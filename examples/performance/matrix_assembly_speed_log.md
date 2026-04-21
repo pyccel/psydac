@@ -1,13 +1,19 @@
 New Matrix Assembly for PSYDAC
 ------------------------------
 
-Here we keep track on the performance of the new assembly algorithm (sum factorization).
-We measure both the discretization time of `BilinearForms` as well as the matrix assembly time of a `DiscreteBilinearForm`
-and compare it to the old algorithm. Executing `compare_3d_matrix_assembly_speed.py` will add new data to this file.
-This allows us to detect whether any future changes have a positive or negative impact.
+This file can help catch bugs related to the sum factorization matrix assembly (new assembly) algorithm.
+Executing `compare_3d_matrix_assembly_speed.py` will perform the below described discretization and assembly tasks (test cases)
+using both the new assembly as well as the previous assembly (old assembly) implementation.
+The measured timings will then be added to this file.
 
-(Of course, runtime depends on the machine used to execute this file. Hence, an even decrease in runtime
-is no reason to celebrate, and an even increase in runtime no reason to worry.)
+This file contains example measurements from 2025-09-09.
+No new measurements should be added to this file.
+
+Instead, anyone can verify locally that the new assembly algorithm works as intended by executing `compare_3d_matrix_assembly_speed.py`.
+These local measurements should not be compared to the example measurements. Rather, one should be able to observe that the new assembly algorithm
+outperforms the old assembly algorithm in all test cases.
+
+Individual measurements
 
 Test cases
 ----------
@@ -67,7 +73,7 @@ Test cases
 Data
 ----
 
-2025-09-09 17:28:19 (added by Julian O. - ThinkPad T14 on performance mode)
+2025-09-09 17:28:19 (added by Julian O. - ThinkPad T14 in performance mode)
 ----------
 
 | Test case | old assembly | new assembly | old discretization | new discretization |
@@ -83,4 +89,3 @@ Data
 | 3.4 | 0.524 | 0.044 | 1.085 | 1.547 |
 | 3.5 | 0.577 | 0.057 | 1.51 | 1.784 |
 | 3.6 | 0.598 | 0.209 | 2.411 | 1.848 |
-

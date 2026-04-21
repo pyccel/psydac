@@ -24,7 +24,7 @@ from sympde.expr.expr     import Norm
 from sympde.expr.equation import find, EssentialBC
 
 from psydac.api.discretization       import discretize
-from psydac.api.tests.build_domain   import build_pretzel
+from psydac.api.tests.build_domain   import build_11_patch_pretzel
 from psydac.fem.basic                import FemField
 from psydac.api.settings             import PSYDAC_BACKEND_GPYCCEL
 from psydac.feec.pull_push           import pull_2d_hcurl
@@ -104,11 +104,11 @@ if __name__ == '__main__':
 
     from collections                               import OrderedDict
     from sympy                                     import lambdify
-    from psydac.api.tests.build_domain             import build_pretzel
+    from psydac.api.tests.build_domain             import build_11_patch_pretzel
     from psydac.fem.plotting_utilities import get_plotting_grid, get_grid_vals
     from psydac.fem.plotting_utilities import get_patch_knots_gridlines, my_small_plot
 
-    domain = build_pretzel()
+    domain = build_11_patch_pretzel()
     x,y    = domain.coordinates
     omega  = 1.5
     alpha  = -omega**2
