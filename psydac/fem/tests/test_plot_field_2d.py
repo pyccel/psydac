@@ -54,7 +54,7 @@ def test_plot_field(use_scalar_field, use_multipatch):
         mapping_2 = PolarMapping('M2',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
         D2     = mapping_2(B)
         
-        connectivity = [((0,1,1),(1,1,-1))]
+        connectivity = [((0, 1, 1), (1, 1,-1), 1)]
         patches = [D1,D2]
         domain = Domain.join(patches, connectivity, 'domain')
     else:
