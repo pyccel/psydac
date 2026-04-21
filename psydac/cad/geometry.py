@@ -256,6 +256,8 @@ class Geometry:
     #--------------------------------------------------------------------------
     @classmethod
     def from_topological_domain(cls, domain, ncells, *, periodic=None, comm=None, mpi_dims_mask=None):
+        assert isinstance(domain, Domain)
+
         interior = domain.interior
         if not isinstance(interior, Union):
             interior = [interior]
