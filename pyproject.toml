@@ -31,7 +31,7 @@ dependencies = [
     'termcolor',
 
     # Our packages from PyPi
-    'sympde == 0.19.2',
+    'sympde @ https://github.com/pyccel/sympde/archive/refs/heads/fix_check_linearity.zip',
     'pyccel >= 2.2.3',
     'gelato == 0.12',
 
