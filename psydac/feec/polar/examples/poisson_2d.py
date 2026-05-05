@@ -187,7 +187,7 @@ class Poisson2D:
         """
 
         domain = ((0, 1), (0, 2 * np.pi))
-        params = dict(c1=0, c2=0, eps=0.2, b=1.4)
+        params = dict(c1=0, c2=0, eps=Rational(1, 5), b=Rational(7, 5))
         mapping = CzarnyMapping('F', **params)
 
         from sympy import sin, cos, pi
