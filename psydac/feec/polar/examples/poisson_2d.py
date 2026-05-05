@@ -11,8 +11,8 @@ from sympy import sin, cos, pi, Rational
 from sympde.topology.analytical_mapping import TargetMapping, CzarnyMapping
 from sympde.topology.domain import Square, Domain
 from sympde.topology import ScalarFunctionSpace, elements_of
-from sympde.expr import BilinearForm, LinearForm, integral, Norm, Functional
-from sympde.calculus import dot, grad, laplace
+from sympde.expr import BilinearForm, LinearForm, integral
+from sympde.calculus import dot, grad
 from sympde.topology.mapping import Mapping
 
 from psydac.api.discretization import discretize
@@ -577,25 +577,24 @@ def run_poisson_2d(*, test_case, ncells, degree,
     N = 10
     V.plot_2d_decomposition(mapping.get_callable_mapping(), refine=N)
 
-    # plot only with the root process
-    distribute_viz = False
-    if not distribute_viz:
-        # Non-master processes stop here
-        if mpi_rank != 0:
-            return
-        if use_spline_mapping:
-            geometry = Geometry(filename='geo.h5', comm=MPI.COMM_SELF)
-            map_discrete = [*geometry.mappings.values()].pop()
-            Vnew = map_discrete.space
-            mapping = map_discrete
-        else:
-            dd = DomainDecomposition(ncells, periodic, comm=MPI.COMM_SELF)
-            Vnew = TensorFemSpace(dd, V1, V2)
+    # Non-master processes stop here
+    if mpi_rank != 0:
+        return
 
-        # Import solution vector into new serial field
+    plot_solution(use_spline_mapping, model, ncells, periodic, V1, V2)
+
+    return locals()
+
+def plot_solution(use_spline_mapping, model, ncells, periodic, V1, V2):
+
+    if use_spline_mapping:
+        geometry = Geometry(filename='geo.h5', comm=MPI.COMM_SELF)
+        map_discrete = [*geometry.mappings.values()].pop()
+        Vnew = map_discrete.space
 
     else:
-        Vnew = V
+        dd = DomainDecomposition(ncells, periodic, comm=MPI.COMM_SELF)
+        Vnew = TensorFemSpace(dd, V1, V2)
 
     # Import solution vector into new serial field
     phi, = Vnew.import_fields('fields.h5', 'phi')
@@ -616,12 +615,10 @@ def run_poisson_2d(*, test_case, ncells, degree,
     print('ex[0,0] = ', ex[0, 0])
 
     # Compute physical coordinates of logical grid
-    map_temp = map_discrete if use_spline_mapping else F
+    map_temp = model.mapping.get_callable_mapping()
     pcoords = np.array([[map_temp(e1, e2) for e2 in eta2] for e1 in eta1])
     xx = pcoords[:, :, 0]
     yy = pcoords[:, :, 1]
-
-    plot_only_sol = False
 
     def add_colorbar(im, ax):
         divider = make_axes_locatable(ax)
@@ -629,100 +626,55 @@ def run_poisson_2d(*, test_case, ncells, degree,
         cbar = ax.get_figure().colorbar(im, cax=cax)
         return cbar
 
+    # Create figure with 3 subplots:
+    #  1. exact solution on exact domain
+    #  2. numerical solution on mapped domain (analytical or spline)
+    #  3. numerical error    on mapped domain (analytical or spline)
+    fig, axes = plt.subplots(1, 3, figsize=(15, 4.8))
 
-    if plot_only_sol:
+    if use_spline_mapping:
+        # Recompute physical coordinates of logical grid using spline mapping
+        pcoords = np.array([[map_discrete(e1, e2) for e2 in eta2] for e1 in eta1])
+        xx = pcoords[:, :, 0]
+        yy = pcoords[:, :, 1]
 
-        # plot only numerical solution on mapped domain (analytical or spline)
-        fig, axes = plt.subplots(1, 1, figsize=(4.8, 4.8))
-
-
-        if use_spline_mapping:
-            # Recompute physical coordinates of logical grid using spline mapping
-            pcoords = np.array([[map_discrete(e1, e2) for e2 in eta2] for e1 in eta1])
-            xx = pcoords[:, :, 0]
-            yy = pcoords[:, :, 1]
-
-        # Plot numerical solution
-        ax = axes  # [0]
-        im = ax.contourf(xx, yy, num, 40, cmap='jet')
-        add_colorbar(im, ax)
-        ax.set_xlabel(r'$x$', rotation='horizontal')
-        ax.set_ylabel(r'$y$', rotation='horizontal')
-        ax.set_title(r'$\phi(x,y)$')
-        ax.plot(xx[:, ::N], yy[:, ::N], 'k')
-        ax.plot(xx[::N, :].T, yy[::N, :].T, 'k')
-        ax.set_aspect('equal')
-
-        fig.show()
-
-        # Plot numerical error
-        fig, axes = plt.subplots(1, 1, figsize=(4.8, 4.8))
-        ax = axes  # [2]
-        im = ax.contourf(xx, yy, err, 40, cmap='jet')
-        add_colorbar(im, ax)
-        ax.set_xlabel(r'$x$', rotation='horizontal')
-        ax.set_ylabel(r'$y$', rotation='horizontal')
-        ax.set_title(r'$\phi(x,y) - \phi_{ex}(x,y)$')
-        ax.set_aspect('equal')
-
-        fig.show()
+    # Plot exact solution
+    ax = axes[0]
+    im = ax.contourf(xx, yy, ex, 40, cmap='jet')
+    add_colorbar(im, ax)
+    ax.set_xlabel(r'$x$', rotation='horizontal')
+    ax.set_ylabel(r'$y$', rotation='horizontal')
+    ax.set_title(r'$\phi_{ex}(x,y)$')
+    ax.plot(xx[:, ::N], yy[:, ::N], 'k')
+    ax.plot(xx[::N, :].T, yy[::N, :].T, 'k')
+    ax.set_aspect('equal')
 
 
-    else:
+    # Plot numerical solution
+    ax = axes[1]
+    im = ax.contourf(xx, yy, num, 40, cmap='jet')
+    add_colorbar(im, ax)
+    ax.set_xlabel(r'$x$', rotation='horizontal')
+    ax.set_ylabel(r'$y$', rotation='horizontal')
+    ax.set_title(r'$\phi(x,y)$')
+    ax.plot(xx[:, ::N], yy[:, ::N], 'k')
+    ax.plot(xx[::N, :].T, yy[::N, :].T, 'k')
+    ax.set_aspect('equal')
 
-        # Create figure with 3 subplots:
-        #  1. exact solution on exact domain
-        #  2. numerical solution on mapped domain (analytical or spline)
-        #  3. numerical error    on mapped domain (analytical or spline)
-        fig, axes = plt.subplots(1, 3, figsize=(15, 4.8))
+    # Plot numerical error
+    ax = axes[2]
+    im = ax.contourf(xx, yy, err, 40, cmap='jet')
+    add_colorbar(im, ax)
+    ax.set_xlabel(r'$x$', rotation='horizontal')
+    ax.set_ylabel(r'$y$', rotation='horizontal')
+    ax.set_title(r'$\phi(x,y) - \phi_{ex}(x,y)$')
+    ax.plot( xx[:,::N]  , yy[:,::N]  , 'k' )
+    ax.plot( xx[::N,:].T, yy[::N,:].T, 'k' )
+    ax.set_aspect('equal')
 
-        if use_spline_mapping:
-            # Recompute physical coordinates of logical grid using spline mapping
-            pcoords = np.array([[map_discrete(e1, e2) for e2 in eta2] for e1 in eta1])
-            xx = pcoords[:, :, 0]
-            yy = pcoords[:, :, 1]
-
-        # Plot exact solution
-        ax = axes[0]
-        im = ax.contourf(xx, yy, ex, 40, cmap='jet')
-        add_colorbar(im, ax)
-        ax.set_xlabel(r'$x$', rotation='horizontal')
-        ax.set_ylabel(r'$y$', rotation='horizontal')
-        ax.set_title(r'$\phi_{ex}(x,y)$')
-        ax.plot(xx[:, ::N], yy[:, ::N], 'k')
-        ax.plot(xx[::N, :].T, yy[::N, :].T, 'k')
-        ax.set_aspect('equal')
-
-
-        # Plot numerical solution
-        ax = axes[1]
-        im = ax.contourf(xx, yy, num, 40, cmap='jet')
-        add_colorbar(im, ax)
-        ax.set_xlabel(r'$x$', rotation='horizontal')
-        ax.set_ylabel(r'$y$', rotation='horizontal')
-        ax.set_title(r'$\phi(x,y)$')
-        ax.plot(xx[:, ::N], yy[:, ::N], 'k')
-        ax.plot(xx[::N, :].T, yy[::N, :].T, 'k')
-        ax.set_aspect('equal')
-
-        # Plot numerical error
-        ax = axes[2]
-        im = ax.contourf(xx, yy, err, 40, cmap='jet')
-        add_colorbar(im, ax)
-        ax.set_xlabel(r'$x$', rotation='horizontal')
-        ax.set_ylabel(r'$y$', rotation='horizontal')
-        ax.set_title(r'$\phi(x,y) - \phi_{ex}(x,y)$')
-        ax.plot( xx[:,::N]  , yy[:,::N]  , 'k' )
-        ax.plot( xx[::N,:].T, yy[::N,:].T, 'k' )
-        ax.set_aspect('equal')
-
-        # Show figure
-        fig.suptitle(f'Rank {mpi_rank}')
-        fig.tight_layout()
-        fig.show()
-
-    return locals()
-
+    # Show figure
+    fig.tight_layout()
+    fig.show()
 
 # ==============================================================================
 # Parser
