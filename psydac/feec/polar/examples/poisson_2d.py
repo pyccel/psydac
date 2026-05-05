@@ -6,15 +6,14 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 import numpy as np
 import matplotlib.pyplot as plt
-from sympy import sqrt, sin, cos, pi, Rational
+from sympy import sin, cos, pi, Rational
 
-from sympde.topology.analytical_mapping import PolarMapping, TargetMapping, CzarnyMapping
+from sympde.topology.analytical_mapping import TargetMapping, CzarnyMapping
 from sympde.topology.domain import Square, Domain
 from sympde.topology import ScalarFunctionSpace, elements_of
 from sympde.expr import BilinearForm, LinearForm, integral, Norm, Functional
 from sympde.calculus import dot, grad, laplace
 from sympde.topology.mapping import Mapping
-from sympde.expr.evaluation import LogicalExpr
 
 from psydac.api.discretization import discretize
 from psydac.linalg.stencil import StencilVector, StencilMatrix
@@ -153,8 +152,6 @@ class Poisson2D:
         params = dict(c1=0, c2=0, k=Rational(3, 10), D=Rational(2, 10))
         mapping = TargetMapping('F', **params)
 
-        from sympy import sin, cos, pi
-
         lapl = Laplacian(mapping)
         s, t = mapping.logical_coordinates
         x, y = mapping.expressions
@@ -187,8 +184,6 @@ class Poisson2D:
         logical_domain = Square('Omega', bounds1=(0, 1), bounds2=(0, 2 * np.pi))
         params = dict(c1=0, c2=0, eps=Rational(1, 5), b=Rational(7, 5))
         mapping = CzarnyMapping('F', **params)
-
-        from sympy import sin, cos, pi
 
         lapl = Laplacian(mapping)
         s, t = mapping.logical_coordinates
@@ -353,16 +348,15 @@ def run_poisson_2d(*, test_case, ncells, degree,
     grid_1 = np.linspace(*model.domain.bounds1, num=ne1 + 1)
     grid_2 = np.linspace(*model.domain.bounds2, num=ne2 + 1)
 
+    periodic = [False, True]
+
     # Create 1D finite element spaces
-    V1 = SplineSpace(p1, grid=grid_1, periodic=False)
-    V2 = SplineSpace(p2, grid=grid_2, periodic=True)
+    V1 = SplineSpace(p1, grid=grid_1, periodic=periodic[0])
+    V2 = SplineSpace(p2, grid=grid_2, periodic=periodic[1])
 
     # Create 2D tensor product finite element space
-    domain_decomposition = DomainDecomposition(ncells, [False, True] , comm = mpi_comm)
+    domain_decomposition = DomainDecomposition(ncells, periodic , comm=mpi_comm)
     V = TensorFemSpace(domain_decomposition, V1, V2)
-
-    s1, s2 = V.coeff_space.starts
-    e1, e2 = V.coeff_space.ends
 
     # ==================== MAPPING & PHYSICAL DOMAIN ==============================#
     #TODO: maybe define a parent class Model
@@ -397,19 +391,18 @@ def run_poisson_2d(*, test_case, ncells, degree,
     aM = BilinearForm((u0, v0), integral(domain, u0 * v0))
     aS = BilinearForm((u0, v0), integral(domain, dot(grad(u0), grad(v0))))
     # model.rho is in logical coordinates instead of physical but it works anyways
-    # but needs to comment "Check linearity" in LinearForm._init_
 
-    rhs = LinearForm(v0, integral(domain, model.rho * v0), check_linearity=False)
+    rhs = LinearForm(v0, integral(domain, model.rho * v0))
 
     err_diff = model.phi - u0
 
     # ============================= DISCRETIZATION ================================#
     if use_spline_mapping:
-        domain_h = discretize(domain, filename='geo.h5', comm = mpi_comm)
+        domain_h = discretize(domain, filename='geo.h5', comm=mpi_comm)
         V0_h = discretize(V0, domain_h)
         F = list(domain_h.mappings.values()).pop()
     else:
-        domain_h = discretize(domain, ncells=ncells, periodic=[False, True], comm = mpi_comm)
+        domain_h = discretize(domain, ncells=ncells, periodic=periodic, comm=mpi_comm)
         V0_h = discretize(V0, domain_h, degree=degree)
         F = mapping.get_callable_mapping()
 
@@ -445,7 +438,7 @@ def run_poisson_2d(*, test_case, ncells, degree,
         Sp = proj.change_matrix_basis(S)
         bp = proj.change_rhs_basis(b)
         alpha = 'None'
-    if smooth_method == 'polar-std':
+    elif smooth_method == 'polar-std':
         # Build standard polar map from control points of standard polar map
         n1, n2 = [W.nbasis for W in V0_h.spaces]
         rho = np.array([i1 / (n1 - 1) for i1 in range(n1)])
@@ -467,7 +460,6 @@ def run_poisson_2d(*, test_case, ncells, degree,
         alpha = alphaCONGA
         P0 = C1PolarProjection_V0(V0_h, gamma=gamma, hbc=True)  # hbc imposes the boundary conditions
         Sc = CongaLaplacian(S, M, P0, alpha)
-        A = Sc.tosparse()
         bc = P0.T.dot(b)
     elif smooth_method == 'C0conga':
         alpha = alphaCONGA
@@ -481,8 +473,7 @@ def run_poisson_2d(*, test_case, ncells, degree,
 
     # Apply homogeneous Dirichlet boundary conditions for the conforming
     # smooth_method case 'polar' and non-conforming case 'None'
-    # NOTE: this does not effect ghost regions
-    S_nobc = S.copy()
+    # NOTE: this does not affect ghost regions
     e1 = V0_h.coeff_space.ends[0]
     if e1 == V0_h.coeff_space.npts[0] - 1:
         if smooth_method in ('polar-std', 'polar-spec'):
@@ -598,7 +589,7 @@ def run_poisson_2d(*, test_case, ncells, degree,
             Vnew = map_discrete.space
             mapping = map_discrete
         else:
-            dd = DomainDecomposition(ncells, [False, True], comm=MPI.COMM_SELF)
+            dd = DomainDecomposition(ncells, periodic, comm=MPI.COMM_SELF)
             Vnew = TensorFemSpace(dd, V1, V2)
 
         # Import solution vector into new serial field
