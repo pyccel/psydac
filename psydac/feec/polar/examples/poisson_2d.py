@@ -438,7 +438,7 @@ def run_poisson_2d(*, test_case, ncells, degree,
         Sp = proj.change_matrix_basis(S)
         bp = proj.change_rhs_basis(b)
         alpha = 'None'
-    elif smooth_method == 'polar-std':
+    if smooth_method == 'polar-std':
         # Build standard polar map from control points of standard polar map
         n1, n2 = [W.nbasis for W in V0_h.spaces]
         rho = np.array([i1 / (n1 - 1) for i1 in range(n1)])
