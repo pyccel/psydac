@@ -2,7 +2,6 @@
 import sympy
 from mpi4py import MPI
 from time import time, sleep
-# import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 import numpy as np
@@ -109,7 +108,7 @@ class Poisson2D:
         : code
         $\phi(x,y) = (1 - ((x^2 + y^2) / R^2) ** 4) * sin(kx * x) * cos(ky * y)$.
         """
-        domain = ((0, R), (0, 2 * np.pi))
+        logical_domain = Square('Omega', bounds1=(0, R), bounds2=(0, 2 * np.pi))
         params = dict(c1=shift_D * R * R, c2=0, k=0, D=shift_D)
         mapping = TargetMapping('TM', **params)
 
@@ -126,7 +125,7 @@ class Poisson2D:
         phi_log = phi.subs({x: x_log, y: y_log})
         rho_log = rho.subs({x: x_log, y: y_log})
 
-        return Poisson2D(domain, mapping, phi_log, rho_log)
+        return Poisson2D(logical_domain, mapping, phi_log, rho_log)
 
     # ...
     @staticmethod
@@ -150,12 +149,11 @@ class Poisson2D:
 
         """
 
-        domain = ((0, 1), (0, 2 * np.pi))
+        logical_domain = Square('Omega', bounds1=(0, 1), bounds2=(0, 2 * np.pi))
         params = dict(c1=0, c2=0, k=Rational(3, 10), D=Rational(2, 10))
         mapping = TargetMapping('F', **params)
 
-        from sympy import sin, cos, pi, sqrt
-        # from sympy.abc import x, y
+        from sympy import sin, cos, pi
 
         lapl = Laplacian(mapping)
         s, t = mapping.logical_coordinates
@@ -170,7 +168,7 @@ class Poisson2D:
         phi = (1 - s ** 8) * sin(kx * (x - 0.5)) * cos(ky * y)
         rho = - lapl(phi)
 
-        return Poisson2D(domain, mapping, phi, rho)
+        return Poisson2D(logical_domain, mapping, phi, rho)
 
     # ...
     @staticmethod
@@ -186,7 +184,7 @@ class Poisson2D:
 
         """
 
-        domain = ((0, 1), (0, 2 * np.pi))
+        logical_domain = Square('Omega', bounds1=(0, 1), bounds2=(0, 2 * np.pi))
         params = dict(c1=0, c2=0, eps=Rational(1, 5), b=Rational(7, 5))
         mapping = CzarnyMapping('F', **params)
 
@@ -200,7 +198,7 @@ class Poisson2D:
         phi = (1 - s ** 8) * sin(pi * x) * cos(pi * y)
         rho = - lapl(phi)
 
-        return Poisson2D(domain, mapping, phi, rho)
+        return Poisson2D(logical_domain, mapping, phi, rho)
 
     # ...
     @property
@@ -352,8 +350,8 @@ def run_poisson_2d(*, test_case, ncells, degree,
     # ==================== SPLINE SPACE FOR SPLINE MAPPINGS =======================#
 
     # Create uniform grid
-    grid_1 = np.linspace(*model.domain[0], num=ne1 + 1)
-    grid_2 = np.linspace(*model.domain[1], num=ne2 + 1)
+    grid_1 = np.linspace(*model.domain.bounds1, num=ne1 + 1)
+    grid_2 = np.linspace(*model.domain.bounds2, num=ne2 + 1)
 
     # Create 1D finite element spaces
     V1 = SplineSpace(p1, grid=grid_1, periodic=False)
@@ -367,10 +365,7 @@ def run_poisson_2d(*, test_case, ncells, degree,
     e1, e2 = V.coeff_space.ends
 
     # ==================== MAPPING & PHYSICAL DOMAIN ==============================#
-    #TODO: use sympde domain in Poisson2D
-    # maybe define a parent class Model
-    logical_domain = Square('Omega', bounds1=model.domain[0],
-                            bounds2=model.domain[1])
+    #TODO: maybe define a parent class Model
     if use_spline_mapping:
         # Create spline mapping by interpolation of analytical mapping
         map_analytic = model.mapping.get_callable_mapping()
@@ -392,7 +387,7 @@ def run_poisson_2d(*, test_case, ncells, degree,
     else:
         # Only symbolic mapping is necessary
         mapping = model.mapping
-        domain = mapping(logical_domain)
+        domain = mapping(model.domain)
 
     # ========================== SYMBOLIC DEFINITION ==============================#
 
