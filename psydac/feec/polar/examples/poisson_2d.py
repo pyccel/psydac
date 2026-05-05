@@ -581,11 +581,11 @@ def run_poisson_2d(*, test_case, ncells, degree,
     if mpi_rank != 0:
         return
 
-    plot_solution(use_spline_mapping, model, ncells, periodic, V1, V2)
+    plot_solution(use_spline_mapping, model, ncells, periodic, V1, V2, refine=N)
 
     return locals()
 
-def plot_solution(use_spline_mapping, model, ncells, periodic, V1, V2):
+def plot_solution(use_spline_mapping, model, ncells, periodic, V1, V2, refine=10):
 
     if use_spline_mapping:
         geometry = Geometry(filename='geo.h5', comm=MPI.COMM_SELF)
@@ -604,15 +604,12 @@ def plot_solution(use_spline_mapping, model, ncells, periodic, V1, V2):
 
     # Compute numerical solution (and error) on refined logical grid
     [sk1, sk2], [ek1, ek2] = Vnew.local_domain
-    print([sk1, sk2], [ek1, ek2])
 
-    eta1 = refine_array_1d(V1.breaks[sk1:ek1 + 2], N)
-    eta2 = refine_array_1d(V2.breaks[sk2:ek2 + 2], N)
+    eta1 = refine_array_1d(V1.breaks[sk1:ek1 + 2], refine)
+    eta2 = refine_array_1d(V2.breaks[sk2:ek2 + 2], refine)
     num = np.array([[phi(e1, e2) for e2 in eta2] for e1 in eta1])
     ex = np.array([[phi_e(e1, e2) for e2 in eta2] for e1 in eta1])
     err = num - ex
-    print('num[0,0] = ', num[0, 0])
-    print('ex[0,0] = ', ex[0, 0])
 
     # Compute physical coordinates of logical grid
     map_temp = model.mapping.get_callable_mapping()
@@ -645,8 +642,8 @@ def plot_solution(use_spline_mapping, model, ncells, periodic, V1, V2):
     ax.set_xlabel(r'$x$', rotation='horizontal')
     ax.set_ylabel(r'$y$', rotation='horizontal')
     ax.set_title(r'$\phi_{ex}(x,y)$')
-    ax.plot(xx[:, ::N], yy[:, ::N], 'k')
-    ax.plot(xx[::N, :].T, yy[::N, :].T, 'k')
+    ax.plot(xx[:, ::refine], yy[:, ::refine], 'k')
+    ax.plot(xx[::refine, :].T, yy[::refine, :].T, 'k')
     ax.set_aspect('equal')
 
 
@@ -657,8 +654,8 @@ def plot_solution(use_spline_mapping, model, ncells, periodic, V1, V2):
     ax.set_xlabel(r'$x$', rotation='horizontal')
     ax.set_ylabel(r'$y$', rotation='horizontal')
     ax.set_title(r'$\phi(x,y)$')
-    ax.plot(xx[:, ::N], yy[:, ::N], 'k')
-    ax.plot(xx[::N, :].T, yy[::N, :].T, 'k')
+    ax.plot(xx[:, ::refine], yy[:, ::refine], 'k')
+    ax.plot(xx[::refine, :].T, yy[::refine, :].T, 'k')
     ax.set_aspect('equal')
 
     # Plot numerical error
@@ -668,8 +665,8 @@ def plot_solution(use_spline_mapping, model, ncells, periodic, V1, V2):
     ax.set_xlabel(r'$x$', rotation='horizontal')
     ax.set_ylabel(r'$y$', rotation='horizontal')
     ax.set_title(r'$\phi(x,y) - \phi_{ex}(x,y)$')
-    ax.plot( xx[:,::N]  , yy[:,::N]  , 'k' )
-    ax.plot( xx[::N,:].T, yy[::N,:].T, 'k' )
+    ax.plot( xx[:,::refine]  , yy[:,::refine]  , 'k' )
+    ax.plot( xx[::refine,:].T, yy[::refine,:].T, 'k' )
     ax.set_aspect('equal')
 
     # Show figure
