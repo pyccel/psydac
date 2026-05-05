@@ -585,6 +585,9 @@ def run_poisson_2d(*, test_case, ncells, degree,
 
     return locals()
 
+# ==============================================================================
+# Plotting
+# ==============================================================================
 def plot_solution(use_spline_mapping, model, ncells, periodic, V1, V2, refine=10):
 
     if use_spline_mapping:
@@ -612,8 +615,12 @@ def plot_solution(use_spline_mapping, model, ncells, periodic, V1, V2, refine=10
     err = num - ex
 
     # Compute physical coordinates of logical grid
-    map_temp = model.mapping.get_callable_mapping()
-    pcoords = np.array([[map_temp(e1, e2) for e2 in eta2] for e1 in eta1])
+    if use_spline_mapping:
+        map_plot = map_discrete
+    else:
+        map_plot = model.mapping.get_callable_mapping()
+
+    pcoords = np.array([[map_plot(e1, e2) for e2 in eta2] for e1 in eta1])
     xx = pcoords[:, :, 0]
     yy = pcoords[:, :, 1]
 
@@ -629,12 +636,6 @@ def plot_solution(use_spline_mapping, model, ncells, periodic, V1, V2, refine=10
     #  3. numerical error    on mapped domain (analytical or spline)
     fig, axes = plt.subplots(1, 3, figsize=(15, 4.8))
 
-    if use_spline_mapping:
-        # Recompute physical coordinates of logical grid using spline mapping
-        pcoords = np.array([[map_discrete(e1, e2) for e2 in eta2] for e1 in eta1])
-        xx = pcoords[:, :, 0]
-        yy = pcoords[:, :, 1]
-
     # Plot exact solution
     ax = axes[0]
     im = ax.contourf(xx, yy, ex, 40, cmap='jet')
@@ -645,7 +646,6 @@ def plot_solution(use_spline_mapping, model, ncells, periodic, V1, V2, refine=10
     ax.plot(xx[:, ::refine], yy[:, ::refine], 'k')
     ax.plot(xx[::refine, :].T, yy[::refine, :].T, 'k')
     ax.set_aspect('equal')
-
 
     # Plot numerical solution
     ax = axes[1]
