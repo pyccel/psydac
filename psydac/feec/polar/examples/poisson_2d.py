@@ -7,7 +7,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 import numpy as np
 import matplotlib.pyplot as plt
-from sympy import sqrt, sin, cos, pi
+from sympy import sqrt, sin, cos, pi, Rational
 
 from sympde.topology.analytical_mapping import PolarMapping, TargetMapping, CzarnyMapping
 from sympde.topology.domain import Square, Domain
@@ -151,7 +151,7 @@ class Poisson2D:
         """
 
         domain = ((0, 1), (0, 2 * np.pi))
-        params = dict(c1=0, c2=0, k=0.3, D=0.2)
+        params = dict(c1=0, c2=0, k=Rational(3, 10), D=Rational(2, 10))
         mapping = TargetMapping('F', **params)
 
         from sympy import sin, cos, pi, sqrt
@@ -367,6 +367,8 @@ def run_poisson_2d(*, test_case, ncells, degree,
     e1, e2 = V.coeff_space.ends
 
     # ==================== MAPPING & PHYSICAL DOMAIN ==============================#
+    #TODO: use sympde domain in Poisson2D
+    # maybe define a parent class Model
     logical_domain = Square('Omega', bounds1=model.domain[0],
                             bounds2=model.domain[1])
     if use_spline_mapping:
