@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 -   #577 : Add an installation configuration option to choose the backend language
+-   [DEVELOPER] Create action `install_petsc4py` to install PETSc & `petsc4py` w/ complex support
 
 ### Fixed
 
@@ -18,16 +19,19 @@ All notable changes to this project will be documented in this file.
 -   #570 : Optimize PSYDAC logo
 -   #565 : Expand editable install info in `README.md`
 -   #566 : Fix command `psydac test --mpi` on Ubuntu machines
+-   [DEVELOPER] Add missing 'description' properties (required!) to our GitHub actions
 -   [DEVELOPER] Update CI installation of `petsc4py` after release of `setuptools` 81.0
 -   [DEVELOPER] Check correct reporting of failure for `psydac test` command in CI testing
 -   [DEVELOPER] Use correct configuration file in coverage CI tests
 
 ### Changed
 
+-   #580 : Use PETSc 3.25.0 whose Python bindings `petsc4py` install correctly with `setuptools>=81.0`
 -   #579 : Require `pyccel>=2.2.3` which can compile all kernels with C
 -   #579 : Require `numpy>=2.1` to support Python >= 3.10
 -   #579 : Require `pytest>=9.0` and use `pytest.toml` instead of `pytest.ini` for Pytest configuration
 -   #579 : Move coverage configuration from `pyproject.toml` to `psydac/pytest.toml`
+-   [DEVELOPER] Rename actions: `macos/ubuntu_install` -> `macos/ubuntu_installations`
 -   [DEVELOPER] Do not check file changes to trigger testing workflow on PRs
 -   [DEVELOPER] Run documentation workflow on pushes to `devel` whenever `README.md` is modified
 -   [DEVELOPER] Run testing and documentation workflows on PRs only when set to "ready for review"
