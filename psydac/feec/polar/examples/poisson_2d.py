@@ -433,6 +433,7 @@ def run_poisson_2d(*, test_case, ncells, degree,
     # stiffness/mass matrices and right-hand-side vector to C1 space
     t0 = time()
     bc = None
+    Sc = None
     if smooth_method == 'polar-spec':
         proj = C1Projector(F)
         Sp = proj.change_matrix_basis(S)
