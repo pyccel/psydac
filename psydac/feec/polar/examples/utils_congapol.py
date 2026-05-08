@@ -109,3 +109,11 @@ def check_regular_ring_map(map_discrete, verbose=False):
         print(' - regularity error on 1st ring:', regularity_error)
         print(' - first ring radius error:', first_ring_radius_error)
     print()
+
+def add_colorbar(im, ax, **kwargs):
+    from mpl_toolkits.axes_grid1 import make_axes_locatable
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size=0.2, pad=0.3)
+    cbar = ax.get_figure().colorbar(im, cax=cax, **kwargs)
+    return cbar
+

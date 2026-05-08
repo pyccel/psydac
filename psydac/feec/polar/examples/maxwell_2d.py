@@ -12,15 +12,8 @@ from mpi4py import MPI
 import matplotlib.pyplot as plt
 
 from psydac.fem.basic import FemField
-from utils_congapol import print_map_polar_coeffs, check_regular_ring_map
+from utils_congapol import print_map_polar_coeffs, check_regular_ring_map, add_colorbar
 
-
-# from scipy.sparse.linalg import spsolve
-
-# def visdir_name(study):
-#     vdn = 'plots_{study}/'
-#     os.makedirs(vdn, exist_ok=True)
-#     return vdn
 
 # ====================== TIME DISCRETIZATION ==================================#
 
@@ -33,8 +26,6 @@ def step_faraday_2d(dt, e, b, M1, M2, D1, D1_T, P1, P1_T, P2, **kwargs):
     """
     b -= dt * D1.dot(P1.dot(e))
 
-
-# e += 0
 
 def step_ampere_2d(dt, e, b, M1, M2, D1, D1_T, P1, P1_T, P2, *, pc=None, tol=1e-7, verbose=False):
     """
@@ -124,14 +115,6 @@ def compute_stable_dt(cfl, C_m, dC_m, V, tau=None, light_c=1):
 # =============================================================================#
 
 # =========================== VISUALIZATION ===================================#
-
-def add_colorbar(im, ax, **kwargs):
-    from mpl_toolkits.axes_grid1 import make_axes_locatable
-    divider = make_axes_locatable(ax)
-    cax = divider.append_axes("right", size=0.2, pad=0.3)
-    cbar = ax.get_figure().colorbar(im, cax=cax, **kwargs)
-    return cbar
-
 
 def plot_field_and_error(name, t, x, y, field_h, field_ex, *gridlines, only_field=True):
     # import matplotlib.pyplot as plt
