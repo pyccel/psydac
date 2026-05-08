@@ -1,4 +1,6 @@
 # coding: utf-8
+from dataclasses import dataclass
+
 import sympy
 from mpi4py import MPI
 from time import time, sleep
@@ -300,6 +302,12 @@ class CongaLaplacian(LinearOperator):
     def dtype(self):
         return float
 
+@dataclass
+class ErrorDiagnostics:
+    ref_l2: float
+    ref_h1: float
+    rel_l2: float
+    rel_h1: float
 
 ###############################################################################
 
@@ -518,25 +526,7 @@ def run_poisson_2d(*, test_case, ncells, degree,
     phi = FemField(V0_h, coeffs=xsol)
     phi.coeffs.update_ghost_regions()
 
-    # L2 and H1 norms
-    ref_u0L2_2 = phi_ref.coeffs.inner(M.dot(phi_ref.coeffs))  # l2 norm of ref solution
-    ref_u0H1_semi2 = phi_ref.coeffs.inner(S.dot(phi_ref.coeffs))
-    ref_u0L2 = np.sqrt(ref_u0L2_2)
-    ref_u0H1 = np.sqrt(ref_u0H1_semi2 + ref_u0L2_2)  # H1 norm of ref solution
-
-    # L2 and H1 errors
-    t0 = time()
-    phi_diff = phi_ref.coeffs - phi.coeffs
-
-    err_l2_2 = phi_diff.inner(M.dot(phi_diff))
-    err_h1_semi2 = phi_diff.inner(S.dot(phi_diff))
-
-    err_l2 = np.sqrt(err_l2_2)
-    err_h1 = np.sqrt(err_h1_semi2 + err_l2_2)
-
-    rel_err_l2 = err_l2 / ref_u0L2
-    rel_err_h1 = err_h1 / ref_u0H1
-
+    errors = compute_errors(phi, phi_ref, M, S)
     t1 = time()
     timing['diagnostics'] = t1 - t0
 
@@ -558,10 +548,10 @@ def run_poisson_2d(*, test_case, ncells, degree,
             print('> Degree              :: [{p1},{p2}]'.format(p1=p1, p2=p2))
             print('> Penalization alpha  :: {alpha} '.format(alpha=alpha))
             print( '> CG info            :: ',info )
-            print('> L2 norm solution    :: {:.2e}'.format(ref_u0L2))
-            print('> H1 norm solution    :: {:.2e}'.format(ref_u0H1))
-            print('> L2 error (relative) :: {:.2e}'.format(rel_err_l2))
-            print('> H1 error (relative) :: {:.2e}'.format(rel_err_h1))
+            print('> L2 norm solution    :: {:.2e}'.format(errors.ref_l2))
+            print('> H1 norm solution    :: {:.2e}'.format(errors.ref_h1))
+            print('> L2 error (relative) :: {:.2e}'.format(errors.rel_l2))
+            print('> H1 error (relative) :: {:.2e}'.format(errors.rel_h1))
             print('')
             print('> Assembly time :: {:.2e}'.format(timing['assembly']))
             if smooth_method:
@@ -585,6 +575,29 @@ def run_poisson_2d(*, test_case, ncells, degree,
     plot_solution(use_spline_mapping, model, ncells, periodic, V1, V2, refine=N)
 
     return locals()
+
+def compute_errors(phi, phi_ref, M, S):
+
+    # L2 and H1 norms
+    ref_l2_2 = phi_ref.coeffs.inner(M.dot(phi_ref.coeffs))
+    ref_h1_semi2 = phi_ref.coeffs.inner(S.dot(phi_ref.coeffs))
+    ref_l2 = np.sqrt(ref_l2_2) # L2 norm of ref solution
+    ref_h1 = np.sqrt(ref_h1_semi2 + ref_l2_2) # H1 norm of ref solution
+
+    # L2 and H1 errors
+    phi_diff = phi_ref.coeffs - phi.coeffs
+
+    err_l2_2 = phi_diff.inner(M.dot(phi_diff))
+    err_h1_semi2 = phi_diff.inner(S.dot(phi_diff))
+    err_l2 = np.sqrt(err_l2_2)
+    err_h1 = np.sqrt(err_h1_semi2 + err_l2_2)
+
+    return ErrorDiagnostics(
+        ref_l2=ref_l2,
+        ref_h1=ref_h1,
+        rel_l2=err_l2 / ref_l2,
+        rel_h1=err_h1 / ref_h1,
+    )
 
 # ==============================================================================
 # Plotting
