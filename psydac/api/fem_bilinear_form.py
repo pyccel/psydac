@@ -729,9 +729,11 @@ class DiscreteBilinearForm:
                     degrees += [np.int64(a) for a in d]
                     pads    += [np.int64(a) for a in p]
                     if v.space.is_multipatch or v.space.is_vector_valued:
-                        coeffs += (e._data for e in v.coeffs)
+                        assert all([abs(e._data.imag).max() < 1e-15 for e in v.coeffs]), 'trick will give error'
+                        coeffs += (e._data.real for e in v.coeffs) #FIX TO AVOID ERROR WHEN COMPLEX. 
                     else:
-                        coeffs += (v.coeffs._data, )
+                        assert abs(v.coeffs._data.imag).max() < 1e-15, 'trick will give error'
+                        coeffs += (v.coeffs._data.real, )#FIX TO AVOID ERROR WHEN COMPLEX. 
                 else:
                     consts += (v, )
 
