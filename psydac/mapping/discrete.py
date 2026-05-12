@@ -122,8 +122,8 @@ class SplineMapping(BasicCallableMapping):
     # Abstract interface
     #--------------------------------------------------------------------------
     def __call__(self, *eta):
+        # return tuple([map_Xd(*eta) for map_Xd in self._fields])
         return [map_Xd(*eta) for map_Xd in self._fields]
-
     # ...
     def jacobian(self, *eta):
         return np.array([map_Xd.gradient(*eta) for map_Xd in self._fields])

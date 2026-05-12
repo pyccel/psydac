@@ -126,13 +126,16 @@ class Geometry:
     # Option [2]: from a discrete mapping
     #--------------------------------------------------------------------------
     @classmethod
-    def from_discrete_mapping(cls, mapping, *, comm=None, mpi_dims_mask=None, name=None):
+    def from_discrete_mapping(cls, mapping, *, logical_domain=None, comm=None, mpi_dims_mask=None, name=None):
         """Create a geometry from one discrete mapping.
 
         Parameters
         ----------
         mapping : SplineMapping
             The Mapping from the unit square to the physical domain.
+
+        log_domain : Domain
+            The logical domain.
 
         comm : MPI.Comm
             MPI intra-communicator.
@@ -147,12 +150,15 @@ class Geometry:
         """
 
         mapping_name = name if name else 'mapping'
+        if logical_domain is None:
+            # default logical domain is the unit square/cube
+            logical_domain = NCube(
+                name='Omega', dim  = dim,
+                min_coords = [0.] * dim,
+                max_coords = [1.] * dim)
         dim      = mapping.ldim        
         M        = Mapping(mapping_name, dim = dim)
-        domain   = M(NCube(name = 'Omega',
-                           dim  = dim,
-                           min_coords = [0.] * dim,
-                           max_coords = [1.] * dim)) 
+        domain   = M(logical_domain)
         M.set_callable_mapping(mapping)
         mappings = {domain.name: mapping}
         ncells   = {domain.name: mapping.space.domain_decomposition.ncells}
