@@ -693,33 +693,30 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
     # VISUALIZATION SETUP
     # ==============================================================================
 
-    # def plot_fields_along_s(tstr):  # , j0=0, j1=0):
-    #
-    #     # if j1 is None:
-    #     j0 = 0
-    #     j1 = x2.shape[1] // 2
-    #     theta0 = x2[0, j0]
-    #     theta1 = x2[0, j1]
-    #     name = 'Ex'
-    #     fig_line = plot_curve_along_s(name, 's', tstr, f'{theta0} and {theta1}',
-    #                                   x1[:, j0], Ex_values[:, j0], Ex_ex_values[:, j0],
-    #                                   -x1[:, j1], Ex_values[:, j1], Ex_ex_values[:, j1])
-    #     # fig_line = plot_curve_along_s(name, 's', tstr, -x1[:,j1], f'{theta1}', Ex_values[:,j1], Ex_ex_values[:,j1])
-    #     fig_line.savefig(f'{visdir}/{name}_line_{tstr}_{rp_str}.png')
-    #     # plt.close(fig_line)
-    #     fig_line.clf()
-    #     name = 'Ey'
-    #     fig_line = plot_curve_along_s(name, 's', tstr, f'{theta0} and {theta1}',
-    #                                   x1[:, j0], Ey_values[:, j0], Ey_ex_values[:, j0],
-    #                                   -x1[:, j1], Ey_values[:, j1], Ey_ex_values[:, j1])
-    #     fig_line.savefig(f'{visdir}/{name}_line_{tstr}_{rp_str}.png')
-    #     fig_line.clf()
-    #     name = 'Bz'
-    #     fig_line = plot_curve_along_s(name, 's', tstr, f'{theta0} and {theta1}',
-    #                                   x1[:, j0], Bz_values[:, j0], Bz_ex_values[:, j0],
-    #                                   -x1[:, j1], Bz_values[:, j1], Bz_ex_values[:, j1])
-    #     fig_line.savefig(f'{visdir}/{name}_line_{tstr}_{rp_str}.png')
-    #     plt.close(fig_line)
+    def plot_fields_along_s(tstr):
+
+        j0 = 0
+        j1 = x2.shape[1] // 2
+        theta0 = x2[0, j0]
+        theta1 = x2[0, j1]
+        name = 'Ex'
+        fig_line = plot_curve_along_s(name, 's', tstr, f'{theta0} and {theta1}',
+                                      x1[:, j0], Ex_values[:, j0], Ex_ex_values[:, j0],
+                                      -x1[:, j1], Ex_values[:, j1], Ex_ex_values[:, j1])
+        fig_line.savefig(f'{visdir}/{name}_line_{tstr}_{rp_str}.png')
+        fig_line.clf()
+        name = 'Ey'
+        fig_line = plot_curve_along_s(name, 's', tstr, f'{theta0} and {theta1}',
+                                      x1[:, j0], Ey_values[:, j0], Ey_ex_values[:, j0],
+                                      -x1[:, j1], Ey_values[:, j1], Ey_ex_values[:, j1])
+        fig_line.savefig(f'{visdir}/{name}_line_{tstr}_{rp_str}.png')
+        fig_line.clf()
+        name = 'Bz'
+        fig_line = plot_curve_along_s(name, 's', tstr, f'{theta0} and {theta1}',
+                                      x1[:, j0], Bz_values[:, j0], Bz_ex_values[:, j0],
+                                      -x1[:, j1], Bz_values[:, j1], Bz_ex_values[:, j1])
+        fig_line.savefig(f'{visdir}/{name}_line_{tstr}_{rp_str}.png')
+        plt.close(fig_line)
 
     # Prepare plots
     if plot_interval:
@@ -765,7 +762,7 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
                     Bz_ex_values[i, j] = Bz_ex_t(t, xij, yij)
 
             # fields along s for fixed theta
-            #plot_fields_along_s(tstr='t0')  # , j0=0, j1=ncells[1]//2)
+            plot_fields_along_s(tstr='t0')
 
             # Electric field, x component
             fig = plot_field_and_error(r'E^x', 0, x, y, Ex_values, Ex_ex_values, *gridlines)
@@ -1022,7 +1019,7 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         fig1.tight_layout()
 
         # fields along s, final time
-        # plot_fields_along_s(tstr='T')  # , j0=0, j1=ncells[1]//2)
+        plot_fields_along_s(tstr='T')
 
         # Electric field, x component
         fig = plot_field_and_error(r'E^x', tend, x, y, Ex_values, Ex_ex_values, *gridlines)
