@@ -77,18 +77,10 @@ def compute_stable_dt(cfl, C_m, dC_m, V, tau=None, light_c=1):
     spectral_rho = 1
     conv = False
     CC_m = dC_m @ C_m
-    # print(f'type(CC_m) = {type(CC_m)}')
-    # print('going through CC_m.tmp_vectors...')
-    # for tv in CC_m.tmp_vectors:
-    #     print(f'type(tv) = {type(tv)}')
     while not (conv or ncfl > max_ncfl):
-        # print(f'... ')
-        # print(f'#1 type(vv) = {type(vv)}')
         ncfl += 1
         vv *= (1. / norm_vv)
-        # print(f'#2 type(vv) = {type(vv)}')
         CC_m.dot(vv.copy(), out=vv)
-        # print(f'#3 type(vv) = {type(vv)}')
         norm_vv = vect_norm_2(vv)
         old_spectral_rho = spectral_rho
         spectral_rho = norm_vv.copy()  # copy ??
@@ -117,7 +109,6 @@ def compute_stable_dt(cfl, C_m, dC_m, V, tau=None, light_c=1):
 # =========================== VISUALIZATION ===================================#
 
 def plot_field_and_error(name, t, x, y, field_h, field_ex, *gridlines, only_field=True):
-    # import matplotlib.pyplot as plt
     if only_field:
         fig, ax0 = plt.subplots(1, 1, figsize=(7, 6))
         axes = [ax0]
@@ -130,7 +121,6 @@ def plot_field_and_error(name, t, x, y, field_h, field_ex, *gridlines, only_fiel
         im1 = ax1.contourf(x, y, field_ex - field_h, 50)
         ax1.set_title(r'${0} - {0}_h$'.format(name))
     for ax in axes:
-        # if not only_field:
         ax.plot(*gridlines[0], color='k')
         ax.plot(*gridlines[1], color='k')
         ax.set_xlabel('x', fontsize=14)
@@ -160,10 +150,6 @@ def update_plot(fig, t, x, y, field_h, field_ex):
 def plot_curve_along_s(name, s_str, time_str, theta0,
                        s, curve_h, curve_ref=None,
                        left_s=None, left_curve_h=None, left_curve_ref=None, ):
-    # import matplotlib.pyplot as plt
-
-    # t = np.arange(0.0, 2.0, 0.01)
-    # s = 1 + np.sin(2 * np.pi * t)
 
     fig, ax = plt.subplots()
     ax.plot(s, curve_h, label=f'{name}_h')
@@ -176,7 +162,6 @@ def plot_curve_along_s(name, s_str, time_str, theta0,
 
     ax.set(xlabel=s_str, title=f'field {name} along {s_str} for theta={theta0}, at {time_str}')
     ax.legend()
-    # ax.grid()
     return fig
 
 
@@ -643,8 +628,8 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
     t = 0
 
     if study_maxwell:
-        # Callable exact fields
 
+        # Callable exact fields
         Ex_ex = lambda t: (lambda x, y, t0=t: Ex_ex_t(t0, x, y))
         Ey_ex = lambda t: (lambda x, y, t0=t: Ey_ex_t(t0, x, y))
         Bz_ex = lambda t: (lambda x, y, t0=t: Bz_ex_t(t0, x, y))
@@ -659,7 +644,6 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         e = E_log.coeffs
         b = B_log.coeffs
 
-
         if study == 'maxwell_wave':
             D1.dot(e, out=b)
 
@@ -667,40 +651,27 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         P1.dot(e.copy(), out=e)
         P2.dot(b.copy(), out=b)
 
-        V1x, V1y = V1.spaces #call them s, theta
-        Ex_field = FemField(V1x, coeffs=e[0])
-        Ey_field = FemField(V1y, coeffs=e[1])
+        V1_s, V1_theta = V1.spaces
+        Ex_field = FemField(V1_s, coeffs=e[0])
+        Ey_field = FemField(V1_theta, coeffs=e[1])
         B_field = FemField(V2, coeffs=b)
-        V1x.export_fields('Ex.h5', Ex_field=Ex_field)
-        V1y.export_fields('Ey.h5', Ey_field=Ey_field)
+        V1_s.export_fields('Ex.h5', Ex_field=Ex_field)
+        V1_theta.export_fields('Ey.h5', Ey_field=Ey_field)
         V2.export_fields('B.h5', B_field=B_field)
 
         if use_scipy:
 
             print(" -------------- SCIPY operators ------------ ")
-
-            # M1_sp = M1.tosparse()
-            # M2_sp = M2.tosparse()
             conga_curl_sp = (D1 @ P1).tosparse()
             step_faraday_2d = SparseCurlAsOperator(W1=V1, W2=V2, strong_curl_sp=conga_curl_sp, strong=True,
                                                    store_M1inv=False)
             step_ampere_2d = SparseCurlAsOperator(W1=V1, W2=V2, strong_curl_sp=conga_curl_sp, M1=M1, M2=M2,
                                                   strong=False)
-            # M1_inv = spsolve(M1)
 
         else:
             M1_inv = inverse(M1, 'cg', verbose=verbose, tol=tol)
             step_ampere_2d = M1_inv @ P1_T @ D1_T @ M2
             step_faraday_2d = D1 @ P1
-
-        # Time step size
-        # dx_min_1 = np.sqrt(np.diff(grid_x, axis=0)**2 + np.diff(grid_y, axis=0)**2).min()
-        # dx_min_2 = np.sqrt(np.diff(grid_x, axis=1)**2 + np.diff(grid_y, axis=1)**2).min()
-        # dx_min = min(dx_min_1, dx_min_2)
-        # dt = Cp * dx_min / c
-        # only use radial grid-step because angular goes to zero near pole
-        # dt = Cp * dx_min_1 / c
-        # print(f'dt = {dt}')
 
         Nt, dt, norm_curlh = compute_stable_dt(cfl, C_m=step_ampere_2d, dC_m=step_faraday_2d, V=V2, tau=tend, light_c=1)
 
@@ -721,8 +692,6 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
     # ==============================================================================
     # VISUALIZATION SETUP
     # ==============================================================================
-
-    # print( x2)
 
     # def plot_fields_along_s(tstr):  # , j0=0, j1=0):
     #
@@ -754,19 +723,6 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
 
     # Prepare plots
     if plot_interval:
-
-        # Plot physical grid and mapping's metric determinant
-        # fig1, ax1 = plt.subplots(1, 1, figsize=(8, 6))
-        # im = ax1.contourf(x, y, np.sqrt(F.metric_det(x1, x2)))
-        # add_colorbar(im, ax1, label=r'Metric determinant $\sqrt{g}$ of mapping $F$')
-        # ax1.plot(*gridlines_x1, color='k')
-        # ax1.plot(*gridlines_x2, color='k')
-        # ax1.set_title('Mapped grid of {} x {} cells'.format(ncells, ncells))
-        # ax1.set_xlabel('x', fontsize=14)
-        # ax1.set_ylabel('y', fontsize=14)
-        # ax1.set_aspect('equal')
-        # fig1.tight_layout()
-        # fig1.show()
 
         # Plot initial conditions
 
@@ -828,8 +784,6 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
                 fig.savefig(f'{visdir}/Ey_t0_{rp_str}.png')
                 plt.close(fig)
                 # fig.clf()
-
-            # fig3.show()
 
             # Magnetic field, z component
             fig = plot_field_and_error(r'B^z', 0, x, y, Bz_values, Bz_ex_values, *gridlines)
@@ -904,8 +858,6 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         print('L2 norm of rel. error on Ey(t,x,y) at initial time: {:.2e}'.format(error_l2_Ey))
         print('L2 norm of rel. error on Bz(t,x,y) at initial time: {:.2e}'.format(error_l2_Bz))
 
-        # input('\nSimulation setup done... press any key to start')
-
     # ==============================================================================
     # SOLUTION
     # ==============================================================================
@@ -943,19 +895,6 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
 
             Strang_update(dt)
 
-            # # Strang splitting, 2nd order
-            # # b := b - dt/2 * curl e
-            # step_faraday_2d.dot(e, out = db)
-            # b.mul_iadd(- dt/2, db)
-
-            # # e := e + dt * curl b
-            # step_ampere_2d.dot(b, out = de)
-            # e.mul_iadd(dt, de)
-
-            # # b := b - dt/2 * curl e
-            # step_faraday_2d.dot(e, out = db)
-            # b.mul_iadd(- dt/2, db)
-
         elif splitting_order == 4:
 
             Strang_update(dt * gamma_1)
@@ -983,11 +922,11 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
     P1.dot(e.copy(), out=e)
     P2.dot(b.copy(), out=b)
 
-    Ex_field = FemField(V1x, coeffs=e[0])
-    Ey_field = FemField(V1y, coeffs=e[1])
+    Ex_field = FemField(V1_s, coeffs=e[0])
+    Ey_field = FemField(V1_theta, coeffs=e[1])
     B_field = FemField(V2, coeffs=b)
-    V1x.export_fields('Ex_final.h5', Ex_field=Ex_field)
-    V1y.export_fields('Ey_final.h5', Ey_field=Ey_field)
+    V1_s.export_fields('Ex_final.h5', Ex_field=Ex_field)
+    V1_theta.export_fields('Ey_final.h5', Ey_field=Ey_field)
     V2.export_fields('B_final.h5', B_field=B_field)
 
     if plot_data is not None:
@@ -1009,8 +948,6 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
                     Ex_ex_t(t, xij, yij), Ey_ex_t(t, xij, yij)
 
                 Bz_ex_values[i, j] = Bz_ex_t(t, xij, yij)
-
-        # ...
 
         # Error at final time
         error_Ex = abs(Ex_ex_values - Ex_values).max()
