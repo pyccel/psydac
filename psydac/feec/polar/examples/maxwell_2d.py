@@ -124,8 +124,6 @@ def plot_field_and_error(name, t, x, y, field_h, field_ex, *gridlines, only_fiel
     else:
         fig, (ax0, ax1) = plt.subplots(1, 2, figsize=(15, 6))
         axes = [ax0, ax1]
-    print(type(x))
-    print(type(y))
     im0 = ax0.contourf(x, y, field_h, 50)
     ax0.set_title(r'${0}_h$'.format(name))
     if not only_field:
@@ -374,7 +372,73 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         f2_with_det = lambda eta1, eta2: f_log(eta1, eta2) ** 2 * np.sqrt(F.metric_det(eta1, eta2))
         return np.sqrt(derham_h.V0.integral(f2_with_det))
 
+    def build_plot_context():
+        """
+        Build all serial objects needed for plotting fields.
+
+        This is used by:
+        - study='L2_proj'
+        - initial Maxwell plots
+        - final Maxwell plots
+        """
+        if mpi_rank != 0:
+            return None
+
+        if use_spline_mapping:
+            domain_h_serial = discretize(domain, filename='geo.h5')
+            F_serial = [*domain_h_serial.mappings.values()].pop()
+        else:
+            domain_h_serial = discretize(domain, ncells=ncells, periodic=[False, True])
+            F_serial = F
+
+        derham_h_serial = discretize(derham, domain_h_serial, degree=degree)
+        V0_s, V1_s, V2_s = derham_h_serial.spaces
+        V1_sx, V1_sy = V1_s.spaces
+
+        grid_x1 = V0_s.breaks[0].copy()
+        grid_x2 = V0_s.breaks[1].copy()
+
+        # Fix division by zero without taking care of the limit as s --> 0
+        grid_x1[0] = 1e-20
+
+        N = 5
+        x1 = refine_array_1d(grid_x1, N)
+        x2 = refine_array_1d(grid_x2, N)
+
+        x1, x2 = np.meshgrid(x1, x2, indexing='ij')
+
+        x = np.empty_like(x1)
+        y = np.empty_like(x1)
+
+        for i in range(x1.shape[0]):
+            for j in range(x1.shape[1]):
+                x[i, j], y[i, j] = F_serial(x1[i, j], x2[i, j])
+
+        gridlines_x1 = (x[:, ::N], y[:, ::N])
+        gridlines_x2 = (x[::N, :].T, y[::N, :].T)
+        gridlines = (gridlines_x1, gridlines_x2)
+
+        return {
+            'domain_h_serial': domain_h_serial,
+            'derham_h_serial': derham_h_serial,
+            'V0_s': V0_s,
+            'V1_s': V1_s,
+            'V2_s': V2_s,
+            'V1_sx': V1_sx,
+            'V1_sy': V1_sy,
+            'F_serial': F_serial,
+            'x1': x1,
+            'x2': x2,
+            'x': x,
+            'y': y,
+            'gridlines': gridlines,
+        }
+
     def run_study_L2_proj():
+        """
+        Only for serial runs
+
+        """
         omega = 4
         print(f'studying L2 proj of f in H_0(curl) .. with omega = {omega}')
         xs, ys = domain.coordinates
@@ -396,7 +460,6 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         l = LinearForm(v, integral(domain, dot(f_phys, v)))
         lh = discretize(l, domain_h, V1)
         tilde_f = lh.assemble()
-        # exit()
 
         # create fields and point to coeffs
 
@@ -440,14 +503,6 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
 
         cst_wo_det = lambda x1, x2: 1
         cst_wi_det = lambda x1, x2: 1 * np.sqrt(F.metric_det(x1,x2))
-        mydet = lambda x1, x2: x1**2
-
-        # for point1 in [0.1, 0.01, 0.001]:
-        #     for point2 in [0.1, 0.01, 0.001]:
-        #         print(f'x1 = {x1}, x2 = {x2}, det_err = {F.metric_det(x1,x2)-mydet(x1,x2)}')
-        # print(f'a = {F.metric_det(.1,.1), cst_wo_det(.1,.1), cst_wi_det(.1,.1)}')
-        # print(f'b = {F.metric_det(.01,.01), cst_wo_det(.01,.01), cst_wi_det(.01,.01)}')
-        # print(f'c = {F.metric_det(.001,.001), cst_wo_det(.001,.001), cst_wi_det(.001,.001)}')
         int_wo_det = derham_h.V0.integral(cst_wo_det)
         int_wi_det = derham_h.V0.integral(cst_wi_det)
         print('V0 - integral of 1 (no det):   {:.2e}'.format(int_wo_det))
@@ -464,47 +519,52 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         if plot_time <= 0:
             return locals()
 
+        plot_data = build_plot_context()
+        if plot_data is None:
+            return locals()
+
+        x1 = plot_data['x1']
+        x2 = plot_data['x2']
+        x = plot_data['x']
+        y = plot_data['y']
+        gridlines = plot_data['gridlines']
+
         # plot
 
-        # fx_values = np.empty_like(x1)
-        # fy_values = np.empty_like(x1)
-        # fx_filter_values = np.empty_like(x1)
-        # fy_filter_values = np.empty_like(x1)
-        #
-        # fx_ex_values = np.empty_like(x1)
-        # fy_ex_values = np.empty_like(x1)
-        #
-        # for i, x1i in enumerate(x1[:, 0]):
-        #     for j, x2j in enumerate(x2[0, :]):
-        #
-        #
-        #         xij, yij = F(x1i, x2j)
-        #         fx_values[i, j], fy_values[i, j] = \
-        #             push_2d_hcurl(fh.fields[0], fh.fields[1], x1i, x2j, F)
-        #         fx_filter_values[i, j], fy_filter_values[i, j] = \
-        #             push_2d_hcurl(fh_filter.fields[0], fh_filter.fields[1], x1i, x2j, F)
-        #         fx_ex_values[i, j], fy_ex_values[i, j] = \
-        #             fx_call(xij, yij), fy_call(xij, yij)
+        fx_values = np.empty_like(x1)
+        fy_values = np.empty_like(x1)
+        fx_filter_values = np.empty_like(x1)
+        fy_filter_values = np.empty_like(x1)
 
-        # fig2 = plot_field_and_error(r'f^x', 0, x, y, fx_values, fx_ex_values, *gridlines)
-        # fig2.savefig(f'{visdir}/fx_{rp_str}.png')
-        #
-        # fig3 = plot_field_and_error(r'f^y', 0, x, y, fy_values, fy_ex_values, *gridlines)
-        # fig3.savefig(f'{visdir}/fy_{rp_str}.png')
-        #
-        # print('done: showing fh')
-        #
-        # fig2.clf()
-        # fig2 = plot_field_and_error(r'f^x filter', 0, x, y, fx_filter_values, fx_ex_values, *gridlines)
-        # fig2.savefig(f'{visdir}/fx_filter_{rp_str}.png')
-        #
-        # fig3.clf()
-        # fig3 = plot_field_and_error(r'f^y filter', 0, x, y, fy_filter_values, fy_ex_values, *gridlines)
-        # fig3.savefig(f'{visdir}/fy_filter_{rp_str}.png')
+        fx_ex_values = np.empty_like(x1)
+        fy_ex_values = np.empty_like(x1)
 
+        for i, x1i in enumerate(x1[:, 0]):
+            for j, x2j in enumerate(x2[0, :]):
+
+                xij, yij = F(x1i, x2j)
+                fx_values[i, j], fy_values[i, j] = \
+                    push_2d_hcurl(fh.fields[0], fh.fields[1], x1i, x2j, F)
+                fx_filter_values[i, j], fy_filter_values[i, j] = \
+                    push_2d_hcurl(fh_filter.fields[0], fh_filter.fields[1], x1i, x2j, F)
+                fx_ex_values[i, j], fy_ex_values[i, j] = \
+                    fx_call(xij, yij), fy_call(xij, yij)
+
+        fig1 = plot_field_and_error(r'f^x', 0, x, y, fx_values, fx_ex_values, *gridlines)
+        #fig2.savefig(f'{visdir}/fx_{rp_str}.png')
+
+        fig2 = plot_field_and_error(r'f^y', 0, x, y, fy_values, fy_ex_values, *gridlines)
+        #fig3.savefig(f'{visdir}/fy_{rp_str}.png')
+
+        print('done: showing fh')
+
+        fig3 = plot_field_and_error(r'f^x filter', 0, x, y, fx_filter_values, fx_ex_values, *gridlines)
+        #fig2.savefig(f'{visdir}/fx_filter_{rp_str}.png')
+
+        fig4 = plot_field_and_error(r'f^y filter', 0, x, y, fy_filter_values, fy_ex_values, *gridlines)
+        #fig3.savefig(f'{visdir}/fy_filter_{rp_str}.png')
 
         print('done: showing fh_filter')
-
         return locals()
 
     # ==============================================================================
@@ -570,6 +630,10 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         M2 = (htheta * hs) * (I2 - P2.T) @ (I2 - P2) + P2.T @ M2_raw @ P2
 
     Pi0, Pi1, Pi2 = derham_h.projectors(nquads=[degree[0] + 10, degree[1] + 10])
+
+    if study_L2_proj:
+        run_study_L2_proj()
+        return locals()
 
     # Geometric Projectors
 
@@ -658,11 +722,6 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
     # VISUALIZATION SETUP
     # ==============================================================================
 
-
-    if study_L2_proj:
-        run_study_L2_proj()
-        return locals()
-
     # print( x2)
 
     # def plot_fields_along_s(tstr):  # , j0=0, j1=0):
@@ -709,47 +768,23 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         # fig1.tight_layout()
         # fig1.show()
 
-        # ...
         # Plot initial conditions
-        # TODO: improve
 
-        if mpi_rank == 0:
-            if use_spline_mapping:
-                geometry = Geometry(filename='geo.h5')
-                domain_h_serial = discretize(domain, filename='geo.h5')
-                F_serial = [*domain_h_serial.mappings.values()].pop()
-            else:
-                domain_h_serial = discretize(domain, ncells=ncells, periodic=[False, True])
-                F_serial = F
+        plot_data = build_plot_context()
+        if plot_data is not None:
+            V1_sx = plot_data['V1_sx']
+            V1_sy = plot_data['V1_sy']
+            V2_s = plot_data['V2_s']
+            F_serial = plot_data['F_serial']
+            x1 = plot_data['x1']
+            x2 = plot_data['x2']
+            x = plot_data['x']
+            y = plot_data['y']
+            gridlines = plot_data['gridlines']
 
-            derham_h_serial = discretize(derham, domain_h_serial, degree=degree)
-            V0_s, V1_s, V2_s = derham_h_serial.spaces
-            V1_sx, V1_sy = V1_s.spaces
             Ex_serial, = V1_sx.import_fields('Ex.h5', 'Ex_field')
             Ey_serial, = V1_sy.import_fields('Ey.h5', 'Ey_field')
             B_serial, = V2_s.import_fields('B.h5', 'B_field')
-
-            grid_x1 = V0_s.breaks[0]
-            grid_x2 = V0_s.breaks[1]
-            # Fix division by zero without taking care of the limit as s --> 0
-            grid_x1[0] = 1e-20
-
-            # Very fine grids for evaluation of solution
-            N = 5
-            x1 = refine_array_1d(grid_x1, N)
-            x2 = refine_array_1d(grid_x2, N)
-
-            x1, x2 = np.meshgrid(x1, x2, indexing='ij')
-            x = np.empty_like(x1)
-            y = np.empty_like(x1)
-
-            for i in range(x1.shape[0]):
-                for j in range(x1.shape[1]):
-                    x[i, j], y[i, j] = F_serial(x1[i, j], x2[i, j])
-
-            gridlines_x1 = (x[:, ::N], y[:, ::N])
-            gridlines_x2 = (x[::N, :].T, y[::N, :].T)
-            gridlines = (gridlines_x1, gridlines_x2)
 
             Ex_ex_values = np.empty_like(x1)
             Ey_ex_values = np.empty_like(x1)
@@ -955,7 +990,7 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
     V1y.export_fields('Ey_final.h5', Ey_field=Ey_field)
     V2.export_fields('B_final.h5', B_field=B_field)
 
-    if mpi_rank == 0:
+    if plot_data is not None:
         Ex_serial, = V1_sx.import_fields('Ex_final.h5', 'Ex_field')
         Ey_serial, = V1_sy.import_fields('Ey_final.h5', 'Ey_field')
         B_serial, = V2_s.import_fields('B_final.h5', 'B_field')
