@@ -61,8 +61,6 @@ class GaussianSolution:
 
 
 def main():
-    # TODO: update with D_shift
-
     # Physical domain is rectangle [0, R] x [0, 2pi]
     R = 2.0
 
