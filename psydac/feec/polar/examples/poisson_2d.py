@@ -1,4 +1,15 @@
-# coding: utf-8
+"""
+Solve manufactured 2D Poisson problems on polar mapped domains.
+
+The script builds analytical or spline-approximated polar domains (disk, target or Czarny),
+assembles and solves the scalar Poisson system, applies optional treatments of the polar singularity
+(C0/C1 CONGA or C1 polar projectors), solves the resulting linear system,
+computes L2/H1 errors against the exact solution, and plots the result.
+
+Example of run:
+mpirun -n 2 python poisson_2d.py -S -n 8 10 -d 2 2 -t disk -D 0.2 -m 'C0conga'
+"""
+
 from dataclasses import dataclass
 
 import sympy
@@ -35,7 +46,6 @@ from psydac.api.settings import PSYDAC_BACKENDS
 
 from psydac.feec.polar.conga_projections import C0PolarProjection_V0, C1PolarProjection_V0
 
-# backend = PSYDAC_BACKENDS['numba']
 backend = PSYDAC_BACKENDS['python']
 
 
@@ -795,6 +805,3 @@ if __name__ == '__main__':
             import matplotlib.pyplot as plt
 
             plt.show()
-
-## example of run:
-# mpirun -n 2 python poisson_2d.py -S -n 8 10 -d 2 2  -t disk -D 0.2 -m 'C0conga'
