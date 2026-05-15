@@ -94,10 +94,10 @@ class Poisson2D:
 
     """
 
-    def __init__(self, domain, mapping, phi_log, rho_log):
+    def __init__(self, domain_log, mapping, phi_log, rho_log):
         assert isinstance(mapping, Mapping)
 
-        self._domain = domain
+        self._domain_log = domain_log
         self._mapping = mapping
         self._phi_log = phi_log
         self._rho_log = rho_log
@@ -118,7 +118,7 @@ class Poisson2D:
         : code
         $\phi(x,y) = (1 - ((x^2 + y^2) / R^2) ** 4) * sin(kx * x) * cos(ky * y)$.
         """
-        logical_domain = Square('Omega', bounds1=(0, R), bounds2=(0, 2 * np.pi))
+        domain_log = Square('Omega', bounds1=(0, R), bounds2=(0, 2 * np.pi))
         params = dict(c1=shift_D * R * R, c2=0, k=0, D=shift_D)
         mapping = TargetMapping('TM', **params)
 
@@ -128,14 +128,14 @@ class Poisson2D:
         kx = 2 * pi / (R * (1 - k + D))
         ky = 2 * pi / (R * (1 + k))
         x, y = sympy.symbols('x, y')
-        phi = (1 - ((x * x + y * y) / (R * R)) ** 4) * sin(kx * x) * cos(ky * y)
-        rho = - phi.diff(x, x) - phi.diff(y, y)
+        phi_phys = (1 - ((x * x + y * y) / (R * R)) ** 4) * sin(kx * x) * cos(ky * y)
+        rho_phys = - phi_phys.diff(x, x) - phi_phys.diff(y, y)
 
         x_log, y_log = mapping.expressions
-        phi_log = phi.subs({x: x_log, y: y_log})
-        rho_log = rho.subs({x: x_log, y: y_log})
+        phi_log = phi_phys.subs({x: x_log, y: y_log})
+        rho_log = rho_phys.subs({x: x_log, y: y_log})
 
-        return Poisson2D(logical_domain, mapping, phi_log, rho_log)
+        return Poisson2D(domain_log, mapping, phi_log, rho_log)
 
     @staticmethod
     def target():
@@ -158,7 +158,7 @@ class Poisson2D:
 
         """
 
-        logical_domain = Square('Omega', bounds1=(0, 1), bounds2=(0, 2 * np.pi))
+        domain_log = Square('Omega', bounds1=(0, 1), bounds2=(0, 2 * np.pi))
         params = dict(c1=0, c2=0, k=Rational(3, 10), D=Rational(2, 10))
         mapping = TargetMapping('F', **params)
 
@@ -175,7 +175,7 @@ class Poisson2D:
         phi_log = (1 - s ** 8) * sin(kx * (x - 0.5)) * cos(ky * y)
         rho_log = - lapl(phi_log)
 
-        return Poisson2D(logical_domain, mapping, phi_log, rho_log)
+        return Poisson2D(domain_log, mapping, phi_log, rho_log)
 
     @staticmethod
     def czarny():
@@ -190,7 +190,7 @@ class Poisson2D:
 
         """
 
-        logical_domain = Square('Omega', bounds1=(0, 1), bounds2=(0, 2 * np.pi))
+        domain_log = Square('Omega', bounds1=(0, 1), bounds2=(0, 2 * np.pi))
         params = dict(c1=0, c2=0, eps=Rational(1, 5), b=Rational(7, 5))
         mapping = CzarnyMapping('F', **params)
 
@@ -202,11 +202,11 @@ class Poisson2D:
         phi_log = (1 - s ** 8) * sin(pi * x) * cos(pi * y)
         rho_log = - lapl(phi_log)
 
-        return Poisson2D(logical_domain, mapping, phi_log, rho_log)
+        return Poisson2D(domain_log, mapping, phi_log, rho_log)
 
     @property
-    def domain(self):
-        return self._domain
+    def domain_log(self):
+        return self._domain_log
 
     @property
     def mapping(self):
@@ -362,8 +362,8 @@ def run_poisson_2d(*, test_case, ncells, degree,
 
     if use_spline_mapping:
         # Create uniform grid
-        grid_1 = np.linspace(*model.domain.bounds1, num=ne1 + 1)
-        grid_2 = np.linspace(*model.domain.bounds2, num=ne2 + 1)
+        grid_1 = np.linspace(*model.domain_log.bounds1, num=ne1 + 1)
+        grid_2 = np.linspace(*model.domain_log.bounds2, num=ne2 + 1)
 
         # Create 1D finite element spaces
         V1 = SplineSpace(p1, grid=grid_1, periodic=periodic[0])
@@ -396,7 +396,7 @@ def run_poisson_2d(*, test_case, ncells, degree,
     else:
         # Only symbolic mapping is necessary
         mapping = model.mapping
-        domain = mapping(model.domain)
+        domain = mapping(model.domain_log)
 
     # ========================== SYMBOLIC DEFINITION ==============================#
 
@@ -405,7 +405,6 @@ def run_poisson_2d(*, test_case, ncells, degree,
     u0, v0 = elements_of(V0, names='u0, v0')
     aM = BilinearForm((u0, v0), integral(domain, u0 * v0))
     aS = BilinearForm((u0, v0), integral(domain, dot(grad(u0), grad(v0))))
-    # model.rho is in logical coordinates instead of physical but it works anyways
 
     rhs = LinearForm(v0, integral(domain, model.rho_log * v0))
 
