@@ -350,21 +350,22 @@ def run_poisson_2d(*, test_case, ncells, degree,
     ne1, ne2 = ncells
     p1, p2 = degree
 
-    # ==================== SPLINE SPACE FOR SPLINE MAPPINGS =======================#
-
-    # Create uniform grid
-    grid_1 = np.linspace(*model.domain.bounds1, num=ne1 + 1)
-    grid_2 = np.linspace(*model.domain.bounds2, num=ne2 + 1)
-
     periodic = [False, True]
 
-    # Create 1D finite element spaces
-    V1 = SplineSpace(p1, grid=grid_1, periodic=periodic[0])
-    V2 = SplineSpace(p2, grid=grid_2, periodic=periodic[1])
+    # ==================== SPLINE SPACE FOR SPLINE MAPPINGS =======================#
 
-    # Create 2D tensor product finite element space
-    domain_decomposition = DomainDecomposition(ncells, periodic , comm=mpi_comm)
-    V = TensorFemSpace(domain_decomposition, V1, V2)
+    if use_spline_mapping:
+        # Create uniform grid
+        grid_1 = np.linspace(*model.domain.bounds1, num=ne1 + 1)
+        grid_2 = np.linspace(*model.domain.bounds2, num=ne2 + 1)
+
+        # Create 1D finite element spaces
+        V1 = SplineSpace(p1, grid=grid_1, periodic=periodic[0])
+        V2 = SplineSpace(p2, grid=grid_2, periodic=periodic[1])
+
+        # Create 2D tensor product finite element space
+        domain_decomposition = DomainDecomposition(ncells, periodic , comm=mpi_comm)
+        V = TensorFemSpace(domain_decomposition, V1, V2)
 
     # ==================== MAPPING & PHYSICAL DOMAIN ==============================#
     #TODO: maybe define a parent class Model
@@ -566,13 +567,13 @@ def run_poisson_2d(*, test_case, ncells, degree,
     # =============================== VISUALIZATION ===============================#
 
     N = 10
-    V.plot_2d_decomposition(mapping.get_callable_mapping(), refine=N)
+    V0_h.plot_2d_decomposition(mapping.get_callable_mapping(), refine=N)
 
     # Non-master processes stop here
     if mpi_rank != 0:
         return
 
-    plot_solution(use_spline_mapping, model, ncells, periodic, V1, V2, refine=N)
+    plot_solution(use_spline_mapping, model, ncells, periodic, V0_h, refine=N)
 
     return locals()
 
@@ -602,16 +603,21 @@ def compute_errors(phi, phi_ref, M, S):
 # ==============================================================================
 # Plotting
 # ==============================================================================
-def plot_solution(use_spline_mapping, model, ncells, periodic, V1, V2, refine=10):
+def plot_solution(use_spline_mapping, model, ncells, periodic, V0_h, refine=10):
+    """
+    Plot exact solution, numerical solution and error
+    """
 
     if use_spline_mapping:
         geometry = Geometry(filename='geo.h5', comm=MPI.COMM_SELF)
         map_discrete = [*geometry.mappings.values()].pop()
         Vnew = map_discrete.space
+        map_plot = map_discrete
 
     else:
         dd = DomainDecomposition(ncells, periodic, comm=MPI.COMM_SELF)
-        Vnew = TensorFemSpace(dd, V1, V2)
+        Vnew = TensorFemSpace(dd, *V0_h.spaces)
+        map_plot = model.mapping.get_callable_mapping()
 
     # Import solution vector into new serial field
     phi, = Vnew.import_fields('fields.h5', 'phi')
@@ -621,19 +627,15 @@ def plot_solution(use_spline_mapping, model, ncells, periodic, V1, V2, refine=10
 
     # Compute numerical solution (and error) on refined logical grid
     [sk1, sk2], [ek1, ek2] = Vnew.local_domain
+    V1_plot, V2_plot = Vnew.spaces
 
-    eta1 = refine_array_1d(V1.breaks[sk1:ek1 + 2], refine)
-    eta2 = refine_array_1d(V2.breaks[sk2:ek2 + 2], refine)
+    eta1 = refine_array_1d(V1_plot.breaks[sk1:ek1 + 2], refine)
+    eta2 = refine_array_1d(V2_plot.breaks[sk2:ek2 + 2], refine)
     num = np.array([[phi(e1, e2) for e2 in eta2] for e1 in eta1])
     ex = np.array([[phi_e(e1, e2) for e2 in eta2] for e1 in eta1])
     err = num - ex
 
     # Compute physical coordinates of logical grid
-    if use_spline_mapping:
-        map_plot = map_discrete
-    else:
-        map_plot = model.mapping.get_callable_mapping()
-
     pcoords = np.array([[map_plot(e1, e2) for e2 in eta2] for e1 in eta1])
     xx = pcoords[:, :, 0]
     yy = pcoords[:, :, 1]
