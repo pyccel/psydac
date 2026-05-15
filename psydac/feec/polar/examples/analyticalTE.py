@@ -39,7 +39,7 @@ class CircularCavitySolution:
 
     """
 
-    def __init__(self, R, c, m, n, D=0, scale=1, variables='log'):
+    def __init__(self, R, c, m, n, D=0, scale=1):
         from numpy import pi
         from scipy.special import jnp_zeros
         pnm = jnp_zeros(n, m)[-1]
@@ -57,8 +57,6 @@ class CircularCavitySolution:
         self._R = R
         assert 0 <= D < .5
         self._D = D
-        # assert variables in ['log', 'phys']
-        # self._logical = (variables == 'log')
 
     # Exact solutions for electric and magnetic field with polar parametrization of disk domain
     def Es_ex(self, t, s, theta):
@@ -157,9 +155,11 @@ class CircularCavitySolution:
 
 
 def main():
-    # TODO: update with D_shift
+    """
+    This function is not currently used. It is kept for possible future development.
+    """
 
-    # Physical domain is rectangle [0, R] x [0, 2pi]
+    # Logical domain is rectangle [0, R] x [0, 2pi]
     R = 2.0
 
     # Speed of light equal c and scaling of the fields by a scale factor
@@ -209,7 +209,6 @@ def main():
     Ey_values = np.empty_like(rho)
     B_values = np.empty_like(rho)
 
-    valerr = 0
     for i, x1i in enumerate(rho[:, 0]):
         for j, x2j in enumerate(theta[0, :]):
             Ex_values[i, j], Ey_values[i, j] = \
