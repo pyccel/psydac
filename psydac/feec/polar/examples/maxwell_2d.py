@@ -1,6 +1,3 @@
-# TODO: Test weak divergence of E = 0 and strong divergence of B = 0
-# NB: Use L2 projection for the initial condition of E to test the weak div of E
-
 """
 Solve the Transverse Electric Time dependent Maxwell Problem
 on an analytical disk domain.
@@ -291,8 +288,6 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         map_discrete = SplineMapping.from_mapping(V, map_analytic)
 
         check_regular_ring_map(map_discrete)
-
-        # STOP: CHECK that mapping is consistent with paper ?
 
         # Create symbolic mapping with callable mapping as spline
         mapping = Mapping('M', dim=2)
@@ -610,7 +605,7 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         M1_raw = a1_h.assemble()
         M2_raw = a2_h.assemble()
 
-        # regularization of M1 and M2 so that they are bounded and invertible: TODO try various factors (htheta*hs), this one probably too small but Maxwell simlulation was good already :)
+        # regularization of M1 and M2 so that they are bounded and invertible:
         M1 = (htheta * hs) * (I1 - P1.T) @ (I1 - P1) + P1.T @ M1_raw @ P1
         M2 = (htheta * hs) * (I2 - P2.T) @ (I2 - P2) + P2.T @ M2_raw @ P2
 
@@ -886,8 +881,7 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
     for ts in range(1, nsteps + 1):
 
         print(f'step = {ts}/{nsteps}')
-        # TODO: allow for high-order splitting
-
+        
         if splitting_order == 2:
 
             Strang_update(dt)
