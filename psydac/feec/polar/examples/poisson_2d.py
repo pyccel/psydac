@@ -4,7 +4,6 @@ from dataclasses import dataclass
 import sympy
 from mpi4py import MPI
 from time import time, sleep
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -18,6 +17,7 @@ from sympde.calculus import dot, grad
 from sympde.topology.mapping import Mapping
 
 from psydac.api.discretization import discretize
+from psydac.feec.polar.examples.utils_congapol import add_colorbar
 from psydac.linalg.stencil import StencilVector, StencilMatrix
 from psydac.linalg.basic import LinearOperator
 from psydac.linalg.solvers import inverse
@@ -637,12 +637,6 @@ def plot_solution(use_spline_mapping, model, ncells, periodic, V1, V2, refine=10
     pcoords = np.array([[map_plot(e1, e2) for e2 in eta2] for e1 in eta1])
     xx = pcoords[:, :, 0]
     yy = pcoords[:, :, 1]
-
-    def add_colorbar(im, ax):
-        divider = make_axes_locatable(ax)
-        cax = divider.append_axes("right", size=0.2, pad=0.2)
-        cbar = ax.get_figure().colorbar(im, cax=cax)
-        return cbar
 
     # Create figure with 3 subplots:
     #  1. exact solution on exact domain
