@@ -1,18 +1,11 @@
 from sympde.topology import Square
 from sympde.topology.analytical_mapping import PolarMapping
+
+from psydac.api.tests.test_api_feec_2d import add_colorbar
 from psydac.feec.pull_push import push_2d_hcurl, push_2d_l2
 from numpy import pi
 import numpy as np
 import matplotlib.pyplot as plt
-
-
-def add_colorbar(im, ax, **kwargs):
-    from mpl_toolkits.axes_grid1 import make_axes_locatable
-    divider = make_axes_locatable(ax)
-    cax = divider.append_axes("right", size=0.2, pad=0.3)
-    cbar = ax.get_figure().colorbar(im, cax=cax, **kwargs)
-    return cbar
-
 
 class CircularCavitySolution:
     """
@@ -110,10 +103,9 @@ class CircularCavitySolution:
         return val
         # The magnitude of B is approximately equal to scale / 3
 
-    def Bt_ex(self, t, s, theta):
+    def dB_dt_ex(self, t, s, theta):
         '''
         = dB/dt
-        todo: change the name
         '''
         from numpy import cos, sin
         from scipy.special import jv
@@ -132,8 +124,6 @@ class CircularCavitySolution:
         from numpy import sqrt, arctan2  # ,  sin, cos
         r = sqrt(x * x + y * y)
         alpha = arctan2(y, x)
-        # print(f'r*np.cos(alpha) - x = {r*np.cos(alpha) - x}')
-        # print(f'r*np.sin(alpha) - y = {r*np.sin(alpha) - y}')
         return r, alpha
 
     def Ex_ex(self, t, x, y):
@@ -178,7 +168,7 @@ def main():
     Es_ex = exact_solution.Es_ex
     Et_ex = exact_solution.Et_ex
     B_ex = exact_solution.B_ex
-    Bt_ex = exact_solution.Bt_ex
+    dB_dt_ex = exact_solution.dB_dt_ex
 
     # Logical domain: [0, R] x [0, 2pi]
     logical_domain = Square('Omega', bounds1=[0, R], bounds2=[0, 2 * pi])
@@ -195,7 +185,7 @@ def main():
     Es = lambda x, y: Es_ex(t, x, y)
     Et = lambda x, y: Et_ex(t, x, y)
     B = lambda x, y: B_ex(t, x, y)
-    Bt = lambda x, y: Bt_ex(t, x, y)
+    dB_dt = lambda x, y: dB_dt_ex(t, x, y)
 
     # Plot of fields
     N = 100
@@ -253,7 +243,7 @@ def main():
             Ex_values[i, j], Ey_values[i, j] = \
                 push_2d_hcurl(Es, Et, x1_ij, x2_ij, F)
 
-            Bt_values[i, j] = push_2d_l2(Bt, x1_ij, x2_ij, F)
+            Bt_values[i, j] = push_2d_l2(dB_dt, x1_ij, x2_ij, F)
 
     fig, axs = plt.subplots(2, 3, figsize=(15, 15))
     im1 = axs[0, 0].contourf(x, y, np.sqrt(Ex_values ** 2 + Ey_values ** 2))

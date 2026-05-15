@@ -1,18 +1,11 @@
 from sympde.topology import Square
 from sympde.topology.analytical_mapping import PolarMapping
+
+from psydac.feec.polar.examples.utils_congapol import add_colorbar
 from psydac.feec.pull_push import push_2d_hcurl, push_2d_l2
 from numpy import pi
 import numpy as np
 import matplotlib.pyplot as plt
-
-
-def add_colorbar(im, ax, **kwargs):
-    from mpl_toolkits.axes_grid1 import make_axes_locatable
-    divider = make_axes_locatable(ax)
-    cax = divider.append_axes("right", size=0.2, pad=0.3)
-    cbar = ax.get_figure().colorbar(im, cax=cax, **kwargs)
-    return cbar
-
 
 class GaussianSolution:
     """
@@ -20,21 +13,11 @@ class GaussianSolution:
     """
 
     def __init__(self, sigma, x0, y0, scale=1):
-        from numpy import pi
-        from scipy.special import jnp_zeros
 
         self.x0 = x0
         self.y0 = y0
         self.sigma = sigma
         self.scale = scale
-
-        # self._logical = (variables == 'log')
-
-    # def get_radius_angle(self, x, y):
-    #     from numpy import sqrt, arctan2 #,  sin, cos
-    #     r     = sqrt(x*x + y*y)
-    #     alpha = arctan2(y, x)
-    # return r, alpha
 
     def Ex_ex(self, t, x, y):
         from numpy import exp, cos, sqrt
@@ -61,7 +44,7 @@ class GaussianSolution:
 
 
 def main():
-    # Physical domain is rectangle [0, R] x [0, 2pi]
+    # Logical domain is rectangle [0, R] x [0, 2pi]
     R = 2.0
 
     # Speed of light equal c and scaling of the fields by a scale factor
@@ -106,7 +89,6 @@ def main():
     Ey_values = np.empty_like(rho)
     B_values = np.empty_like(rho)
 
-    valerr = 0
     for i, x1i in enumerate(rho[:, 0]):
         for j, x2j in enumerate(theta[0, :]):
             Ex_values[i, j], Ey_values[i, j] = \
