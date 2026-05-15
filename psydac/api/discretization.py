@@ -608,8 +608,10 @@ def discretize(a, *args, **kwargs):
         # We also default to False if the code is to be parallelized w/ OpenMP.
         # TODO [YG 21.07.2025]: Drop this restriction
         if isinstance(a, sym_BilinearForm):
-            default = (dim == 3 and not openmp)
-            kwargs.setdefault('sum_factorization', default)
+            ## 15.05.2026: Avoid bug frequency-domain matrix (complex)
+            #default = (dim == 3 and not openmp)
+            #kwargs.setdefault('sum_factorization', default)
+            kwargs.update({'sum_factorization': False})
 
         mapping = domain_h.domain.mapping
         kwargs['symbolic_mapping'] = mapping
