@@ -94,21 +94,20 @@ class Poisson2D:
 
     """
 
-    def __init__(self, domain, mapping, phi, rho):
+    def __init__(self, domain, mapping, phi_log, rho_log):
         assert isinstance(mapping, Mapping)
 
         self._domain = domain
         self._mapping = mapping
-        self._phi = phi
-        self._rho = rho
+        self._phi_log = phi_log
+        self._rho_log = rho_log
 
         s, t = mapping.logical_coordinates
-        self._phi_callable = sympy.lambdify([s, t], phi)
-        self._rho_callable = sympy.lambdify([s, t], rho)
+        self._phi_log_callable = sympy.lambdify([s, t], phi_log)
+        self._rho_log_callable = sympy.lambdify([s, t], rho_log)
 
-    # ...
     @staticmethod
-    def disk_domain(R, shift_D):
+    def disk(R, shift_D):
         r"""
         Solve Poisson's equation on a disk of radius R centered at (x,y) = (0, 0),
         with logical coordinates (s, theta):
@@ -138,9 +137,8 @@ class Poisson2D:
 
         return Poisson2D(logical_domain, mapping, phi_log, rho_log)
 
-    # ...
     @staticmethod
-    def target_domain():
+    def target():
         r"""
         Solve Poisson's equation on a polar domain, with logical coordinates (s, theta):
 
@@ -174,14 +172,13 @@ class Poisson2D:
         kx = 2 * pi / (1 - k + D)
         ky = 2 * pi / (1 + k)
 
-        phi = (1 - s ** 8) * sin(kx * (x - 0.5)) * cos(ky * y)
-        rho = - lapl(phi)
+        phi_log = (1 - s ** 8) * sin(kx * (x - 0.5)) * cos(ky * y)
+        rho_log = - lapl(phi_log)
 
-        return Poisson2D(logical_domain, mapping, phi, rho)
+        return Poisson2D(logical_domain, mapping, phi_log, rho_log)
 
-    # ...
     @staticmethod
-    def czarny_domain():
+    def czarny():
         r"""
         Solve Poisson's equation on a czarny domain, with logical coordinates (s, theta):
 
@@ -202,12 +199,11 @@ class Poisson2D:
         x, y = mapping.expressions
 
         # Manufactured solution in logical coordinates
-        phi = (1 - s ** 8) * sin(pi * x) * cos(pi * y)
-        rho = - lapl(phi)
+        phi_log = (1 - s ** 8) * sin(pi * x) * cos(pi * y)
+        rho_log = - lapl(phi_log)
 
-        return Poisson2D(logical_domain, mapping, phi, rho)
+        return Poisson2D(logical_domain, mapping, phi_log, rho_log)
 
-    # ...
     @property
     def domain(self):
         return self._domain
@@ -217,20 +213,20 @@ class Poisson2D:
         return self._mapping
 
     @property
-    def phi(self):
-        return self._phi
+    def phi_log(self):
+        return self._phi_log
 
     @property
-    def rho(self):
-        return self._rho
+    def rho_log(self):
+        return self._rho_log
 
     @property
-    def phi_callable(self):
-        return self._phi_callable
+    def phi_log_callable(self):
+        return self._phi_log_callable
 
     @property
-    def rho_callable(self):
-        return self._rho_callable
+    def rho_log_callable(self):
+        return self._rho_log_callable
 
 
 # ====================== CONGA (PENALIZED) POISSON ============================#
@@ -333,11 +329,11 @@ def run_poisson_2d(*, test_case, ncells, degree,
 
     # Method of manufactured solution
     if test_case == 'disk':
-        model = Poisson2D.disk_domain(R=R, shift_D=shift_D)
+        model = Poisson2D.disk(R=R, shift_D=shift_D)
     elif test_case == 'target':
-        model = Poisson2D.target_domain()
+        model = Poisson2D.target()
     elif test_case == 'czarny':
-        model = Poisson2D.czarny_domain()
+        model = Poisson2D.czarny()
     else:
         raise ValueError("Only available test-cases are 'disk', 'target' and 'czarny'")
 
@@ -411,9 +407,9 @@ def run_poisson_2d(*, test_case, ncells, degree,
     aS = BilinearForm((u0, v0), integral(domain, dot(grad(u0), grad(v0))))
     # model.rho is in logical coordinates instead of physical but it works anyways
 
-    rhs = LinearForm(v0, integral(domain, model.rho * v0))
+    rhs = LinearForm(v0, integral(domain, model.rho_log * v0))
 
-    err_diff = model.phi - u0
+    err_diff = model.phi_log - u0
 
     # ============================= DISCRETIZATION ================================#
     if use_spline_mapping:
@@ -442,7 +438,7 @@ def run_poisson_2d(*, test_case, ncells, degree,
     from psydac.feec.global_geometric_projectors import GlobalGeometricProjectorH1
 
     Pi0 = GlobalGeometricProjectorH1(V0_h)
-    phi_ref = Pi0(model.phi_callable)
+    phi_ref = Pi0(model.phi_log_callable)
     phi_ref.coeffs.update_ghost_regions()
 
 
@@ -633,7 +629,7 @@ def plot_solution(use_spline_mapping, model, ncells, periodic, V0_h, refine=10):
     phi, = Vnew.import_fields('fields.h5', 'phi')
 
     # Callable exact solution in logical coordinates
-    phi_e = model.phi_callable
+    phi_e = model.phi_log_callable
 
     # Compute numerical solution (and error) on refined logical grid
     [sk1, sk2], [ek1, ek2] = Vnew.local_domain
