@@ -8,7 +8,7 @@ from typing import Iterable
 import numpy as np
 from mpi4py import MPI
 
-from sympde.topology.mapping import Mapping
+from sympde.topology.mapping import AnalyticMapping
 from sympde.topology.analytical_mapping import (IdentityMapping, PolarMapping,
                                                 TargetMapping, CzarnyMapping,
                                                 CollelaMapping2D, SphericalMapping)
@@ -40,7 +40,7 @@ __all__ = (
     'discrete_mapping',
 )
 
-class Collela3D( Mapping ):
+class Collela3D(AnalyticMapping):
 
     _expressions = {'x':'2.*(x1 + 0.1*sin(2.*pi*x1)*sin(2.*pi*x2)) - 1.',
                     'y':'2.*(x2 + 0.1*sin(2.*pi*x1)*sin(2.*pi*x2)) - 1.',

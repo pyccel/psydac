@@ -12,6 +12,7 @@ import numpy as np
 import h5py
 
 from sympde.topology.callable_mapping import BasicCallableMapping
+from sympde.topology.mapping import DefinedMapping
 
 from psydac.fem.basic    import FemField
 from psydac.fem.tensor   import TensorFemSpace
@@ -59,7 +60,11 @@ class SplineMapping(BasicCallableMapping):
     def from_mapping(cls, tensor_space, mapping):
 
         assert isinstance(tensor_space, TensorFemSpace)
-        assert isinstance(mapping, BasicCallableMapping)
+        assert isinstance(mapping, (BasicCallableMapping, DefinedMapping))
+
+        if isinstance(mapping, DefinedMapping):
+            mapping = mapping.get_callable_mapping()
+
         assert tensor_space.ldim == mapping.ldim
 
         # Create one separate scalar field for each physical dimension

@@ -5,7 +5,7 @@
 #---------------------------------------------------------------------------#
 import numpy as np
 
-from sympde.topology.mapping import Mapping
+from sympde.topology.mapping import Mapping, DefinedMapping
 from sympde.topology.callable_mapping import CallableMapping
 from sympde.topology.analytical_mapping import IdentityMapping
 from sympde.topology.datatype import UndefinedSpaceType, H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType
@@ -24,6 +24,16 @@ from psydac.core.field_evaluation_kernels import (pushforward_2d_l2, pushforward
 
 __all__ = ('Pushforward',)
 
+
+def _is_point_evaluable_symbolic_mapping(mapping):
+    """Return True for symbolic mappings that can provide callable evaluation."""
+    if isinstance(mapping, DefinedMapping):
+        return True
+
+    # Compatibility path for symbolic Mapping objects loaded from files where
+    # a discrete callable mapping has already been attached.
+    return isinstance(mapping, Mapping) and mapping.callable_mapping is not None
+
 class Pushforward:
     """
     Class used to help push-forwarding several fields using the
@@ -36,9 +46,8 @@ class Pushforward:
         If it's a regular tensor grid, then it is expected to be
         a list of 2-D arrays with number of cells as the first dimension.
 
-    mapping : SplineMapping or Mapping or None
-        Mapping used to push-forward. None is equivalent to
-        the identity mapping.
+    mapping : SplineMapping or DefinedMapping or Mapping-with-callable or None
+        Mapping used to push-forward. None is equivalent to the identity mapping.
 
     npts_per_cell : tuple of int or int, optional
         Number of points per cell
@@ -108,16 +117,15 @@ class Pushforward:
         if grid_local is None:
             grid_local=grid
 
-        if isinstance(mapping, Mapping):
+        if _is_point_evaluable_symbolic_mapping(mapping):
             self._mesh_grids = np.meshgrid(*grid_local, indexing='ij', sparse=True)
-            if isinstance(mapping.get_callable_mapping(), SplineMapping):
-                c_m = mapping.get_callable_mapping()
+            c_m = mapping.get_callable_mapping()
+            if isinstance(c_m, SplineMapping):
                 self.mapping = c_m
                 self.local_domain = c_m.space.local_domain
                 self.global_ends = tuple(nc_i - 1 for nc_i in c_m.space.ncells)
-            else : 
-                assert mapping.is_analytical
-                self.mapping = mapping.get_callable_mapping()
+            else:
+                self.mapping = c_m
                 self.local_domain = local_domain
                 self.global_ends = global_ends
 
@@ -126,10 +134,14 @@ class Pushforward:
             self.local_domain = mapping.space.local_domain
             self.global_ends = tuple(nc_i - 1 for nc_i in mapping.space.ncells)
 
-        else:
-            assert self.is_identity
+        elif mapping is None:
             self.local_domain = local_domain
             self.global_ends = global_ends
+
+        else:
+            raise TypeError(
+                'mapping should be None, SplineMapping, or a point-evaluable '
+                f'symbolic mapping, got {type(mapping)}')
 
         self._eval_func = self._eval_functions[self.grid_type]
 

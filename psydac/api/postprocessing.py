@@ -15,7 +15,7 @@ import numpy as np
 import mpi4py
 import h5py as h5
 
-from sympde.topology import Domain, VectorFunctionSpace, ScalarFunctionSpace, InteriorDomain, MultiPatchMapping, Mapping
+from sympde.topology import Domain, VectorFunctionSpace, ScalarFunctionSpace, InteriorDomain, MultiPatchMapping, Mapping, DefinedMapping
 from sympde.topology.datatype import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType, UndefinedSpaceType
 
 from pyevtk.hl import unstructuredGridToVTK
@@ -34,6 +34,18 @@ from psydac.utilities.vtk      import writeParallelVTKUnstructuredGrid
 
 __all__ = ('get_grid_lines_2d', '_augment_space_degree_dict',
            'OutputManager', 'PostProcessManager')
+
+
+def _is_point_evaluable_symbolic_mapping(mapping):
+    """Return True for symbolic mappings that can provide callable evaluation."""
+    if isinstance(mapping, DefinedMapping):
+        return True
+
+    # Compatibility path for symbolic Mapping objects loaded from files where
+    # a discrete callable mapping has already been attached.
+    return isinstance(mapping, Mapping) and getattr(mapping, 'callable_mapping', None) is not None
+
+
 #===============================================================================
 def get_grid_lines_2d(domain_h, V_h, *, refine=1):
     """
@@ -1722,7 +1734,7 @@ class PostProcessManager:
                 i_name_i: {} for i_name_i in self._available_patches}
         for (interior_name, i_patch), space_dict in interior_to_dict_fields.items():
             mapping = self._mappings[interior_name]
-            assert isinstance(mapping, (Mapping, SplineMapping)) or mapping is None
+            assert mapping is None or isinstance(mapping, SplineMapping) or _is_point_evaluable_symbolic_mapping(mapping)
 
             i_mesh_info, i_point_data, i_mpi_dd = self._compute_single_patch(
                 interior_name=interior_name,
@@ -1983,8 +1995,8 @@ class PostProcessManager:
         interior_name : str
             Name of the current patch
 
-        mapping : Sympde.topology.Mapping or psydac.mapping.discrete.SplineMapping or None
-            Mapping of the patch
+        mapping : SymPDE point-evaluable mapping, SplineMapping, or None
+            Mapping of the patch.
 
         space_dict : dict
             Dictionary mapping spaces to the list of their fields that need to be
@@ -2174,8 +2186,8 @@ class PostProcessManager:
         interior_name : str
             Name of the current patch
 
-        mapping : SymPDE.topology.Mapping or psydac.mapping.discrete.SplineMapping or None
-            Mapping of the current patch
+        mapping : SymPDE point-evaluable mapping, SplineMapping, or None
+            Mapping of the current patch.
 
         space_dict : dict
             Dictionary mapping spaces to the list of their fields that need to be
@@ -2199,11 +2211,12 @@ class PostProcessManager:
             local_domain = mapping.space.local_domain
             global_ends = tuple(nc_i - 1 for nc_i in list(mapping.space.ncells))
             breaks = mapping.space.breaks
-        elif hasattr(mapping, 'callable_mapping') and isinstance(mapping.get_callable_mapping(), SplineMapping):
+        elif _is_point_evaluable_symbolic_mapping(mapping):
             c_m = mapping.get_callable_mapping()
-            local_domain = c_m.space.local_domain
-            global_ends = tuple(nc_i - 1 for nc_i in list(c_m.space.ncells))
-            breaks = c_m.space.breaks
+            if isinstance(c_m, SplineMapping):
+                local_domain = c_m.space.local_domain
+                global_ends = tuple(nc_i - 1 for nc_i in list(c_m.space.ncells))
+                breaks = c_m.space.breaks
         # Option 2 : space_dict is not empty -> use the first space encountered there
         elif space_dict != {}:
             space = list(space_dict.keys())[0]
@@ -2253,8 +2266,8 @@ class PostProcessManager:
 
         Parameters
         ----------
-        mapping : SymPDE.topology.Mapping or psydac.mapping.discrete.SplineMapping or None
-            Mapping of the current patch
+        mapping : SymPDE point-evaluable mapping, SplineMapping, or None
+            Mapping of the current patch.
 
         grid : list of array_like
             complete grid
@@ -2308,7 +2321,7 @@ class PostProcessManager:
                 mesh = np.meshgrid(*grid_local, indexing='ij')
             else:
                 mesh = grid_local
-            if isinstance(mapping, Mapping):
+            if _is_point_evaluable_symbolic_mapping(mapping):
                 c_m = mapping.get_callable_mapping()
                 if isinstance(c_m, SplineMapping):
                     mesh = c_m.build_mesh(grid, npts_per_cell=npts_per_cell)
@@ -2317,7 +2330,9 @@ class PostProcessManager:
             elif mapping is None:
                 pass
             else:
-                raise TypeError(f'mapping should be SymPDE Mapping or PSYDAC SplineMapping, not {type(mapping)}')
+                raise TypeError(
+                    'mapping should be a point-evaluable SymPDE mapping, '
+                    f'PSYDAC SplineMapping, or None, got {type(mapping)}')
         conn, off, typ, i_mpi_dd = self._compute_unstructured_mesh_info(
             local_domain,
             npts_per_cell=npts_per_cell,

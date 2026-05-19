@@ -55,7 +55,7 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
     from mpi4py          import MPI
     from scipy.integrate import quad
 
-    from sympde.topology import Mapping
+    from sympde.topology import AnalyticMapping
     from sympde.topology import Line
     from sympde.topology import Derham
     from sympde.topology import elements_of
@@ -79,7 +79,7 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
     logical_domain = Line('Omega', bounds=(0, 1))
 
     #... Mapping and physical domain
-    class CollelaMapping1D(Mapping):
+    class CollelaMapping1D(AnalyticMapping):
 
         _expressions = {'x': 'k * (x1 + eps / (2*pi) * sin(2*pi*x1))'}
         _ldim = 1

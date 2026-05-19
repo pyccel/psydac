@@ -1,6 +1,6 @@
 import numpy as np
 
-from sympde.topology import Mapping
+from sympde.topology import AnalyticMapping
 
 from psydac.linalg.basic import LinearOperator
 from psydac.linalg.block import BlockVectorSpace
@@ -12,7 +12,7 @@ __all__ = (
     'check_linop_equality_using_rng'
 )
 
-class SquareTorus(Mapping):
+class SquareTorus(AnalyticMapping):
     _expressions = {'x': 'x1 * cos(x2)',
                     'y': 'x1 * sin(x2)',
                     'z': 'x3'}
@@ -20,14 +20,14 @@ class SquareTorus(Mapping):
     _pdim = 3
 
 
-class Annulus(Mapping):
+class Annulus(AnalyticMapping):
     _expressions = {'x': 'x1 * cos(x2)',
                     'y': 'x1 * sin(x2)'}
     _ldim = 2
     _pdim = 2
 
 
-class SinMapping1D(Mapping):
+class SinMapping1D(AnalyticMapping):
     _expressions = {'x': 'sin((pi/2)*x1)'}
     _ldim = 1
     _pdim = 1

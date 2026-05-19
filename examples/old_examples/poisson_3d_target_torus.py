@@ -8,7 +8,7 @@ import os
 
 import numpy as np
 
-from sympde.topology import Cube, Mapping
+from sympde.topology import Cube, Mapping, AnalyticMapping
 
 from psydac.api.postprocessing import OutputManager, PostProcessManager
 from psydac.fem.basic import FemField
@@ -53,7 +53,7 @@ class Laplacian:
 
 #==============================================================================
 # Define the Spherical coordinate system
-class TargetTorusMapping(Mapping):
+class TargetTorusMapping(AnalyticMapping):
     """
     3D Torus with a polar cross-section like in the TargetMapping.
     """

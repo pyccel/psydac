@@ -17,7 +17,7 @@ import h5py
 import yaml
 from mpi4py import MPI
 
-from sympde.topology       import Domain, Interface, Line, Square, Cube, NCubeInterior, Mapping, NCube
+from sympde.topology       import Domain, Interface, Line, Square, Cube, NCubeInterior, Mapping, DefinedMapping, NCube
 from sympde.topology.basic import Union
 from sympde.topology.callable_mapping import BasicCallableMapping
 
@@ -232,7 +232,7 @@ class Geometry:
 
         mapping_name = name if name else 'mapping'
         dim      = mapping.ldim
-        M        = Mapping(mapping_name, dim = dim)  # this is a symbolic mapping
+        M        = DefinedMapping(mapping_name, dim = dim)  # point-evaluable symbolic mapping
         domain   = M(NCube(name = 'Omega',
                            dim  = dim,
                            min_coords = [0.] * dim,
