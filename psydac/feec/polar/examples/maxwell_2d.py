@@ -166,8 +166,7 @@ def plot_curve_along_s(name, s_str, time_str, theta0,
 
 def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
                       splitting_order, shift_D, use_spline_mapping, plot_time, tol,
-                      cfl=0.9, show_figs=True, plot_final=True,
-                      study='maxwell_bessel', use_scipy=True, verbose=False):
+                      cfl=0.9, show_figs=True, study='maxwell_bessel', use_scipy=True, verbose=False):
     import numpy as np
     from numpy import pi
     # import matplotlib.pyplot as plt
@@ -294,23 +293,15 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         mapping.set_callable_mapping(map_discrete)
         # In order to create a sympde.Domain object from this mapping we have
         # to create first a HDF5 file and then load as sympde.Domain.fromfile
-        # t0 = time()
         geometry = Geometry.from_discrete_mapping(map_discrete, comm=mpi_comm)
         geometry.export('geo.h5')
-        # t1 = time()
-        # timing['export'] += t1 - t0
         domain = Domain.from_file('geo.h5')
 
         # TODO (MCP 07.2024): check that mapping = domain.mapping ??
 
     else:
         # Only symbolic mapping is necessary
-        # mapping = model.mapping
         domain = mapping(logical_domain)
-
-    # F = mapping.get_callable_mapping()
-
-    # domain  = mapping(logical_domain)
 
     # DeRham sequence
     derham = Derham(domain, sequence=['h1', 'hcurl', 'l2'])
@@ -622,67 +613,65 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
 
     t = 0
 
-    if study_maxwell:
+    # Callable exact fields
+    Ex_ex = lambda t: (lambda x, y, t0=t: Ex_ex_t(t0, x, y))
+    Ey_ex = lambda t: (lambda x, y, t0=t: Ey_ex_t(t0, x, y))
+    Bz_ex = lambda t: (lambda x, y, t0=t: Bz_ex_t(t0, x, y))
 
-        # Callable exact fields
-        Ex_ex = lambda t: (lambda x, y, t0=t: Ex_ex_t(t0, x, y))
-        Ey_ex = lambda t: (lambda x, y, t0=t: Ey_ex_t(t0, x, y))
-        Bz_ex = lambda t: (lambda x, y, t0=t: Bz_ex_t(t0, x, y))
+    # Initial conditions, discrete fields -- here with a pull-back in the projections
+    E_log = Pi1((Ex_ex(t), Ey_ex(t)))
+    E_log.coeffs.update_ghost_regions()
+    B_log = Pi2(Bz_ex(t))
+    B_log.coeffs.update_ghost_regions()
 
-        # Initial conditions, discrete fields -- here with a pull-back in the projections
-        E_log = Pi1((Ex_ex(t), Ey_ex(t)))
-        E_log.coeffs.update_ghost_regions()
-        B_log = Pi2(Bz_ex(t))
-        B_log.coeffs.update_ghost_regions()
+    # Initial conditions, spline coefficients
+    e = E_log.coeffs
+    b = B_log.coeffs
 
-        # Initial conditions, spline coefficients
-        e = E_log.coeffs
-        b = B_log.coeffs
+    if study == 'maxwell_wave':
+        D1.dot(e, out=b)
 
-        if study == 'maxwell_wave':
-            D1.dot(e, out=b)
+    # Conga Projection
+    P1.dot(e.copy(), out=e)
+    P2.dot(b.copy(), out=b)
 
-        # Conga Projection
-        P1.dot(e.copy(), out=e)
-        P2.dot(b.copy(), out=b)
+    V1_s, V1_theta = V1.spaces
+    Ex_field = FemField(V1_s, coeffs=e[0])
+    Ey_field = FemField(V1_theta, coeffs=e[1])
+    B_field = FemField(V2, coeffs=b)
+    V1_s.export_fields('Ex.h5', Ex_field=Ex_field)
+    V1_theta.export_fields('Ey.h5', Ey_field=Ey_field)
+    V2.export_fields('B.h5', B_field=B_field)
 
-        V1_s, V1_theta = V1.spaces
-        Ex_field = FemField(V1_s, coeffs=e[0])
-        Ey_field = FemField(V1_theta, coeffs=e[1])
-        B_field = FemField(V2, coeffs=b)
-        V1_s.export_fields('Ex.h5', Ex_field=Ex_field)
-        V1_theta.export_fields('Ey.h5', Ey_field=Ey_field)
-        V2.export_fields('B.h5', B_field=B_field)
+    if use_scipy:
 
-        if use_scipy:
+        print(" -------------- SCIPY operators ------------ ")
+        conga_curl_sp = (D1 @ P1).tosparse()
+        step_faraday_2d = SparseCurlAsOperator(W1=V1, W2=V2, strong_curl_sp=conga_curl_sp, strong=True,
+                                               store_M1inv=False)
+        step_ampere_2d = SparseCurlAsOperator(W1=V1, W2=V2, strong_curl_sp=conga_curl_sp, M1=M1, M2=M2,
+                                              strong=False)
 
-            print(" -------------- SCIPY operators ------------ ")
-            conga_curl_sp = (D1 @ P1).tosparse()
-            step_faraday_2d = SparseCurlAsOperator(W1=V1, W2=V2, strong_curl_sp=conga_curl_sp, strong=True,
-                                                   store_M1inv=False)
-            step_ampere_2d = SparseCurlAsOperator(W1=V1, W2=V2, strong_curl_sp=conga_curl_sp, M1=M1, M2=M2,
-                                                  strong=False)
+    else:
+        M1_inv = inverse(M1, 'cg', verbose=verbose, tol=tol)
+        step_ampere_2d = M1_inv @ P1_T @ D1_T @ M2
+        step_faraday_2d = D1 @ P1
 
-        else:
-            M1_inv = inverse(M1, 'cg', verbose=verbose, tol=tol)
-            step_ampere_2d = M1_inv @ P1_T @ D1_T @ M2
-            step_faraday_2d = D1 @ P1
+    Nt, dt, norm_curlh = compute_stable_dt(cfl, C_m=step_ampere_2d, dC_m=step_faraday_2d, V=V2, tau=tend, light_c=1)
 
-        Nt, dt, norm_curlh = compute_stable_dt(cfl, C_m=step_ampere_2d, dC_m=step_faraday_2d, V=V2, tau=tend, light_c=1)
+    if plot_time > 0:
+        plot_interval = max(int(plot_time / dt), 1)
+    else:
+        plot_interval = 0
+    print(f'plot_interval = {plot_interval}, corresponding to a time = {plot_interval * dt}')
 
-        if plot_time > 0:
-            plot_interval = max(int(plot_time / dt), 1)
-        else:
-            plot_interval = 0
-        print(f'plot_interval = {plot_interval}, corresponding to a time = {plot_interval * dt}')
-
-        # If final time is given, recompute number of time steps
-        if tend is None:
-            tend = nsteps * dt
-            print(f'final time (re)computed: {tend}')
-        else:
-            nsteps = Nt
-            print(f'nsteps recomputed: {nsteps}')
+    # If final time is given, recompute number of time steps
+    if tend is None:
+        tend = nsteps * dt
+        print(f'final time (re)computed: {tend}')
+    else:
+        nsteps = Nt
+        print(f'nsteps recomputed: {nsteps}')
 
     # ==============================================================================
     # VISUALIZATION SETUP
@@ -713,10 +702,8 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         fig_line.savefig(f'{visdir}/{name}_line_{tstr}_{rp_str}.png')
         plt.close(fig_line)
 
-    # Prepare plots
+    # Plot initial conditions
     if plot_interval:
-
-        # Plot initial conditions
 
         plot_data = build_plot_context()
         if plot_data is not None:
@@ -766,7 +753,6 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
             else:
                 fig.savefig(f'{visdir}/Ex_t0_{rp_str}.png')
                 plt.close(fig)
-                # fig.clf()
 
             # Electric field, y component
             fig = plot_field_and_error(r'E^y', 0, x, y, Ey_values, Ey_ex_values, *gridlines)
@@ -775,7 +761,6 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
             else:
                 fig.savefig(f'{visdir}/Ey_t0_{rp_str}.png')
                 plt.close(fig)
-                # fig.clf()
 
             # Magnetic field, z component
             fig = plot_field_and_error(r'B^z', 0, x, y, Bz_values, Bz_ex_values, *gridlines)
@@ -932,7 +917,6 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
                     push_2d_hcurl(Ex_serial, Ey_serial, x1i, x2j, F_serial)
 
                 Bz_values[i, j] = push_2d_l2(B_serial, x1i, x2j, F_serial)
-                # Bz_values[i, j] = B(x1i, x2j)
 
                 xij, yij = F(x1i, x2j)
                 Ex_ex_values[i, j], Ey_ex_values[i, j] = \
@@ -972,7 +956,7 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
     print('L2 norm of rel. error on Ey(t,x,y) at final time: {:.2e}'.format(error_l2_Ey))
     print('L2 norm of rel. error on Bz(t,x,y) at final time: {:.2e}'.format(error_l2_Bz))
 
-    if plot_final and mpi_rank == 0:
+    if mpi_rank == 0:
         # Plot exact and approximate solution at final time
         fig1, axs = plt.subplots(3, 3, figsize=(12, 12))
         im0 = axs[0, 0].contourf(x, y, Ex_ex_values, 50)
