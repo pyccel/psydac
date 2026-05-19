@@ -170,7 +170,7 @@ def plot_curve_along_s(name, s_str, time_str, theta0,
 
 def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
                       splitting_order, shift_D, use_spline_mapping, tol,
-                      cfl=0.9, show_figs=False, study='maxwell_bessel', use_scipy=True, verbose=False):
+                      cfl=0.9, show_figs=True, study='maxwell_bessel', use_scipy=True, verbose=False):
     import numpy as np
     from numpy import pi
 
@@ -682,13 +682,13 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
                                       x1[:, j0], Ex_values[:, j0], Ex_ex_values[:, j0],
                                       -x1[:, j1], Ex_values[:, j1], Ex_ex_values[:, j1])
         fig_line.savefig(f'{visdir}/{name}_line_{tstr}_{rp_str}.png')
-        fig_line.clf()
+        plt.close(fig_line)
         name = 'Ey'
         fig_line = plot_curve_along_s(name, 's', tstr, f'{theta0} and {theta1}',
                                       x1[:, j0], Ey_values[:, j0], Ey_ex_values[:, j0],
                                       -x1[:, j1], Ey_values[:, j1], Ey_ex_values[:, j1])
         fig_line.savefig(f'{visdir}/{name}_line_{tstr}_{rp_str}.png')
-        fig_line.clf()
+        plt.close(fig_line)
         name = 'Bz'
         fig_line = plot_curve_along_s(name, 's', tstr, f'{theta0} and {theta1}',
                                       x1[:, j0], Bz_values[:, j0], Bz_ex_values[:, j0],
