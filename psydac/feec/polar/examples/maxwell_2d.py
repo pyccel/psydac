@@ -1,6 +1,9 @@
 """
 Solve the Transverse Electric Time dependent Maxwell Problem
 on an analytical disk domain.
+
+example of run:
+python maxwell_2d.py -S -n 16 32 -d 3 3 -T 1 -D 0.2 -s 1
 """
 import os
 import numpy as np
@@ -8,6 +11,7 @@ from mpi4py import MPI
 
 import matplotlib.pyplot as plt
 
+from psydac.feec.global_geometric_projectors import evaluate_dofs_1d_0form
 from psydac.fem.basic import FemField
 from utils_congapol import print_map_polar_coeffs, check_regular_ring_map, add_colorbar
 
@@ -165,11 +169,10 @@ def plot_curve_along_s(name, s_str, time_str, theta0,
 # =============================================================================#
 
 def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
-                      splitting_order, shift_D, use_spline_mapping, plot_time, tol,
-                      cfl=0.9, show_figs=True, study='maxwell_bessel', use_scipy=True, verbose=False):
+                      splitting_order, shift_D, use_spline_mapping, tol,
+                      cfl=0.9, show_figs=False, study='maxwell_bessel', use_scipy=True, verbose=False):
     import numpy as np
     from numpy import pi
-    # import matplotlib.pyplot as plt
 
     from sympy import cos, sin, Tuple, exp, sqrt, atan2
 
@@ -257,9 +260,6 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
     mpi_comm = MPI.COMM_WORLD
     mpi_size = mpi_comm.Get_size()
     mpi_rank = mpi_comm.Get_rank()
-    if mpi_rank != 0:
-        show_figs = False
-
 
     # ==================== SPLINE SPACE FOR SPLINE MAPPINGS =======================#
 
@@ -343,7 +343,7 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         f2_with_det = lambda eta1, eta2: f_log(eta1, eta2) ** 2 * np.sqrt(F.metric_det(eta1, eta2))
         return np.sqrt(derham_h.V0.integral(f2_with_det))
 
-    def build_plot_context():
+    def build_eval_context():
         """
         Build all serial objects needed for plotting fields.
 
@@ -487,10 +487,10 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         print('V1.x - integral of 1 (no det):   {:.2e}'.format(int_wo_det))
         print('V1.x - integral of 1 (with det): {:.2e}'.format(int_wi_det))
 
-        if plot_time <= 0:
+        if not show_figs:
             return locals()
 
-        plot_data = build_plot_context()
+        plot_data = build_eval_context()
         if plot_data is None:
             return locals()
 
@@ -659,12 +659,6 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
 
     Nt, dt, norm_curlh = compute_stable_dt(cfl, C_m=step_ampere_2d, dC_m=step_faraday_2d, V=V2, tau=tend, light_c=1)
 
-    if plot_time > 0:
-        plot_interval = max(int(plot_time / dt), 1)
-    else:
-        plot_interval = 0
-    print(f'plot_interval = {plot_interval}, corresponding to a time = {plot_interval * dt}')
-
     # If final time is given, recompute number of time steps
     if tend is None:
         tend = nsteps * dt
@@ -703,137 +697,126 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         plt.close(fig_line)
 
     # Plot initial conditions
-    if plot_interval:
+    eval_data = build_eval_context()
+    if eval_data is not None: # when mpi_rank is 0, since this needs to be done in serial
+        V1_sx = eval_data['V1_sx']
+        V1_sy = eval_data['V1_sy']
+        V2_s = eval_data['V2_s']
+        F_serial = eval_data['F_serial']
+        x1 = eval_data['x1']
+        x2 = eval_data['x2']
+        x = eval_data['x']
+        y = eval_data['y']
+        gridlines = eval_data['gridlines']
 
-        plot_data = build_plot_context()
-        if plot_data is not None:
-            V1_sx = plot_data['V1_sx']
-            V1_sy = plot_data['V1_sy']
-            V2_s = plot_data['V2_s']
-            F_serial = plot_data['F_serial']
-            x1 = plot_data['x1']
-            x2 = plot_data['x2']
-            x = plot_data['x']
-            y = plot_data['y']
-            gridlines = plot_data['gridlines']
+        Ex_serial, = V1_sx.import_fields('Ex.h5', 'Ex_field')
+        Ey_serial, = V1_sy.import_fields('Ey.h5', 'Ey_field')
+        B_serial, = V2_s.import_fields('B.h5', 'B_field')
 
-            Ex_serial, = V1_sx.import_fields('Ex.h5', 'Ex_field')
-            Ey_serial, = V1_sy.import_fields('Ey.h5', 'Ey_field')
-            B_serial, = V2_s.import_fields('B.h5', 'B_field')
+        Ex_ex_values = np.empty_like(x1)
+        Ey_ex_values = np.empty_like(x1)
+        Bz_ex_values = np.empty_like(x1)
 
-            Ex_ex_values = np.empty_like(x1)
-            Ey_ex_values = np.empty_like(x1)
-            Bz_ex_values = np.empty_like(x1)
+        Ex_values = np.empty_like(x1)
+        Ey_values = np.empty_like(x1)
+        Bz_values = np.empty_like(x1)
 
-            Ex_values = np.empty_like(x1)
-            Ey_values = np.empty_like(x1)
-            Bz_values = np.empty_like(x1)
+        for i, x1i in enumerate(x1[:, 0]):
+            for j, x2j in enumerate(x2[0, :]):
 
-            for i, x1i in enumerate(x1[:, 0]):
-                for j, x2j in enumerate(x2[0, :]):
+                Ex_values[i, j], Ey_values[i, j] = \
+                    push_2d_hcurl(Ex_serial, Ey_serial, x1i, x2j, F_serial)
 
-                    Ex_values[i, j], Ey_values[i, j] = \
-                        push_2d_hcurl(Ex_serial, Ey_serial, x1i, x2j, F_serial)
+                Bz_values[i, j] = push_2d_l2(B_serial, x1i, x2j, F_serial)
 
-                    Bz_values[i, j] = push_2d_l2(B_serial, x1i, x2j, F_serial)
+                xij, yij = F_serial(x1i, x2j)
+                Ex_ex_values[i, j], Ey_ex_values[i, j] = \
+                    Ex_ex_t(t, xij, yij), Ey_ex_t(t, xij, yij)
 
-                    xij, yij = F(x1i, x2j)
-                    Ex_ex_values[i, j], Ey_ex_values[i, j] = \
-                        Ex_ex_t(t, xij, yij), Ey_ex_t(t, xij, yij)
+                Bz_ex_values[i, j] = Bz_ex_t(t, xij, yij)
 
-                    Bz_ex_values[i, j] = Bz_ex_t(t, xij, yij)
+        # fields along s for fixed theta
+        plot_fields_along_s(tstr='t0')
 
-            # fields along s for fixed theta
-            plot_fields_along_s(tstr='t0')
+        # Electric field, x component
+        fig = plot_field_and_error(r'E^x', 0, x, y, Ex_values, Ex_ex_values, *gridlines)
+        fig.savefig(f'{visdir}/Ex_t0_{rp_str}.png')
+        plt.close(fig)
 
-            # Electric field, x component
-            fig = plot_field_and_error(r'E^x', 0, x, y, Ex_values, Ex_ex_values, *gridlines)
-            if show_figs:
-                fig.show()
-            else:
-                fig.savefig(f'{visdir}/Ex_t0_{rp_str}.png')
-                plt.close(fig)
+        # Electric field, y component
+        fig = plot_field_and_error(r'E^y', 0, x, y, Ey_values, Ey_ex_values, *gridlines)
+        fig.savefig(f'{visdir}/Ey_t0_{rp_str}.png')
+        plt.close(fig)
 
-            # Electric field, y component
-            fig = plot_field_and_error(r'E^y', 0, x, y, Ey_values, Ey_ex_values, *gridlines)
-            if show_figs:
-                fig.show()
-            else:
-                fig.savefig(f'{visdir}/Ey_t0_{rp_str}.png')
-                plt.close(fig)
+        # Magnetic field, z component
+        fig = plot_field_and_error(r'B^z', 0, x, y, Bz_values, Bz_ex_values, *gridlines)
+        fig.savefig(f'{visdir}/Bz_t0_{rp_str}.png')
+        plt.close(fig)
 
-            # Magnetic field, z component
-            fig = plot_field_and_error(r'B^z', 0, x, y, Bz_values, Bz_ex_values, *gridlines)
-            if show_figs:
-                fig.show()
-            else:
-                fig.savefig(f'{visdir}/Bz_t0_{rp_str}.png')
-                plt.close(fig)
+        if show_figs:
+            # Plot exact and approximate solutions at t = 0
+            fig, axs = plt.subplots(3, 3, figsize=(12, 12))
+            im0 = axs[0, 0].contourf(x, y, Ex_ex_values, 50)
+            im1 = axs[0, 1].contourf(x, y, Ey_ex_values, 50)
+            im2 = axs[0, 2].contourf(x, y, Bz_ex_values, 50)
+            im3 = axs[1, 0].contourf(x, y, Ex_values, 50)
+            im4 = axs[1, 1].contourf(x, y, Ey_values, 50)
+            im5 = axs[1, 2].contourf(x, y, Bz_values, 50)
+            im6 = axs[2, 0].contourf(x, y, Ex_values - Ex_ex_values, 50)
+            im7 = axs[2, 1].contourf(x, y, Ey_values - Ey_ex_values, 50)
+            im8 = axs[2, 2].contourf(x, y, Bz_values - Bz_ex_values, 50)
+            axs[0, 0].set_title(r'$E^x$ at t = 0')
+            axs[0, 1].set_title(r'$E^y$ at t = 0')
+            axs[0, 2].set_title(r'$B^z$ at t = 0')
+            axs[1, 0].set_title(r'$E_h^x$ at t = 0')
+            axs[1, 1].set_title(r'$E_h^y$ at t = 0')
+            axs[1, 2].set_title(r'$B_h^z$ at t = 0')
+            axs[2, 0].set_title(r'$E^x - E_h^x$ at t = 0')
+            axs[2, 1].set_title(r'$E^y - E_h^y$ at t = 0')
+            axs[2, 2].set_title(r'$B^z - B_h^z$ at t = 0')
+            for i in range(3):
+                for j in range(3):
+                    axs[i, j].plot(*gridlines[0], color='k')
+                    axs[i, j].plot(*gridlines[1], color='k')
+                    axs[i, j].set_xlabel('x', fontsize=14)
+                    axs[i, j].set_ylabel('y', fontsize=14, rotation='horizontal')
+                    axs[i, j].set_aspect('equal')
+            add_colorbar(im0, axs[0, 0])
+            add_colorbar(im1, axs[0, 1])
+            add_colorbar(im2, axs[0, 2])
+            add_colorbar(im3, axs[1, 0])
+            add_colorbar(im4, axs[1, 1])
+            add_colorbar(im5, axs[1, 2])
+            add_colorbar(im6, axs[2, 0])
+            add_colorbar(im7, axs[2, 1])
+            add_colorbar(im8, axs[2, 2])
+            fig.suptitle('Compare Exact Solution and Approximate solution at initial time')
+            fig.tight_layout()
 
-            if show_figs:
-                # Plot exact and approximate solutions at t = 0
-                fig, axs = plt.subplots(3, 3, figsize=(12, 12))
-                im0 = axs[0, 0].contourf(x, y, Ex_ex_values, 50)
-                im1 = axs[0, 1].contourf(x, y, Ey_ex_values, 50)
-                im2 = axs[0, 2].contourf(x, y, Bz_ex_values, 50)
-                im3 = axs[1, 0].contourf(x, y, Ex_values, 50)
-                im4 = axs[1, 1].contourf(x, y, Ey_values, 50)
-                im5 = axs[1, 2].contourf(x, y, Bz_values, 50)
-                im6 = axs[2, 0].contourf(x, y, Ex_values - Ex_ex_values, 50)
-                im7 = axs[2, 1].contourf(x, y, Ey_values - Ey_ex_values, 50)
-                im8 = axs[2, 2].contourf(x, y, Bz_values - Bz_ex_values, 50)
-                axs[0, 0].set_title(r'$E^x$ at t = 0')
-                axs[0, 1].set_title(r'$E^y$ at t = 0')
-                axs[0, 2].set_title(r'$B^z$ at t = 0')
-                axs[1, 0].set_title(r'$E_h^x$ at t = 0')
-                axs[1, 1].set_title(r'$E_h^y$ at t = 0')
-                axs[1, 2].set_title(r'$B_h^z$ at t = 0')
-                axs[2, 0].set_title(r'$E^x - E_h^x$ at t = 0')
-                axs[2, 1].set_title(r'$E^y - E_h^y$ at t = 0')
-                axs[2, 2].set_title(r'$B^z - B_h^z$ at t = 0')
-                for i in range(3):
-                    for j in range(3):
-                        axs[i, j].plot(*gridlines[0], color='k')
-                        axs[i, j].plot(*gridlines[1], color='k')
-                        axs[i, j].set_xlabel('x', fontsize=14)
-                        axs[i, j].set_ylabel('y', fontsize=14, rotation='horizontal')
-                        axs[i, j].set_aspect('equal')
-                add_colorbar(im0, axs[0, 0])
-                add_colorbar(im1, axs[0, 1])
-                add_colorbar(im2, axs[0, 2])
-                add_colorbar(im3, axs[1, 0])
-                add_colorbar(im4, axs[1, 1])
-                add_colorbar(im5, axs[1, 2])
-                add_colorbar(im6, axs[2, 0])
-                add_colorbar(im7, axs[2, 1])
-                add_colorbar(im8, axs[2, 2])
-                fig.suptitle('Compare Exact Solution and Approximate solution at initial time')
-                fig.tight_layout()
+            # Need a small pause to show the plot of the initial condition
+            plt.pause(.1)
 
-                # Need a small pause to show the plot of the initial condition
-                plt.pause(.1)
+    # L2 norms (of ref solution)
+    normx = lambda x1, x2: Ex_ex_t(t, *F(x1, x2))
+    normy = lambda x1, x2: Ey_ex_t(t, *F(x1, x2))
+    normz = lambda x1, x2: Bz_ex_t(t, *F(x1, x2))
 
-        # L2 norms (of ref solution)
-        normx = lambda x1, x2: Ex_ex_t(t, *F(x1, x2))
-        normy = lambda x1, x2: Ey_ex_t(t, *F(x1, x2))
-        normz = lambda x1, x2: Bz_ex_t(t, *F(x1, x2))
+    norm_l2_Ex = l2_norm_of(normx)
+    norm_l2_Ey = l2_norm_of(normy)
+    norm_l2_Bz = l2_norm_of(normz)
 
-        norm_l2_Ex = l2_norm_of(normx)
-        norm_l2_Ey = l2_norm_of(normy)
-        norm_l2_Bz = l2_norm_of(normz)
+    # L2 errors
+    errx = lambda x1, x2: push_2d_hcurl(E_log.fields[0], E_log.fields[1], x1, x2, F)[0] - Ex_ex_t(t, *F(x1, x2))
+    erry = lambda x1, x2: push_2d_hcurl(E_log.fields[0], E_log.fields[1], x1, x2, F)[1] - Ey_ex_t(t, *F(x1, x2))
+    errz = lambda x1, x2: push_2d_l2(B_log, x1, x2, F) - Bz_ex_t(t, *F(x1, x2))
 
-        # L2 errors
-        errx = lambda x1, x2: push_2d_hcurl(E_log.fields[0], E_log.fields[1], x1, x2, F)[0] - Ex_ex_t(t, *F(x1, x2))
-        erry = lambda x1, x2: push_2d_hcurl(E_log.fields[0], E_log.fields[1], x1, x2, F)[1] - Ey_ex_t(t, *F(x1, x2))
-        errz = lambda x1, x2: push_2d_l2(B_log, x1, x2, F) - Bz_ex_t(t, *F(x1, x2))
+    error_l2_Ex = l2_norm_of(errx) / norm_l2_Ex
+    error_l2_Ey = l2_norm_of(erry) / norm_l2_Ey
+    error_l2_Bz = l2_norm_of(errz) / norm_l2_Bz
 
-        error_l2_Ex = l2_norm_of(errx) / norm_l2_Ex
-        error_l2_Ey = l2_norm_of(erry) / norm_l2_Ey
-        error_l2_Bz = l2_norm_of(errz) / norm_l2_Bz
-
-        print('L2 norm of rel. error on Ex(t,x,y) at initial time: {:.2e}'.format(error_l2_Ex))
-        print('L2 norm of rel. error on Ey(t,x,y) at initial time: {:.2e}'.format(error_l2_Ey))
-        print('L2 norm of rel. error on Bz(t,x,y) at initial time: {:.2e}'.format(error_l2_Bz))
+    print('L2 norm of rel. error on Ex(t,x,y) at initial time: {:.2e}'.format(error_l2_Ex))
+    print('L2 norm of rel. error on Ey(t,x,y) at initial time: {:.2e}'.format(error_l2_Ey))
+    print('L2 norm of rel. error on Bz(t,x,y) at initial time: {:.2e}'.format(error_l2_Bz))
 
     # ==============================================================================
     # SOLUTION
@@ -866,7 +849,7 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
     for ts in range(1, nsteps + 1):
 
         print(f'step = {ts}/{nsteps}')
-        
+
         if splitting_order == 2:
 
             Strang_update(dt)
@@ -892,9 +875,9 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         print('ts = {:4d},  t = {:8.4f}'.format(ts, t))
 
     N = 10
-    V.plot_2d_decomposition(mapping.get_callable_mapping(), refine=N)
+    if show_figs:
+        V.plot_2d_decomposition(mapping.get_callable_mapping(), refine=N)
 
-    # if not plot_interval:
     P1.dot(e.copy(), out=e)
     P2.dot(b.copy(), out=b)
 
@@ -905,7 +888,7 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
     V1_theta.export_fields('Ey_final.h5', Ey_field=Ey_field)
     V2.export_fields('B_final.h5', B_field=B_field)
 
-    if plot_data is not None:
+    if eval_data is not None:
         Ex_serial, = V1_sx.import_fields('Ex_final.h5', 'Ex_field')
         Ey_serial, = V1_sy.import_fields('Ey_final.h5', 'Ey_field')
         B_serial, = V2_s.import_fields('B_final.h5', 'B_field')
@@ -918,7 +901,7 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
 
                 Bz_values[i, j] = push_2d_l2(B_serial, x1i, x2j, F_serial)
 
-                xij, yij = F(x1i, x2j)
+                xij, yij = F_serial(x1i, x2j)
                 Ex_ex_values[i, j], Ey_ex_values[i, j] = \
                     Ex_ex_t(t, xij, yij), Ey_ex_t(t, xij, yij)
 
@@ -956,7 +939,7 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
     print('L2 norm of rel. error on Ey(t,x,y) at final time: {:.2e}'.format(error_l2_Ey))
     print('L2 norm of rel. error on Bz(t,x,y) at final time: {:.2e}'.format(error_l2_Bz))
 
-    if mpi_rank == 0:
+    if eval_data is not None and show_figs:
         # Plot exact and approximate solution at final time
         fig1, axs = plt.subplots(3, 3, figsize=(12, 12))
         im0 = axs[0, 0].contourf(x, y, Ex_ex_values, 50)
@@ -1001,27 +984,18 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
 
         # Electric field, x component
         fig = plot_field_and_error(r'E^x', tend, x, y, Ex_values, Ex_ex_values, *gridlines)
-        if show_figs:
-            fig.show()
-        else:
-            fig.savefig(f'{visdir}/Ex_T_{rp_str}.png')
-            plt.close(fig)  # fig.clf()
+        fig.savefig(f'{visdir}/Ex_T_{rp_str}.png')
+        plt.close(fig)  # fig.clf()
 
         # Electric field, y component
         fig = plot_field_and_error(r'E^y', tend, x, y, Ey_values, Ey_ex_values, *gridlines)
-        if show_figs:
-            fig.show()
-        else:
-            fig.savefig(f'{visdir}/Ey_T_{rp_str}.png')
-            plt.close(fig)  # fig.clf()
+        fig.savefig(f'{visdir}/Ey_T_{rp_str}.png')
+        plt.close(fig)  # fig.clf()
 
         # Magnetic field, z component
         fig = plot_field_and_error(r'B^z', tend, x, y, Bz_values, Bz_ex_values, *gridlines)
-        if show_figs:
-            fig.show()
-        else:
-            fig.savefig(f'{visdir}/Bz_T_{rp_str}.png')
-            plt.close(fig)
+        fig.savefig(f'{visdir}/Bz_T_{rp_str}.png')
+        plt.close(fig)
 
     return locals()
 
@@ -1102,15 +1076,6 @@ if __name__ == '__main__':
                            metavar='END_TIME',
                            help='Run simulation until given final time'
                            )
-    # ...
-
-    parser.add_argument('-p',
-                        type=float,
-                        default=1.,
-                        metavar='PLOT_TIME',
-                        dest='plot_time',
-                        help='Approx time between successive plots of solution, if I=0 no plots are made'
-                        )
 
     parser.add_argument('--tol',
                         type=float,
@@ -1140,7 +1105,3 @@ if __name__ == '__main__':
     # Keep matplotlib windows open
     # import matplotlib.pyplot as plt
     plt.show()
-
-## example of run:
-
-## python maxwell_2d.py -S -n 16 32 -d 3 3 -T 1 -D 0.2 -s 1 -p 100
