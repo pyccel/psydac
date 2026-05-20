@@ -17,7 +17,7 @@ import h5py
 import yaml
 from mpi4py import MPI
 
-from sympde.topology       import Domain, Interface, Line, Square, Cube, NCubeInterior, Mapping, DefinedMapping, NCube
+from sympde.topology       import Domain, Interface, Line, Square, Cube, NCubeInterior, UndefinedMapping, DefinedMapping, NCube
 from sympde.topology.basic import Union
 from sympde.topology.callable_mapping import BasicCallableMapping
 
@@ -229,16 +229,19 @@ class Geometry:
         Geometry
             The new instance.
         """
+        if not isinstance(mapping, DefinedMapping):
+            raise TypeError(
+                f'mapping must be a DefinedMapping, got {type(mapping)} instead')
 
-        mapping_name = name if name else 'mapping'
-        dim      = mapping.ldim
-        M        = DefinedMapping(mapping_name, dim = dim)  # point-evaluable symbolic mapping
-        domain   = M(NCube(name = 'Omega',
-                           dim  = dim,
-                           min_coords = [0.] * dim,
-                           max_coords = [1.] * dim)) 
-        M.set_callable_mapping(mapping)
+        if name is not None and hasattr(mapping, 'set_name'):
+            mapping.set_name(name)
+
+        ldim     = mapping.ldim
         pdim     = mapping.pdim
+        domain   = mapping(NCube(name = 'Omega',
+                           dim  = ldim,
+                           min_coords = [0.] * ldim,
+                           max_coords = [1.] * ldim)) 
         mappings = {domain.name: mapping}
         ncells   = {domain.name: mapping.space.domain_decomposition.ncells}
         periodic = {domain.name: mapping.space.domain_decomposition.periods}
@@ -680,7 +683,7 @@ def export_nurbs_to_hdf5(filename, nurbs, periodic=None, comm=None ):
     else:
         raise NotImplementedError('> nurbs.dim > 3 not implemented')
 
-    mapping = Mapping(mapping_id, dim=nurbs.dim)
+    mapping = UndefinedMapping(mapping_id, dim=nurbs.dim)
     domain  = mapping(domain)
     topo_yml = domain.todict()
 

@@ -13,6 +13,7 @@ import h5py
 
 from sympde.topology.callable_mapping import BasicCallableMapping
 from sympde.topology.mapping import DefinedMapping
+from sympde.topology.basic import BasicDomain
 
 from psydac.fem.basic    import FemField
 from psydac.fem.tensor   import TensorFemSpace
@@ -20,8 +21,25 @@ from psydac.fem.tensor   import TensorFemSpace
 
 __all__ = ('SplineMapping', 'NurbsMapping')
 
+
+def _new_mapping_name(prefix='mapping'):
+    token = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
+    return f'{prefix}_{token}'
+
 #==============================================================================
-class SplineMapping(BasicCallableMapping):
+class SplineMapping(DefinedMapping):
+
+    def __new__(cls, *components, name=None):
+
+        assert len(components) >= 1
+        assert all(isinstance(c, FemField) for c in components)
+        assert all(isinstance(c.space, TensorFemSpace) for c in components)
+        assert all(c.space is components[0].space for c in components)
+
+        ldim = components[0].space.ldim
+        pdim = len(components)
+        mapping_name = name if name is not None else _new_mapping_name()
+        return DefinedMapping.__new__(cls, mapping_name, ldim=ldim, pdim=pdim)
 
     def __init__(self, *components, name=None):
 
@@ -44,7 +62,8 @@ class SplineMapping(BasicCallableMapping):
         # indices [i1, ..., i_n, d] where (i1, ..., i_n) are indices of logical
         # coordinates, and d is index of physical component of interest.
         self._control_points = SplineMapping.ControlPoints(self)
-        self._name           = name
+        self._name           = name if name is not None else self._name
+        self._callable_map   = self
 
     @property
     def name(self):
@@ -127,6 +146,9 @@ class SplineMapping(BasicCallableMapping):
     # Abstract interface
     #--------------------------------------------------------------------------
     def __call__(self, *eta):
+        if len(eta) == 1 and isinstance(eta[0], BasicDomain):
+            return DefinedMapping.__call__(self, eta[0])
+
         return [map_Xd(*eta) for map_Xd in self._fields]
 
     # ...
@@ -817,6 +839,19 @@ class SplineMapping(BasicCallableMapping):
 #==============================================================================
 class NurbsMapping(SplineMapping):
 
+    def __new__(cls, *components, name=None):
+
+        assert len(components) >= 2
+        assert all(isinstance(c, FemField) for c in components)
+        assert all(isinstance(c.space, TensorFemSpace) for c in components)
+        assert all(c.space is components[0].space for c in components)
+
+        weighted_components = components[:-1]
+        ldim = weighted_components[0].space.ldim
+        pdim = len(weighted_components)
+        mapping_name = name if name is not None else _new_mapping_name(prefix='nurbs_mapping')
+        return DefinedMapping.__new__(cls, mapping_name, ldim=ldim, pdim=pdim)
+
     def __init__(self, *components, name=None):
 
         weights    = components[-1]
@@ -868,6 +903,9 @@ class NurbsMapping(SplineMapping):
     # Abstract interface
     #--------------------------------------------------------------------------
     def __call__(self, *eta):
+        if len(eta) == 1 and isinstance(eta[0], BasicDomain):
+            return DefinedMapping.__call__(self, eta[0])
+
         map_W = self._weights_field
         w = map_W(*eta)
         Xd = [map_Xd(*eta , weights=map_W.coeffs) for map_Xd in self._fields]

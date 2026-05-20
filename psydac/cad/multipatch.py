@@ -7,7 +7,7 @@ import h5py
 import yaml
 import numpy as np
 
-from sympde.topology       import Domain, Line, Square, Cube, Mapping
+from sympde.topology       import Domain, Line, Square, Cube, UndefinedMapping
 from sympde.topology.basic import Union
 
 
@@ -79,7 +79,7 @@ def export_multipatch_nurbs_to_hdf5(filename:str, nurbs:list, connectivity:dict,
         for i,(nurbsi,patch_name) in enumerate(zip(nurbs, patch_names)):
             bounds1 = (float(nurbsi.breaks(0)[0]), float(nurbsi.breaks(0)[-1]))
             domain  = Line(patch_name, bounds1=bounds1)
-            mapping = Mapping(mapping_ids[i], dim=nurbs[0].dim)
+            mapping = UndefinedMapping(mapping_ids[i], dim=nurbs[0].dim)
             patches.append(mapping(domain))
 
     elif nurbs[0].dim == 2:
@@ -87,7 +87,7 @@ def export_multipatch_nurbs_to_hdf5(filename:str, nurbs:list, connectivity:dict,
             bounds1 = (float(nurbsi.breaks(0)[0]), float(nurbsi.breaks(0)[-1]))
             bounds2 = (float(nurbsi.breaks(1)[0]), float(nurbsi.breaks(1)[-1]))
             domain  = Square(patch_name, bounds1=bounds1, bounds2=bounds2)
-            mapping = Mapping(mapping_ids[i], dim=nurbs[0].dim)
+            mapping = UndefinedMapping(mapping_ids[i], dim=nurbs[0].dim)
             patches.append(mapping(domain))
 
     elif nurbs[0].dim == 3:
@@ -95,7 +95,7 @@ def export_multipatch_nurbs_to_hdf5(filename:str, nurbs:list, connectivity:dict,
             bounds1 = (float(nurbsi.breaks(0)[0]), float(nurbsi.breaks(0)[-1]))
             bounds2 = (float(nurbsi.breaks(1)[0]), float(nurbsi.breaks(1)[-1]))
             bounds3 = (float(nurbsi.breaks(2)[0]), float(nurbsi.breaks(2)[-1]))
-            mapping = Mapping(mapping_ids[i], dim=nurbs[0].dim)
+            mapping = UndefinedMapping(mapping_ids[i], dim=nurbs[0].dim)
             domain  = Cube(patch_name, bounds1=bounds1, bounds2=bounds2, bounds3=bounds3)
             patches.append(mapping(domain))
 

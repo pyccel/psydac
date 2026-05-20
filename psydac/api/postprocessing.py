@@ -1734,6 +1734,7 @@ class PostProcessManager:
                 i_name_i: {} for i_name_i in self._available_patches}
         for (interior_name, i_patch), space_dict in interior_to_dict_fields.items():
             mapping = self._mappings[interior_name]
+            # print(f'type of mapping for patch {i_patch} : {type(mapping)}')
             assert mapping is None or isinstance(mapping, SplineMapping) or _is_point_evaluable_symbolic_mapping(mapping)
 
             i_mesh_info, i_point_data, i_mpi_dd = self._compute_single_patch(
