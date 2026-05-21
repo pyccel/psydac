@@ -1,5 +1,9 @@
 import numpy as np
 
+from psydac.ddm.cart import DomainDecomposition
+from psydac.fem.splines import SplineSpace
+from psydac.fem.tensor import TensorFemSpace
+
 
 def print_map_polar_coeffs(map_discrete):
     """
@@ -116,4 +120,33 @@ def add_colorbar(im, ax, **kwargs):
     cax = divider.append_axes("right", size=0.2, pad=0.3)
     cbar = ax.get_figure().colorbar(im, cax=cax, **kwargs)
     return cbar
+
+def create_tensor_spline_space(ncells, spline_degrees, periodic, bounds, mpi_comm=None):
+    """
+    Create a 2D tensor-product spline finite element space on a rectangular
+    logical domain (e.g. with bounds ``[[0, R], [0, 2*pi]]``).
+
+    Returns
+    -------
+    TensorFemSpace
+        The 2D tensor-product spline finite element space.
+    """
+
+    # Number of elements and spline degree
+    ne1, ne2 = ncells
+    p1, p2 = spline_degrees
+
+    # Create uniform grid
+    grid_1 = np.linspace(*bounds[0], num=ne1 + 1)
+    grid_2 = np.linspace(*bounds[1], num=ne2 + 1)
+
+    # Create 1D finite element spaces
+    S1 = SplineSpace(p1, grid=grid_1, periodic=periodic[0])
+    S2 = SplineSpace(p2, grid=grid_2, periodic=periodic[1])
+
+    # Create 2D tensor product finite element space
+    domain_decomposition = DomainDecomposition(ncells, periodic, comm=mpi_comm)
+    V = TensorFemSpace(domain_decomposition, S1, S2)
+    return V
+
 

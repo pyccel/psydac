@@ -12,7 +12,7 @@ from mpi4py import MPI
 import matplotlib.pyplot as plt
 
 from psydac.fem.basic import FemField
-from utils_congapol import print_map_polar_coeffs, check_regular_ring_map, add_colorbar
+from utils_congapol import print_map_polar_coeffs, check_regular_ring_map, add_colorbar, create_tensor_spline_space
 
 
 # ====================== TIME DISCRETIZATION ==================================#
@@ -187,10 +187,7 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
     from psydac.linalg.basic import IdentityOperator
     from psydac.linalg.block import BlockLinearOperator
     from psydac.mapping.discrete import SplineMapping
-    from psydac.fem.splines import SplineSpace
-    from psydac.fem.tensor import TensorFemSpace
     from psydac.cad.geometry import Geometry
-    from psydac.ddm.cart import DomainDecomposition
 
     assert splitting_order in [2, 4]
 
@@ -255,26 +252,14 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
     mpi_size = mpi_comm.Get_size()
     mpi_rank = mpi_comm.Get_rank()
 
-    # ==================== SPLINE SPACE FOR SPLINE MAPPINGS =======================#
+    if use_spline_mapping:
 
-    # Number of elements and spline degree
-    ne1, ne2 = ncells
-    p1, p2 = degree
+        # ==================== SPLINE SPACE FOR SPLINE MAPPINGS =======================#
 
-    # Create uniform grid
-    grid_1 = np.linspace(*logical_bounds[0], num=ne1 + 1)
-    grid_2 = np.linspace(*logical_bounds[1], num=ne2 + 1)
-
-    # Create 1D finite element spaces
-    V1 = SplineSpace(p1, grid=grid_1, periodic=False)
-    V2 = SplineSpace(p2, grid=grid_2, periodic=True)
-
-    # Create 2D tensor product finite element space
-    domain_decomposition = DomainDecomposition(ncells, [False, True], comm = mpi_comm)
-    V = TensorFemSpace(domain_decomposition, V1, V2)
+        V = create_tensor_spline_space(ncells, degree, [False, True],
+                                       (logical_bounds[0], logical_bounds[1]), mpi_comm)
 
         # ==================== MAPPING & PHYSICAL DOMAIN ==============================#
-    if use_spline_mapping:
 
         # Create spline mapping by interpolation of analytical mapping
         map_analytic = mapping.get_callable_mapping()
@@ -290,8 +275,6 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         geometry = Geometry.from_discrete_mapping(map_discrete, comm=mpi_comm)
         geometry.export('geo.h5')
         domain = Domain.from_file('geo.h5')
-
-        # TODO (MCP 07.2024): check that mapping = domain.mapping ??
 
     else:
         # Only symbolic mapping is necessary
@@ -311,15 +294,12 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
     # Discrete physical domain and discrete DeRham sequence
     if use_spline_mapping:
         domain_h = discretize(domain, filename='geo.h5', comm = mpi_comm)
-        # V0_h = discretize(V0, domain_h)
-        derham_h = discretize(derham, domain_h)  # , degree = degree) #, quad_order = [4, 4])
-        F = map_analytic
+        derham_h = discretize(derham, domain_h)
+        F = list(domain_h.mappings.values()).pop()
     else:
         domain_h = discretize(domain, ncells=ncells, periodic=[False, True], comm = mpi_comm)
-        derham_h = discretize(derham, domain_h, degree=degree)  # , quad_order = [4, 4])
-        # V0_h = discretize(V0, domain_h, degree = degree)
+        derham_h = discretize(derham, domain_h, degree=degree)
         F = mapping.get_callable_mapping()
-    # F = mapping.get_callable_mapping()
 
     def phys_domain_integral(f_log):
         """
@@ -870,7 +850,7 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
 
     N = 10
     if show_figs:
-        V.plot_2d_decomposition(mapping.get_callable_mapping(), refine=N)
+        V0.plot_2d_decomposition(F, refine=N)
 
     P1.dot(e.copy(), out=e)
     P2.dot(b.copy(), out=b)

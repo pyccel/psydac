@@ -28,11 +28,10 @@ from sympde.calculus import dot, grad
 from sympde.topology.mapping import Mapping
 
 from psydac.api.discretization import discretize
-from psydac.feec.polar.examples.utils_congapol import add_colorbar
+from psydac.feec.polar.examples.utils_congapol import add_colorbar, create_tensor_spline_space
 from psydac.linalg.stencil import StencilVector, StencilMatrix
 from psydac.linalg.basic import LinearOperator
 from psydac.linalg.solvers import inverse
-from psydac.fem.splines import SplineSpace
 from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.basic import FemField
 from psydac.mapping.discrete import SplineMapping
@@ -352,30 +351,18 @@ def run_poisson_2d(*, test_case, ncells, degree,
     mpi_size = mpi_comm.Get_size()
     mpi_rank = mpi_comm.Get_rank()
 
-    # Number of elements and spline degree
-    ne1, ne2 = ncells
-    p1, p2 = degree
-
     periodic = [False, True]
 
-    # ==================== SPLINE SPACE FOR SPLINE MAPPINGS =======================#
-
     if use_spline_mapping:
-        # Create uniform grid
-        grid_1 = np.linspace(*model.domain_log.bounds1, num=ne1 + 1)
-        grid_2 = np.linspace(*model.domain_log.bounds2, num=ne2 + 1)
 
-        # Create 1D finite element spaces
-        V1 = SplineSpace(p1, grid=grid_1, periodic=periodic[0])
-        V2 = SplineSpace(p2, grid=grid_2, periodic=periodic[1])
+        # ==================== SPLINE SPACE FOR SPLINE MAPPINGS =======================#
 
-        # Create 2D tensor product finite element space
-        domain_decomposition = DomainDecomposition(ncells, periodic , comm=mpi_comm)
-        V = TensorFemSpace(domain_decomposition, V1, V2)
+        V = create_tensor_spline_space(ncells, degree, periodic,
+                                       (model.domain_log.bounds1, model.domain_log.bounds2), mpi_comm)
 
-    # ==================== MAPPING & PHYSICAL DOMAIN ==============================#
-    #TODO: maybe define a parent class Model
-    if use_spline_mapping:
+        #TODO: maybe define a parent class Model
+
+        # ==================== MAPPING & PHYSICAL DOMAIN ==============================#
         # Create spline mapping by interpolation of analytical mapping
         map_analytic = model.mapping.get_callable_mapping()
         map_discrete = SplineMapping.from_mapping(V, map_analytic)
@@ -550,8 +537,8 @@ def run_poisson_2d(*, test_case, ncells, degree,
             print('--------------------------------------------------')
             print(' RANK = {}'.format(mpi_rank))
             print('--------------------------------------------------')
-            print('> Grid                :: [{ne1},{ne2}]'.format(ne1=ne1, ne2=ne2))
-            print('> Degree              :: [{p1},{p2}]'.format(p1=p1, p2=p2))
+            print('> Grid                :: [{ne1},{ne2}]'.format(ne1=ncells[0], ne2=ncells[1]))
+            print('> Degree              :: [{p1},{p2}]'.format(p1=degree[0], p2=degree[1]))
             print('> Penalization alpha  :: {alpha} '.format(alpha=alpha))
             print( '> CG info            :: ',info )
             print('> L2 norm solution    :: {:.2e}'.format(errors.ref_l2))
