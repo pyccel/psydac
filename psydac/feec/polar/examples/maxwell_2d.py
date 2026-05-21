@@ -882,10 +882,14 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
     norm_l2_Ey = l2_norm_of(normy)
     norm_l2_Bz = l2_norm_of(normz)
 
+    E1_final = FemField(V1_s, coeffs=e[0])
+    E2_final = FemField(V1_theta, coeffs=e[1])
+    B_final = FemField(V2, coeffs=b)
+
     # L2 errors
-    errx = lambda x1, x2: push_2d_hcurl(E_log.fields[0], E_log.fields[1], x1, x2, F)[0] - Ex_ex_t(t, *F(x1, x2))
-    erry = lambda x1, x2: push_2d_hcurl(E_log.fields[0], E_log.fields[1], x1, x2, F)[1] - Ey_ex_t(t, *F(x1, x2))
-    errz = lambda x1, x2: push_2d_l2(B_log, x1, x2, F) - Bz_ex_t(t, *F(x1, x2))
+    errx = lambda x1, x2: push_2d_hcurl(E1_final, E2_final, x1, x2, F)[0] - Ex_ex_t(t, *F(x1, x2))
+    erry = lambda x1, x2: push_2d_hcurl(E1_final, E2_final, x1, x2, F)[1] - Ey_ex_t(t, *F(x1, x2))
+    errz = lambda x1, x2: push_2d_l2(B_final, x1, x2, F) - Bz_ex_t(t, *F(x1, x2))
 
     error_l2_Ex = l2_norm_of(errx) / norm_l2_Ex
     error_l2_Ey = l2_norm_of(erry) / norm_l2_Ey
