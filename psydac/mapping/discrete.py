@@ -11,7 +11,6 @@ import yaml
 import numpy as np
 import h5py
 
-from sympde.topology.callable_mapping import BasicCallableMapping
 from sympde.topology.mapping import DefinedMapping
 from sympde.topology.basic import BasicDomain
 
@@ -25,6 +24,20 @@ __all__ = ('SplineMapping', 'NurbsMapping')
 def _new_mapping_name(prefix='mapping'):
     token = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
     return f'{prefix}_{token}'
+
+
+def _resolve_point_evaluable_mapping(mapping):
+    """Resolve symbolic mappings to a callable representation when needed."""
+    if isinstance(mapping, DefinedMapping):
+        return mapping.get_callable_mapping()
+
+    if callable(mapping) and hasattr(mapping, 'ldim') and hasattr(mapping, 'pdim'):
+        return mapping
+
+    raise TypeError(
+        'mapping must be point-evaluable: expected DefinedMapping or callable '
+        'mapping object with ldim/pdim attributes'
+    )
 
 #==============================================================================
 class SplineMapping(DefinedMapping):
@@ -79,10 +92,7 @@ class SplineMapping(DefinedMapping):
     def from_mapping(cls, tensor_space, mapping):
 
         assert isinstance(tensor_space, TensorFemSpace)
-        assert isinstance(mapping, (BasicCallableMapping, DefinedMapping))
-
-        if isinstance(mapping, DefinedMapping):
-            mapping = mapping.get_callable_mapping()
+        mapping = _resolve_point_evaluable_mapping(mapping)
 
         assert tensor_space.ldim == mapping.ldim
 

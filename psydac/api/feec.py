@@ -36,27 +36,14 @@ from psydac.fem.projectors                      import DirichletProjector, Multi
 
 from psydac.linalg.basic                        import IdentityOperator
 
-from sympde.topology.mapping                    import DefinedMapping, Mapping
+from sympde.topology.mapping                    import DefinedMapping
 
 __all__ = ('DiscreteDeRham', 'MultipatchDiscreteDeRham',)
 
 
 def _is_point_evaluable_symbolic_mapping(mapping):
     """Return True for symbolic mappings that can provide callable evaluation."""
-    if isinstance(mapping, DefinedMapping):
-        return True
-
-    # Compatibility path for symbolic Mapping objects loaded from files where
-    # a discrete callable mapping has already been attached.
-    if not isinstance(mapping, Mapping):
-        return False
-
-    try:
-        mapping.get_callable_mapping()
-    except Exception:
-        return False
-
-    return True
+    return isinstance(mapping, DefinedMapping)
 
 
 def _resolve_callable_mapping(mapping, *, owner='mapping'):
@@ -66,7 +53,7 @@ def _resolve_callable_mapping(mapping, *, owner='mapping'):
 
     if not _is_point_evaluable_symbolic_mapping(mapping):
         raise TypeError(
-            f'{owner} must be point-evaluable (DefinedMapping or Mapping with an attached callable mapping), '
+            f'{owner} must be point-evaluable (DefinedMapping), '
             f'got {type(mapping)} instead'
         )
 

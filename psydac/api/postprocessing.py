@@ -15,7 +15,7 @@ import numpy as np
 import mpi4py
 import h5py as h5
 
-from sympde.topology import Domain, VectorFunctionSpace, ScalarFunctionSpace, InteriorDomain, MultiPatchMapping, Mapping, DefinedMapping
+from sympde.topology import Domain, VectorFunctionSpace, ScalarFunctionSpace, InteriorDomain, MultiPatchMapping, DefinedMapping
 from sympde.topology.datatype import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType, UndefinedSpaceType
 
 from pyevtk.hl import unstructuredGridToVTK
@@ -38,20 +38,7 @@ __all__ = ('get_grid_lines_2d', '_augment_space_degree_dict',
 
 def _is_point_evaluable_symbolic_mapping(mapping):
     """Return True for symbolic mappings that can provide callable evaluation."""
-    if isinstance(mapping, DefinedMapping):
-        return True
-
-    # Compatibility path for symbolic Mapping objects loaded from files where
-    # a discrete callable mapping has already been attached.
-    if not isinstance(mapping, Mapping):
-        return False
-
-    try:
-        mapping.get_callable_mapping()
-    except Exception:
-        return False
-
-    return True
+    return isinstance(mapping, DefinedMapping)
 
 
 #===============================================================================
@@ -2195,7 +2182,7 @@ class PostProcessManager:
         interior_name : str
             Name of the current patch
 
-        mapping : SymPDE point-evaluable mapping, SplineMapping, or None
+        mapping : SymPDE DefinedMapping, SplineMapping, or None
             Mapping of the current patch.
 
         space_dict : dict
@@ -2340,7 +2327,7 @@ class PostProcessManager:
                 pass
             else:
                 raise TypeError(
-                    'mapping should be a point-evaluable SymPDE mapping, '
+                    'mapping should be a SymPDE DefinedMapping, '
                     f'PSYDAC SplineMapping, or None, got {type(mapping)}')
         conn, off, typ, i_mpi_dd = self._compute_unstructured_mesh_info(
             local_domain,

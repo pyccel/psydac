@@ -5,7 +5,7 @@
 #---------------------------------------------------------------------------#
 import numpy as np
 
-from sympde.topology.mapping import Mapping, DefinedMapping
+from sympde.topology.mapping import DefinedMapping
 from sympde.topology.callable_mapping import CallableMapping
 from sympde.topology.analytical_mapping import IdentityMapping
 from sympde.topology.datatype import UndefinedSpaceType, H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType
@@ -27,20 +27,7 @@ __all__ = ('Pushforward',)
 
 def _is_point_evaluable_symbolic_mapping(mapping):
     """Return True for symbolic mappings that can provide callable evaluation."""
-    if isinstance(mapping, DefinedMapping):
-        return True
-
-    # Compatibility path for symbolic Mapping objects loaded from files where
-    # a discrete callable mapping has already been attached.
-    if not isinstance(mapping, Mapping):
-        return False
-
-    try:
-        mapping.get_callable_mapping()
-    except Exception:
-        return False
-
-    return True
+    return isinstance(mapping, DefinedMapping)
 
 class Pushforward:
     """
@@ -54,7 +41,7 @@ class Pushforward:
         If it's a regular tensor grid, then it is expected to be
         a list of 2-D arrays with number of cells as the first dimension.
 
-    mapping : SplineMapping or DefinedMapping or Mapping-with-callable or None
+    mapping : SplineMapping or DefinedMapping or None
         Mapping used to push-forward. None is equivalent to the identity mapping.
 
     npts_per_cell : tuple of int or int, optional
@@ -148,7 +135,7 @@ class Pushforward:
 
         else:
             raise TypeError(
-                'mapping should be None, SplineMapping, or a point-evaluable '
+                'mapping should be None, SplineMapping, or a DefinedMapping '
                 f'symbolic mapping, got {type(mapping)}')
 
         self._eval_func = self._eval_functions[self.grid_type]

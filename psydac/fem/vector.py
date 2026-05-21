@@ -13,7 +13,7 @@ import numpy as np
 
 from sympde.topology.space import BasicFunctionSpace
 from sympde.topology.callable_mapping import BasicCallableMapping
-from sympde.topology.mapping import DefinedMapping, Mapping
+from sympde.topology.mapping import DefinedMapping
 # from sympde.topology.datatype import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType, UndefinedSpaceType
 
 from psydac.linalg.block import BlockVectorSpace
@@ -29,15 +29,7 @@ def _is_point_evaluable_mapping(mapping):
     if isinstance(mapping, DefinedMapping):
         return True
 
-    if not isinstance(mapping, Mapping):
-        return False
-
-    try:
-        mapping.get_callable_mapping()
-    except Exception:
-        return False
-
-    return True
+    return False
 
 #===============================================================================
 class VectorFemSpace(FemSpace):
@@ -101,7 +93,7 @@ class VectorFemSpace(FemSpace):
         self._spaces         : tuple[FemSpace]  = new_spaces
         self._coeff_space    : BlockVectorSpace = coeff_space
         self._ncells         : tuple[int, ...]  = ncells[0] # not used in the abstract interface
-        self._mapping        : Optional[BasicCallableMapping | DefinedMapping | Mapping] = mappings[0]
+        self._mapping        : Optional[BasicCallableMapping | DefinedMapping] = mappings[0]
         self._symbolic_space : Optional[BasicFunctionSpace] = symbolic_space
 
         # ++++++++++++++ Extra operations for multigrid methods ++++++++++++++
