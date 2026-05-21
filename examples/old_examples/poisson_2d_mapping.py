@@ -12,6 +12,7 @@ from   mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from sympde.topology.analytical_mapping import IdentityMapping, PolarMapping
 from sympde.topology.analytical_mapping import TargetMapping, CzarnyMapping
+from sympde.topology.mapping import is_point_evaluable_mapping
 
 from psydac.ddm.cart             import DomainDecomposition
 from psydac.linalg.stencil       import StencilVector, StencilMatrix
@@ -25,13 +26,16 @@ from psydac.cad.geometry         import Geometry
 from psydac.ddm.cart             import DomainDecomposition
 from psydac.polar.c1_projections import C1Projector
 
+
+def _is_point_evaluable_symbolic_mapping(mapping):
+    return is_point_evaluable_mapping(mapping) and hasattr(mapping, 'symbolic_mapping')
+
 #==============================================================================
 class Laplacian:
 
     def __init__(self, mapping):
 
-        required = ('__call__', 'jacobian', 'jacobian_inv', 'metric', 'metric_det', 'symbolic_mapping')
-        if not all(hasattr(mapping, name) for name in required):
+        if not _is_point_evaluable_symbolic_mapping(mapping):
             raise TypeError(
                 'mapping must expose point-evaluable and symbolic_mapping interfaces'
             )

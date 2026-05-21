@@ -203,6 +203,7 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
     from sympde.topology import Derham
     from sympde.topology import elements_of
     from sympde.topology import NormalVector
+    from sympde.topology.mapping import is_point_evaluable_mapping
     from sympde.calculus import dot, cross
     from sympde.expr     import integral
     from sympde.expr     import BilinearForm
@@ -344,10 +345,12 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
     # TODO: fix for spline mapping
     if isinstance(F, (SplineMapping, NurbsMapping)):
         grid_x, grid_y = F.build_mesh([grid_x1, grid_x2])
-    elif callable(F) and hasattr(F, 'ldim') and hasattr(F, 'pdim'):
+    elif is_point_evaluable_mapping(F):
         grid_x, grid_y = F(*np.meshgrid(grid_x1, grid_x2, indexing='ij'))
     else:
-        raise TypeError(F)
+        raise TypeError(
+            f'Expected a point-evaluable mapping object; got {type(F)} instead.'
+        )
 
     #--------------------------------------------------------------------------
     # Time integration setup
