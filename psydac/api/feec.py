@@ -36,7 +36,41 @@ from psydac.fem.projectors                      import DirichletProjector, Multi
 
 from psydac.linalg.basic                        import IdentityOperator
 
+from sympde.topology.mapping                    import DefinedMapping, Mapping
+
 __all__ = ('DiscreteDeRham', 'MultipatchDiscreteDeRham',)
+
+
+def _is_point_evaluable_symbolic_mapping(mapping):
+    """Return True for symbolic mappings that can provide callable evaluation."""
+    if isinstance(mapping, DefinedMapping):
+        return True
+
+    # Compatibility path for symbolic Mapping objects loaded from files where
+    # a discrete callable mapping has already been attached.
+    if not isinstance(mapping, Mapping):
+        return False
+
+    try:
+        mapping.get_callable_mapping()
+    except Exception:
+        return False
+
+    return True
+
+
+def _resolve_callable_mapping(mapping, *, owner='mapping'):
+    """Resolve callable mapping with an explicit transition policy."""
+    if mapping is None:
+        return None
+
+    if not _is_point_evaluable_symbolic_mapping(mapping):
+        raise TypeError(
+            f'{owner} must be point-evaluable (DefinedMapping or Mapping with an attached callable mapping), '
+            f'got {type(mapping)} instead'
+        )
+
+    return mapping.get_callable_mapping()
 
 #==============================================================================
 class DiscreteDeRham(BasicDiscrete):
@@ -74,7 +108,7 @@ class DiscreteDeRham(BasicDiscrete):
         self._sequence = tuple(space.symbolic_space.kind.name for space in spaces)
         self._dim     = dim
         self._mapping = domain_h.domain.mapping
-        self._callable_mapping = self._mapping.get_callable_mapping() if self._mapping else None
+        self._callable_mapping = _resolve_callable_mapping(self._mapping)
 
         if dim == 1:
             D0 = Derivative1D(spaces[0], spaces[1])
@@ -615,7 +649,12 @@ class MultipatchDiscreteDeRham(DiscreteDeRham):
         self._spaces  = tuple(spaces)
         self._dim     = dim
         self._mapping = domain_h.domain.mapping
-        self._callable_mapping = [m.get_callable_mapping() for m in self._mapping.mappings.values()] if self._mapping else None
+        self._callable_mapping = None
+        if self._mapping:
+            self._callable_mapping = [
+                _resolve_callable_mapping(mapping, owner=f'patch mapping {name}')
+                for name, mapping in self._mapping.mappings.items()
+            ]
         self._domain_h = domain_h
         self._sequence = tuple(space.symbolic_space.kind.name for space in spaces)
 

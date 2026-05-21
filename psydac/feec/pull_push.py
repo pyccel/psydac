@@ -3,7 +3,7 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-from sympde.topology.callable_mapping import BasicCallableMapping
+from sympde.topology.mapping import DefinedMapping, Mapping
 
 
 __all__ = (
@@ -38,13 +38,43 @@ __all__ = (
     'push_3d_l2'
 )
 
+
+def _resolve_point_evaluable_mapping(mapping, *, expected_ldim):
+    """Resolve any accepted mapping representation to a callable mapping object."""
+    if isinstance(mapping, DefinedMapping):
+        mapping = mapping.get_callable_mapping()
+    elif isinstance(mapping, Mapping):
+        try:
+            mapping = mapping.get_callable_mapping()
+        except Exception as err:
+            raise TypeError(
+                'Expected a point-evaluable mapping '
+                '(DefinedMapping, Mapping with an attached callable mapping, or callable mapping object)'
+            ) from err
+
+    if mapping is None or not callable(mapping) or not hasattr(mapping, 'ldim'):
+        raise TypeError(
+            'Expected a point-evaluable mapping '
+            '(DefinedMapping, Mapping with an attached callable mapping, or callable mapping object)'
+        )
+
+    missing_methods = [name for name in ('jacobian', 'jacobian_inv', 'metric_det') if not hasattr(mapping, name)]
+    if missing_methods:
+        raise TypeError(
+            f'Callable mapping is missing required methods: {", ".join(missing_methods)}'
+        )
+
+    if mapping.ldim != expected_ldim:
+        raise ValueError(f'Expected mapping with logical dimension {expected_ldim}, got {mapping.ldim}')
+
+    return mapping
+
 #==============================================================================
 # 1D PULL-BACKS
 #==============================================================================
 def pull_1d_h1(f, F):
 
-    assert isinstance(F, BasicCallableMapping)
-    assert F.ldim == 1
+    F = _resolve_point_evaluable_mapping(F, expected_ldim=1)
 
     def f_logical(eta1):
         x, = F(eta1)
@@ -55,8 +85,7 @@ def pull_1d_h1(f, F):
 #==============================================================================
 def pull_1d_l2(f, F):
 
-    assert isinstance(F, BasicCallableMapping)
-    assert F.ldim == 1
+    F = _resolve_point_evaluable_mapping(F, expected_ldim=1)
 
     def f_logical(eta1):
         x, = F(eta1)
@@ -72,8 +101,7 @@ def pull_1d_l2(f, F):
 #==============================================================================
 def pull_2d_h1vec(f, F):
 
-    assert isinstance(F, BasicCallableMapping)
-    assert F.ldim == 2    
+    F = _resolve_point_evaluable_mapping(F, expected_ldim=2)
 
     f1, f2 = f
 
@@ -101,8 +129,7 @@ def pull_2d_h1vec(f, F):
 
 def pull_2d_h1(f, F):
 
-    assert isinstance(F, BasicCallableMapping)
-    assert F.ldim == 2
+    F = _resolve_point_evaluable_mapping(F, expected_ldim=2)
 
     def f_logical(eta1, eta2):
         x, y = F(eta1, eta2)
@@ -113,8 +140,7 @@ def pull_2d_h1(f, F):
 #==============================================================================
 def pull_2d_hcurl(f, F):
 
-    assert isinstance(F, BasicCallableMapping)
-    assert F.ldim == 2
+    F = _resolve_point_evaluable_mapping(F, expected_ldim=2)
 
     # Assume that f is a list/tuple of callable functions
     f1, f2 = f
@@ -144,8 +170,7 @@ def pull_2d_hcurl(f, F):
 #==============================================================================
 def pull_2d_hdiv(f, F):
 
-    assert isinstance(F, BasicCallableMapping)
-    assert F.ldim == 2
+    F = _resolve_point_evaluable_mapping(F, expected_ldim=2)
 
     # Assume that f is a list/tuple of callable functions
     f1, f2 = f
@@ -177,8 +202,7 @@ def pull_2d_hdiv(f, F):
 #==============================================================================
 def pull_2d_l2(f, F):
 
-    assert isinstance(F, BasicCallableMapping)
-    assert F.ldim == 2
+    F = _resolve_point_evaluable_mapping(F, expected_ldim=2)
 
     def f_logical(eta1, eta2):
         x, y = F(eta1, eta2)
@@ -198,8 +222,7 @@ def pull_2d_l2(f, F):
 
 def pull_3d_h1vec(f, F):
 
-    assert isinstance(F, BasicCallableMapping)
-    assert F.ldim == 3
+    F = _resolve_point_evaluable_mapping(F, expected_ldim=3)
 
     f1, f2, f3 = f
 
@@ -241,8 +264,7 @@ def pull_3d_h1vec(f, F):
 #==============================================================================
 def pull_3d_h1(f, F):
 
-    assert isinstance(F, BasicCallableMapping)
-    assert F.ldim == 3
+    F = _resolve_point_evaluable_mapping(F, expected_ldim=3)
 
     def f_logical(eta1, eta2, eta3):
         x, y, z = F(eta1, eta2, eta3)
@@ -253,8 +275,7 @@ def pull_3d_h1(f, F):
 #==============================================================================
 def pull_3d_hcurl(f, F):
 
-    assert isinstance(F, BasicCallableMapping)
-    assert F.ldim == 3
+    F = _resolve_point_evaluable_mapping(F, expected_ldim=3)
 
     # Assume that f is a list/tuple of callable functions
     f1, f2, f3 = f
@@ -297,8 +318,7 @@ def pull_3d_hcurl(f, F):
 #==============================================================================
 def pull_3d_hdiv(f, F):
 
-    assert isinstance(F, BasicCallableMapping)
-    assert F.ldim == 3
+    F = _resolve_point_evaluable_mapping(F, expected_ldim=3)
 
     # Assume that f is a list/tuple of callable functions
     f1, f2, f3 = f
@@ -344,8 +364,7 @@ def pull_3d_hdiv(f, F):
 #==============================================================================
 def pull_3d_l2(f, F):
 
-    assert isinstance(F, BasicCallableMapping)
-    assert F.ldim == 3
+    F = _resolve_point_evaluable_mapping(F, expected_ldim=3)
 
     def f_logical(eta1, eta2, eta3):
         x, y, z = F(eta1, eta2, eta3)
@@ -371,8 +390,7 @@ def push_1d_h1(f, eta):
 
 def push_1d_l2(f, eta, F):
 
-    assert isinstance(F, BasicCallableMapping)
-    assert F.ldim == 1
+    F = _resolve_point_evaluable_mapping(F, expected_ldim=1)
 
     return f(eta) / F.metric_det(eta)**0.5
 
@@ -390,8 +408,7 @@ def push_2d_h1(f, eta1, eta2):
 #def push_2d_hcurl(f, eta, F):
 def push_2d_hcurl(f1, f2, eta1, eta2, F):
 
-    assert isinstance(F, BasicCallableMapping)
-    assert F.ldim == 2
+    F = _resolve_point_evaluable_mapping(F, expected_ldim=2)
 
 #    # Assume that f is a list/tuple of callable functions
 #    f1, f2 = f
@@ -411,8 +428,7 @@ def push_2d_hcurl(f1, f2, eta1, eta2, F):
 #def push_2d_hdiv(f, eta, F):
 def push_2d_hdiv(f1, f2, eta1, eta2, F):
 
-    assert isinstance(F, BasicCallableMapping)
-    assert F.ldim == 2
+    F = _resolve_point_evaluable_mapping(F, expected_ldim=2)
 
 #    # Assume that f is a list/tuple of callable functions
 #    f1, f2 = f
@@ -433,8 +449,7 @@ def push_2d_hdiv(f1, f2, eta1, eta2, F):
 #def push_2d_l2(f, eta, F):
 def push_2d_l2(f, eta1, eta2, F):
 
-    assert isinstance(F, BasicCallableMapping)
-    assert F.ldim == 2
+    F = _resolve_point_evaluable_mapping(F, expected_ldim=2)
 
     eta = eta1, eta2
 
@@ -456,8 +471,7 @@ def push_3d_h1(f, eta1, eta2, eta3):
 #def push_3d_hcurl(f, eta, F):
 def push_3d_hcurl(f1, f2, f3, eta1, eta2, eta3, F):
 
-    assert isinstance(F, BasicCallableMapping)
-    assert F.ldim == 3
+    F = _resolve_point_evaluable_mapping(F, expected_ldim=3)
 
 #    # Assume that f is a list/tuple of callable functions
 #    f1, f2, f3 = f
@@ -487,8 +501,7 @@ def push_3d_hcurl(f1, f2, f3, eta1, eta2, eta3, F):
 #def push_3d_hdiv(f, eta, F):
 def push_3d_hdiv(f1, f2, f3, eta1, eta2, eta3, F):
 
-    assert isinstance(F, BasicCallableMapping)
-    assert F.ldim == 3
+    F = _resolve_point_evaluable_mapping(F, expected_ldim=3)
 
 #    # Assume that f is a list/tuple of callable functions
 #    f1, f2, f3 = f
@@ -518,8 +531,7 @@ def push_3d_hdiv(f1, f2, f3, eta1, eta2, eta3, F):
 #def push_3d_l2(f, eta, F):
 def push_3d_l2(f, eta1, eta2, eta3, F):
 
-    assert isinstance(F, BasicCallableMapping)
-    assert F.ldim == 3
+    F = _resolve_point_evaluable_mapping(F, expected_ldim=3)
 
     eta = eta1, eta2, eta3
 

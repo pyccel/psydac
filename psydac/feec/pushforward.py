@@ -32,7 +32,15 @@ def _is_point_evaluable_symbolic_mapping(mapping):
 
     # Compatibility path for symbolic Mapping objects loaded from files where
     # a discrete callable mapping has already been attached.
-    return isinstance(mapping, Mapping) and mapping.callable_mapping is not None
+    if not isinstance(mapping, Mapping):
+        return False
+
+    try:
+        mapping.get_callable_mapping()
+    except Exception:
+        return False
+
+    return True
 
 class Pushforward:
     """

@@ -12,7 +12,7 @@ from sympde.calculus import dot, div
 from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
 from sympde.topology import element_of
 from sympde.topology import Square
-from sympde.topology import Mapping
+from sympde.topology import UndefinedMapping
 from sympde.expr     import integral
 from sympde.expr     import LinearForm
 from sympde.expr     import BilinearForm
@@ -37,7 +37,7 @@ backend = PSYDAC_BACKENDS['python']
 def test_codegen():
 
     domain = Square()
-    M      = Mapping('M', domain.dim)
+    M      = UndefinedMapping('M', domain.dim)
 
     V1 = VectorFunctionSpace('V1', domain, kind='Hdiv')
     V2 = ScalarFunctionSpace('V2', domain, kind='L2')
