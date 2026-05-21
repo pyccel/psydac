@@ -5,8 +5,7 @@
 #---------------------------------------------------------------------------#
 import numpy as np
 
-from sympde.topology.mapping import DefinedMapping
-from sympde.topology.callable_mapping import CallableMapping
+from sympde.topology.mapping import DefinedMapping, is_point_evaluable_mapping
 from sympde.topology.analytical_mapping import IdentityMapping
 from sympde.topology.datatype import UndefinedSpaceType, H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType
 
@@ -23,6 +22,11 @@ from psydac.core.field_evaluation_kernels import (pushforward_2d_l2, pushforward
 # happen when comparing against algorithms which use the latter.
 
 __all__ = ('Pushforward',)
+
+_POINT_EVALUABLE_MAPPING_MSG = (
+    'point-evaluable mapping object implementing '
+    '(__call__, jacobian, jacobian_inv, metric, metric_det, ldim, pdim)'
+)
 
 
 def _is_point_evaluable_symbolic_mapping(mapping):
@@ -115,6 +119,10 @@ class Pushforward:
         if _is_point_evaluable_symbolic_mapping(mapping):
             self._mesh_grids = np.meshgrid(*grid_local, indexing='ij', sparse=True)
             c_m = mapping.get_callable_mapping()
+            if not is_point_evaluable_mapping(c_m):
+                raise TypeError(
+                    f'Resolved callable mapping must be a {_POINT_EVALUABLE_MAPPING_MSG}'
+                )
             if isinstance(c_m, SplineMapping):
                 self.mapping = c_m
                 self.local_domain = c_m.space.local_domain
@@ -135,47 +143,63 @@ class Pushforward:
 
         else:
             raise TypeError(
-                'mapping should be None, SplineMapping, or a DefinedMapping '
-                f'symbolic mapping, got {type(mapping)}')
+                'mapping must be None, SplineMapping, or a DefinedMapping '
+                f'symbolic mapping. Got {type(mapping)} instead'
+            )
 
         self._eval_func = self._eval_functions[self.grid_type]
 
     def jacobian(self):
-        if isinstance(self.mapping, CallableMapping):
-            return np.ascontiguousarray(
-                        np.moveaxis(
-                            self.mapping.jacobian(*self._mesh_grids), [0, 1], [-2, -1]
-                        )
-                    )
-        elif isinstance(self.mapping, SplineMapping):
+        if isinstance(self.mapping, SplineMapping):
             if self.grid_type == 0:
                 return self.mapping.jac_mat_irregular_tensor_grid(self.grid)
             elif self.grid_type == 1:
                 return self.mapping.jac_mat_regular_tensor_grid(self.grid)
 
+        if self.mapping is None:
+            raise TypeError(
+                f'Cannot compute Jacobian without a {_POINT_EVALUABLE_MAPPING_MSG}'
+            )
+
+        return np.ascontiguousarray(
+            np.moveaxis(
+                self.mapping.jacobian(*self._mesh_grids), [0, 1], [-2, -1]
+            )
+        )
+
     def jacobian_inv(self):
-        if isinstance(self.mapping, CallableMapping):
-            return np.ascontiguousarray(
-                        np.moveaxis(
-                            self.mapping.jacobian_inv(*self._mesh_grids), [0, 1], [-2, -1]
-                        )
-                    )
-        elif isinstance(self.mapping, SplineMapping):
+        if isinstance(self.mapping, SplineMapping):
             if self.grid_type == 0:
                 return self.mapping.inv_jac_mat_irregular_tensor_grid(self.grid)
             elif self.grid_type == 1:
                 return self.mapping.inv_jac_mat_regular_tensor_grid(self.grid)
 
+        if self.mapping is None:
+            raise TypeError(
+                f'Cannot compute inverse Jacobian without a {_POINT_EVALUABLE_MAPPING_MSG}'
+            )
+
+        return np.ascontiguousarray(
+            np.moveaxis(
+                self.mapping.jacobian_inv(*self._mesh_grids), [0, 1], [-2, -1]
+            )
+        )
+
     def sqrt_metric_det(self):
-        if isinstance(self.mapping, CallableMapping):
-            return np.ascontiguousarray(
-                        np.sqrt(self.mapping.metric_det(*self._mesh_grids))
-                    )
-        elif isinstance(self.mapping, SplineMapping):
+        if isinstance(self.mapping, SplineMapping):
             if self.grid_type == 0:
                 return np.abs(self.mapping.jac_det_irregular_tensor_grid(self.grid))
             elif self.grid_type == 1:
                 return np.abs(self.mapping.jac_det_regular_tensor_grid(self.grid))
+
+        if self.mapping is None:
+            raise TypeError(
+                f'Cannot compute metric determinant without a {_POINT_EVALUABLE_MAPPING_MSG}'
+            )
+
+        return np.ascontiguousarray(
+            np.sqrt(self.mapping.metric_det(*self._mesh_grids))
+        )
 
 
     def __call__(self, fields):

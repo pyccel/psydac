@@ -1198,7 +1198,7 @@ class TensorFemSpace(FemSpace):
 
         Parameters
         ----------
-        mapping : point-evaluable mapping
+        mapping : point-evaluable mapping object
             Mapping from (eta1, eta2) to (x1, x2).
 
         refine : int, default=10
@@ -1220,8 +1220,7 @@ class TensorFemSpace(FemSpace):
         """
         import matplotlib.pyplot as plt
         from matplotlib.patches  import Polygon, Patch
-        from sympde.topology.callable_mapping import BasicCallableMapping
-        from sympde.topology.mapping import DefinedMapping
+        from sympde.topology.mapping import DefinedMapping, is_point_evaluable_mapping
         from psydac.utilities.utils import refine_array_1d
 
         # Sanity check
@@ -1234,10 +1233,10 @@ class TensorFemSpace(FemSpace):
             if isinstance(mapping, DefinedMapping):
                 mapping = mapping.get_callable_mapping()
 
-            if not isinstance(mapping, BasicCallableMapping):
+            if not is_point_evaluable_mapping(mapping):
                 raise TypeError(
-                    'Argument `mapping` must be point-evaluable '
-                    '(DefinedMapping or callable mapping object)'
+                    'Argument `mapping` must be a point-evaluable mapping object '
+                    'implementing (__call__, jacobian, jacobian_inv, metric, metric_det, ldim, pdim)'
                 )
 
             assert mapping.ldim == 2, "Domain of argument `mapping` must be 2D"

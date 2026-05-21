@@ -19,7 +19,7 @@ from mpi4py import MPI
 
 from sympde.topology       import Domain, Interface, Line, Square, Cube, NCubeInterior, UndefinedMapping, DefinedMapping, NCube
 from sympde.topology.basic import Union
-from sympde.topology.callable_mapping import BasicCallableMapping
+from sympde.topology.mapping import PointEvaluableMapping, is_point_evaluable_mapping
 
 from psydac.fem.splines        import SplineSpace
 from psydac.fem.tensor         import TensorFemSpace
@@ -63,7 +63,7 @@ class Geometry:
     periodic : dict[str, Iterable[bool]], optional
         The periodicity of the topological domain in each direction.
 
-    mappings : dict[str, BasicCallableMapping], optional
+    mappings : dict[str, PointEvaluableMapping], optional
         The discrete mappings of each patch.
 
     comm: MPI.Intracomm, optional
@@ -84,7 +84,7 @@ class Geometry:
                  *,
                  pdim     : int,
                  ncells   : dict[str, Iterable[int]],
-                 mappings : dict[str, SplineMapping | None] = None,
+                 mappings : dict[str, PointEvaluableMapping | None] = None,
                  periodic : dict[str, Iterable[bool]] = None,
                  comm : MPI.Intracomm = None,
                  mpi_dims_mask : Iterable[bool] = None):
@@ -129,7 +129,7 @@ class Geometry:
             mappings = {itr.name : None for itr in domain.interior}
         else:
             assert set(mappings.keys()) == set_interior_names
-            assert all(isinstance(m, (BasicCallableMapping, NoneType)) for m in mappings.values())
+            assert all(m is None or is_point_evaluable_mapping(m) for m in mappings.values())
             assert all(m.pdim == pdim for m in mappings.values() if m is not None)
 
         # Check sanity of mpi_dims_mask
@@ -210,7 +210,7 @@ class Geometry:
 
         Parameters
         ----------
-        mapping : BasicCallableMapping
+        mapping : DefinedMapping
             The mapping from the unit square to the physical domain.
 
         comm : MPI.Comm

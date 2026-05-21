@@ -12,24 +12,13 @@ from typing import Optional
 import numpy as np
 
 from sympde.topology.space import BasicFunctionSpace
-from sympde.topology.callable_mapping import BasicCallableMapping
-from sympde.topology.mapping import DefinedMapping
+from sympde.topology.mapping import PointEvaluableMapping, is_point_evaluable_mapping
 # from sympde.topology.datatype import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType, UndefinedSpaceType
 
 from psydac.linalg.block import BlockVectorSpace
 from psydac.fem.basic    import FemSpace, FemField
 
 __all__ = ('VectorFemSpace', 'MultipatchFemSpace')
-
-
-def _is_point_evaluable_mapping(mapping):
-    if isinstance(mapping, BasicCallableMapping):
-        return True
-
-    if isinstance(mapping, DefinedMapping):
-        return True
-
-    return False
 
 #===============================================================================
 class VectorFemSpace(FemSpace):
@@ -71,7 +60,7 @@ class VectorFemSpace(FemSpace):
         # [YG, 27.03.2025]: this class was setting its mapping to None
         mappings = [V.mapping for V in new_spaces]
         assert len(set(mappings)) == 1
-        assert mappings[0] is None or _is_point_evaluable_mapping(mappings[0])
+        assert mappings[0] is None or is_point_evaluable_mapping(mappings[0])
 
         # Make sure that all spaces have the same number of cells along each axis
         # [YG, 27.03.2025]: This is not part of the abstract interface of
@@ -93,7 +82,7 @@ class VectorFemSpace(FemSpace):
         self._spaces         : tuple[FemSpace]  = new_spaces
         self._coeff_space    : BlockVectorSpace = coeff_space
         self._ncells         : tuple[int, ...]  = ncells[0] # not used in the abstract interface
-        self._mapping        : Optional[BasicCallableMapping | DefinedMapping] = mappings[0]
+        self._mapping        : Optional[PointEvaluableMapping] = mappings[0]
         self._symbolic_space : Optional[BasicFunctionSpace] = symbolic_space
 
         # ++++++++++++++ Extra operations for multigrid methods ++++++++++++++

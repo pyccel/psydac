@@ -3,7 +3,7 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-from sympde.topology.mapping import DefinedMapping
+from sympde.topology.mapping import DefinedMapping, is_point_evaluable_mapping
 
 
 __all__ = (
@@ -40,20 +40,14 @@ __all__ = (
 
 
 def _resolve_point_evaluable_mapping(mapping, *, expected_ldim):
-    """Resolve any accepted mapping representation to a callable mapping object."""
+    """Resolve any accepted mapping representation to a point-evaluable mapping object."""
     if isinstance(mapping, DefinedMapping):
         mapping = mapping.get_callable_mapping()
 
-    if mapping is None or not callable(mapping) or not hasattr(mapping, 'ldim'):
+    if mapping is None or not is_point_evaluable_mapping(mapping):
         raise TypeError(
-            'Expected a point-evaluable mapping '
-            '(DefinedMapping or callable mapping object)'
-        )
-
-    missing_methods = [name for name in ('jacobian', 'jacobian_inv', 'metric_det') if not hasattr(mapping, name)]
-    if missing_methods:
-        raise TypeError(
-            f'Callable mapping is missing required methods: {", ".join(missing_methods)}'
+            'Expected a point-evaluable mapping object implementing '
+            '(__call__, jacobian, jacobian_inv, metric, metric_det, ldim, pdim)'
         )
 
     if mapping.ldim != expected_ldim:

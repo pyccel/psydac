@@ -10,7 +10,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from   mpl_toolkits.axes_grid1 import make_axes_locatable
 
-from sympde.topology.callable_mapping   import CallableMapping
 from sympde.topology.analytical_mapping import IdentityMapping, PolarMapping
 from sympde.topology.analytical_mapping import TargetMapping, CzarnyMapping
 
@@ -31,7 +30,11 @@ class Laplacian:
 
     def __init__(self, mapping):
 
-        assert isinstance(mapping, CallableMapping)
+        required = ('__call__', 'jacobian', 'jacobian_inv', 'metric', 'metric_det', 'symbolic_mapping')
+        if not all(hasattr(mapping, name) for name in required):
+            raise TypeError(
+                'mapping must expose point-evaluable and symbolic_mapping interfaces'
+            )
 
         sym = mapping.symbolic_mapping
 

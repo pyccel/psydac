@@ -16,6 +16,7 @@ import mpi4py
 import h5py as h5
 
 from sympde.topology import Domain, VectorFunctionSpace, ScalarFunctionSpace, InteriorDomain, MultiPatchMapping, DefinedMapping
+from sympde.topology.mapping import is_point_evaluable_mapping
 from sympde.topology.datatype import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType, UndefinedSpaceType
 
 from pyevtk.hl import unstructuredGridToVTK
@@ -37,8 +38,8 @@ __all__ = ('get_grid_lines_2d', '_augment_space_degree_dict',
 
 
 def _is_point_evaluable_symbolic_mapping(mapping):
-    """Return True for symbolic mappings that can provide callable evaluation."""
-    return isinstance(mapping, DefinedMapping)
+    """Return True for symbolic point-evaluable mappings."""
+    return isinstance(mapping, DefinedMapping) and is_point_evaluable_mapping(mapping)
 
 
 #===============================================================================
@@ -1991,7 +1992,7 @@ class PostProcessManager:
         interior_name : str
             Name of the current patch
 
-        mapping : SymPDE point-evaluable mapping, SplineMapping, or None
+        mapping : DefinedMapping, SplineMapping, or None
             Mapping of the patch.
 
         space_dict : dict
@@ -2182,7 +2183,7 @@ class PostProcessManager:
         interior_name : str
             Name of the current patch
 
-        mapping : SymPDE DefinedMapping, SplineMapping, or None
+        mapping : DefinedMapping, SplineMapping, or None
             Mapping of the current patch.
 
         space_dict : dict
@@ -2262,7 +2263,7 @@ class PostProcessManager:
 
         Parameters
         ----------
-        mapping : SymPDE point-evaluable mapping, SplineMapping, or None
+        mapping : DefinedMapping, SplineMapping, or None
             Mapping of the current patch.
 
         grid : list of array_like
@@ -2327,8 +2328,9 @@ class PostProcessManager:
                 pass
             else:
                 raise TypeError(
-                    'mapping should be a SymPDE DefinedMapping, '
-                    f'PSYDAC SplineMapping, or None, got {type(mapping)}')
+                    'mapping should be None, SplineMapping, or DefinedMapping; '
+                    f'got {type(mapping)}'
+                )
         conn, off, typ, i_mpi_dd = self._compute_unstructured_mesh_info(
             local_domain,
             npts_per_cell=npts_per_cell,
