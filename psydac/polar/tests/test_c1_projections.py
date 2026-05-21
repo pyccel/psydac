@@ -58,7 +58,7 @@ def test_c1_projections(degrees, ncells, verbose=False):
     V = TensorFemSpace(domain_decomposition, V1, V2)
 
     # Spline mapping
-    map_discrete = SplineMapping.from_mapping(V, map_analytic.get_callable_mapping())
+    map_discrete = SplineMapping.from_mapping(V, map_analytic)
 
     # C1 projector
     proj = C1Projector(map_discrete)

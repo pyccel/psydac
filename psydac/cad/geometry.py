@@ -342,7 +342,7 @@ class Geometry:
         # ...
 
         # read the topological domain
-        domain       = Domain.from_file(filename)
+        domain       = Domain.from_file(filename, point_evaluable_mappings=True)
         connectivity = construct_connectivity(domain)
 
         if len(domain) == 1:
@@ -475,7 +475,7 @@ class Geometry:
         h5.close()
         # ...
 
-        # Add spline callable mappings to domain undefined mappings
+        # Add spline callable mappings to point-evaluable symbolic mappings.
         # NOTE: We assume that interiors and mappings.values() use the same ordering
         for patch, F in zip(interiors, mappings.values()):
             patch.mapping.set_callable_mapping(F)

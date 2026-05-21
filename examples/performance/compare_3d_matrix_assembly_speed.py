@@ -78,7 +78,7 @@ def make_square_torus_geometry_3d(ncells, degree, comm=None):
     V_h = discretize(V, domain_h, degree=degree)
 
     mapping = SquareTorus('S')
-    map_discrete = SplineMapping.from_mapping(V_h, mapping.get_callable_mapping())
+    map_discrete = SplineMapping.from_mapping(V_h, mapping)
 
     geometry = Geometry.from_discrete_mapping(map_discrete, comm=comm)
 
