@@ -1,17 +1,16 @@
 """
-Solve the Transverse Electric Time dependent Maxwell Problem
-on an analytical disk domain.
+Solve the Transverse Electric Time dependent Maxwell Problem on an analytical disk domain.
 
-example of run:
+Example of run:
 python maxwell_2d.py -S -n 16 32 -d 3 3 -T 1 -D 0.2 -s 1
 """
+
 import os
 import numpy as np
 from mpi4py import MPI
 
 import matplotlib.pyplot as plt
 
-from psydac.feec.global_geometric_projectors import evaluate_dofs_1d_0form
 from psydac.fem.basic import FemField
 from utils_congapol import print_map_polar_coeffs, check_regular_ring_map, add_colorbar
 
@@ -69,8 +68,6 @@ def compute_stable_dt(cfl, C_m, dC_m, V, tau=None, light_c=1):
     vv = V.coeff_space.zeros()
     print(f'type(V.coeff_space) = {type(V.coeff_space)}')
     print(f'V.coeff_space.shape = {V.coeff_space.shape}, V.coeff_space.dimension = {V.coeff_space.dimension}')
-    # print(type(vv.[]))
-    # vv[:] = np.random.random(V.coeff_space.dimension)
     vv[:] = np.random.random(size=V.coeff_space.shape)
     norm_vv = vect_norm_2(vv)
     max_ncfl = 500
@@ -137,9 +134,6 @@ def plot_field_and_error(name, t, x, y, field_h, field_ex, *gridlines, only_fiel
 
 def update_plot(fig, t, x, y, field_h, field_ex):
     ax0, ax1, cax0, cax1 = fig.axes
-    # fig.cla()
-    # ax0.collections.clear(); cax0.clear()
-    # ax1.collections.clear(); cax1.clear()
     im0 = ax0.contourf(x, y, field_h, 50)
     im1 = ax1.contourf(x, y, field_ex - field_h, 50)
     fig.colorbar(im0, cax=cax0)
@@ -227,6 +221,7 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
     os.makedirs(visdir, exist_ok=True)
 
     if study == 'maxwell_wave':
+        # This is just the initial solution
         exact_solution = GaussianSolution(sigma=1e-1, x0=0, y0=0, scale=scale)
     else:
         exact_solution = CircularCavitySolution(R=R, c=c, m=m, n=n, scale=scale)
@@ -248,7 +243,6 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         # domain   = ((0, 1), (0, 2 * np.pi))
         mapping = TargetMapping('TM', c1=shift_D * R * R, c2=0, k=0, D=shift_D)
 
-    # use_spline_mapping = False #True
     # run parameters string
     rp_str = f'{ncells[0]}_{ncells[1]}_p{degree[0]}_D{shift_D}_s{smooth}'
     if use_spline_mapping:

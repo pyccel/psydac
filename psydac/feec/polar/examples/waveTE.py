@@ -9,7 +9,29 @@ import matplotlib.pyplot as plt
 
 class GaussianSolution:
     """
-    just a Gaussian field with B = curl E
+    Initial Gaussian circular wave for the TE Maxwell test.
+
+    This class defines the initial condition used for the Gaussian wave
+    propagation experiment. It is not an exact time-dependent Maxwell solution.
+    The electric field is initialized as a localized rotational Gaussian pulse,
+
+        E0(x, y) = scale * (y - y0, -(x - x0))
+                  * exp(-((x - x0)^2 + (y - y0)^2) / (2 sigma^2)),
+
+    and the magnetic field is initialized as
+
+        B0 = curl E0 = d_x Ey - d_y Ex.
+
+    Parameters
+    ----------
+    sigma : float
+        Width of the Gaussian pulse.
+
+    x0, y0 : float
+        Center of the Gaussian pulse in physical coordinates.
+
+    scale : float, optional
+        Amplitude scaling factor for the initial fields.
     """
 
     def __init__(self, sigma, x0, y0, scale=1):
@@ -19,31 +41,36 @@ class GaussianSolution:
         self.sigma = sigma
         self.scale = scale
 
-    def Ex_ex(self, t, x, y):
-        from numpy import exp, cos, sqrt
-        sig2 = self.sigma ** 2
-        r2 = (x - self.x0) ** 2 + (y - self.y0) ** 2
+    def _gaussian(self, x, y):
+        from numpy import exp
+        X = x - self.x0
+        Y = y - self.y0
+        sig2 = self.sigma**2
+        return self.scale * exp(-(X*X + Y*Y)/(2*sig2))
 
-        return (y - self.y0) / sig2 * exp(-r2 / (2 * sig2))
+    def Ex_ex(self, t, x, y):
+        Y = y - self.y0
+        return Y * self._gaussian(x, y)
 
     def Ey_ex(self, t, x, y):
-        from numpy import exp, cos, sqrt
-
-        sig2 = self.sigma ** 2
-        r2 = (x - self.x0) ** 2 + (y - self.y0) ** 2
-
-        return -(x - self.x0) / sig2 * exp(-r2 / (2 * sig2))
+        X = x - self.x0
+        return -X * self._gaussian(x, y)
 
     def Bz_ex(self, t, x, y):
         """
-        Bz = curl E (?)
+        Bz = curl E = d_x Ey - d_y Ex
         """
-        from numpy import exp
-
-        return -2*(y-self.y0)/self.sigma**2 * exp(-((x-self.x0)**2 + (y-self.y0)**2)/self.sigma**2)
-
+        X = x - self.x0
+        Y = y - self.y0
+        sig2 = self.sigma**2
+        r2 = X*X + Y*Y
+        return (r2/sig2 - 2.0) * self._gaussian(x, y)
 
 def main():
+    """
+    This function is not currently used. It is kept for possible future development.
+    """
+
     # Logical domain is rectangle [0, R] x [0, 2pi]
     R = 2.0
 
