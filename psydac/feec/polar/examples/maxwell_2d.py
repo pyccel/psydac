@@ -547,32 +547,15 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
     htheta = 2 * pi / ncells[1]
 
     # Mass matrices (StencilMatrix objects)
-    basic_fix = False
-    if basic_fix:
-        M1 = a1_h.assemble()
-        M2 = a2_h.assemble()
 
-        M1[1, 1][0, :, :, :] = 0
-        M_temp = M1[1, 1].transpose()
-        M_temp[0, :, :, :] = 0
-        M1[1, 1] = M_temp.transpose()
-        M1[1, 1][0, :, 0, :] = 1e20
+    # raw Mass matrices in W1 and W2 have unbounded values, this seems to be fine for the assembly but inverting these matrices leads to virtual nonsense...
+    # so they need to be regularized below
+    M1_raw = a1_h.assemble()
+    M2_raw = a2_h.assemble()
 
-        M2[0, :, :, :] = 0
-        M_temp = M2.transpose()
-        M_temp[0, :, :, :] = 0
-        M2 = M_temp.transpose()
-        M2[0, :, 0, :] = 1e20
-
-    else:
-        # raw Mass matrices in W1 and W2 have unbounded values, this seems to be fine for the assembly but inverting these matrices leads to virtual nonsense...
-        # so they need to be regularized below
-        M1_raw = a1_h.assemble()
-        M2_raw = a2_h.assemble()
-
-        # regularization of M1 and M2 so that they are bounded and invertible:
-        M1 = (htheta * hs) * (I1 - P1.T) @ (I1 - P1) + P1.T @ M1_raw @ P1
-        M2 = (htheta * hs) * (I2 - P2.T) @ (I2 - P2) + P2.T @ M2_raw @ P2
+    # regularization of M1 and M2 so that they are bounded and invertible:
+    M1 = (htheta * hs) * (I1 - P1.T) @ (I1 - P1) + P1.T @ M1_raw @ P1
+    M2 = (htheta * hs) * (I2 - P2.T) @ (I2 - P2) + P2.T @ M2_raw @ P2
 
     Pi0, Pi1, Pi2 = derham_h.projectors(nquads=[degree[0] + 10, degree[1] + 10])
 
