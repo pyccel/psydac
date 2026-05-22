@@ -17,7 +17,7 @@ from sympde.topology.space       import ScalarFunction
 from sympde.topology.space       import VectorFunction
 from sympde.topology.space       import IndexedVectorFunction
 from sympde.topology.space       import element_of
-from sympde.topology.mapping     import UndefinedMapping
+from sympde.topology.mapping     import SymbolicMapping
 from sympde.topology             import Boundary
 from sympde.topology.derivatives import _partial_derivatives
 from sympde.topology.derivatives import _logical_partial_derivatives
@@ -118,10 +118,10 @@ def is_mapping(expr):
     if isinstance(expr, _logical_partial_derivatives):
         return is_mapping(expr.args[0])
 
-    elif isinstance(expr, Indexed) and isinstance(expr.base, UndefinedMapping):
+    elif isinstance(expr, Indexed) and isinstance(expr.base, SymbolicMapping):
         return True
 
-    elif isinstance(expr, UndefinedMapping):
+    elif isinstance(expr, SymbolicMapping):
         return True
 
     return False
@@ -191,7 +191,7 @@ def compute_atoms_expr(atomic_exprs, indices_quad, indices_test,
     is_linear : <boolean>
         variable to determine if we are in the linear case
 
-    mapping : <UndefinedMapping>
+    mapping : <SymbolicMapping>
         Mapping object
 
     Returns
@@ -309,7 +309,7 @@ def compute_atoms_expr_field(atomic_exprs, indices_quad,
     test_function : <Symbol>
         test_function Symbol
 
-    mapping : <UndefinedMapping>
+    mapping : <SymbolicMapping>
         Mapping object
 
     Returns

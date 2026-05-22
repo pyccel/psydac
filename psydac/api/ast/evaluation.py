@@ -8,7 +8,7 @@ from sympy import Tuple
 
 from sympde.topology             import ScalarFunction
 from sympde.topology             import SymbolicExpr
-from sympde.topology.mapping     import UndefinedMapping
+from sympde.topology.mapping     import SymbolicMapping
 from sympde.topology.space       import element_of
 from sympde.topology.derivatives import _logical_partial_derivatives
 
@@ -194,8 +194,8 @@ class EvalArrayMapping(SplBasic):
                 nderiv=1, is_rational_mapping=None,
                 backend=None):
 
-        if not isinstance(mapping, UndefinedMapping):
-            raise TypeError('> Expecting an UndefinedMapping object')
+        if not isinstance(mapping, SymbolicMapping):
+            raise TypeError('> Expecting an SymbolicMapping object')
 
         obj = SplBasic.__new__(cls, mapping, name=name,
                                prefix='eval_mapping', mapping=mapping,

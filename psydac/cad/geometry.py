@@ -17,7 +17,7 @@ import h5py
 import yaml
 from mpi4py import MPI
 
-from sympde.topology       import Domain, Interface, Line, Square, Cube, NCubeInterior, UndefinedMapping, DefinedMapping, NCube
+from sympde.topology       import Domain, Interface, Line, Square, Cube, NCubeInterior, SymbolicMapping, DefinedMapping, NCube
 from sympde.topology.basic import Union
 from sympde.topology.mapping import PointEvaluableMapping, is_point_evaluable_mapping
 
@@ -683,7 +683,7 @@ def export_nurbs_to_hdf5(filename, nurbs, periodic=None, comm=None ):
     else:
         raise NotImplementedError('> nurbs.dim > 3 not implemented')
 
-    mapping = UndefinedMapping(mapping_id, dim=nurbs.dim)
+    mapping = SymbolicMapping(mapping_id, dim=nurbs.dim)
     domain  = mapping(domain)
     topo_yml = domain.todict()
 

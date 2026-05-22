@@ -51,7 +51,7 @@ class BasicCodeGen:
     is_rational_mapping : bool
         takes the value of True if the mapping is rational.
 
-    mapping: Sympde.topology.UndefinedMapping
+    mapping: Sympde.topology.SymbolicMapping
         The symbolic mapping of the bi-linear form domain.
 
     mapping_space: FemSpace

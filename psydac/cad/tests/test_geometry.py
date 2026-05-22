@@ -9,7 +9,7 @@ import pytest
 import numpy as np
 from mpi4py import MPI
 
-from sympde.topology import Domain, Line, Square, Cube, UndefinedMapping
+from sympde.topology import Domain, Line, Square, Cube, SymbolicMapping
 
 from psydac.cad.geometry             import Geometry, export_nurbs_to_hdf5, refine_nurbs
 from psydac.cad.geometry             import import_geopdes_to_nurbs
@@ -34,7 +34,7 @@ def test_geometry_2d_1():
     mapping = discrete_mapping('identity', ncells=ncells, degree=degree)
 
     # create a topological domain
-    F      = UndefinedMapping('F', dim=2)
+    F      = SymbolicMapping('F', dim=2)
     domain = F(Square(name='Omega'))
 
     # associate the mapping to the topological domain
@@ -82,7 +82,7 @@ def test_geometry_2d_2():
     mapping = refine( mapping, axis=0, values=[0.3, 0.6, 0.8] )
 
     # create a topological domain
-    F      = UndefinedMapping('F', dim=2)
+    F      = SymbolicMapping('F', dim=2)
     domain = F(Square(name='Omega'))
 
     # associate the mapping to the topological domain
@@ -197,7 +197,7 @@ def test_geometry_with_mpi_dims_mask():
     mapping = discrete_mapping('identity', ncells=ncells, degree=degree)
 
     # create a topological domain
-    F = UndefinedMapping('F', dim=3)
+    F = SymbolicMapping('F', dim=3)
     domain = F(Cube(name='Omega'))
 
     # associate the mapping to the topological domain
@@ -261,7 +261,7 @@ def test_from_topological_domain():
     expected_ends   = (3, 2 * rank + 1, 7)
 
     # Create a topological domain
-    F = UndefinedMapping('F', dim=3)
+    F = SymbolicMapping('F', dim=3)
     domain = F(Cube(name='Omega'))
 
     # Create geometry from topological domain using mpi_dims_mask

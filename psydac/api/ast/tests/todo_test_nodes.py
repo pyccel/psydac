@@ -18,7 +18,7 @@ from sympde.topology import dx1, dx2
 from sympde.topology import ScalarFunctionSpace
 from sympde.topology import elements_of
 from sympde.topology import Square
-from sympde.topology import UndefinedMapping, IdentityMapping
+from sympde.topology import SymbolicMapping, IdentityMapping
 from sympde.expr     import integral
 from sympde.expr     import LinearForm
 from sympde.expr     import BilinearForm
@@ -72,7 +72,7 @@ from psydac.api.ast.parser import parse
 
 # ... abstract model
 domain = Square()
-M      = UndefinedMapping('M', domain.dim)
+M      = SymbolicMapping('M', domain.dim)
 
 V      = ScalarFunctionSpace('V', domain)
 u,v    = elements_of(V, names='u,v')
