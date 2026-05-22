@@ -23,7 +23,7 @@ from sympde.expr.evaluation import _split_test_function
 from sympde.topology import SymbolicWeightedVolume
 from sympde.topology import Boundary, NormalVector, Interface
 from sympde.topology.basic import BasicDomain
-from sympde.topology.mapping import Mapping
+from sympde.topology.mapping import UndefinedMapping
 
 from sympde.topology.derivatives import get_index_logical_derivatives
 
@@ -150,7 +150,7 @@ class Parser(object):
         and `nderiv` (maximum number of derivatives), required argument `target`
         (symbolic domain of expression, of type `BasicDomain` from
         `sympde.topology.basic`), and optional argument `mapping` (domain
-        `Mapping` from `sympde.topology.mapping`).
+        `UndefinedMapping` from `sympde.topology.mapping`).
 
     backend : dict[str, Any]
         The backend dictionary as defined in `psydac.api.settings`.
@@ -183,7 +183,7 @@ class Parser(object):
 
         mapping = settings.pop('mapping', None)
         if mapping is not None:
-            assert isinstance(mapping, Mapping)
+            assert isinstance(mapping, UndefinedMapping)
         # ...
 
         # Store extracted values and other settings
