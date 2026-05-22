@@ -569,8 +569,8 @@ def _create_ast_bilinear_form(domain, terminal_expr, atomic_expr_field, tests,  
     dtype : str
         type of data 'complex' or 'float'
 
-    mapping : <Mapping>
-        Sympde Mapping object
+    mapping : <UndefinedMapping>
+        Sympde symbolic mapping object
 
     d_mapping : <dict>
         dictionary that contains the symbolic spans and basis values of the mapping
@@ -1243,8 +1243,8 @@ def _create_ast_linear_form(domain, terminal_expr, atomic_expr_field, tests, d_t
     dtype : str
         type of data 'complex' or 'float'
 
-    mapping : <Mapping>
-        Sympde Mapping object
+    mapping : <UndefinedMapping>
+        Sympde symbolic mapping object
 
     d_mapping : <dict>
         dictionary that contains the symbolic spans and basis values of the mapping
@@ -1616,8 +1616,8 @@ def _create_ast_functional_form(domain, terminal_expr, atomic_expr, fields, d_fi
     dtype : str
         type of data 'complex' or 'float'
 
-    mapping : <Mapping>
-        Sympde Mapping object
+    mapping : <UndefinedMapping>
+        Sympde symbolic mapping object
 
     d_mapping : <dict>
         dictionary that contains the symbolic spans and basis values of the mapping

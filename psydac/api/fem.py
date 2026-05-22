@@ -95,7 +95,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         The backend used to accelerate the computing kernels of the linear operator.
         The backend dictionaries are defined in the file psydac/api/settings.py
 
-    symbolic_mapping : Sympde.topology.Mapping, optional
+    symbolic_mapping : Sympde.topology.UndefinedMapping, optional
         The symbolic mapping which defines the physical domain of the bilinear form.
 
     See Also
@@ -841,7 +841,7 @@ class DiscreteSesquilinearForm(DiscreteBilinearForm):
         The backend used to accelerate the computing kernels of the linear operator.
         The backend dictionaries are defined in the file psydac/api/settings.py
 
-    symbolic_mapping: Sympde.topology.Mapping
+    symbolic_mapping: Sympde.topology.UndefinedMapping
         The symbolic mapping which defines the physical domain of the sesqui-linear form.
 
     """
@@ -887,7 +887,7 @@ class DiscreteLinearForm(BasicDiscrete):
         The backend used to accelerate the computing kernels.
         The backend dictionaries are defined in the file psydac/api/settings.py
 
-    symbolic_mapping : Sympde.topology.Mapping, optional
+    symbolic_mapping : Sympde.topology.UndefinedMapping, optional
         The symbolic mapping which defines the physical domain of the linear form.
 
     See Also
@@ -1298,7 +1298,7 @@ class DiscreteFunctional(BasicDiscrete):
         The backend used to accelerate the computing kernels.
         The backend dictionaries are defined in the file psydac/api/settings.py
 
-    symbolic_mapping : Sympde.topology.Mapping
+    symbolic_mapping : Sympde.topology.UndefinedMapping
         The symbolic mapping which defines the physical domain of the functional.
 
     See Also

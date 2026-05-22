@@ -10,7 +10,7 @@ from    sympy import sin, pi, sqrt, Tuple
 
 from    sympde.calculus               import inner, cross
 from    sympde.expr                   import integral, LinearForm, BilinearForm
-from    sympde.topology               import elements_of, Derham, Mapping, Line, Square, Cube, Union, NormalVector, ScalarFunctionSpace, VectorFunctionSpace
+from    sympde.topology               import elements_of, Derham, Line, Square, Cube, Union, NormalVector, ScalarFunctionSpace, VectorFunctionSpace
 from    sympde.topology.datatype      import H1Space, HcurlSpace
 
 from    psydac.api.discretization     import discretize

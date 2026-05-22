@@ -13,7 +13,7 @@ from sympde.calculus import grad, dot
 from sympde.topology import ScalarFunctionSpace
 from sympde.topology import elements_of
 from sympde.topology import Square
-from sympde.topology import IdentityMapping #,Mapping, PolarMapping
+from sympde.topology import IdentityMapping  # PolarMapping
 from sympde.expr     import integral
 from sympde.expr     import LinearForm
 from sympde.expr     import BilinearForm

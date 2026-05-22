@@ -8,7 +8,7 @@ import  numpy as np
 import  pytest
 from    mpi4py import MPI
 
-from    sympde.topology               import elements_of, Mapping, Derham, Square, Cube
+from    sympde.topology               import elements_of, Derham, Square, Cube
 from    sympde.calculus               import inner
 from    sympde.expr                   import integral, BilinearForm
 
