@@ -17,34 +17,6 @@ from utils_congapol import print_map_polar_coeffs, check_regular_ring_map, add_c
 
 # ====================== TIME DISCRETIZATION ==================================#
 
-def step_faraday_2d(dt, e, b, M1, M2, D1, D1_T, P1, P1_T, P2, **kwargs):
-    """
-    Exactly integrate the semi-discrete Faraday equation over one time-step:
-
-    b_new = b - ∆t D1 P1 e
-
-    """
-    b -= dt * D1.dot(P1.dot(e))
-
-
-def step_ampere_2d(dt, e, b, M1, M2, D1, D1_T, P1, P1_T, P2, *, pc=None, tol=1e-7, verbose=False):
-    """
-    Exactly integrate the semi-discrete Amperè equation over one time-step:
-
-    e_new = e + ∆t (M1^{-1} P1^T D1^T M2) b
-
-    """
-    options = dict(tol=tol, verbose=verbose)
-    if pc:
-        from psydac.linalg.iterative_solvers import pcg as isolve
-        options['pc'] = pc
-    else:
-        from psydac.linalg.iterative_solvers import cg as isolve
-
-    # b += 0
-    e += dt * isolve(M1, P1_T.dot(D1_T.dot(M2.dot(b))), **options)[0]
-
-
 def compute_stable_dt(cfl, C_m, dC_m, V, tau=None, light_c=1):
     """
     compute stable time step for a leap-frog Maxwell solver,
