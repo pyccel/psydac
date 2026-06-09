@@ -482,10 +482,7 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
     # Extract spaces
     V0_h, V1_h, V2_h = derham_h.spaces
 
-    I1 = BlockLinearOperator(V1_h.coeff_space, V1_h.coeff_space)
-    I1[0, 0] = IdentityOperator(V1_h.coeff_space[0])
-    I1[1, 1] = IdentityOperator(V1_h.coeff_space[1])
-
+    I1 = IdentityOperator(V1_h.coeff_space)
     I2 = IdentityOperator(V2_h.coeff_space)
 
     # Conga projectors
@@ -1023,5 +1020,4 @@ if __name__ == '__main__':
     namespace = run_maxwell_2d_TE(**vars(args))
 
     # Keep matplotlib windows open
-    # import matplotlib.pyplot as plt
     plt.show()
