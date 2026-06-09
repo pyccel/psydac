@@ -395,8 +395,6 @@ def run_poisson_2d(*, test_case, ncells, degree,
 
     rhs = LinearForm(v0, integral(domain, model.rho_log * v0))
 
-    err_diff = model.phi_log - u0
-
     # ============================= DISCRETIZATION ================================#
     if use_spline_mapping:
         domain_h = discretize(domain, filename='geo.h5', comm=mpi_comm)
@@ -507,7 +505,7 @@ def run_poisson_2d(*, test_case, ncells, degree,
         info = Sc_inv.get_info()
     elif smooth_method == 'None':
         pc = S.diagonal(inverse=True)
-        S_inv = inverse(S, 'pcg', pc=pc, tol=cgtol, maxiter=cgiter, verbose=verbose)
+        S_inv = inverse(S, 'cg', pc=pc, tol=cgtol, maxiter=cgiter, verbose=verbose)
         xsol = S_inv.dot(b)
         info = S_inv.get_info()
     t1 = time()
@@ -519,6 +517,7 @@ def run_poisson_2d(*, test_case, ncells, degree,
     phi = FemField(V0_h, coeffs=xsol)
     phi.coeffs.update_ghost_regions()
 
+    t0 = time()
     errors = compute_errors(phi, phi_ref, M, S)
     t1 = time()
     timing['diagnostics'] = t1 - t0
@@ -740,8 +739,7 @@ def parse_input_arguments():
                         )
 
     parser.add_argument('-v',
-                        type=bool,
-                        default=False,
+                        action='store_true',
                         dest='verbose',
                         help='See CG iterations and L2 norm of the residuals'
                         )
