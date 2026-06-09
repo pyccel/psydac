@@ -12,7 +12,7 @@ from mpi4py import MPI
 import matplotlib.pyplot as plt
 
 from psydac.fem.basic import FemField
-from utils_congapol import print_map_polar_coeffs, check_regular_ring_map, add_colorbar, create_tensor_spline_space
+from utils_congapol import check_regular_ring_map, add_colorbar, create_tensor_spline_space
 
 
 # ====================== TIME DISCRETIZATION ==================================#
@@ -137,18 +137,16 @@ def plot_curve_along_s(name, s_str, time_str, theta0,
 def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
                       splitting_order, shift_D, use_spline_mapping, tol,
                       cfl=0.9, show_figs=True, study='maxwell_bessel', use_scipy=True, verbose=False):
-    import numpy as np
     from numpy import pi
 
-    from sympy import cos, sin, Tuple, exp, sqrt, atan2
+    from sympy import cos, sin, Tuple, sqrt
 
     from sympde.topology import Square, Domain
     from sympde.topology.analytical_mapping import PolarMapping, TargetMapping
     from sympde.topology import Derham
     from sympde.topology import elements_of, element_of
-    from sympde.topology import NormalVector
     from sympde.topology.mapping import Mapping
-    from sympde.calculus import dot, cross
+    from sympde.calculus import dot
     from sympde.expr import integral
     from sympde.expr import BilinearForm, LinearForm
 
@@ -178,13 +176,9 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
     # Mode number
     (m, n) = (2, 3)
 
-    # Courant parameter on uniform grid
-    Cp = 0.125
-
     # Exact/initial solution
     assert study in ['L2_proj', 'maxwell_bessel', 'maxwell_wave']
     study_L2_proj = (study == 'L2_proj')
-    study_maxwell = not study_L2_proj
 
     visdir = f'plots_{study}'
     os.makedirs(visdir, exist_ok=True)
@@ -272,14 +266,6 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         domain_h = discretize(domain, ncells=ncells, periodic=[False, True], comm = mpi_comm)
         derham_h = discretize(derham, domain_h, degree=degree)
         F = mapping.get_callable_mapping()
-
-    def phys_domain_integral(f_log):
-        """
-        Compute the integral of f over the physical domain.
-        Interface needed since FEM space `integral` function is over the symbolic domain...
-        """
-        f_with_det = lambda eta1, eta2: f_log(eta1, eta2) * np.sqrt(F.metric_det(eta1, eta2))
-        return derham_h.V0.integral(f_with_det)
 
     def l2_norm_of(f_log):
         """
@@ -990,7 +976,7 @@ if __name__ == '__main__':
     parser.add_argument('-o', '--splitting_order',
                         type=int,
                         default=2,
-                        choices=[2, 4, 6],
+                        choices=[2, 4],
                         help='Order of accuracy of operator splitting'
                         )
 
