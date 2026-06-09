@@ -362,7 +362,7 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         v = element_of(derham.V1, name='u')
 
         l = LinearForm(v, integral(domain, dot(f_phys, v)))
-        lh = discretize(l, domain_h, V1)
+        lh = discretize(l, domain_h, V1_h)
         tilde_f = lh.assemble()
 
         # create fields and point to coeffs
@@ -480,21 +480,21 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
     D1_T = D1.T
 
     # Extract spaces
-    V0, V1, V2 = derham_h.spaces
+    V0_h, V1_h, V2_h = derham_h.spaces
 
-    I1 = BlockLinearOperator(V1.coeff_space, V1.coeff_space)
-    I1[0, 0] = IdentityOperator(V1.coeff_space[0])
-    I1[1, 1] = IdentityOperator(V1.coeff_space[1])
+    I1 = BlockLinearOperator(V1_h.coeff_space, V1_h.coeff_space)
+    I1[0, 0] = IdentityOperator(V1_h.coeff_space[0])
+    I1[1, 1] = IdentityOperator(V1_h.coeff_space[1])
 
-    I2 = IdentityOperator(V2.coeff_space)
+    I2 = IdentityOperator(V2_h.coeff_space)
 
     # Conga projectors
     if smooth == 0:
-        P1 = C0PolarProjection_V1(V1, hbc=True)
-        P2 = C0PolarProjection_V2(V2)
+        P1 = C0PolarProjection_V1(V1_h, hbc=True)
+        P2 = C0PolarProjection_V2(V2_h)
     else:
-        P1 = C1PolarProjection_V1(V1, hbc=True)
-        P2 = C0PolarProjection_V2(V2)
+        P1 = C1PolarProjection_V1(V1_h, hbc=True)
+        P2 = C0PolarProjection_V2(V2_h)
     P1_T = P1.T
     P2_T = P2.T
 
@@ -551,21 +551,21 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
     P1.dot(e.copy(), out=e)
     P2.dot(b.copy(), out=b)
 
-    V1_s, V1_theta = V1.spaces
+    V1_s, V1_theta = V1_h.spaces
     Ex_field = FemField(V1_s, coeffs=e[0])
     Ey_field = FemField(V1_theta, coeffs=e[1])
-    B_field = FemField(V2, coeffs=b)
+    B_field = FemField(V2_h, coeffs=b)
     V1_s.export_fields('Ex.h5', Ex_field=Ex_field)
     V1_theta.export_fields('Ey.h5', Ey_field=Ey_field)
-    V2.export_fields('B.h5', B_field=B_field)
+    V2_h.export_fields('B.h5', B_field=B_field)
 
     if use_scipy:
 
         print(" -------------- SCIPY operators ------------ ")
         conga_curl_sp = (D1 @ P1).tosparse()
-        step_faraday_2d = SparseCurlAsOperator(W1=V1, W2=V2, strong_curl_sp=conga_curl_sp, strong=True,
+        step_faraday_2d = SparseCurlAsOperator(W1=V1_h, W2=V2_h, strong_curl_sp=conga_curl_sp, strong=True,
                                                store_M1inv=False)
-        step_ampere_2d = SparseCurlAsOperator(W1=V1, W2=V2, strong_curl_sp=conga_curl_sp, M1=M1, M2=M2,
+        step_ampere_2d = SparseCurlAsOperator(W1=V1_h, W2=V2_h, strong_curl_sp=conga_curl_sp, M1=M1, M2=M2,
                                               strong=False)
 
     else:
@@ -573,7 +573,7 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         step_ampere_2d = M1_inv @ P1_T @ D1_T @ M2
         step_faraday_2d = D1 @ P1
 
-    Nt, dt, norm_curlh = compute_stable_dt(cfl, C_m=step_ampere_2d, dC_m=step_faraday_2d, V=V2, tau=tend, light_c=1)
+    Nt, dt, norm_curlh = compute_stable_dt(cfl, C_m=step_ampere_2d, dC_m=step_faraday_2d, V=V2_h, tau=tend, light_c=1)
 
     # If final time is given, recompute number of time steps
     if tend is None:
@@ -792,17 +792,17 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
 
     N = 10
     if show_figs:
-        V0.plot_2d_decomposition(F, refine=N)
+        V0_h.plot_2d_decomposition(F, refine=N)
 
     P1.dot(e.copy(), out=e)
     P2.dot(b.copy(), out=b)
 
     Ex_field = FemField(V1_s, coeffs=e[0])
     Ey_field = FemField(V1_theta, coeffs=e[1])
-    B_field = FemField(V2, coeffs=b)
+    B_field = FemField(V2_h, coeffs=b)
     V1_s.export_fields('Ex_final.h5', Ex_field=Ex_field)
     V1_theta.export_fields('Ey_final.h5', Ey_field=Ey_field)
-    V2.export_fields('B_final.h5', B_field=B_field)
+    V2_h.export_fields('B_final.h5', B_field=B_field)
 
     if eval_data is not None:
         Ex_serial, = V1_sx.import_fields('Ex_final.h5', 'Ex_field')
@@ -843,7 +843,7 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
 
     E1_final = FemField(V1_s, coeffs=e[0])
     E2_final = FemField(V1_theta, coeffs=e[1])
-    B_final = FemField(V2, coeffs=b)
+    B_final = FemField(V2_h, coeffs=b)
 
     # L2 errors
     errx = lambda x1, x2: push_2d_hcurl(E1_final, E2_final, x1, x2, F)[0] - Ex_ex_t(t, *F(x1, x2))
