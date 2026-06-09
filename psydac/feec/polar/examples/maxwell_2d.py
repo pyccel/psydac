@@ -339,8 +339,11 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
 
     def run_study_L2_proj():
         """
+        Study the H(curl) L2 projection on the mapped disk. Compares the standard and
+        filtered projected fields against a manufactured physical vector field,
+        prints L2 projection errors and plots the projected components and their errors.
+        Executed when --study is 'L2_proj'.
         Only for serial runs
-
         """
         omega = 4
         print(f'studying L2 proj of f in H_0(curl) .. with omega = {omega}')
@@ -356,8 +359,6 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         fx_call = lambdify([xs, ys], f_x)
         fy_call = lambdify([xs, ys], f_y)
 
-        print('# compute tilde_f')
-        # tilde_f = derham_h.get_dual_dofs(space='V1', f=f_ex)
         v = element_of(derham.V1, name='u')
 
         l = LinearForm(v, integral(domain, dot(f_phys, v)))
