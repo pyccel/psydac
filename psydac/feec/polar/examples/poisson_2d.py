@@ -45,7 +45,7 @@ from psydac.api.settings import PSYDAC_BACKENDS
 
 from psydac.feec.polar.conga_projections import C0PolarProjection_V0, C1PolarProjection_V0
 
-backend = PSYDAC_BACKENDS['python']
+backend = PSYDAC_BACKENDS['pyccel-gcc']
 
 
 # ==============================================================================

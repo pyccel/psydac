@@ -151,11 +151,11 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
     from sympde.expr import BilinearForm, LinearForm
 
     from psydac.api.discretization import discretize
+    from psydac.api.settings import PSYDAC_BACKENDS
     from psydac.feec.pull_push import push_2d_hcurl, push_2d_l2
     from psydac.utilities.utils import refine_array_1d
     from psydac.linalg.solvers import inverse
     from psydac.linalg.basic import IdentityOperator
-    from psydac.linalg.block import BlockLinearOperator
     from psydac.mapping.discrete import SplineMapping
     from psydac.cad.geometry import Geometry
 
@@ -165,6 +165,8 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
 
     from analyticalTE import CircularCavitySolution  # , constant_field
     from waveTE import GaussianSolution
+
+    backend = PSYDAC_BACKENDS['pyccel-gcc']
 
     # Radius physical domain
     R = 1.  # 2.0
@@ -259,11 +261,11 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
 
     # Discrete physical domain and discrete DeRham sequence
     if use_spline_mapping:
-        domain_h = discretize(domain, filename='geo.h5', comm = mpi_comm)
+        domain_h = discretize(domain, filename='geo.h5', comm=mpi_comm)
         derham_h = discretize(derham, domain_h)
         F = list(domain_h.mappings.values()).pop()
     else:
-        domain_h = discretize(domain, ncells=ncells, periodic=[False, True], comm = mpi_comm)
+        domain_h = discretize(domain, ncells=ncells, periodic=[False, True], comm=mpi_comm)
         derham_h = discretize(derham, domain_h, degree=degree)
         F = mapping.get_callable_mapping()
 
@@ -362,7 +364,7 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         v = element_of(derham.V1, name='u')
 
         l = LinearForm(v, integral(domain, dot(f_phys, v)))
-        lh = discretize(l, domain_h, V1_h)
+        lh = discretize(l, domain_h, V1_h, backend=backend)
         tilde_f = lh.assemble()
 
         # create fields and point to coeffs
@@ -496,8 +498,8 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
     P2_T = P2.T
 
     # Discrete bilinear forms
-    a1_h = discretize(a1, domain_h, (derham_h.V1, derham_h.V1))
-    a2_h = discretize(a2, domain_h, (derham_h.V2, derham_h.V2))
+    a1_h = discretize(a1, domain_h, (derham_h.V1, derham_h.V1), backend=backend)
+    a2_h = discretize(a2, domain_h, (derham_h.V2, derham_h.V2), backend=backend)
 
     hs = R / ncells[0]
     htheta = 2 * pi / ncells[1]
