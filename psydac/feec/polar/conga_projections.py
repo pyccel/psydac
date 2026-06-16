@@ -144,11 +144,11 @@ class C0PolarProjection_V0(LinearOperator):
 
 # --------- 1-FORMS CONGA PROJECTOR P1 ----------#
 # It is a BlockLinearOperator with 4 blocks Upper-Left (0, 0), Upper-Right (0, 1)
-# Lower-Left (1, 0) and Lower-Right (1, 1). (0, 1) and (1, 0) are identical.
+# Lower-Left (1, 0) and Lower-Right (1, 1).
 #
 #                ______________________
 #               |           |          |
-#               |   (0,0)   |   (1,0)  |
+#               |   (0,0)   |   (0,1)  |
 #               |___________|__________|
 #               |           |          |
 #               |   (1,0)   |   (1,1)  |
@@ -823,7 +823,7 @@ class C1PolarProjection_V0(LinearOperator):
 #
 #                ______________________
 #               |           |          |
-#               |   (0,0)   |   (1,0)  |
+#               |   (0,0)   |   (0,1)  |
 #               |___________|__________|
 #               |           |          |
 #               |   (1,0)   |   (1,1)  |
