@@ -474,6 +474,11 @@ def run_poisson_2d(*, test_case, ncells, degree,
     # Apply homogeneous Dirichlet boundary conditions for the conforming
     # smooth_method case 'polar' and non-conforming case 'None'
     # NOTE: this does not affect ghost regions
+    # For each angular index j on the last owned radial line, replace the assembled equation
+    #     (S u)[e1, j] = b[e1, j]
+    # by the equation
+    #     u[e1, j] = 0.
+
     e1 = V0_h.coeff_space.ends[0]
     if e1 == V0_h.coeff_space.npts[0] - 1:
         if smooth_method in ('polar-std', 'polar-spec'):
@@ -483,8 +488,8 @@ def run_poisson_2d(*, test_case, ncells, degree,
             bp[1][last, :] = 0.
         elif smooth_method == 'None':
             S[e1, :, :, :] = 0.
-            S[e1, :, 0, 0] = 1.
-            b[e1, :] = 0.
+            S[e1, :, 0, 0] = 1. #set diagonal entries to 1
+            b[e1, :] = 0. #RHS is 0 at the outer radial boundary
 
     # ====================== SOLVE GALERKIN SYSTEM WITH CG ========================#
 
