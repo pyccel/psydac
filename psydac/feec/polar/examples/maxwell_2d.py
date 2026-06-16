@@ -50,7 +50,7 @@ def compute_stable_dt(cfl, C_m, dC_m, V, tau=None, light_c=1):
     while not (conv or ncfl > max_ncfl):
         ncfl += 1
         vv *= (1. / norm_vv)
-        CC_m.dot(vv.copy(), out=vv)
+        vv = CC_m @ vv
         norm_vv = vect_norm_2(vv)
         old_spectral_rho = spectral_rho
         spectral_rho = norm_vv.copy()  # copy ??
@@ -372,20 +372,17 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         fh = Pi1((fx_call, fy_call))
         fh_filter = Pi1((fx_call, fy_call))
 
-        fh_c = fh.coeffs
-        fh_filter_c = fh_filter.coeffs
-
         M1_inv = inverse(M1, 'cg', verbose=verbose, tol=tol)
         print("using standard L2 projection")
-        M1_inv.dot(tilde_f, out=fh_c)
-        P1.dot(fh_c.copy(), out=fh_c)
+        fh_c = M1_inv @ tilde_f
+        fh_c = P1 @ fh_c
         print('fh_c:')
         print(fh_c.toarray()[:])
 
         print("using filtered L2 projection")
         PTtilde_f = P1.T @ tilde_f
-        M1_inv.dot(PTtilde_f, out=fh_filter_c)
-        P1.dot(fh_filter_c.copy(), out=fh_filter_c)
+        fh_filter_c = M1_inv @ PTtilde_f
+        fh_filter_c = P1 @ fh_filter_c
 
         # compute error and exit
 
@@ -544,11 +541,11 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
     b = B_log.coeffs
 
     if study == 'maxwell_wave':
-        D1.dot(e, out=b)
+        b = D1 @ e
 
     # Conga Projection
-    P1.dot(e.copy(), out=e)
-    P2.dot(b.copy(), out=b)
+    e = P1 @ e
+    b = P2 @ b
 
     V1_s, V1_theta = V1_h.spaces
     Ex_field = FemField(V1_s, coeffs=e[0])
@@ -737,22 +734,19 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
     # SOLUTION
     # ==============================================================================
 
-    de = derham_h.V1.coeff_space.zeros()
-    db = derham_h.V2.coeff_space.zeros()
-
     def Strang_update(dtau):
         # Strang splitting, 2nd order
 
         # b := b - dt/2 * curl e
-        step_faraday_2d.dot(e, out=db)
+        db = step_faraday_2d @ e
         b.mul_iadd(- dtau / 2, db)
 
         # e := e + dt * curl b
-        step_ampere_2d.dot(b, out=de)
+        de = step_ampere_2d @ b
         e.mul_iadd(dtau, de)
 
         # b := b - dt/2 * curl e
-        step_faraday_2d.dot(e, out=db)
+        db = step_faraday_2d @ e
         b.mul_iadd(- dtau / 2, db)
 
         # weights for Suzuki-Yoshida composition (4th-order splitting)
@@ -784,8 +778,8 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         e.update_ghost_regions()
         b.update_ghost_regions()
 
-        P1.dot(e.copy(), out=e)
-        P2.dot(b.copy(), out=b)
+        e = P1 @ e
+        b = P2 @ b
 
         print('ts = {:4d},  t = {:8.4f}'.format(ts, t))
 
@@ -793,8 +787,8 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
     if show_figs:
         V0_h.plot_2d_decomposition(F, refine=N)
 
-    P1.dot(e.copy(), out=e)
-    P2.dot(b.copy(), out=b)
+    e = P1 @ e
+    b = P2 @ b
 
     Ex_field = FemField(V1_s, coeffs=e[0])
     Ey_field = FemField(V1_theta, coeffs=e[1])
