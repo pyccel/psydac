@@ -629,3 +629,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+# example:
+# python examples/feec_potential_hollowtorus.py --slv --pyv --map 'hollow_desc'
