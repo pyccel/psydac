@@ -1,42 +1,38 @@
-import argparse
+import  os
+import  time
+import  argparse
 
-from    mpi4py  import MPI
-import  numpy   as np
-import time
+import  numpy                       as np
+from    mpi4py                      import MPI
 
-from    utils_harpo import *
+from    scipy.sparse                import bmat, csc_matrix
+from    scipy.sparse.linalg         import inv
+from    scipy.sparse.linalg         import spsolve, eigsh
 
-from    sympde.topology import Cube, Mapping, Derham, Domain
+from    sympde.topology             import Cube, Mapping, Derham, Domain
+from    sympde.topology             import Union, NormalVector
+from    sympde.calculus             import inner, cross
+from    sympde.expr                 import integral, BilinearForm
+from    sympde.topology             import elements_of
 
-from    psydac.mapping.discrete import SplineMapping
-from    psydac.cad.geometry     import Geometry
+from    psydac.mapping.discrete     import SplineMapping
+from    psydac.cad.geometry         import Geometry
+from    psydac.api.discretization   import discretize
+from    psydac.api.settings         import PSYDAC_BACKEND_GPYCCEL
+from    psydac.linalg.basic         import IdentityOperator, MatrixFreeLinearOperator
+from    psydac.linalg.solvers       import inverse
+from    psydac.api.postprocessing   import OutputManager, PostProcessManager
+from    psydac.ddm.cart             import DomainDecomposition
+from    psydac.fem.splines          import SplineSpace
+from    psydac.fem.tensor           import TensorFemSpace
+from    psydac.fem.basic            import FemField
+from    psydac.linalg.block         import BlockLinearOperator, BlockVectorSpace
+from    psydac.linalg.utilities     import array_to_psydac
 
-from    psydac.api.discretization import discretize
-from    sympde.topology import Union, NormalVector
+from    struphy                     import domains as str_domains
+from    struphy                     import equils as str_equils
 
-from    sympde.calculus         import inner, cross
-from    sympde.expr             import integral, BilinearForm
-from    sympde.topology         import elements_of
-from    psydac.api.settings     import PSYDAC_BACKEND_GPYCCEL
-from    psydac.linalg.basic     import IdentityOperator, MatrixFreeLinearOperator
-from    psydac.linalg.solvers   import inverse
-
-from scipy.sparse               import bmat, csc_matrix
-from scipy.sparse.linalg        import inv
-from scipy.sparse.linalg        import spsolve, eigsh
-
-from psydac.api.postprocessing  import OutputManager, PostProcessManager
-
-from psydac.ddm.cart            import DomainDecomposition
-from psydac.fem.splines         import SplineSpace
-from psydac.fem.tensor          import TensorFemSpace
-from psydac.fem.basic           import FemField
-from psydac.linalg.block        import BlockLinearOperator, BlockVectorSpace
-from psydac.linalg.utilities    import array_to_psydac
-import os
-
-from struphy import domains as str_domains
-from struphy import equils as str_equils
+from    utils_harpo                 import *
 
 #==============================================================================
 
@@ -280,13 +276,17 @@ def compute_and_save_fields(cavRad, minRad, majRad, vtu_file, params_name, mappi
         Ny = ny
         Nz = nz
 
-        start = (Nx-1) * Ny * Nz
-        for iz in range(Nz):
-            index = iz
-            array[start+index] = 1
+        ix = 0
+        iz = 0
+
+        start = (Nx-1)*Ny*Nz + Nx*Ny*Nz
+        for iy in range(Ny):
+            index = start + ix*Ny*Nz + iy*Nz + iz
+            array[index] = 1
 
         coeffs = array_to_psydac(array, V1cs)
         return coeffs
+
     def get_lifting_field_2():
         dim = V1cs.dimension
         array = np.zeros(dim)
@@ -298,12 +298,13 @@ def compute_and_save_fields(cavRad, minRad, majRad, vtu_file, params_name, mappi
         Ny = ny
         Nz = nz
 
-        iz = int(np.floor(Nz/2))
+        iy = int(np.ceil((Ny-1)/2)) # corresponding to theta \approx pi
+        ix = Nx-1 # corresponding to r = r_max
 
-        start = (Nx-1) * Ny * Nz + Nx*Ny*Nz
-        for iy in range(Ny):
-            index = (Nx-1)*Ny*Nz + iy*Nz + iz
-            array[start+index] = 1
+        start = (Nx-1)*Ny*Nz # corresponding to skipping all basis functions in the first component
+        for iz in range(Nz):
+            index = start + ix*Ny*Nz + iy*Nz + iz # corresponding to specific basis functions in the second component
+            array[index] = 1
 
         coeffs = array_to_psydac(array, V1cs)
         return coeffs
@@ -575,7 +576,7 @@ def main():
                         help="Mapping name, possible values: 'hollow_torus', 'str_hollow_torus', 'hollow_desc', 'hollow_gvec'"
                         )
     parser.add_argument("--deg", type=int, default=2, help="Spline degree in each logical direction")
-    parser.add_argument("--nc", type=int, default=4, help="nb of cells in each logical direction")
+    parser.add_argument("--nc", type=int, nargs=3, default=[4, 4, 4], help="nb of cells in each logical direction")
     args = parser.parse_args()
 
     # comm = MPI.COMM_WORLD
@@ -598,7 +599,7 @@ def main():
     # mapping_name = 'hollow_desc' # 'hollow_gvec'
 
     # Discretization Parameters
-    ncells   = [args.nc, args.nc, args.nc] # [4, 4, 4]         # number of cells in each direction
+    ncells   = args.nc # [args.nc, args.nc, args.nc] # [4, 4, 4]         # number of cells in each direction
     # ncells   = [8, 8, 8]         # number of cells in each direction
     degree   = [args.deg, args.deg, args.deg] # [2, 2, 2]            # B-spline degree in each direction
     periodic = [False, True, True] # periodicity of the domain
@@ -610,7 +611,7 @@ def main():
     cor_tol = 1e-12
 
     # Save results (in particular also as .vtu)?
-    params_name = f'visu_{mapping_name}_cavRad{cavRad}_n{ncells[0]}_d{degree[0]}_tol{cor_tol}'
+    params_name = f'visu_{mapping_name}_cavRad{cavRad}_n{ncells[0]}_{ncells[1]}_{ncells[2]}_d{degree[0]}_tol{cor_tol}'
     vtu_file = f'hollow_torus_output/{params_name}.static.vtu'
 
     do_solve = args.slv # True # set to True to run the full example (computing the harmonic vector potentials), or False to only plot already computed results
@@ -632,4 +633,4 @@ if __name__ == "__main__":
 
 
 # example:
-# python examples/feec_potential_hollowtorus.py --slv --pyv --map 'hollow_desc'
+# python feec_potential_hollowtorus.py --slv --pyv --map 'hollow_desc'
