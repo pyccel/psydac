@@ -161,22 +161,37 @@ class SplineMapping(DefinedMapping):
 
         return [map_Xd(*eta) for map_Xd in self._fields]
 
+    def _evaluate_points(self, *eta):
+        return self.__call__(*eta)
+
     # ...
     def jacobian(self, *eta):
         return np.array([map_Xd.gradient(*eta) for map_Xd in self._fields])
 
+    def _jacobian_eval_impl(self, *eta):
+        return self.jacobian(*eta)
+
     # ...
     def jacobian_inv(self, *eta):
         return np.linalg.inv(self.jacobian(*eta))
+
+    def _jacobian_inv_eval_impl(self, *eta):
+        return self.jacobian_inv(*eta)
 
     # ...
     def metric(self, *eta):
         J = self.jacobian(*eta)
         return np.dot(J.T, J)
 
+    def _metric_eval_impl(self, *eta):
+        return self.metric(*eta)
+
     # ...
     def metric_det(self, *eta):
         return np.linalg.det(self.metric(*eta))
+
+    def _metric_det_eval_impl(self, *eta):
+        return self.metric_det(*eta)
 
     @property
     def ldim(self):
