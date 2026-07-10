@@ -8,7 +8,8 @@ import os
 
 import numpy as np
 
-from sympde.topology import Cube, Mapping, AnalyticMapping
+from sympde.topology import Cube, AnalyticMapping
+from sympde.topology.mapping import SymbolicMapping
 
 from psydac.api.postprocessing import OutputManager, PostProcessManager
 from psydac.fem.basic import FemField
@@ -22,7 +23,7 @@ class Laplacian:
 
     def __init__(self, mapping):
 
-        assert isinstance(mapping, Mapping)
+        assert isinstance(mapping, SymbolicMapping)
 
         sym = mapping
 
