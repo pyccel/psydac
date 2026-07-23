@@ -1,12 +1,15 @@
-# -*- coding: UTF-8 -*-
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
+from numpy import linspace
 
 from feectools.fem.basic   import FemField
 from feectools.fem.splines import SplineSpace
 from feectools.fem.tensor  import TensorFemSpace
 from feectools.fem.vector  import VectorFemSpace
 from feectools.ddm.cart    import DomainDecomposition
-
-from numpy import linspace
 
 
 def test_1d_1():

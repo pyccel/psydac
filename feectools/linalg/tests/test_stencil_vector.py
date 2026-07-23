@@ -1,5 +1,8 @@
-# coding: utf-8
-
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 import pytest
 import numpy as np
 
@@ -526,7 +529,7 @@ def test_stencil_vector_2d_serial_update_ghost_region_interior(dtype, n1, n2, p1
 @pytest.mark.parametrize('n1', [12, 22])
 @pytest.mark.parametrize('p1', [1, 3])
 @pytest.mark.parametrize('s1', [1, 2])
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_stencil_vector_1d_parallel_init(dtype, n1, p1, s1, P1=True):
 
     comm = MPI.COMM_WORLD
@@ -561,7 +564,7 @@ def test_stencil_vector_1d_parallel_init(dtype, n1, p1, s1, P1=True):
 @pytest.mark.parametrize('p2', [3])
 @pytest.mark.parametrize('s1', [1, 2])
 @pytest.mark.parametrize('s2', [2])
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_stencil_vector_2d_parallel_init(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=False):
 
     comm = MPI.COMM_WORLD
@@ -598,7 +601,7 @@ def test_stencil_vector_2d_parallel_init(dtype, n1, n2, p1, p2, s1, s2, P1=True,
 @pytest.mark.parametrize('s2', [2])
 @pytest.mark.parametrize('P1', [True, False])
 @pytest.mark.parametrize('P2', [True])
-@pytest.mark.parallel
+@pytest.mark.mpi
 @pytest.mark.petsc
 def test_stencil_vector_2d_parallel_topetsc(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
 
@@ -641,7 +644,7 @@ def test_stencil_vector_2d_parallel_topetsc(dtype, n1, n2, p1, p2, s1, s2, P1, P
 @pytest.mark.parametrize('p1', [1, 3])
 @pytest.mark.parametrize('s1', [1, 2])
 @pytest.mark.parametrize('P1', [True, False])
-@pytest.mark.parallel
+@pytest.mark.mpi
 @pytest.mark.petsc
 def test_stencil_vector_1d_parallel_topetsc(dtype, n1, p1, s1, P1):
 
@@ -692,7 +695,7 @@ def test_stencil_vector_1d_parallel_topetsc(dtype, n1, p1, s1, P1):
 @pytest.mark.parametrize('P2', [True])
 @pytest.mark.parametrize('P3', [False])
 
-@pytest.mark.parallel
+@pytest.mark.mpi
 @pytest.mark.petsc
 def test_stencil_vector_3d_parallel_topetsc(dtype, n1, n2, n3, p1, p2, p3, s1, s2, s3, P1, P2, P3):
 
@@ -742,7 +745,7 @@ def test_stencil_vector_3d_parallel_topetsc(dtype, n1, n2, n3, p1, p2, p3, s1, s
 @pytest.mark.parametrize('s1', [1, 2])
 @pytest.mark.parametrize('s2', [3])
 @pytest.mark.parametrize('s3', [1])
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_stencil_vector_3d_parallel_init(dtype, n1, n2, n3, p1, p2, p3, s1, s2, s3, P1=True, P2=False, P3=True):
 
     comm = MPI.COMM_WORLD
@@ -778,7 +781,7 @@ def test_stencil_vector_3d_parallel_init(dtype, n1, n2, n3, p1, p2, p3, s1, s2, 
 @pytest.mark.parametrize('p2', [2])
 @pytest.mark.parametrize('s1', [1, 2])
 @pytest.mark.parametrize('s2', [2])
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_stencil_vector_2d_parallel_toarray(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=False):
     # Create domain decomposition
     comm = MPI.COMM_WORLD
@@ -845,7 +848,7 @@ def test_stencil_vector_2d_parallel_toarray(dtype, n1, n2, p1, p2, s1, s2, P1=Tr
 @pytest.mark.parametrize('s2', [1])
 @pytest.mark.parametrize('P1', [True, False])
 @pytest.mark.parametrize('P2', [True])
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_stencil_vector_2d_parallel_array_to_psydac(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
     npts = [n1, n2]   
 
@@ -902,7 +905,7 @@ def test_stencil_vector_2d_parallel_array_to_psydac(dtype, n1, n2, p1, p2, s1, s
 @pytest.mark.parametrize('p2', [2])
 @pytest.mark.parametrize('s1', [1, 2])
 @pytest.mark.parametrize('s2', [1])
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_stencil_vector_2d_parallel_dot(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=False):
 
     comm = MPI.COMM_WORLD
@@ -969,7 +972,7 @@ def test_stencil_vector_2d_parallel_dot(dtype, n1, n2, p1, p2, s1, s2, P1=True, 
 @pytest.mark.parametrize('s1', [1, 2])
 @pytest.mark.parametrize('s2', [1, 2])
 @pytest.mark.parametrize('s3', [1])
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_stencil_vector_3d_parallel_dot(dtype, n1, n2, n3, p1, p2, p3, s1, s2, s3, P1=True, P2=False, P3=True):
 
     comm = MPI.COMM_WORLD

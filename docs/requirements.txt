@@ -3,3 +3,7 @@ pydata_sphinx_theme
 numpydoc
 tomli
 sphinx-math-dollar
+nbsphinx
+ipykernel
+ipytest
+myst-parser
