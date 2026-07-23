@@ -161,7 +161,7 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
 
     assert splitting_order in [2, 4]
 
-    from psydac.feec.polar.conga_projections import C0PolarProjection_V1, C0PolarProjection_V2, C1PolarProjection_V1, SparseCurlAsOperator
+    from psydac.feec.polar.conga_projections import C0PolarProjection_V1, C0PolarProjection_V2, C1PolarProjection_V1
 
     from analyticalTE import CircularCavitySolution  # , constant_field
     from waveTE import GaussianSolution
@@ -558,11 +558,28 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
     if use_scipy:
 
         print(" -------------- SCIPY operators ------------ ")
-        conga_curl_sp = (D1 @ P1).tosparse()
-        step_faraday_2d = SparseCurlAsOperator(W1=V1_h, W2=V2_h, strong_curl_sp=conga_curl_sp, strong=True,
-                                               store_M1inv=False)
-        step_ampere_2d = SparseCurlAsOperator(W1=V1_h, W2=V2_h, strong_curl_sp=conga_curl_sp, M1=M1, M2=M2,
-                                              strong=False)
+        print(" This option, at the moment, will raise an Assertion error in feec/derivatives.py:")
+        print(" assert not (self.domain.parallel and not with_pads)")
+        print(" For the moment, commenting out that line solves the issue.")
+        print(" ------------------------------------------- ")
+
+        from scipy.sparse.linalg     import inv as sp_inv
+        from scipy.sparse            import csc_matrix
+        from psydac.linalg.utilities import array_to_psydac
+        from psydac.linalg.basic     import MatrixFreeLinearOperator
+
+        conga_curl_sp   = (D1 @ P1).tosparse()
+        strong_curl_sp  = conga_curl_sp
+        lambda_strong   = lambda x : array_to_psydac(strong_curl_sp @ x.toarray(), V2_h.coeff_space)
+
+        M2_sp           = M2.tosparse()
+        M1_sp           = csc_matrix(M1.tosparse())
+        M1inv_sp        = sp_inv(M1_sp)
+        weak_curl_sp    = M1inv_sp @ strong_curl_sp.T @ M2_sp
+        lambda_weak     = lambda x : array_to_psydac(weak_curl_sp @ x.toarray(), V1_h.coeff_space)
+
+        step_faraday_2d = MatrixFreeLinearOperator(V1_h.coeff_space, V2_h.coeff_space, lambda_strong)
+        step_ampere_2d  = MatrixFreeLinearOperator(V2_h.coeff_space, V1_h.coeff_space, lambda_weak)
 
     else:
         M1_inv = inverse(M1, 'cg', verbose=verbose, tol=tol)
