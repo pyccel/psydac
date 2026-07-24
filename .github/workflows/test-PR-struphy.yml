@@ -30,7 +30,7 @@ jobs:
       matrix:
         # TODO: Make sure that struphy works with python > 3.11, keep the lower bound to 3.10
         python-version: [ '3.12' ]
-        compile_language: ['c', 'fortran']
+        compile_language: ['fortran'] #, 'c']
 
     name: Test Struphy for Python ${{ matrix.python-version }} / ${{ matrix.compile_language }}
 

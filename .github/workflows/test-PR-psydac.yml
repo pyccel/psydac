@@ -78,7 +78,7 @@ jobs:
         run: |
           source env/bin/activate
           cd pytest
-          python3 mpi_tester.py --mpirun="mpiexec -n 4 ${MPI_OPTS}" --pyargs feectools -m "parallel and not petsc"
+          python3 mpi_tester.py --mpirun="mpiexec --oversubscribe -n 4 ${MPI_OPTS}" --pyargs feectools -m "parallel and not petsc"
 
       - name: Remove test directory
         if: always()
