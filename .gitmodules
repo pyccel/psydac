@@ -1,4 +1,3 @@
 [submodule "subprojects/igakit"]
 	path = subprojects/igakit
-	url = https://github.com/yguclu/igakit/
-    branch = bugfix-numpy2.4
+	url = https://github.com/dalcinl/igakit/
