@@ -1,8 +1,8 @@
 import numpy as np
 from mpi4py.util.dtlib import from_numpy_dtype
 
-def gather_vlen_arrays(arrays, mpi_comm, mpi_root=0):
 
+def gather_vlen_arrays(arrays, mpi_comm, mpi_root=0):
     """
     Gather several 1D NumPy arrays of the same local length onto root process. Length may vary between processes.
 
@@ -24,7 +24,7 @@ def gather_vlen_arrays(arrays, mpi_comm, mpi_root=0):
 
     rank = mpi_comm.rank
     arrays = tuple(np.asarray(a) for a in arrays)
-    dtype =  arrays[0].dtype
+    dtype = arrays[0].dtype
     arr_len = arrays[0].size
 
     for a in arrays:
@@ -55,7 +55,9 @@ def gather_vlen_arrays(arrays, mpi_comm, mpi_root=0):
         global_array = None
     mpi_type = from_numpy_dtype(dtype)
 
-    mpi_comm.Gatherv(arrays_flat, [global_array, recvcounts, displs, mpi_type], root=mpi_root)
+    mpi_comm.Gatherv(
+        arrays_flat, [global_array, recvcounts, displs, mpi_type], root=mpi_root
+    )
 
     if rank != mpi_root:
         return None
@@ -64,12 +66,12 @@ def gather_vlen_arrays(arrays, mpi_comm, mpi_root=0):
     gathered = global_array.reshape(-1, num_arr, order="C")
     return tuple(gathered[:, j].copy() for j in range(num_arr))
 
-#===============================================================================
-def gather_vlen_array(v, mpi_comm, mpi_root=0):
 
-    """ Gather 1D arrays of possibly different lengths onto root process
-        Other processes return None
-        Local arrays must be of the same type
+# ===============================================================================
+def gather_vlen_array(v, mpi_comm, mpi_root=0):
+    """Gather 1D arrays of possibly different lengths onto root process
+    Other processes return None
+    Local arrays must be of the same type
     """
 
     result = gather_vlen_arrays((v,), mpi_comm, mpi_root=mpi_root)
