@@ -1,11 +1,12 @@
+import matplotlib.pyplot as plt
+import numpy as np
+from numpy import pi
 from sympde.topology import Square
 from sympde.topology.analytical_mapping import PolarMapping
 
 from psydac.feec.polar.examples.utils_congapol import add_colorbar
 from psydac.feec.pull_push import push_2d_hcurl, push_2d_l2
-from numpy import pi
-import numpy as np
-import matplotlib.pyplot as plt
+
 
 class GaussianSolution:
     """

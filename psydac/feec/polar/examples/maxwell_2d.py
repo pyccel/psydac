@@ -6,14 +6,17 @@ python maxwell_2d.py -S -n 16 32 -d 3 3 -T 1 -D 0.2 -s 1
 """
 
 import os
-import numpy as np
-from mpi4py import MPI
 
 import matplotlib.pyplot as plt
+import numpy as np
+from mpi4py import MPI
+from utils_congapol import (
+    add_colorbar,
+    check_regular_ring_map,
+    create_tensor_spline_space,
+)
 
 from psydac.fem.basic import FemField
-from utils_congapol import check_regular_ring_map, add_colorbar, create_tensor_spline_space
-
 
 # ====================== TIME DISCRETIZATION ==================================#
 
@@ -138,33 +141,32 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
                       splitting_order, shift_D, use_spline_mapping, tol,
                       cfl=0.9, show_figs=True, study='maxwell_bessel', use_scipy=True, verbose=False):
     from numpy import pi
-
-    from sympy import cos, sin, Tuple, sqrt
-
-    from sympde.topology import Square, Domain
-    from sympde.topology.analytical_mapping import PolarMapping, TargetMapping
-    from sympde.topology import Derham
-    from sympde.topology import elements_of, element_of
-    from sympde.topology.mapping import Mapping
     from sympde.calculus import dot
-    from sympde.expr import integral
-    from sympde.expr import BilinearForm, LinearForm
+    from sympde.expr import BilinearForm, LinearForm, integral
+    from sympde.topology import Derham, Domain, Square, element_of, elements_of
+    from sympde.topology.analytical_mapping import PolarMapping, TargetMapping
+    from sympde.topology.mapping import Mapping
+    from sympy import Tuple, cos, sin, sqrt
 
     from psydac.api.discretization import discretize
     from psydac.api.settings import PSYDAC_BACKENDS
-    from psydac.feec.pull_push import push_2d_hcurl, push_2d_l2
-    from psydac.utilities.utils import refine_array_1d
-    from psydac.linalg.solvers import inverse
-    from psydac.linalg.basic import IdentityOperator
-    from psydac.mapping.discrete import SplineMapping
     from psydac.cad.geometry import Geometry
+    from psydac.feec.pull_push import push_2d_hcurl, push_2d_l2
+    from psydac.linalg.basic import IdentityOperator
+    from psydac.linalg.solvers import inverse
+    from psydac.mapping.discrete import SplineMapping
+    from psydac.utilities.utils import refine_array_1d
 
     assert splitting_order in [2, 4]
 
-    from psydac.feec.polar.conga_projections import C0PolarProjection_V1, C0PolarProjection_V2, C1PolarProjection_V1
-
     from analyticalTE import CircularCavitySolution  # , constant_field
     from waveTE import GaussianSolution
+
+    from psydac.feec.polar.conga_projections import (
+        C0PolarProjection_V1,
+        C0PolarProjection_V2,
+        C1PolarProjection_V1,
+    )
 
     backend = PSYDAC_BACKENDS['pyccel-gcc']
 
@@ -563,10 +565,11 @@ def run_maxwell_2d_TE(*, ncells, smooth, degree, nsteps, tend,
         print(" For the moment, commenting out that line solves the issue.")
         print(" ------------------------------------------- ")
 
-        from scipy.sparse.linalg     import inv as sp_inv
-        from scipy.sparse            import csc_matrix
+        from scipy.sparse import csc_matrix
+        from scipy.sparse.linalg import inv as sp_inv
+
+        from psydac.linalg.basic import MatrixFreeLinearOperator
         from psydac.linalg.utilities import array_to_psydac
-        from psydac.linalg.basic     import MatrixFreeLinearOperator
 
         conga_curl_sp   = (D1 @ P1).tosparse()
         strong_curl_sp  = conga_curl_sp

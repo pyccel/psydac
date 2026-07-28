@@ -1,11 +1,12 @@
+import matplotlib.pyplot as plt
+import numpy as np
+from numpy import pi
 from sympde.topology import Square
 from sympde.topology.analytical_mapping import PolarMapping
 
 from psydac.api.tests.test_api_feec_2d import add_colorbar
 from psydac.feec.pull_push import push_2d_hcurl, push_2d_l2
-from numpy import pi
-import numpy as np
-import matplotlib.pyplot as plt
+
 
 class CircularCavitySolution:
     """
@@ -69,7 +70,7 @@ class CircularCavitySolution:
         """
         if s_factor: multiply by s (as in logical field)
         """
-        from numpy import sin, cos
+        from numpy import cos, sin
         from scipy.special import jvp
 
         scale = self.scale
@@ -121,7 +122,7 @@ class CircularCavitySolution:
     # physical field
 
     def get_radius_angle(self, x, y):
-        from numpy import sqrt, arctan2  # ,  sin, cos
+        from numpy import arctan2, sqrt  # ,  sin, cos
         r = sqrt(x * x + y * y)
         alpha = arctan2(y, x)
         return r, alpha

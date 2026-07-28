@@ -1,15 +1,16 @@
 import numpy as np
 from numpy import pi
-
-from scipy.linalg import toeplitz, matmul_toeplitz
-from scipy.sparse import coo_matrix, lil_matrix, spmatrix, eye as sp_eye
+from scipy.linalg import matmul_toeplitz, toeplitz
+from scipy.sparse import coo_matrix
+from scipy.sparse import eye as sp_eye
+from scipy.sparse import lil_matrix, spmatrix
 from scipy.sparse.linalg import inv as sp_inv
 
+from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import VectorFemSpace
-from psydac.linalg.basic     import LinearOperator, Vector
+from psydac.linalg.basic import LinearOperator, Vector
 from psydac.linalg.block import BlockLinearOperator
-from psydac.linalg.stencil   import StencilVector
-from psydac.fem.tensor       import TensorFemSpace
+from psydac.linalg.stencil import StencilVector
 from psydac.linalg.utilities import array_to_psydac
 
 
@@ -732,6 +733,7 @@ class C1PolarProjection_V0(LinearOperator):
             if x.space.parallel:
 
                 from mpi4py import MPI
+
                 # global averages
                 x0 = angle_comm.allreduce(x0, op=MPI.SUM)
                 x1 = angle_comm.allreduce(x1, op=MPI.SUM)

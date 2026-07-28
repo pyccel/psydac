@@ -1,20 +1,25 @@
 import numpy as np
-from numpy import pi
-
 import pytest
-from sympde import ScalarFunctionSpace, VectorFunctionSpace
-
 from mpi4py import MPI
-
+from numpy import pi
+from sympde import ScalarFunctionSpace, VectorFunctionSpace
 from sympde.topology import Square
 from sympde.topology.analytical_mapping import PolarMapping
 
 from psydac.api.discretization import discretize
-from psydac.feec.polar.conga_projections import C0PolarProjection_V0, C0PolarProjection_V2, C0PolarProjection_V1, \
-    C1PolarProjection_V0, C1PolarProjection_V1
-from psydac.utilities.gather_variable_len_arrays import gather_vlen_array, gather_vlen_arrays
+from psydac.feec.polar.conga_projections import (
+    C0PolarProjection_V0,
+    C0PolarProjection_V1,
+    C0PolarProjection_V2,
+    C1PolarProjection_V0,
+    C1PolarProjection_V1,
+)
 from psydac.fem.basic import FemField
 from psydac.linalg.block import BlockVector
+from psydac.utilities.gather_variable_len_arrays import (
+    gather_vlen_array,
+    gather_vlen_arrays,
+)
 
 ATOL = 1e-12
 RTOL = 1e-12

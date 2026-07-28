@@ -11,39 +11,40 @@ mpirun -n 2 python poisson_2d.py -S -n 8 10 -d 2 2 -t disk -D 0.2 -m 'C0conga'
 """
 
 from dataclasses import dataclass
+from time import sleep, time
 
+import matplotlib.pyplot as plt
+import numpy as np
 import sympy
 from mpi4py import MPI
-from time import time, sleep
-
-import numpy as np
-import matplotlib.pyplot as plt
-from sympy import sin, cos, pi, Rational
-
-from sympde.topology.analytical_mapping import TargetMapping, CzarnyMapping
-from sympde.topology.domain import Square, Domain
-from sympde.topology import ScalarFunctionSpace, elements_of
-from sympde.expr import BilinearForm, LinearForm, integral
 from sympde.calculus import dot, grad
+from sympde.expr import BilinearForm, LinearForm, integral
+from sympde.topology import ScalarFunctionSpace, elements_of
+from sympde.topology.analytical_mapping import CzarnyMapping, TargetMapping
+from sympde.topology.domain import Domain, Square
 from sympde.topology.mapping import Mapping
+from sympy import Rational, cos, pi, sin
 
 from psydac.api.discretization import discretize
-from psydac.feec.polar.examples.utils_congapol import add_colorbar, create_tensor_spline_space
-from psydac.linalg.stencil import StencilVector, StencilMatrix
-from psydac.linalg.basic import LinearOperator
-from psydac.linalg.solvers import inverse
-from psydac.fem.tensor import TensorFemSpace
-from psydac.fem.basic import FemField
-from psydac.mapping.discrete import SplineMapping
-from psydac.utilities.utils import refine_array_1d
+from psydac.api.settings import PSYDAC_BACKENDS
 from psydac.cad.geometry import Geometry
 from psydac.ddm.cart import DomainDecomposition
-
+from psydac.feec.polar.conga_projections import (
+    C0PolarProjection_V0,
+    C1PolarProjection_V0,
+)
+from psydac.feec.polar.examples.utils_congapol import (
+    add_colorbar,
+    create_tensor_spline_space,
+)
+from psydac.fem.basic import FemField
+from psydac.fem.tensor import TensorFemSpace
+from psydac.linalg.basic import LinearOperator
+from psydac.linalg.solvers import inverse
+from psydac.linalg.stencil import StencilMatrix, StencilVector
+from psydac.mapping.discrete import SplineMapping
 from psydac.polar.c1_projections import C1Projector
-
-from psydac.api.settings import PSYDAC_BACKENDS
-
-from psydac.feec.polar.conga_projections import C0PolarProjection_V0, C1PolarProjection_V0
+from psydac.utilities.utils import refine_array_1d
 
 backend = PSYDAC_BACKENDS['pyccel-gcc']
 
@@ -64,7 +65,7 @@ class Laplacian:
 
     # ...
     def __call__(self, phi):
-        from sympy import sqrt, Matrix
+        from sympy import Matrix, sqrt
 
         u = self._eta
         G = self._metric
