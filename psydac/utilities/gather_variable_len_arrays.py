@@ -4,22 +4,23 @@ from mpi4py.util.dtlib import from_numpy_dtype
 
 def gather_vlen_arrays(arrays, mpi_comm, mpi_root=0):
     """
-    Gather several 1D NumPy arrays of the same local length onto root process. Length may vary between processes.
+    Gather several 1D NumPy arrays of the same local length onto root process.
+    Return None on the other processes. Length may vary between processes.
 
     Parameters
     ----------
     arrays : iterable of 1D arrays
         All local arrays must have the same length and dtype
         All ranks must pass the same number of arrays
-    mpi_comm : MPI communicator
+    mpi_comm : mpi4py.MPI.Comm
+        MPI communicator.
     mpi_root : int, default=0
+        Rank of root process in MPI communicator.
 
     Returns
     -------
-    On root:
-        tuple of gathered 1D arrays
-    On other ranks:
-        None
+    tuple[int, ...] or None
+        On root, tuple of gathered 1D arrays. None on the other processes.
     """
 
     rank = mpi_comm.rank
