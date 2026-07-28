@@ -1211,4 +1211,23 @@ class C1PolarProjection_V1(BlockLinearOperator):
 
 
 # -------------- 2-FORMS CONGA PROJECTOR P2 ----------------#
-# Equals C0PolarProjection_V2
+class C1PolarProjection_V2(C0PolarProjection_V2):
+    """
+    CONGA Projector P2 from the full spline space S^{p1-1, p2-1} on logical
+    domain to U2, the pre-polar 2-forms splines. The associate matrix
+    is square, as in the CONGA approach we keep using the tensor B-spline basis,
+    instead of the polar basis of Toshniwal. P2 enforces coefficient relations
+    to be in U2.
+
+    Parameters:
+    -----------
+
+    W2 : TensorFemSpace
+         Full tensor product spline space of the 2-forms S^{p1-1, p2-1}
+
+    transposed : Boolean
+         Switch between P2 and P2 transposed (default is False)
+    """
+
+    def transpose(self, conjugate=False):
+        return C1PolarProjection_V2(self.W2, transposed=not self.transposed)

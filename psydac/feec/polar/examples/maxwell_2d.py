@@ -204,6 +204,7 @@ def run_maxwell_2d_TE(
         C0PolarProjection_V1,
         C0PolarProjection_V2,
         C1PolarProjection_V1,
+        C1PolarProjection_V2,
     )
 
     backend = PSYDAC_BACKENDS["pyccel-gcc"]
@@ -565,7 +566,7 @@ def run_maxwell_2d_TE(
         P2 = C0PolarProjection_V2(V2_h)
     else:
         P1 = C1PolarProjection_V1(V1_h, hbc=True)
-        P2 = C0PolarProjection_V2(V2_h)
+        P2 = C1PolarProjection_V2(V2_h)
     P1_T = P1.T
     P2_T = P2.T
 
