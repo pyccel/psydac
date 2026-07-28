@@ -62,8 +62,8 @@ class C0PolarProjection_V0(LinearOperator):
         [s1, s2] = self.W0.coeff_space.starts
         [e1, e2] = self.W0.coeff_space.ends
         [n1, n2] = self.W0.coeff_space.npts
-        rank_at_polar_edge = (s1 == 0)
-        rank_at_outer_edge = (e1 == n1 - 1)
+        rank_at_polar_edge = s1 == 0
+        rank_at_outer_edge = e1 == n1 - 1
 
         if out is None:
             y = self.W0.coeff_space.zeros()
@@ -75,27 +75,29 @@ class C0PolarProjection_V0(LinearOperator):
 
         if rank_at_polar_edge:
             # compute sum of points with s = 0 for the process
-            local_sum = np.sum(x[0, s2:e2 + 1])
+            local_sum = np.sum(x[0, s2 : e2 + 1])
             if x.space.parallel:
                 from mpi4py import MPI
+
                 angle_comm = x.space.cart.subcomm[1]
                 local_sum = angle_comm.allreduce(local_sum, op=MPI.SUM)
-            #compute average of all points with s = 0
-            y[0, s2:e2 + 1] = local_sum / n2
-            y[1:e1 + 1, s2:e2 + 1] = x[1:e1 + 1, s2:e2 + 1]
+            # compute average of all points with s = 0
+            y[0, s2 : e2 + 1] = local_sum / n2
+            y[1 : e1 + 1, s2 : e2 + 1] = x[1 : e1 + 1, s2 : e2 + 1]
         else:
-            y[s1:e1 + 1, s2:e2 + 1] = x[s1:e1 + 1, s2:e2 + 1]
-
+            y[s1 : e1 + 1, s2 : e2 + 1] = x[s1 : e1 + 1, s2 : e2 + 1]
 
         if self.hbc:
             if rank_at_outer_edge:
-                y[e1, :] = 0.
+                y[e1, :] = 0.0
 
         y.update_ghost_regions()
         return y
 
     def transpose(self, conjugate=False):
-        return C0PolarProjection_V0(self.W0, transposed=not self.transposed, hbc=self.hbc)
+        return C0PolarProjection_V0(
+            self.W0, transposed=not self.transposed, hbc=self.hbc
+        )
 
     def tosparse(self):
 
@@ -105,8 +107,8 @@ class C0PolarProjection_V0(LinearOperator):
         [n1, n2] = self.W0.coeff_space.npts
         [s1, s2] = self.W0.coeff_space.starts
         [e1, e2] = self.W0.coeff_space.ends
-        rank_at_polar_edge = (s1 == 0)
-        rank_at_outer_edge = (e1 == n1 - 1)
+        rank_at_polar_edge = s1 == 0
+        rank_at_outer_edge = e1 == n1 - 1
         data, cols, rows = [], [], []
 
         # Assemble the matrix entries which contribute to the polar edge (s1 = 0)
@@ -133,7 +135,11 @@ class C0PolarProjection_V0(LinearOperator):
         rows = np.asarray(rows, dtype=np.int64)
         cols = np.asarray(cols, dtype=np.int64)
 
-        P = coo_matrix((data, (rows, cols)), shape=[n1 * n2, n1 * n2], dtype=self.W0.coeff_space.dtype)
+        P = coo_matrix(
+            (data, (rows, cols)),
+            shape=[n1 * n2, n1 * n2],
+            dtype=self.W0.coeff_space.dtype,
+        )
         P.eliminate_zeros()
 
         # P is symmetric so we always return P no matter self.transposed
@@ -154,6 +160,7 @@ class C0PolarProjection_V0(LinearOperator):
 #               |           |          |
 #               |   (1,0)   |   (1,1)  |
 #               |___________|__________|
+
 
 class C0PolarProjection_V1_00(LinearOperator):
     """
@@ -205,7 +212,7 @@ class C0PolarProjection_V1_00(LinearOperator):
             out *= 0
             y = out
 
-        y[s1:e1+1, s2:e2+1] = x[s1:e1+1, s2:e2+1]
+        y[s1 : e1 + 1, s2 : e2 + 1] = x[s1 : e1 + 1, s2 : e2 + 1]
 
         y.update_ghost_regions()
         return y
@@ -230,14 +237,17 @@ class C0PolarProjection_V1_00(LinearOperator):
 
         local_rows = np.asarray(local_rows, dtype=np.int64)
 
-        P = coo_matrix((data, (local_rows, local_rows)), shape=[n01 * n02, n01 * n02], dtype=self.domain.dtype)
+        P = coo_matrix(
+            (data, (local_rows, local_rows)),
+            shape=[n01 * n02, n01 * n02],
+            dtype=self.domain.dtype,
+        )
         P.eliminate_zeros()
 
         return P
 
     def toarray(self):
         return self.tosparse().toarray()
-
 
 
 class C0PolarProjection_V1_10(LinearOperator):
@@ -284,7 +294,7 @@ class C0PolarProjection_V1_10(LinearOperator):
         # The number of radial basis functions is one less than the number on the angular basis functions along dir x1
         [s1, s2] = self.domain.starts
         [e1, e2] = self.domain.ends
-        rank_at_polar_edge = (s1 == 0)
+        rank_at_polar_edge = s1 == 0
 
         if out is None:
             y = self.codomain.zeros()
@@ -294,15 +304,15 @@ class C0PolarProjection_V1_10(LinearOperator):
             out *= 0
             y = out
 
-        y[s1:e1 + 1, s2:e2 + 1] = 0
+        y[s1 : e1 + 1, s2 : e2 + 1] = 0
 
         if self.transposed:
             if rank_at_polar_edge:
-                y[0, s2:e2 + 1] = x[1, s2 - 1:e2] - x[1, s2:e2 + 1]
+                y[0, s2 : e2 + 1] = x[1, s2 - 1 : e2] - x[1, s2 : e2 + 1]
         else:
             if rank_at_polar_edge:
                 # the cells are periodic in angular dim, so we use ghost regions
-                y[1, s2:e2 + 1] = x[0, s2 + 1:e2 + 2] - x[0, s2:e2 + 1]
+                y[1, s2 : e2 + 1] = x[0, s2 + 1 : e2 + 2] - x[0, s2 : e2 + 1]
 
         y.update_ghost_regions()
         return y
@@ -320,7 +330,7 @@ class C0PolarProjection_V1_10(LinearOperator):
         [n11, n12] = self.codomain.npts
         s1, s2 = self.domain.starts
         e1, e2 = self.codomain.ends
-        rank_at_polar_edge = (s1 == 0)
+        rank_at_polar_edge = s1 == 0
 
         data, cols, rows = [], [], []
 
@@ -336,7 +346,7 @@ class C0PolarProjection_V1_10(LinearOperator):
                 cols = np.column_stack((k, (k - 1) % n12)).ravel() + n12
             else:
                 rows = np.repeat(np.arange(s2, e2 + 1), 2) + n12
-                cols = np.column_stack((k, (k + 1) % n12 )).ravel()
+                cols = np.column_stack((k, (k + 1) % n12)).ravel()
 
         dtype = self.domain.dtype
         rows = np.asarray(rows, dtype=np.int64)
@@ -398,8 +408,8 @@ class C0PolarProjection_V1_11(LinearOperator):
         [s1, s2] = self.codomain.starts
         [e1, e2] = self.codomain.ends
         [n1, n2] = self.codomain.npts
-        rank_at_polar_edge = (s1 == 0)
-        rank_at_outer_edge = (e1 == n1 - 1)
+        rank_at_polar_edge = s1 == 0
+        rank_at_outer_edge = e1 == n1 - 1
 
         if out is None:
             y = self.W1.coeff_space[1].zeros()
@@ -409,20 +419,22 @@ class C0PolarProjection_V1_11(LinearOperator):
             out *= 0
             y = out
         if rank_at_polar_edge:
-            y[0, s2:e2 + 1] = 0
-            y[1, s2:e2 + 1] = 0
-            y[2:e1 + 1, s2:e2 + 1] = x[2:e1 + 1, s2:e2 + 1]  # Identity block
+            y[0, s2 : e2 + 1] = 0
+            y[1, s2 : e2 + 1] = 0
+            y[2 : e1 + 1, s2 : e2 + 1] = x[2 : e1 + 1, s2 : e2 + 1]  # Identity block
         else:
-            y[s1:e1 + 1, s2:e2 + 1] = x[s1:e1 + 1, s2:e2 + 1]
+            y[s1 : e1 + 1, s2 : e2 + 1] = x[s1 : e1 + 1, s2 : e2 + 1]
 
         if self.hbc and rank_at_outer_edge:
-            y[e1, :] = 0.
+            y[e1, :] = 0.0
 
         y.update_ghost_regions()
         return y
 
     def transpose(self, conjugate=False):
-        return C0PolarProjection_V1_11(self.W1, transposed=not self.transposed, hbc=self.hbc)
+        return C0PolarProjection_V1_11(
+            self.W1, transposed=not self.transposed, hbc=self.hbc
+        )
 
     @property
     def T(self):
@@ -434,7 +446,7 @@ class C0PolarProjection_V1_11(LinearOperator):
         [e1, e2] = self.codomain.ends
         [n01, n02] = self.domain.npts
         [n11, n12] = self.codomain.npts
-        rank_at_outer_edge = (e1 == n01 - 1)
+        rank_at_outer_edge = e1 == n01 - 1
         dtype = self.domain.dtype
 
         # identity block of size n12(n12 - 2)
@@ -448,10 +460,11 @@ class C0PolarProjection_V1_11(LinearOperator):
         local_rows = (i * n02 + j).ravel()
         local_rows = np.asarray(local_rows, dtype=np.int64)
 
-        P = coo_matrix((data, (local_rows, local_rows)), shape=[n11 * n12, n01 * n02], dtype=dtype)
+        P = coo_matrix(
+            (data, (local_rows, local_rows)), shape=[n11 * n12, n01 * n02], dtype=dtype
+        )
         P.eliminate_zeros()
         return P
-
 
     def toarray(self):
         return self.tosparse().toarray()
@@ -481,7 +494,7 @@ class C0PolarProjection_V1(BlockLinearOperator):
 
     def __init__(self, W1, transposed=False, hbc=False):
         assert isinstance(W1, VectorFemSpace)
-        assert W1.symbolic_space.kind.name == 'hcurl'
+        assert W1.symbolic_space.kind.name == "hcurl"
 
         T1 = W1.coeff_space
 
@@ -495,7 +508,6 @@ class C0PolarProjection_V1(BlockLinearOperator):
         self.W1 = W1
         self.transposed = transposed
         self.hbc = hbc
-
 
     @property
     def T(self):
@@ -548,7 +560,7 @@ class C0PolarProjection_V2(LinearOperator):
         [s1, s2] = self.W2.coeff_space.starts
         [e1, e2] = self.W2.coeff_space.ends
         [n1, n2] = self.W2.coeff_space.npts
-        rank_at_polar_edge = (s1 == 0)
+        rank_at_polar_edge = s1 == 0
 
         if out is None:
             y = self.W2.coeff_space.zeros()
@@ -560,20 +572,19 @@ class C0PolarProjection_V2(LinearOperator):
 
         if self.transposed:
             if rank_at_polar_edge:
-                y[0, s2:e2 + 1] = x[1, s2:e2 + 1]
-                y[1, s2:e2 + 1] = x[1, s2:e2 + 1]
-                y[2:e1 + 1, s2:e2 + 1] = x[2:e1 + 1, s2:e2 + 1]
+                y[0, s2 : e2 + 1] = x[1, s2 : e2 + 1]
+                y[1, s2 : e2 + 1] = x[1, s2 : e2 + 1]
+                y[2 : e1 + 1, s2 : e2 + 1] = x[2 : e1 + 1, s2 : e2 + 1]
             else:
-                y[s1:e1 + 1, s2:e2 + 1] = x[s1:e1 + 1, s2:e2 + 1]
+                y[s1 : e1 + 1, s2 : e2 + 1] = x[s1 : e1 + 1, s2 : e2 + 1]
 
         else:
             if rank_at_polar_edge:
-                y[0, s2:e2 + 1] = 0
-                y[1, s2:e2 + 1] = x[0, s2:e2 + 1] + x[1, s2:e2 + 1]
-                y[2:e1 + 1, s2:e2 + 1] = x[2:e1 + 1, s2:e2 + 1]
+                y[0, s2 : e2 + 1] = 0
+                y[1, s2 : e2 + 1] = x[0, s2 : e2 + 1] + x[1, s2 : e2 + 1]
+                y[2 : e1 + 1, s2 : e2 + 1] = x[2 : e1 + 1, s2 : e2 + 1]
             else:
-                y[s1:e1 + 1, s2:e2 + 1] = x[s1:e1 + 1, s2:e2 + 1]
-
+                y[s1 : e1 + 1, s2 : e2 + 1] = x[s1 : e1 + 1, s2 : e2 + 1]
 
         y.update_ghost_regions()
         return y
@@ -609,7 +620,11 @@ class C0PolarProjection_V2(LinearOperator):
         rows = np.asarray(rows, dtype=np.int64)
         cols = np.asarray(cols, dtype=np.int64)
 
-        P = coo_matrix((data, (rows, cols)), shape=(n1 * n2, n1 * n2), dtype=self.W2.coeff_space.dtype)
+        P = coo_matrix(
+            (data, (rows, cols)),
+            shape=(n1 * n2, n1 * n2),
+            dtype=self.W2.coeff_space.dtype,
+        )
         P.eliminate_zeros()
 
         return P
@@ -618,11 +633,10 @@ class C0PolarProjection_V2(LinearOperator):
         return self.tosparse().toarray()
 
 
-
-
 # =============================================================================#
 #                        C1 POLAR SPLINE COMPLEX (C1P)                        #
 # =============================================================================#
+
 
 def cos_sin_avg(theta, x, angle_comm, s2, e2, n2, i):
     """
@@ -633,8 +647,9 @@ def cos_sin_avg(theta, x, angle_comm, s2, e2, n2, i):
     then sum over all processes
     """
     from mpi4py import MPI
-    sum_cos = (2 / n2) * np.dot(np.cos(theta), x[i, s2:e2 + 1])
-    sum_sin = (2 / n2) * np.dot(np.sin(theta), x[i, s2:e2 + 1])
+
+    sum_cos = (2 / n2) * np.dot(np.cos(theta), x[i, s2 : e2 + 1])
+    sum_sin = (2 / n2) * np.dot(np.sin(theta), x[i, s2 : e2 + 1])
     buf = np.array([sum_cos, sum_sin])
 
     if angle_comm is not None:
@@ -644,12 +659,13 @@ def cos_sin_avg(theta, x, angle_comm, s2, e2, n2, i):
 
 # --------- 0-FORMS CONGA PROJECTOR P0 ----------#
 
+
 # matrix p in the paper notation
 def toeplitz_columns_sym(t, s2, e2, n2):
 
     i = np.arange(n2)[:, None]  # (n2, 1)
     j = np.arange(s2, e2 + 1)[None, :]  # (1, m)
-    idx = np.abs(i - j).ravel('F')  # (n2, m)
+    idx = np.abs(i - j).ravel("F")  # (n2, m)
     return np.cos(t[idx])
 
 
@@ -710,9 +726,9 @@ class C1PolarProjection_V0(LinearOperator):
         [s1, s2] = self.W0.coeff_space.starts
         [e1, e2] = self.W0.coeff_space.ends
         [n1, n2] = self.W0.coeff_space.npts
-        theta_local = np.linspace(s2 * 2 * pi / n2, e2 * 2 * pi / n2, e2  - s2 + 1)
-        rank_at_polar_edge = (s1 == 0)
-        rank_at_outer_edge = (e1 == n1 - 1)
+        theta_local = np.linspace(s2 * 2 * pi / n2, e2 * 2 * pi / n2, e2 - s2 + 1)
+        rank_at_polar_edge = s1 == 0
+        rank_at_outer_edge = e1 == n1 - 1
 
         if out is None:
             y = self.W0.coeff_space.zeros()
@@ -724,8 +740,8 @@ class C1PolarProjection_V0(LinearOperator):
 
         if rank_at_polar_edge:
             # compute sums of points with s = 0, 1 for the process
-            x0 = np.sum(x[0, s2:e2 + 1]) / n2
-            x1 = np.sum(x[1, s2:e2 + 1]) / n2
+            x0 = np.sum(x[0, s2 : e2 + 1]) / n2
+            x1 = np.sum(x[1, s2 : e2 + 1]) / n2
 
             angle_comm = x.space.cart.subcomm[1] if x.space.parallel else None
             sum_cos, sum_sin = cos_sin_avg(theta_local, x, angle_comm, s2, e2, n2, 1)
@@ -739,25 +755,35 @@ class C1PolarProjection_V0(LinearOperator):
                 x1 = angle_comm.allreduce(x1, op=MPI.SUM)
 
             if self.transposed:
-                y[0, s2:e2 + 1] = self.gamma * x0 + self.gamma * x1
-                y[1, s2:e2 + 1] = (1 - self.gamma) * x0 + (1 - self.gamma) * x1 + \
-                        np.cos(theta_local) * sum_cos + np.sin(theta_local) * sum_sin
+                y[0, s2 : e2 + 1] = self.gamma * x0 + self.gamma * x1
+                y[1, s2 : e2 + 1] = (
+                    (1 - self.gamma) * x0
+                    + (1 - self.gamma) * x1
+                    + np.cos(theta_local) * sum_cos
+                    + np.sin(theta_local) * sum_sin
+                )
             else:
-                y[0, s2:e2 + 1] = self.gamma * x0 + (1 - self.gamma) * x1
-                y[1, s2:e2 + 1] = self.gamma * x0 + (1 - self.gamma) * x1 + \
-                        np.cos(theta_local) * sum_cos + np.sin(theta_local) * sum_sin
-            y[2:e1 + 1, s2:e2 + 1] = x[2:e1 + 1, s2:e2 + 1]
+                y[0, s2 : e2 + 1] = self.gamma * x0 + (1 - self.gamma) * x1
+                y[1, s2 : e2 + 1] = (
+                    self.gamma * x0
+                    + (1 - self.gamma) * x1
+                    + np.cos(theta_local) * sum_cos
+                    + np.sin(theta_local) * sum_sin
+                )
+            y[2 : e1 + 1, s2 : e2 + 1] = x[2 : e1 + 1, s2 : e2 + 1]
         else:
-            y[s1:e1 + 1, s2:e2 + 1] = x[s1:e1 + 1, s2:e2 + 1]
+            y[s1 : e1 + 1, s2 : e2 + 1] = x[s1 : e1 + 1, s2 : e2 + 1]
 
         if self.hbc and rank_at_outer_edge:
-            y[e1, :] = 0.
+            y[e1, :] = 0.0
 
         y.update_ghost_regions()
         return y
 
     def transpose(self, conjugate=False):
-        return C1PolarProjection_V0(self.W0, gamma=self.gamma, transposed=not self.transposed, hbc=self.hbc)
+        return C1PolarProjection_V0(
+            self.W0, gamma=self.gamma, transposed=not self.transposed, hbc=self.hbc
+        )
 
     @property
     def T(self):
@@ -770,15 +796,17 @@ class C1PolarProjection_V0(LinearOperator):
         [e1, e2] = self.W0.coeff_space.ends
         theta = np.linspace(0, 2 * pi, n2, endpoint=False)
 
-        rank_at_polar_edge = (s1 == 0)
-        rank_at_outer_edge = (e1 == n1 - 1)
+        rank_at_polar_edge = s1 == 0
+        rank_at_outer_edge = e1 == n1 - 1
         data, cols, rows = [], [], []
 
         if rank_at_polar_edge:
             # matrix of size n2*n2 with all entries equal to gamma / n2
             data = (self.gamma / n2) * np.ones(n2 * (e2 - s2 + 1))
             # matrix of size n2*n2 with all entries equal to (1 - gamma) / n2
-            data = np.concatenate((data, (1 - self.gamma) / n2 * np.ones((e2 - s2 + 1) * n2)))
+            data = np.concatenate(
+                (data, (1 - self.gamma) / n2 * np.ones((e2 - s2 + 1) * n2))
+            )
             rows = np.tile(np.repeat(np.arange(s2, e2 + 1), n2), 2)
             cols = np.tile(np.arange(n2), e2 - s2 + 1)
             cols = np.concatenate((cols, np.tile(np.arange(n2, 2 * n2), e2 - s2 + 1)))
@@ -786,14 +814,19 @@ class C1PolarProjection_V0(LinearOperator):
             # matrix of size n2*n2 with all entries equal to gamma / n2
             d_block2 = (self.gamma / n2) * np.ones((e2 - s2 + 1) * n2)
             data = np.concatenate((data, d_block2))
-            rows = np.concatenate((rows, np.repeat(np.arange(n2 + s2, n2 + e2 + 1), n2)))
+            rows = np.concatenate(
+                (rows, np.repeat(np.arange(n2 + s2, n2 + e2 + 1), n2))
+            )
             cols = np.concatenate((cols, np.tile(np.arange(n2), e2 - s2 + 1)))
 
             # matrix p
-            d_block2 = (1 - self.gamma) / n2 * np.ones((e2 - s2 + 1) * n2) + \
-                       2 / n2 * toeplitz_columns_sym(theta, s2, e2, n2)
+            d_block2 = (1 - self.gamma) / n2 * np.ones(
+                (e2 - s2 + 1) * n2
+            ) + 2 / n2 * toeplitz_columns_sym(theta, s2, e2, n2)
             data = np.concatenate((data, d_block2))
-            rows = np.concatenate((rows, np.repeat(np.arange(n2 + s2, n2 + e2 + 1), n2)))
+            rows = np.concatenate(
+                (rows, np.repeat(np.arange(n2 + s2, n2 + e2 + 1), n2))
+            )
             cols = np.concatenate((cols, np.tile(np.arange(n2, 2 * n2), e2 - s2 + 1)))
 
         # Assemble the rest of the matrix (identity block)
@@ -810,7 +843,11 @@ class C1PolarProjection_V0(LinearOperator):
         rows = np.asarray(rows, dtype=np.int64)
         cols = np.asarray(cols, dtype=np.int64)
 
-        P = coo_matrix((data, (rows, cols)), shape=[n1 * n2, n1 * n2], dtype=self.W0.coeff_space.dtype)
+        P = coo_matrix(
+            (data, (rows, cols)),
+            shape=[n1 * n2, n1 * n2],
+            dtype=self.W0.coeff_space.dtype,
+        )
         P.eliminate_zeros()
 
         return P.T if self.transposed else P
@@ -830,6 +867,7 @@ class C1PolarProjection_V0(LinearOperator):
 #               |           |          |
 #               |   (1,0)   |   (1,1)  |
 #               |___________|__________|
+
 
 class C1PolarProjection_V1_00(LinearOperator):
     """
@@ -869,8 +907,8 @@ class C1PolarProjection_V1_00(LinearOperator):
         [s1, s2] = self.domain.starts
         [e1, e2] = self.domain.ends
         [n1, n2] = self.domain.npts
-        theta_local = np.linspace(s2 * 2 * pi / n2, e2 * 2 * pi / n2, e2  - s2 + 1)
-        rank_at_polar_edge = (s1 == 0)
+        theta_local = np.linspace(s2 * 2 * pi / n2, e2 * 2 * pi / n2, e2 - s2 + 1)
+        rank_at_polar_edge = s1 == 0
 
         if out is None:
             y = self.codomain.zeros()
@@ -885,17 +923,28 @@ class C1PolarProjection_V1_00(LinearOperator):
             sum_cos0, sum_sin0 = cos_sin_avg(theta_local, x, angle_comm, s2, e2, n2, 0)
 
             if self.transposed:
-                sum_cos1, sum_sin1 = cos_sin_avg(theta_local, x, angle_comm, s2, e2, n2, 1)
-                y[0, s2:e2 + 1] = sum_cos0 * np.cos(theta_local) + sum_sin0 * np.sin(theta_local) +\
-                    x[1, s2:e2 + 1] - sum_cos1 * np.cos(theta_local) - sum_sin1 * np.sin(theta_local)
-                y[1, s2:e2 + 1] = x[1, s2:e2 + 1]
+                sum_cos1, sum_sin1 = cos_sin_avg(
+                    theta_local, x, angle_comm, s2, e2, n2, 1
+                )
+                y[0, s2 : e2 + 1] = (
+                    sum_cos0 * np.cos(theta_local)
+                    + sum_sin0 * np.sin(theta_local)
+                    + x[1, s2 : e2 + 1]
+                    - sum_cos1 * np.cos(theta_local)
+                    - sum_sin1 * np.sin(theta_local)
+                )
+                y[1, s2 : e2 + 1] = x[1, s2 : e2 + 1]
             else:
-                y[0, s2:e2 + 1] = sum_cos0 * np.cos(theta_local) + sum_sin0 * np.sin(theta_local)
-                y[1, s2:e2 + 1] = x[0, s2:e2 + 1] + x[1, s2:e2 + 1] - y[0, s2:e2 + 1]
+                y[0, s2 : e2 + 1] = sum_cos0 * np.cos(theta_local) + sum_sin0 * np.sin(
+                    theta_local
+                )
+                y[1, s2 : e2 + 1] = (
+                    x[0, s2 : e2 + 1] + x[1, s2 : e2 + 1] - y[0, s2 : e2 + 1]
+                )
 
-            y[2:e1 + 1, s2:e2 + 1] = x[2:e1 + 1, s2:e2 + 1]
+            y[2 : e1 + 1, s2 : e2 + 1] = x[2 : e1 + 1, s2 : e2 + 1]
         else:
-            y[s1:e1 + 1, s2:e2 + 1] = x[s1:e1 + 1, s2:e2 + 1]
+            y[s1 : e1 + 1, s2 : e2 + 1] = x[s1 : e1 + 1, s2 : e2 + 1]
 
         y.update_ghost_regions()
         return y
@@ -915,10 +964,10 @@ class C1PolarProjection_V1_00(LinearOperator):
         [e1, e2] = self.domain.ends
 
         data, cols, rows = [], [], []
-        rank_at_polar_edge = (s1 == 0)
+        rank_at_polar_edge = s1 == 0
 
         if rank_at_polar_edge:
-            #block p
+            # block p
             data = (2 / n02) * toeplitz_columns_sym(theta, s2, e2, n02)
             # block I - p
             i_minus_p = -1 * data.copy()
@@ -949,7 +998,9 @@ class C1PolarProjection_V1_00(LinearOperator):
         rows = np.asarray(rows, dtype=np.int64)
         cols = np.asarray(cols, dtype=np.int64)
 
-        P = coo_matrix((data, (rows, cols)), shape=[n01 * n02, n01 * n02], dtype=self.domain.dtype)
+        P = coo_matrix(
+            (data, (rows, cols)), shape=[n01 * n02, n01 * n02], dtype=self.domain.dtype
+        )
         P.eliminate_zeros()
 
         return P.T if self.transposed else P
@@ -1011,7 +1062,9 @@ class C1PolarProjection_V1_10(LinearOperator):
         left_rank = (rank - 1) % size
 
         recvbuf = np.empty(1, dtype=z.dtype)
-        angle_comm.Sendrecv(sendbuf=z[0], dest=left_rank, recvbuf=recvbuf, source=right_rank)
+        angle_comm.Sendrecv(
+            sendbuf=z[0], dest=left_rank, recvbuf=recvbuf, source=right_rank
+        )
 
         result[-1] = recvbuf[0] - z[-1]
         return result
@@ -1026,8 +1079,8 @@ class C1PolarProjection_V1_10(LinearOperator):
         [s1, s2] = self.domain.starts
         [e1, e2] = self.domain.ends
         [n1, n2] = self.domain.npts
-        theta_local = np.linspace(s2 * 2 * pi / n2, e2 * 2 * pi / n2, e2  - s2 + 1)
-        rank_at_polar_edge = (s1 == 0)
+        theta_local = np.linspace(s2 * 2 * pi / n2, e2 * 2 * pi / n2, e2 - s2 + 1)
+        rank_at_polar_edge = s1 == 0
 
         if out is None:
             y = self.codomain.zeros()
@@ -1041,19 +1094,24 @@ class C1PolarProjection_V1_10(LinearOperator):
             angle_comm = x.space.cart.subcomm[1] if x.space.parallel else None
 
             if self.transposed:
-                y[0, s2:e2 + 1] = x[1, s2 - 1:e2] - x[1, s2:e2 + 1]
-                sum_cos, sum_sin = cos_sin_avg(theta_local, y, angle_comm, s2, e2, n2, 0)
-                y[0, s2:e2 + 1] = np.cos(theta_local) * sum_cos + np.sin(theta_local) * sum_sin
-                y[1:e1 + 1, s2:e2 + 1] = 0
+                y[0, s2 : e2 + 1] = x[1, s2 - 1 : e2] - x[1, s2 : e2 + 1]
+                sum_cos, sum_sin = cos_sin_avg(
+                    theta_local, y, angle_comm, s2, e2, n2, 0
+                )
+                y[0, s2 : e2 + 1] = (
+                    np.cos(theta_local) * sum_cos + np.sin(theta_local) * sum_sin
+                )
+                y[1 : e1 + 1, s2 : e2 + 1] = 0
             else:
-                y[0, s2:e2 + 1] = 0
-                sum_cos, sum_sin = cos_sin_avg(theta_local, x, angle_comm, s2, e2, n2, 0)
+                y[0, s2 : e2 + 1] = 0
+                sum_cos, sum_sin = cos_sin_avg(
+                    theta_local, x, angle_comm, s2, e2, n2, 0
+                )
                 row = np.cos(theta_local) * sum_cos + np.sin(theta_local) * sum_sin
-                y[1, s2:e2 + 1] = self.forward_theta_diff_local(row, angle_comm)
-                y[2:e1 + 1, s2:e2 + 1] = 0
+                y[1, s2 : e2 + 1] = self.forward_theta_diff_local(row, angle_comm)
+                y[2 : e1 + 1, s2 : e2 + 1] = 0
         else:
-            y[s1:e1 + 1, s2:e2 + 1] = 0
-
+            y[s1 : e1 + 1, s2 : e2 + 1] = 0
 
         y.update_ghost_regions()
         return y
@@ -1079,7 +1137,7 @@ class C1PolarProjection_V1_10(LinearOperator):
         [s1, s2] = domain_P1_10.starts
         [e1, e2] = domain_P1_10.ends
 
-        rank_at_polar_edge = (s1 == 0)
+        rank_at_polar_edge = s1 == 0
         data, cols, rows = [], [], []
         if rank_at_polar_edge:
             local_j = np.arange(s2, e2 + 1)  # rows
@@ -1096,18 +1154,19 @@ class C1PolarProjection_V1_10(LinearOperator):
             p = np.cos(theta[j - i])
             p_next = np.cos(theta[(j + 1) % n02 - i])
             q = (2 / n02) * (p_next - p)
-            data = q.ravel(order='C')
+            data = q.ravel(order="C")
 
         rows = np.asarray(rows, dtype=np.int64)
         cols = np.asarray(cols, dtype=np.int64)
 
-        P = coo_matrix((data, (rows, cols)), shape=[n11 * n12, n01 * n02], dtype=self.domain.dtype)
+        P = coo_matrix(
+            (data, (rows, cols)), shape=[n11 * n12, n01 * n02], dtype=self.domain.dtype
+        )
 
         return P.T if self.transposed else P
 
     def toarray(self):
         return self.tosparse().toarray()
-
 
 
 class C1PolarProjection_V1(BlockLinearOperator):
@@ -1134,7 +1193,7 @@ class C1PolarProjection_V1(BlockLinearOperator):
 
     def __init__(self, W1, transposed=False, hbc=False):
         assert isinstance(W1, VectorFemSpace)
-        assert W1.symbolic_space.kind.name == 'hcurl'
+        assert W1.symbolic_space.kind.name == "hcurl"
 
         T1 = W1.coeff_space
 
@@ -1153,5 +1212,3 @@ class C1PolarProjection_V1(BlockLinearOperator):
 
 # -------------- 2-FORMS CONGA PROJECTOR P2 ----------------#
 # Equals C0PolarProjection_V2
-
-

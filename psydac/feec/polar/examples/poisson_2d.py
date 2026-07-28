@@ -46,7 +46,7 @@ from psydac.mapping.discrete import SplineMapping
 from psydac.polar.c1_projections import C1Projector
 from psydac.utilities.utils import refine_array_1d
 
-backend = PSYDAC_BACKENDS['pyccel-gcc']
+backend = PSYDAC_BACKENDS["pyccel-gcc"]
 
 
 # ==============================================================================
@@ -118,18 +118,18 @@ class Poisson2D:
         : code
         $\phi(x,y) = (1 - ((x^2 + y^2) / R^2) ** 4) * sin(kx * x) * cos(ky * y)$.
         """
-        domain_log = Square('Omega', bounds1=(0, R), bounds2=(0, 2 * np.pi))
+        domain_log = Square("Omega", bounds1=(0, R), bounds2=(0, 2 * np.pi))
         params = dict(c1=shift_D * R * R, c2=0, k=0, D=shift_D)
-        mapping = TargetMapping('TM', **params)
+        mapping = TargetMapping("TM", **params)
 
         # physical field (cf use of physical ref solution in Maxwell case)
-        k = params['k']
-        D = params['D']
+        k = params["k"]
+        D = params["D"]
         kx = 2 * pi / (R * (1 - k + D))
         ky = 2 * pi / (R * (1 + k))
-        x, y = sympy.symbols('x, y')
+        x, y = sympy.symbols("x, y")
         phi_phys = (1 - ((x * x + y * y) / (R * R)) ** 4) * sin(kx * x) * cos(ky * y)
-        rho_phys = - phi_phys.diff(x, x) - phi_phys.diff(y, y)
+        rho_phys = -phi_phys.diff(x, x) - phi_phys.diff(y, y)
 
         x_log, y_log = mapping.expressions
         phi_log = phi_phys.subs({x: x_log, y: y_log})
@@ -158,22 +158,22 @@ class Poisson2D:
 
         """
 
-        domain_log = Square('Omega', bounds1=(0, 1), bounds2=(0, 2 * np.pi))
+        domain_log = Square("Omega", bounds1=(0, 1), bounds2=(0, 2 * np.pi))
         params = dict(c1=0, c2=0, k=Rational(3, 10), D=Rational(2, 10))
-        mapping = TargetMapping('F', **params)
+        mapping = TargetMapping("F", **params)
 
         lapl = Laplacian(mapping)
         s, t = mapping.logical_coordinates
         x, y = mapping.expressions
 
         # Manufactured solution in logical coordinates
-        k = params['k']
-        D = params['D']
+        k = params["k"]
+        D = params["D"]
         kx = 2 * pi / (1 - k + D)
         ky = 2 * pi / (1 + k)
 
-        phi_log = (1 - s ** 8) * sin(kx * (x - 0.5)) * cos(ky * y)
-        rho_log = - lapl(phi_log)
+        phi_log = (1 - s**8) * sin(kx * (x - 0.5)) * cos(ky * y)
+        rho_log = -lapl(phi_log)
 
         return Poisson2D(domain_log, mapping, phi_log, rho_log)
 
@@ -190,17 +190,17 @@ class Poisson2D:
 
         """
 
-        domain_log = Square('Omega', bounds1=(0, 1), bounds2=(0, 2 * np.pi))
+        domain_log = Square("Omega", bounds1=(0, 1), bounds2=(0, 2 * np.pi))
         params = dict(c1=0, c2=0, eps=Rational(1, 5), b=Rational(7, 5))
-        mapping = CzarnyMapping('F', **params)
+        mapping = CzarnyMapping("F", **params)
 
         lapl = Laplacian(mapping)
         s, t = mapping.logical_coordinates
         x, y = mapping.expressions
 
         # Manufactured solution in logical coordinates
-        phi_log = (1 - s ** 8) * sin(pi * x) * cos(pi * y)
-        rho_log = - lapl(phi_log)
+        phi_log = (1 - s**8) * sin(pi * x) * cos(pi * y)
+        rho_log = -lapl(phi_log)
 
         return Poisson2D(domain_log, mapping, phi_log, rho_log)
 
@@ -230,6 +230,7 @@ class Poisson2D:
 
 
 # ====================== CONGA (PENALIZED) POISSON ============================#
+
 
 class CongaLaplacian(LinearOperator):
 
@@ -279,6 +280,7 @@ class CongaLaplacian(LinearOperator):
         n = self.W0.dimension
 
         from scipy.sparse import eye
+
         I = eye(n)
 
         A = alpha * (I - P).T @ M @ (I - P) + P.T @ S @ P
@@ -308,6 +310,7 @@ class CongaLaplacian(LinearOperator):
     def dtype(self):
         return float
 
+
 @dataclass
 class ErrorDiagnostics:
     ref_l2: float
@@ -315,35 +318,51 @@ class ErrorDiagnostics:
     rel_l2: float
     rel_h1: float
 
+
 ###############################################################################
 
-def run_poisson_2d(*, test_case, ncells, degree,
-                   shift_D, R, use_spline_mapping, smooth_method,
-                   cgtol, cgiter, alphaCONGA, verbose=False):
+
+def run_poisson_2d(
+    *,
+    test_case,
+    ncells,
+    degree,
+    shift_D,
+    R,
+    use_spline_mapping,
+    smooth_method,
+    cgtol,
+    cgiter,
+    alphaCONGA,
+    verbose=False,
+):
     timing = {}
-    timing['assembly'] = 0.0
-    timing['projection'] = 0.0
-    timing['solution'] = 0.0
-    timing['diagnostics'] = 0.0
-    timing['export'] = 0.0
+    timing["assembly"] = 0.0
+    timing["projection"] = 0.0
+    timing["solution"] = 0.0
+    timing["diagnostics"] = 0.0
+    timing["export"] = 0.0
 
     # Method of manufactured solution
-    if test_case == 'disk':
+    if test_case == "disk":
         model = Poisson2D.disk(R=R, shift_D=shift_D)
-    elif test_case == 'target':
+    elif test_case == "target":
         model = Poisson2D.target()
-    elif test_case == 'czarny':
+    elif test_case == "czarny":
         model = Poisson2D.czarny()
     else:
         raise ValueError("Only available test-cases are 'disk', 'target' and 'czarny'")
 
-    if smooth_method not in ('polar-std', 'polar-spec', 'C0conga', 'C1conga', 'None'):
+    if smooth_method not in ("polar-std", "polar-spec", "C0conga", "C1conga", "None"):
         raise ValueError(
-            "Only available options for pole smoothness are 'polar-spec', 'polar-std', 'C0conga', 'C1conga', 'None'")
+            "Only available options for pole smoothness are 'polar-spec', 'polar-std', 'C0conga', 'C1conga', 'None'"
+        )
 
-    if smooth_method == 'polar-spec' and (not use_spline_mapping):
-        print('WARNING: C1 conforming discretization only available for spline mappings')
-        print('The domain will be approximated in the 0-forms spline space.')
+    if smooth_method == "polar-spec" and (not use_spline_mapping):
+        print(
+            "WARNING: C1 conforming discretization only available for spline mappings"
+        )
+        print("The domain will be approximated in the 0-forms spline space.")
         print()
         use_spline_mapping = True
 
@@ -358,28 +377,33 @@ def run_poisson_2d(*, test_case, ncells, degree,
 
         # ==================== SPLINE SPACE FOR SPLINE MAPPINGS =======================#
 
-        V = create_tensor_spline_space(ncells, degree, periodic,
-                                       (model.domain_log.bounds1, model.domain_log.bounds2), mpi_comm)
+        V = create_tensor_spline_space(
+            ncells,
+            degree,
+            periodic,
+            (model.domain_log.bounds1, model.domain_log.bounds2),
+            mpi_comm,
+        )
 
-        #TODO: maybe define a parent class Model
+        # TODO: maybe define a parent class Model
 
         # ==================== MAPPING & PHYSICAL DOMAIN ==============================#
         # Create spline mapping by interpolation of analytical mapping
         map_analytic = model.mapping.get_callable_mapping()
         map_discrete = SplineMapping.from_mapping(V, map_analytic)
         # Create symbolic mapping with callable mapping as spline
-        mapping = Mapping('M', dim=2)
+        mapping = Mapping("M", dim=2)
         mapping.set_callable_mapping(map_discrete)
         # In order to create a sympde.Domain object from this mapping we have
         # to create first a HDF5 file and then load as sympde.Domain.fromfile
         t0 = time()
         geometry = Geometry.from_discrete_mapping(map_discrete, comm=mpi_comm)
-        geometry.export('geo.h5')
+        geometry.export("geo.h5")
         t1 = time()
-        timing['export'] += t1 - t0
-        domain = Domain.from_file('geo.h5')
+        timing["export"] += t1 - t0
+        domain = Domain.from_file("geo.h5")
 
-        #check_regular_ring_map(map_discrete)
+        # check_regular_ring_map(map_discrete)
 
     else:
         # Only symbolic mapping is necessary
@@ -389,8 +413,8 @@ def run_poisson_2d(*, test_case, ncells, degree,
     # ========================== SYMBOLIC DEFINITION ==============================#
 
     # Equations
-    V0 = ScalarFunctionSpace('V0', domain)
-    u0, v0 = elements_of(V0, names='u0, v0')
+    V0 = ScalarFunctionSpace("V0", domain)
+    u0, v0 = elements_of(V0, names="u0, v0")
     aM = BilinearForm((u0, v0), integral(domain, u0 * v0))
     aS = BilinearForm((u0, v0), integral(domain, dot(grad(u0), grad(v0))))
 
@@ -398,7 +422,7 @@ def run_poisson_2d(*, test_case, ncells, degree,
 
     # ============================= DISCRETIZATION ================================#
     if use_spline_mapping:
-        domain_h = discretize(domain, filename='geo.h5', comm=mpi_comm)
+        domain_h = discretize(domain, filename="geo.h5", comm=mpi_comm)
         V0_h = discretize(V0, domain_h)
         F = list(domain_h.mappings.values()).pop()
     else:
@@ -426,7 +450,6 @@ def run_poisson_2d(*, test_case, ncells, degree,
     phi_ref = Pi0(model.phi_log_callable)
     phi_ref.coeffs.update_ghost_regions()
 
-
     # ========================= HANDLING THE SINGULARITY ===========================#
 
     # If required by user, create C1 projector and then restrict
@@ -434,12 +457,12 @@ def run_poisson_2d(*, test_case, ncells, degree,
     t0 = time()
     bc = None
     Sc = None
-    if smooth_method == 'polar-spec':
+    if smooth_method == "polar-spec":
         proj = C1Projector(F)
         Sp = proj.change_matrix_basis(S)
         bp = proj.change_rhs_basis(b)
-        alpha = 'None'
-    if smooth_method == 'polar-std':
+        alpha = "None"
+    if smooth_method == "polar-std":
         # Build standard polar map from control points of standard polar map
         n1, n2 = [W.nbasis for W in V0_h.spaces]
         rho = np.array([i1 / (n1 - 1) for i1 in range(n1)])
@@ -455,22 +478,24 @@ def run_poisson_2d(*, test_case, ncells, degree,
         proj = C1Projector(F_std)
         Sp = proj.change_matrix_basis(S)
         bp = proj.change_rhs_basis(b)
-        alpha = 'None'
-    elif smooth_method == 'C1conga':
+        alpha = "None"
+    elif smooth_method == "C1conga":
         gamma = 1.0  # any value would be ok.
         alpha = alphaCONGA
-        P0 = C1PolarProjection_V0(V0_h, gamma=gamma, hbc=True)  # hbc imposes the boundary conditions
+        P0 = C1PolarProjection_V0(
+            V0_h, gamma=gamma, hbc=True
+        )  # hbc imposes the boundary conditions
         Sc = CongaLaplacian(S, M, P0, alpha)
         bc = P0.T.dot(b)
-    elif smooth_method == 'C0conga':
+    elif smooth_method == "C0conga":
         alpha = alphaCONGA
         P0 = C0PolarProjection_V0(V0_h, hbc=True)  # hbc imposes the boundary conditions
         Sc = CongaLaplacian(S, M, P0, alpha)
         bc = P0.T.dot(b)
-    elif smooth_method == 'None':
-        alpha = 'None'
+    elif smooth_method == "None":
+        alpha = "None"
     t1 = time()
-    timing['projection'] = t1 - t0
+    timing["projection"] = t1 - t0
 
     # Apply homogeneous Dirichlet boundary conditions for the conforming
     # smooth_method case 'polar' and non-conforming case 'None'
@@ -482,40 +507,40 @@ def run_poisson_2d(*, test_case, ncells, degree,
 
     e1 = V0_h.coeff_space.ends[0]
     if e1 == V0_h.coeff_space.npts[0] - 1:
-        if smooth_method in ('polar-std', 'polar-spec'):
+        if smooth_method in ("polar-std", "polar-spec"):
             last = bp[1].space.npts[0] - 1
-            Sp[1, 1][last, :, :, :] = 0.
-            Sp[1, 1][last, :, 0, 0] = 1.
-            bp[1][last, :] = 0.
-        elif smooth_method == 'None':
-            S[e1, :, :, :] = 0.
-            S[e1, :, 0, 0] = 1. #set diagonal entries to 1
-            b[e1, :] = 0. #RHS is 0 at the outer radial boundary
+            Sp[1, 1][last, :, :, :] = 0.0
+            Sp[1, 1][last, :, 0, 0] = 1.0
+            bp[1][last, :] = 0.0
+        elif smooth_method == "None":
+            S[e1, :, :, :] = 0.0
+            S[e1, :, 0, 0] = 1.0  # set diagonal entries to 1
+            b[e1, :] = 0.0  # RHS is 0 at the outer radial boundary
 
     # ====================== SOLVE GALERKIN SYSTEM WITH CG ========================#
 
     # Solve linear system
     t0 = time()
-    if smooth_method in ('polar-std', 'polar-spec'):
-        Sp_inv = inverse(Sp, 'cg', tol = cgtol, maxiter = cgiter, verbose=verbose)
+    if smooth_method in ("polar-std", "polar-spec"):
+        Sp_inv = inverse(Sp, "cg", tol=cgtol, maxiter=cgiter, verbose=verbose)
         xp = Sp_inv.dot(bp)
         xsol = proj.convert_to_tensor_basis(xp)
         info = Sp_inv.get_info()
-    elif smooth_method == 'C1conga':
-        Sc_inv = inverse(Sc, 'cg', tol=cgtol, maxiter=cgiter, verbose=verbose)
+    elif smooth_method == "C1conga":
+        Sc_inv = inverse(Sc, "cg", tol=cgtol, maxiter=cgiter, verbose=verbose)
         xsol = Sc_inv.dot(bc)
         info = Sc_inv.get_info()
-    elif smooth_method == 'C0conga':
-        Sc_inv = inverse(Sc, 'cg', tol=cgtol, maxiter=cgiter, verbose=verbose)
+    elif smooth_method == "C0conga":
+        Sc_inv = inverse(Sc, "cg", tol=cgtol, maxiter=cgiter, verbose=verbose)
         xsol = Sc_inv.dot(bc)
         info = Sc_inv.get_info()
-    elif smooth_method == 'None':
+    elif smooth_method == "None":
         pc = S.diagonal(inverse=True)
-        S_inv = inverse(S, 'cg', pc=pc, tol=cgtol, maxiter=cgiter, verbose=verbose)
+        S_inv = inverse(S, "cg", pc=pc, tol=cgtol, maxiter=cgiter, verbose=verbose)
         xsol = S_inv.dot(b)
         info = S_inv.get_info()
     t1 = time()
-    timing['solution'] = t1 - t0
+    timing["solution"] = t1 - t0
 
     # ========================= APPROXIMATION ERROR ===============================#
 
@@ -526,38 +551,46 @@ def run_poisson_2d(*, test_case, ncells, degree,
     t0 = time()
     errors = compute_errors(phi, phi_ref, M, S)
     t1 = time()
-    timing['diagnostics'] = t1 - t0
+    timing["diagnostics"] = t1 - t0
 
     # Write solution to HDF5 file
     t0 = time()
-    V0_h.export_fields('fields.h5', phi=phi)
+    V0_h.export_fields("fields.h5", phi=phi)
     t1 = time()
-    timing['export'] += t1 - t0
+    timing["export"] += t1 - t0
     # =============================== PRINTING INFO ===============================#
 
     # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     # Print some information to terminal
     for i in range(mpi_size):
         if i == mpi_rank:
-            print('--------------------------------------------------')
-            print(' RANK = {}'.format(mpi_rank))
-            print('--------------------------------------------------')
-            print('> Grid                :: [{ne1},{ne2}]'.format(ne1=ncells[0], ne2=ncells[1]))
-            print('> Degree              :: [{p1},{p2}]'.format(p1=degree[0], p2=degree[1]))
-            print('> Penalization alpha  :: {alpha} '.format(alpha=alpha))
-            print( '> CG info            :: ',info )
-            print('> L2 norm solution    :: {:.2e}'.format(errors.ref_l2))
-            print('> H1 norm solution    :: {:.2e}'.format(errors.ref_h1))
-            print('> L2 error (relative) :: {:.2e}'.format(errors.rel_l2))
-            print('> H1 error (relative) :: {:.2e}'.format(errors.rel_h1))
-            print('')
-            print('> Assembly time :: {:.2e}'.format(timing['assembly']))
+            print("--------------------------------------------------")
+            print(" RANK = {}".format(mpi_rank))
+            print("--------------------------------------------------")
+            print(
+                "> Grid                :: [{ne1},{ne2}]".format(
+                    ne1=ncells[0], ne2=ncells[1]
+                )
+            )
+            print(
+                "> Degree              :: [{p1},{p2}]".format(
+                    p1=degree[0], p2=degree[1]
+                )
+            )
+            print("> Penalization alpha  :: {alpha} ".format(alpha=alpha))
+            print("> CG info            :: ", info)
+            print("> L2 norm solution    :: {:.2e}".format(errors.ref_l2))
+            print("> H1 norm solution    :: {:.2e}".format(errors.ref_h1))
+            print("> L2 error (relative) :: {:.2e}".format(errors.rel_l2))
+            print("> H1 error (relative) :: {:.2e}".format(errors.rel_h1))
+            print("")
+            print("> Assembly time :: {:.2e}".format(timing["assembly"]))
             if smooth_method:
-                print('> Project. time :: {:.2e}'.format(timing['projection']))
-            print('> Solution time :: {:.2e}'.format(timing['solution']))
-            print('> Evaluat. time :: {:.2e}'.format(timing['diagnostics']))
-            print('> Export   time :: {:.2e}'.format(timing['export']))
-            print('', flush=True)
+                print("> Project. time :: {:.2e}".format(timing["projection"]))
+            print("> Solution time :: {:.2e}".format(timing["solution"]))
+            print("> Evaluat. time :: {:.2e}".format(timing["diagnostics"]))
+            print("> Export   time :: {:.2e}".format(timing["export"]))
+            print("", flush=True)
             sleep(0.001)
         mpi_comm.Barrier()
 
@@ -574,13 +607,14 @@ def run_poisson_2d(*, test_case, ncells, degree,
 
     return locals()
 
+
 def compute_errors(phi, phi_ref, M, S):
 
     # L2 and H1 norms
     ref_l2_2 = phi_ref.coeffs.inner(M.dot(phi_ref.coeffs))
     ref_h1_semi2 = phi_ref.coeffs.inner(S.dot(phi_ref.coeffs))
-    ref_l2 = np.sqrt(ref_l2_2) # L2 norm of ref solution
-    ref_h1 = np.sqrt(ref_h1_semi2 + ref_l2_2) # H1 norm of ref solution
+    ref_l2 = np.sqrt(ref_l2_2)  # L2 norm of ref solution
+    ref_h1 = np.sqrt(ref_h1_semi2 + ref_l2_2)  # H1 norm of ref solution
 
     # L2 and H1 errors
     phi_diff = phi_ref.coeffs - phi.coeffs
@@ -597,6 +631,7 @@ def compute_errors(phi, phi_ref, M, S):
         rel_h1=err_h1 / ref_h1,
     )
 
+
 # ==============================================================================
 # Plotting
 # ==============================================================================
@@ -606,7 +641,7 @@ def plot_solution(use_spline_mapping, model, ncells, periodic, V0_h, refine=10):
     """
 
     if use_spline_mapping:
-        geometry = Geometry(filename='geo.h5', comm=MPI.COMM_SELF)
+        geometry = Geometry(filename="geo.h5", comm=MPI.COMM_SELF)
         map_discrete = [*geometry.mappings.values()].pop()
         Vnew = map_discrete.space
         map_plot = map_discrete
@@ -617,7 +652,7 @@ def plot_solution(use_spline_mapping, model, ncells, periodic, V0_h, refine=10):
         map_plot = model.mapping.get_callable_mapping()
 
     # Import solution vector into new serial field
-    phi, = Vnew.import_fields('fields.h5', 'phi')
+    (phi,) = Vnew.import_fields("fields.h5", "phi")
 
     # Callable exact solution in logical coordinates
     phi_e = model.phi_log_callable
@@ -626,8 +661,8 @@ def plot_solution(use_spline_mapping, model, ncells, periodic, V0_h, refine=10):
     [sk1, sk2], [ek1, ek2] = Vnew.local_domain
     V1_plot, V2_plot = Vnew.spaces
 
-    eta1 = refine_array_1d(V1_plot.breaks[sk1:ek1 + 2], refine)
-    eta2 = refine_array_1d(V2_plot.breaks[sk2:ek2 + 2], refine)
+    eta1 = refine_array_1d(V1_plot.breaks[sk1 : ek1 + 2], refine)
+    eta2 = refine_array_1d(V2_plot.breaks[sk2 : ek2 + 2], refine)
     num = np.array([[phi(e1, e2) for e2 in eta2] for e1 in eta1])
     ex = np.array([[phi_e(e1, e2) for e2 in eta2] for e1 in eta1])
     err = num - ex
@@ -645,40 +680,41 @@ def plot_solution(use_spline_mapping, model, ncells, periodic, V0_h, refine=10):
 
     # Plot exact solution
     ax = axes[0]
-    im = ax.contourf(xx, yy, ex, 40, cmap='jet')
+    im = ax.contourf(xx, yy, ex, 40, cmap="jet")
     add_colorbar(im, ax)
-    ax.set_xlabel(r'$x$', rotation='horizontal')
-    ax.set_ylabel(r'$y$', rotation='horizontal')
-    ax.set_title(r'$\phi_{ex}(x,y)$')
-    ax.plot(xx[:, ::refine], yy[:, ::refine], 'k')
-    ax.plot(xx[::refine, :].T, yy[::refine, :].T, 'k')
-    ax.set_aspect('equal')
+    ax.set_xlabel(r"$x$", rotation="horizontal")
+    ax.set_ylabel(r"$y$", rotation="horizontal")
+    ax.set_title(r"$\phi_{ex}(x,y)$")
+    ax.plot(xx[:, ::refine], yy[:, ::refine], "k")
+    ax.plot(xx[::refine, :].T, yy[::refine, :].T, "k")
+    ax.set_aspect("equal")
 
     # Plot numerical solution
     ax = axes[1]
-    im = ax.contourf(xx, yy, num, 40, cmap='jet')
+    im = ax.contourf(xx, yy, num, 40, cmap="jet")
     add_colorbar(im, ax)
-    ax.set_xlabel(r'$x$', rotation='horizontal')
-    ax.set_ylabel(r'$y$', rotation='horizontal')
-    ax.set_title(r'$\phi(x,y)$')
-    ax.plot(xx[:, ::refine], yy[:, ::refine], 'k')
-    ax.plot(xx[::refine, :].T, yy[::refine, :].T, 'k')
-    ax.set_aspect('equal')
+    ax.set_xlabel(r"$x$", rotation="horizontal")
+    ax.set_ylabel(r"$y$", rotation="horizontal")
+    ax.set_title(r"$\phi(x,y)$")
+    ax.plot(xx[:, ::refine], yy[:, ::refine], "k")
+    ax.plot(xx[::refine, :].T, yy[::refine, :].T, "k")
+    ax.set_aspect("equal")
 
     # Plot numerical error
     ax = axes[2]
-    im = ax.contourf(xx, yy, err, 40, cmap='jet')
+    im = ax.contourf(xx, yy, err, 40, cmap="jet")
     add_colorbar(im, ax)
-    ax.set_xlabel(r'$x$', rotation='horizontal')
-    ax.set_ylabel(r'$y$', rotation='horizontal')
-    ax.set_title(r'$\phi(x,y) - \phi_{ex}(x,y)$')
-    ax.plot( xx[:,::refine]  , yy[:,::refine]  , 'k' )
-    ax.plot( xx[::refine,:].T, yy[::refine,:].T, 'k' )
-    ax.set_aspect('equal')
+    ax.set_xlabel(r"$x$", rotation="horizontal")
+    ax.set_ylabel(r"$y$", rotation="horizontal")
+    ax.set_title(r"$\phi(x,y) - \phi_{ex}(x,y)$")
+    ax.plot(xx[:, ::refine], yy[:, ::refine], "k")
+    ax.plot(xx[::refine, :].T, yy[::refine, :].T, "k")
+    ax.set_aspect("equal")
 
     # Show figure
     fig.tight_layout()
     fig.show()
+
 
 # ==============================================================================
 # Parser
@@ -688,88 +724,96 @@ def parse_input_arguments():
 
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        description="Solve Poisson's equation on a 2D polar domain."
+        description="Solve Poisson's equation on a 2D polar domain.",
     )
 
-    parser.add_argument('-t',
-                        type=str,
-                        choices=('disk', 'target', 'czarny'),
-                        default='disk',
-                        dest='test_case',
-                        help='Test case'
-                        )
+    parser.add_argument(
+        "-t",
+        type=str,
+        choices=("disk", "target", "czarny"),
+        default="disk",
+        dest="test_case",
+        help="Test case",
+    )
 
-    parser.add_argument('-D',
-                        type=float,
-                        default=0,
-                        dest='shift_D',
-                        help='Shafranov shift for parametrization of Disk'
-                        )
+    parser.add_argument(
+        "-D",
+        type=float,
+        default=0,
+        dest="shift_D",
+        help="Shafranov shift for parametrization of Disk",
+    )
 
-    parser.add_argument('-R',
-                        type=float,
-                        default=1.0,
-                        dest='R',
-                        help='Radius of the disk'
-                        )
+    parser.add_argument(
+        "-R", type=float, default=1.0, dest="R", help="Radius of the disk"
+    )
 
-    parser.add_argument('-d',
-                        type=int,
-                        nargs=2,
-                        default=[2, 2],
-                        metavar=('P1', 'P2'),
-                        dest='degree',
-                        help='Spline degree along each dimension'
-                        )
+    parser.add_argument(
+        "-d",
+        type=int,
+        nargs=2,
+        default=[2, 2],
+        metavar=("P1", "P2"),
+        dest="degree",
+        help="Spline degree along each dimension",
+    )
 
-    parser.add_argument('-n', '--ncells',
-                        type=int,
-                        nargs=2,
-                        default=[10, 20],
-                        metavar=('N1', 'N2'),
-                        dest='ncells',
-                        help='Number of grid cells (elements) along each dimension'
-                        )
+    parser.add_argument(
+        "-n",
+        "--ncells",
+        type=int,
+        nargs=2,
+        default=[10, 20],
+        metavar=("N1", "N2"),
+        dest="ncells",
+        help="Number of grid cells (elements) along each dimension",
+    )
 
-    parser.add_argument('-S',
-                        action='store_true',
-                        dest='use_spline_mapping',
-                        help='Use spline mapping in finite element calculations'
-                        )
+    parser.add_argument(
+        "-S",
+        action="store_true",
+        dest="use_spline_mapping",
+        help="Use spline mapping in finite element calculations",
+    )
 
-    parser.add_argument('-m',
-                        choices=('polar-spec', 'polar-std', 'C0conga', 'C1conga', 'None'),
-                        default='C1conga',
-                        dest='smooth_method',
-                        help='Apply smoothing method at pole either C1-conforming geometry specific / C1-conforming standardized / C1-CONGA / C0-CONGA'
-                        )
+    parser.add_argument(
+        "-m",
+        choices=("polar-spec", "polar-std", "C0conga", "C1conga", "None"),
+        default="C1conga",
+        dest="smooth_method",
+        help="Apply smoothing method at pole either C1-conforming geometry specific / C1-conforming standardized / C1-CONGA / C0-CONGA",
+    )
 
-    parser.add_argument('-v',
-                        action='store_true',
-                        dest='verbose',
-                        help='See CG iterations and L2 norm of the residuals'
-                        )
+    parser.add_argument(
+        "-v",
+        action="store_true",
+        dest="verbose",
+        help="See CG iterations and L2 norm of the residuals",
+    )
 
-    parser.add_argument('-a',
-                        type=float,
-                        default=1000,
-                        dest='alphaCONGA',
-                        help='Penalization constant for CONGA methods'
-                        )
+    parser.add_argument(
+        "-a",
+        type=float,
+        default=1000,
+        dest="alphaCONGA",
+        help="Penalization constant for CONGA methods",
+    )
 
-    parser.add_argument('--cgtol',
-                        type=float,
-                        default=1e-10,
-                        dest='cgtol',
-                        help='absolute tol for the residual error to stop CG'
-                        )
+    parser.add_argument(
+        "--cgtol",
+        type=float,
+        default=1e-10,
+        dest="cgtol",
+        help="absolute tol for the residual error to stop CG",
+    )
 
-    parser.add_argument('--maxiter',
-                        type=int,
-                        default=100000,
-                        dest='cgiter',
-                        help='max number of iterations for CG'
-                        )
+    parser.add_argument(
+        "--maxiter",
+        type=int,
+        default=100000,
+        dest="cgiter",
+        help="max number of iterations for CG",
+    )
 
     return parser.parse_args()
 
@@ -777,14 +821,14 @@ def parse_input_arguments():
 # ==============================================================================
 # Script functionality
 # ==============================================================================
-if __name__ == '__main__':
+if __name__ == "__main__":
 
     args = parse_input_arguments()
     namespace = run_poisson_2d(**vars(args))
 
     import __main__
 
-    if hasattr(__main__, '__file__'):
+    if hasattr(__main__, "__file__"):
         try:
             __IPYTHON__
         except NameError:
