@@ -86,6 +86,7 @@ def compute_stable_dt(cfl, C_m, dC_m, V, tau=None, light_c=1):
 def plot_field_and_error(name, t, x, y, field_h, field_ex, *gridlines, only_field=True):
 
     import matplotlib.pyplot as plt
+
     from psydac.feec.polar.examples.utils_congapol import add_colorbar
 
     if only_field:
@@ -174,6 +175,7 @@ def run_maxwell_2d_TE(
     study="maxwell_bessel",
     use_scipy=True,
     verbose=False,
+    mpi_comm,
 ):
     import matplotlib.pyplot as plt
     from sympde.calculus import dot
@@ -260,10 +262,10 @@ def run_maxwell_2d_TE(
     else:
         rp_str += "_pm"  # WARNING: check that polar_mapping == True ?
 
-    # Communicator, size, rank
-    mpi_comm = MPI.COMM_WORLD
-    mpi_size = mpi_comm.Get_size()
-    mpi_rank = mpi_comm.Get_rank()
+    # MPI info
+    assert isinstance(mpi_comm, MPI.Comm)
+    mpi_size = mpi_comm.size  # size of MPI communicator
+    mpi_rank = mpi_comm.rank  # process rank within MPI communicator
 
     if use_spline_mapping:
 
@@ -1203,16 +1205,47 @@ def parse_input_arguments():
 # ==============================================================================
 if __name__ == "__main__":
 
-    # Parse CLI arguments
-    args = parse_input_arguments()
+    # Select MPI communicator
+    mpi_comm = MPI.COMM_WORLD
 
-    # Run simulation
-    print(f"Running function 'run_maxwell_2d_TE' with arguments:")
-    print(f"{args}")
-    namespace = run_maxwell_2d_TE(**vars(args))
+    # Let root process (with rank=0) parse the CLI arguments and broadcast them
+    # to all the other processes in the communicator. This keeps the standard
+    # output clean in the case of help and error messages.
+    args = None
+    try:
+        if mpi_comm.rank == 0:
+            args = parse_input_arguments()
+    finally:
+        args = mpi_comm.bcast(args, root=0)
+        if args is None:
+            import sys
+
+            sys.exit(0)
+
+    # Convert argparse Namespace to dictionary and add MPI communicator to it
+    args_dict = vars(args)
+    args_dict["mpi_comm"] = mpi_comm
+
+    # Print information to standard output
+    if mpi_comm.rank == 0:
+        import pprint
+
+        if mpi_comm.size == 1:
+            msg = f"Running function 'run_maxwell_2d_TE' in serial with arguments:"
+        else:
+            msg = f"Running function 'run_maxwell_2d_TE' in parallel with " \
+              f"{mpi_comm.size} MPI processes, and arguments:"
+        print(msg)
+        pprint.pp(args_dict)
+        print(flush=True)
+
+    # Run simulation in parallel
+    namespace = run_maxwell_2d_TE(**args_dict)
 
     # Make all variables available (including imported modules)
     globals().update(namespace)
 
     # Keep matplotlib windows open
+    import matplotlib.pyplot as plt
+
     plt.show()

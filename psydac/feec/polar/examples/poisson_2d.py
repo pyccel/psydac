@@ -440,6 +440,7 @@ def run_poisson_2d(
     cgiter,
     alphaCONGA,
     verbose=False,
+    mpi_comm,
 ):
 
     from sympde.calculus import dot, grad
@@ -493,10 +494,10 @@ def run_poisson_2d(
         print()
         use_spline_mapping = True
 
-    # Communicator, size, rank
-    mpi_comm = MPI.COMM_WORLD
-    mpi_size = mpi_comm.Get_size()
-    mpi_rank = mpi_comm.Get_rank()
+    # MPI info
+    assert isinstance(mpi_comm, MPI.Comm)
+    mpi_size = mpi_comm.size  # size of MPI communicator
+    mpi_rank = mpi_comm.rank  # process rank within MPI communicator
 
     periodic = [False, True]
 
@@ -746,7 +747,7 @@ def run_poisson_2d(
 
     # Non-master processes stop here
     if mpi_rank != 0:
-        return
+        return locals()
 
     plot_solution(use_spline_mapping, model, ncells, periodic, V0_h, refine=N)
 
@@ -860,15 +861,47 @@ def parse_input_arguments():
 # ==============================================================================
 if __name__ == "__main__":
 
-    args = parse_input_arguments()
-    namespace = run_poisson_2d(**vars(args))
+    # Select MPI communicator
+    mpi_comm = MPI.COMM_WORLD
 
-    import __main__
+    # Let root process (with rank=0) parse the CLI arguments and broadcast them
+    # to all the other processes in the communicator. This keeps the standard
+    # output clean in the case of help and error messages.
+    args = None
+    try:
+        if mpi_comm.rank == 0:
+            args = parse_input_arguments()
+    finally:
+        args = mpi_comm.bcast(args, root=0)
+        if args is None:
+            import sys
 
-    if hasattr(__main__, "__file__"):
-        try:
-            __IPYTHON__
-        except NameError:
-            import matplotlib.pyplot as plt
+            sys.exit(0)
 
-            plt.show()
+    # Convert argparse Namespace to dictionary and add MPI communicator to it
+    args_dict = vars(args)
+    args_dict["mpi_comm"] = mpi_comm
+
+    # Print information to standard output
+    if mpi_comm.rank == 0:
+        import pprint
+
+        if mpi_comm.size == 1:
+            msg = f"Running function 'run_poisson_2d' in serial with arguments:"
+        else:
+            msg = f"Running function 'run_poisson_2d' in parallel with " \
+              f"{mpi_comm.size} MPI processes, and arguments:"
+        print(msg)
+        pprint.pp(args_dict)
+        print(flush=True)
+
+    # Run simulation in parallel
+    namespace = run_poisson_2d(**args_dict)
+
+    # Make all variables available (including imported modules)
+    globals().update(namespace)
+
+    # Keep matplotlib windows open
+    import matplotlib.pyplot as plt
+
+    plt.show()
