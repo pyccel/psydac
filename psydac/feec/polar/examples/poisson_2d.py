@@ -13,40 +13,12 @@ mpirun -n 2 python poisson_2d.py -S -n 8 10 -d 2 2 -t disk -D 0.2 -m 'C0conga'
 from dataclasses import dataclass
 from time import sleep, time
 
-import matplotlib.pyplot as plt
 import numpy as np
-import sympy
 from mpi4py import MPI
-from sympde.calculus import dot, grad
-from sympde.expr import BilinearForm, LinearForm, integral
-from sympde.topology import ScalarFunctionSpace, elements_of
-from sympde.topology.analytical_mapping import CzarnyMapping, TargetMapping
-from sympde.topology.domain import Domain, Square
-from sympde.topology.mapping import Mapping
-from sympy import Rational, cos, pi, sin
+from sympy import Matrix, Rational, cos, lambdify, pi, sin, sqrt, symbols
 
-from psydac.api.discretization import discretize
-from psydac.api.settings import PSYDAC_BACKENDS
-from psydac.cad.geometry import Geometry
-from psydac.ddm.cart import DomainDecomposition
-from psydac.feec.polar.conga_projections import (
-    C0PolarProjection_V0,
-    C1PolarProjection_V0,
-)
-from psydac.feec.polar.examples.utils_congapol import (
-    add_colorbar,
-    create_tensor_spline_space,
-)
-from psydac.fem.basic import FemField
-from psydac.fem.tensor import TensorFemSpace
 from psydac.linalg.basic import LinearOperator
-from psydac.linalg.solvers import inverse
 from psydac.linalg.stencil import StencilMatrix, StencilVector
-from psydac.mapping.discrete import SplineMapping
-from psydac.polar.c1_projections import C1Projector
-from psydac.utilities.utils import refine_array_1d
-
-backend = PSYDAC_BACKENDS["pyccel-gcc"]
 
 
 # ==============================================================================
@@ -59,6 +31,8 @@ class Laplacian:
     """
 
     def __init__(self, mapping):
+        from sympde.topology.mapping import Mapping
+
         assert isinstance(mapping, Mapping)
 
         self._eta = mapping.logical_coordinates
@@ -66,7 +40,6 @@ class Laplacian:
         self._metric_det = mapping.metric_det_expr
 
     def __call__(self, phi):
-        from sympy import Matrix, sqrt
 
         u = self._eta
         G = self._metric
@@ -95,6 +68,8 @@ class Poisson2D:
     """
 
     def __init__(self, domain_log, mapping, phi_log, rho_log):
+        from sympde.topology.mapping import Mapping
+
         assert isinstance(mapping, Mapping)
 
         self._domain_log = domain_log
@@ -103,8 +78,8 @@ class Poisson2D:
         self._rho_log = rho_log
 
         s, t = mapping.logical_coordinates
-        self._phi_log_callable = sympy.lambdify([s, t], phi_log)
-        self._rho_log_callable = sympy.lambdify([s, t], rho_log)
+        self._phi_log_callable = lambdify([s, t], phi_log)
+        self._rho_log_callable = lambdify([s, t], rho_log)
 
     @staticmethod
     def disk(R, shift_D):
@@ -118,6 +93,9 @@ class Poisson2D:
         : code
         $\phi(x,y) = (1 - ((x^2 + y^2) / R^2) ** 4) * sin(kx * x) * cos(ky * y)$.
         """
+        from sympde.topology.analytical_mapping import TargetMapping
+        from sympde.topology.domain import Square
+
         domain_log = Square("Omega", bounds1=(0, R), bounds2=(0, 2 * np.pi))
         params = dict(c1=shift_D * R * R, c2=0, k=0, D=shift_D)
         mapping = TargetMapping("TM", **params)
@@ -127,7 +105,7 @@ class Poisson2D:
         D = params["D"]
         kx = 2 * pi / (R * (1 - k + D))
         ky = 2 * pi / (R * (1 + k))
-        x, y = sympy.symbols("x, y")
+        x, y = symbols("x, y")
         phi_phys = (1 - ((x * x + y * y) / (R * R)) ** 4) * sin(kx * x) * cos(ky * y)
         rho_phys = -phi_phys.diff(x, x) - phi_phys.diff(y, y)
 
@@ -157,6 +135,8 @@ class Poisson2D:
         $\phi(x,y) = (1 - s^8)\sin(k_x(x - 0.5))\cos(k_y y)$.
 
         """
+        from sympde.topology.analytical_mapping import TargetMapping
+        from sympde.topology.domain import Square
 
         domain_log = Square("Omega", bounds1=(0, 1), bounds2=(0, 2 * np.pi))
         params = dict(c1=0, c2=0, k=Rational(3, 10), D=Rational(2, 10))
@@ -189,6 +169,8 @@ class Poisson2D:
         $\phi(x,y) = (1 - s^8)\sin(\pi x)\cos(\pi y)$.
 
         """
+        from sympde.topology.analytical_mapping import CzarnyMapping
+        from sympde.topology.domain import Square
 
         domain_log = Square("Omega", bounds1=(0, 1), bounds2=(0, 2 * np.pi))
         params = dict(c1=0, c2=0, eps=Rational(1, 5), b=Rational(7, 5))
@@ -235,6 +217,12 @@ class Poisson2D:
 class CongaLaplacian(LinearOperator):
 
     def __init__(self, S, M, P, alpha):
+
+        from psydac.feec.polar.conga_projections import (
+            C0PolarProjection_V0,
+            C1PolarProjection_V0,
+        )
+
         assert isinstance(S, StencilMatrix)
         assert isinstance(M, StencilMatrix)
         assert isinstance(P, (C0PolarProjection_V0, C1PolarProjection_V0))
@@ -352,6 +340,13 @@ def plot_solution(use_spline_mapping, model, ncells, periodic, V0_h, refine=10):
     """
     Plot exact solution, numerical solution and error
     """
+    import matplotlib.pyplot as plt
+
+    from psydac.cad.geometry import Geometry
+    from psydac.ddm.cart import DomainDecomposition
+    from psydac.feec.polar.examples.utils_congapol import add_colorbar
+    from psydac.fem.tensor import TensorFemSpace
+    from psydac.utilities.utils import refine_array_1d
 
     if use_spline_mapping:
         geometry = Geometry(filename="geo.h5", comm=MPI.COMM_SELF)
@@ -446,6 +441,28 @@ def run_poisson_2d(
     alphaCONGA,
     verbose=False,
 ):
+
+    from sympde.calculus import dot, grad
+    from sympde.expr import BilinearForm, LinearForm, integral
+    from sympde.topology import ScalarFunctionSpace, elements_of
+    from sympde.topology.domain import Domain
+    from sympde.topology.mapping import Mapping
+
+    from psydac.api.discretization import discretize
+    from psydac.api.settings import PSYDAC_BACKENDS
+    from psydac.cad.geometry import Geometry
+    from psydac.feec.polar.conga_projections import (
+        C0PolarProjection_V0,
+        C1PolarProjection_V0,
+    )
+    from psydac.feec.polar.examples.utils_congapol import create_tensor_spline_space
+    from psydac.fem.basic import FemField
+    from psydac.linalg.solvers import inverse
+    from psydac.mapping.discrete import SplineMapping
+    from psydac.polar.c1_projections import C1Projector
+
+    backend = PSYDAC_BACKENDS["pyccel-gcc"]
+
     timing = {}
     timing["assembly"] = 0.0
     timing["projection"] = 0.0
