@@ -7,20 +7,13 @@ python maxwell_2d.py -S -n 16 32 -d 3 3 -T 1 -D 0.2 -s 1
 
 import os
 
-import matplotlib.pyplot as plt
 import numpy as np
 from mpi4py import MPI
-from utils_congapol import (
-    add_colorbar,
-    check_regular_ring_map,
-    create_tensor_spline_space,
-)
-
-from psydac.fem.basic import FemField
-
-# ====================== TIME DISCRETIZATION ==================================#
 
 
+# ==============================================================================
+# TIME DISCRETIZATION
+# ==============================================================================
 def compute_stable_dt(cfl, C_m, dC_m, V, tau=None, light_c=1):
     """
     compute stable time step for a leap-frog Maxwell solver,
@@ -87,12 +80,14 @@ def compute_stable_dt(cfl, C_m, dC_m, V, tau=None, light_c=1):
     return Nt_per_tau, dt, norm_op
 
 
-# =============================================================================#
-
-# =========================== VISUALIZATION ===================================#
-
-
+# ==============================================================================
+# VISUALIZATION
+# ==============================================================================
 def plot_field_and_error(name, t, x, y, field_h, field_ex, *gridlines, only_field=True):
+
+    import matplotlib.pyplot as plt
+    from psydac.feec.polar.examples.utils_congapol import add_colorbar
+
     if only_field:
         fig, ax0 = plt.subplots(1, 1, figsize=(7, 6))
         axes = [ax0]
@@ -141,6 +136,8 @@ def plot_curve_along_s(
     left_curve_ref=None,
 ):
 
+    import matplotlib.pyplot as plt
+
     fig, ax = plt.subplots()
     ax.plot(s, curve_h, label=f"{name}_h")
     ax.plot(s, curve_ref, label=f"{name}_ref")
@@ -158,9 +155,9 @@ def plot_curve_along_s(
     return fig
 
 
-# =============================================================================#
-
-
+# ==============================================================================
+# SIMULATION
+# ==============================================================================
 def run_maxwell_2d_TE(
     *,
     ncells,
@@ -178,18 +175,32 @@ def run_maxwell_2d_TE(
     use_scipy=True,
     verbose=False,
 ):
-    from numpy import pi
+    import matplotlib.pyplot as plt
     from sympde.calculus import dot
     from sympde.expr import BilinearForm, LinearForm, integral
     from sympde.topology import Derham, Domain, Square, element_of, elements_of
     from sympde.topology.analytical_mapping import PolarMapping, TargetMapping
     from sympde.topology.mapping import Mapping
-    from sympy import Tuple, cos, sin, sqrt
+    from sympy import Tuple, cos, pi, sin, sqrt
 
     from psydac.api.discretization import discretize
     from psydac.api.settings import PSYDAC_BACKENDS
     from psydac.cad.geometry import Geometry
+    from psydac.feec.polar.conga_projections import (
+        C0PolarProjection_V1,
+        C0PolarProjection_V2,
+        C1PolarProjection_V1,
+        C1PolarProjection_V2,
+    )
+    from psydac.feec.polar.examples.analyticalTE import CircularCavitySolution
+    from psydac.feec.polar.examples.utils_congapol import (
+        add_colorbar,
+        check_regular_ring_map,
+        create_tensor_spline_space,
+    )
+    from psydac.feec.polar.examples.waveTE import GaussianSolution
     from psydac.feec.pull_push import push_2d_hcurl, push_2d_l2
+    from psydac.fem.basic import FemField
     from psydac.linalg.basic import IdentityOperator
     from psydac.linalg.solvers import inverse
     from psydac.mapping.discrete import SplineMapping
@@ -197,16 +208,7 @@ def run_maxwell_2d_TE(
 
     assert splitting_order in [2, 4]
 
-    from analyticalTE import CircularCavitySolution  # , constant_field
-    from waveTE import GaussianSolution
-
-    from psydac.feec.polar.conga_projections import (
-        C0PolarProjection_V1,
-        C0PolarProjection_V2,
-        C1PolarProjection_V1,
-        C1PolarProjection_V2,
-    )
-
+    # Backend is Pyccel with GCC compiler. By default: Fortran, no OpenMP
     backend = PSYDAC_BACKENDS["pyccel-gcc"]
 
     # Radius physical domain
@@ -265,8 +267,9 @@ def run_maxwell_2d_TE(
 
     if use_spline_mapping:
 
-        # ==================== SPLINE SPACE FOR SPLINE MAPPINGS =======================#
-
+        # ----------------------------------------------------------------------
+        # Spline space for spline mappings
+        # ----------------------------------------------------------------------
         V = create_tensor_spline_space(
             ncells,
             degree,
@@ -275,7 +278,9 @@ def run_maxwell_2d_TE(
             mpi_comm,
         )
 
-        # ==================== MAPPING & PHYSICAL DOMAIN ==============================#
+        # ----------------------------------------------------------------------
+        # Mapping & physical domain
+        # ----------------------------------------------------------------------
 
         # Create spline mapping by interpolation of analytical mapping
         map_analytic = mapping.get_callable_mapping()
@@ -476,8 +481,8 @@ def run_maxwell_2d_TE(
         print("V0 - integral of 1 (no det):   {:.2e}".format(int_wo_det))
         print("V0 - integral of 1 (with det): {:.2e}".format(int_wi_det))
         print("radius of disk: {:.2e}".format(R))
-        print("area of log domain: {:.2e}".format(2 * pi * R))
-        print("area of disk:       {:.2e}".format(pi * R * R))
+        print("area of log domain: {:.2e}".format(2 * np.pi * R))
+        print("area of disk:       {:.2e}".format(np.pi * R * R))
 
         int_wo_det = derham_h.V1.spaces[0].integral(cst_wo_det)
         int_wi_det = derham_h.V1.spaces[0].integral(cst_wi_det)
@@ -546,9 +551,9 @@ def run_maxwell_2d_TE(
         print("done: showing fh_filter")
         return locals()
 
-    # ==============================================================================
-    # DISCRETIZATION
-    # ==============================================================================
+    # --------------------------------------------------------------------------
+    # Discretization
+    # --------------------------------------------------------------------------
 
     # Differential operators
     D0, D1 = derham_h.derivatives(kind="linop")
@@ -575,7 +580,7 @@ def run_maxwell_2d_TE(
     a2_h = discretize(a2, domain_h, (derham_h.V2, derham_h.V2), backend=backend)
 
     hs = R / ncells[0]
-    htheta = 2 * pi / ncells[1]
+    htheta = 2 * np.pi / ncells[1]
 
     # Mass matrices (StencilMatrix objects)
 
@@ -596,9 +601,9 @@ def run_maxwell_2d_TE(
 
     # Geometric Projectors
 
+    # --------------------------------------------------------------------------
     # Time integration setup
     # --------------------------------------------------------------------------
-
     t = 0
 
     # Callable exact fields
@@ -685,10 +690,9 @@ def run_maxwell_2d_TE(
         nsteps = Nt
         print(f"nsteps recomputed: {nsteps}")
 
-    # ==============================================================================
-    # VISUALIZATION SETUP
-    # ==============================================================================
-
+    # --------------------------------------------------------------------------
+    # Visualization setup
+    # --------------------------------------------------------------------------
     def plot_fields_along_s(tstr):
 
         j0 = 0
@@ -879,10 +883,9 @@ def run_maxwell_2d_TE(
         "L2 norm of rel. error on Bz(t,x,y) at initial time: {:.2e}".format(error_l2_Bz)
     )
 
-    # ==============================================================================
-    # SOLUTION
-    # ==============================================================================
-
+    # --------------------------------------------------------------------------
+    # Solution
+    # --------------------------------------------------------------------------
     def Strang_update(dtau):
         # Strang splitting, 2nd order
 
@@ -1081,9 +1084,9 @@ def run_maxwell_2d_TE(
 
 
 # ==============================================================================
-# SCRIPT CAPABILITIES
+# PARSER
 # ==============================================================================
-if __name__ == "__main__":
+def parse_input_arguments():
     import argparse
 
     parser = argparse.ArgumentParser(
@@ -1181,7 +1184,7 @@ if __name__ == "__main__":
         "--scipy",
         action="store_true",
         dest="use_scipy",
-        help="use scipy matrices and direct inverses",
+        help="Use scipy matrices and direct inverses",
     )
 
     parser.add_argument(
@@ -1191,13 +1194,25 @@ if __name__ == "__main__":
         help="Print convergence information of iterative solver",
     )
 
-    # Read input arguments
-    args = parser.parse_args()
+    # Read and return input arguments
+    return parser.parse_args()
 
-    print(f"running maxwell_2d_TE with args:")
-    print(f"{args}")
+
+# ==============================================================================
+# SCRIPT FUNCTIONALITY
+# ==============================================================================
+if __name__ == "__main__":
+
+    # Parse CLI arguments
+    args = parse_input_arguments()
+
     # Run simulation
+    print(f"Running function 'run_maxwell_2d_TE' with arguments:")
+    print(f"{args}")
     namespace = run_maxwell_2d_TE(**vars(args))
+
+    # Make all variables available (including imported modules)
+    globals().update(namespace)
 
     # Keep matplotlib windows open
     plt.show()
