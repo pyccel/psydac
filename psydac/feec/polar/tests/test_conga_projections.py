@@ -13,6 +13,7 @@ from psydac.feec.polar.conga_projections import (
     C0PolarProjection_V2,
     C1PolarProjection_V0,
     C1PolarProjection_V1,
+    C1PolarProjection_V2,
 )
 from psydac.fem.basic import FemField
 from psydac.linalg.block import BlockVector
@@ -261,8 +262,11 @@ def test_PolarProjection_V1(
 @pytest.mark.parametrize("degree", [[2, 2], [2, 3]])
 @pytest.mark.parametrize("ncells", [[8, 10], [15, 12]])
 @pytest.mark.parametrize("R", [1])
+@pytest.mark.parametrize("Projector", [C0PolarProjection_V2, C1PolarProjection_V2])
 @pytest.mark.mpi
-def test_PolarProjection_V2(R, ncells, degree, transposed, verbose=False):
+def test_PolarProjection_V2(
+        Projector, R, ncells, degree, transposed, verbose=False
+):
     mpi_comm = MPI.COMM_WORLD
     domain = get_domain(R)
 
@@ -271,7 +275,7 @@ def test_PolarProjection_V2(R, ncells, degree, transposed, verbose=False):
     V2 = ScalarFunctionSpace("V2", domain)
     V2_h = discretize(V2, domain_h, degree=degree)
 
-    P2 = C0PolarProjection_V2(V2_h, transposed=transposed)
+    P2 = Projector(V2_h, transposed=transposed)
 
     x = get_random_vector(V2_h)
     phiC = FemField(V2_h)
