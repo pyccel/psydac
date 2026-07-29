@@ -11,9 +11,9 @@ from psydac.feec.polar.conga_projections import (
     C0PolarProjection_V0,
     C0PolarProjection_V1,
     C0PolarProjection_V2,
-    C1PolarProjection_V0,
-    C1PolarProjection_V1,
-    C1PolarProjection_V2,
+    C1PolarProjection_U0,
+    C1PolarProjection_U1,
+    C1PolarProjection_U2,
 )
 from psydac.fem.basic import FemField
 from psydac.linalg.block import BlockVector
@@ -60,7 +60,7 @@ def get_random_block_vector(space):
 @pytest.mark.parametrize("degree", [[2, 2], [2, 3]])
 @pytest.mark.parametrize("ncells", [[8, 10], [15, 12]])
 @pytest.mark.parametrize("R", [1])
-@pytest.mark.parametrize("Projector", [C0PolarProjection_V0, C1PolarProjection_V0])
+@pytest.mark.parametrize("Projector", [C0PolarProjection_V0, C1PolarProjection_U0])
 @pytest.mark.mpi
 def test_PolarProjection_V0(
     Projector, R, ncells, degree, hbc, transposed, verbose=False
@@ -113,12 +113,12 @@ def test_PolarProjection_V0(
         for i, j, v in zip(rows, cols, data):
             if i < n2 and j < n2:
                 assert np.isclose(v, 1 / n2, atol=ATOL, rtol=RTOL)
-            elif Projector == C1PolarProjection_V0 and j < n2 <= i < 2 * n2:
+            elif Projector == C1PolarProjection_U0 and j < n2 <= i < 2 * n2:
                 assert np.isclose(v, 1 / n2, atol=ATOL, rtol=RTOL)
             elif (
-                Projector == C1PolarProjection_V0
-                and n2 <= i < 2 * n2
-                and n2 <= j < 2 * n2
+                    Projector == C1PolarProjection_U0
+                    and n2 <= i < 2 * n2
+                    and n2 <= j < 2 * n2
             ):
                 assert np.isclose(
                     v, 2 / n2 * np.cos((i - j) * 2 * np.pi / n2), atol=ATOL, rtol=RTOL
@@ -142,7 +142,7 @@ def test_PolarProjection_V0(
 @pytest.mark.parametrize("degree", [[2, 2], [2, 3]])
 @pytest.mark.parametrize("ncells", [[8, 10], [15, 12]])
 @pytest.mark.parametrize("R", [1])
-@pytest.mark.parametrize("Projector", [C0PolarProjection_V1, C1PolarProjection_V1])
+@pytest.mark.parametrize("Projector", [C0PolarProjection_V1, C1PolarProjection_U1])
 @pytest.mark.mpi
 def test_PolarProjection_V1(
     Projector, R, ncells, degree, hbc, transposed, verbose=False
@@ -220,7 +220,7 @@ def test_PolarProjection_V1(
                     assert j == i
                     assert np.isclose(v, 1.0, atol=ATOL, rtol=RTOL)
 
-            if Projector == C1PolarProjection_V1:
+            if Projector == C1PolarProjection_U1:
                 p_ij = 2 / n02 * np.cos((i - j) * 2 * np.pi / n02)
                 # Block P1_00
                 if i < n02:
@@ -262,7 +262,7 @@ def test_PolarProjection_V1(
 @pytest.mark.parametrize("degree", [[2, 2], [2, 3]])
 @pytest.mark.parametrize("ncells", [[8, 10], [15, 12]])
 @pytest.mark.parametrize("R", [1])
-@pytest.mark.parametrize("Projector", [C0PolarProjection_V2, C1PolarProjection_V2])
+@pytest.mark.parametrize("Projector", [C0PolarProjection_V2, C1PolarProjection_U2])
 @pytest.mark.mpi
 def test_PolarProjection_V2(
         Projector, R, ncells, degree, transposed, verbose=False

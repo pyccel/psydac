@@ -220,12 +220,12 @@ class CongaLaplacian(LinearOperator):
 
         from psydac.feec.polar.conga_projections import (
             C0PolarProjection_V0,
-            C1PolarProjection_V0,
+            C1PolarProjection_U0,
         )
 
         assert isinstance(S, StencilMatrix)
         assert isinstance(M, StencilMatrix)
-        assert isinstance(P, (C0PolarProjection_V0, C1PolarProjection_V0))
+        assert isinstance(P, (C0PolarProjection_V0, C1PolarProjection_U0))
 
         W0 = P.W0.coeff_space
 
@@ -454,7 +454,7 @@ def run_poisson_2d(
     from psydac.cad.geometry import Geometry
     from psydac.feec.polar.conga_projections import (
         C0PolarProjection_V0,
-        C1PolarProjection_V0,
+        C1PolarProjection_U0,
     )
     from psydac.feec.polar.examples.utils_congapol import create_tensor_spline_space
     from psydac.fem.basic import FemField
@@ -621,7 +621,7 @@ def run_poisson_2d(
     elif smooth_method == "C1conga":
         gamma = 1.0  # any value would be ok.
         alpha = alphaCONGA
-        P0 = C1PolarProjection_V0(
+        P0 = C1PolarProjection_U0(
             V0_h, gamma=gamma, hbc=True
         )  # hbc imposes the boundary conditions
         Sc = CongaLaplacian(S, M, P0, alpha)

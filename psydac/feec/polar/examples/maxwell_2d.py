@@ -191,8 +191,8 @@ def run_maxwell_2d_TE(
     from psydac.feec.polar.conga_projections import (
         C0PolarProjection_V1,
         C0PolarProjection_V2,
-        C1PolarProjection_V1,
-        C1PolarProjection_V2,
+        C1PolarProjection_U1,
+        C1PolarProjection_U2,
     )
     from psydac.feec.polar.examples.analyticalTE import CircularCavitySolution
     from psydac.feec.polar.examples.utils_congapol import (
@@ -572,8 +572,8 @@ def run_maxwell_2d_TE(
         P1 = C0PolarProjection_V1(V1_h, hbc=True)
         P2 = C0PolarProjection_V2(V2_h)
     else:
-        P1 = C1PolarProjection_V1(V1_h, hbc=True)
-        P2 = C1PolarProjection_V2(V2_h)
+        P1 = C1PolarProjection_U1(V1_h, hbc=True)
+        P2 = C1PolarProjection_U2(V2_h)
     P1_T = P1.T
     P2_T = P2.T
 

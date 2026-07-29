@@ -669,7 +669,7 @@ def toeplitz_columns_sym(t, s2, e2, n2):
     return np.cos(t[idx])
 
 
-class C1PolarProjection_V0(LinearOperator):
+class C1PolarProjection_U0(LinearOperator):
     """
     CONGA Projector P0 from the full spline space S^{p1, p2} on logical domain
     to U0 the pre-polar 0-forms splines. The associate matrix is square as in
@@ -781,7 +781,7 @@ class C1PolarProjection_V0(LinearOperator):
         return y
 
     def transpose(self, conjugate=False):
-        return C1PolarProjection_V0(
+        return C1PolarProjection_U0(
             self.W0, gamma=self.gamma, transposed=not self.transposed, hbc=self.hbc
         )
 
@@ -869,7 +869,7 @@ class C1PolarProjection_V0(LinearOperator):
 #               |___________|__________|
 
 
-class C1PolarProjection_V1_00(LinearOperator):
+class C1PolarProjection_U1_00(LinearOperator):
     """
     Upper Left block of P1.
 
@@ -950,7 +950,7 @@ class C1PolarProjection_V1_00(LinearOperator):
         return y
 
     def transpose(self, conjugate=False):
-        return C1PolarProjection_V1_00(self.W1, transposed=not self.transposed)
+        return C1PolarProjection_U1_00(self.W1, transposed=not self.transposed)
 
     @property
     def T(self):
@@ -1009,7 +1009,7 @@ class C1PolarProjection_V1_00(LinearOperator):
         return self.tosparse().toarray()
 
 
-class C1PolarProjection_V1_10(LinearOperator):
+class C1PolarProjection_U1_10(LinearOperator):
     """
     Lower left block of P1.
 
@@ -1117,7 +1117,7 @@ class C1PolarProjection_V1_10(LinearOperator):
         return y
 
     def transpose(self, conjugate=False):
-        return C1PolarProjection_V1_10(self.W1, transposed=not self.transposed)
+        return C1PolarProjection_U1_10(self.W1, transposed=not self.transposed)
 
     @property
     def T(self):
@@ -1169,7 +1169,7 @@ class C1PolarProjection_V1_10(LinearOperator):
         return self.tosparse().toarray()
 
 
-class C1PolarProjection_V1(BlockLinearOperator):
+class C1PolarProjection_U1(BlockLinearOperator):
     """
     CONGA Projector P1 from the full spline space S^{p1-1, p2} x S^{p1, p2-1}
     on logical domain to U1 the pre-polar 1-forms splines. The associate matrix
@@ -1199,8 +1199,8 @@ class C1PolarProjection_V1(BlockLinearOperator):
 
         super().__init__(T1, T1)
 
-        self[0, 0] = C1PolarProjection_V1_00(W1, transposed=transposed)
-        self[1, 0] = C1PolarProjection_V1_10(W1, transposed=transposed)
+        self[0, 0] = C1PolarProjection_U1_00(W1, transposed=transposed)
+        self[1, 0] = C1PolarProjection_U1_10(W1, transposed=transposed)
         # self[0, 1] is 0 block
         # The lower right block is the same for C0 and C1 projections
         self[1, 1] = C0PolarProjection_V1_11(W1, transposed=transposed, hbc=hbc)
@@ -1211,7 +1211,7 @@ class C1PolarProjection_V1(BlockLinearOperator):
 
 
 # -------------- 2-FORMS CONGA PROJECTOR P2 ----------------#
-class C1PolarProjection_V2(C0PolarProjection_V2):
+class C1PolarProjection_U2(C0PolarProjection_V2):
     """
     CONGA Projector P2 from the full spline space S^{p1-1, p2-1} on logical
     domain to U2, the pre-polar 2-forms splines. The associate matrix
@@ -1230,4 +1230,4 @@ class C1PolarProjection_V2(C0PolarProjection_V2):
     """
 
     def transpose(self, conjugate=False):
-        return C1PolarProjection_V2(self.W2, transposed=not self.transposed)
+        return C1PolarProjection_U2(self.W2, transposed=not self.transposed)
