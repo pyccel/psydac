@@ -50,6 +50,8 @@ backend = PSYDAC_BACKENDS["pyccel-gcc"]
 
 
 # ==============================================================================
+# EXACT SOLUTION
+# ==============================================================================
 class Laplacian:
     """
     Symbolic Laplace operator associated with a mapping F from logical to physical coordinates.
@@ -63,7 +65,6 @@ class Laplacian:
         self._metric = mapping.metric_expr
         self._metric_det = mapping.metric_det_expr
 
-    # ...
     def __call__(self, phi):
         from sympy import Matrix, sqrt
 
@@ -83,7 +84,6 @@ class Laplacian:
         return lapl
 
 
-# ============================= EXACT SOLUTION ================================#
 class Poisson2D:
     r"""
     Exact solution to the 2D Poisson equation with Dirichlet boundary
@@ -229,9 +229,9 @@ class Poisson2D:
         return self._rho_log_callable
 
 
-# ====================== CONGA (PENALIZED) POISSON ============================#
-
-
+# ==============================================================================
+# CONGA (PENALIZED) POISSON
+# ==============================================================================
 class CongaLaplacian(LinearOperator):
 
     def __init__(self, S, M, P, alpha):
@@ -282,7 +282,6 @@ class CongaLaplacian(LinearOperator):
         from scipy.sparse import eye
 
         I = eye(n)
-
         A = alpha * (I - P).T @ M @ (I - P) + P.T @ S @ P
 
         return A
@@ -311,301 +310,15 @@ class CongaLaplacian(LinearOperator):
         return float
 
 
+# ==============================================================================
+# ERROR DIAGNOSTICS
+# ==============================================================================
 @dataclass
 class ErrorDiagnostics:
     ref_l2: float
     ref_h1: float
     rel_l2: float
     rel_h1: float
-
-
-###############################################################################
-
-
-def run_poisson_2d(
-    *,
-    test_case,
-    ncells,
-    degree,
-    shift_D,
-    R,
-    use_spline_mapping,
-    smooth_method,
-    cgtol,
-    cgiter,
-    alphaCONGA,
-    verbose=False,
-):
-    timing = {}
-    timing["assembly"] = 0.0
-    timing["projection"] = 0.0
-    timing["solution"] = 0.0
-    timing["diagnostics"] = 0.0
-    timing["export"] = 0.0
-
-    # Method of manufactured solution
-    if test_case == "disk":
-        model = Poisson2D.disk(R=R, shift_D=shift_D)
-    elif test_case == "target":
-        model = Poisson2D.target()
-    elif test_case == "czarny":
-        model = Poisson2D.czarny()
-    else:
-        raise ValueError("Only available test-cases are 'disk', 'target' and 'czarny'")
-
-    if smooth_method not in ("polar-std", "polar-spec", "C0conga", "C1conga", "None"):
-        raise ValueError(
-            "Only available options for pole smoothness are 'polar-spec', 'polar-std', 'C0conga', 'C1conga', 'None'"
-        )
-
-    if smooth_method == "polar-spec" and (not use_spline_mapping):
-        print(
-            "WARNING: C1 conforming discretization only available for spline mappings"
-        )
-        print("The domain will be approximated in the 0-forms spline space.")
-        print()
-        use_spline_mapping = True
-
-    # Communicator, size, rank
-    mpi_comm = MPI.COMM_WORLD
-    mpi_size = mpi_comm.Get_size()
-    mpi_rank = mpi_comm.Get_rank()
-
-    periodic = [False, True]
-
-    if use_spline_mapping:
-
-        # ==================== SPLINE SPACE FOR SPLINE MAPPINGS =======================#
-
-        V = create_tensor_spline_space(
-            ncells,
-            degree,
-            periodic,
-            (model.domain_log.bounds1, model.domain_log.bounds2),
-            mpi_comm,
-        )
-
-        # TODO: maybe define a parent class Model
-
-        # ==================== MAPPING & PHYSICAL DOMAIN ==============================#
-        # Create spline mapping by interpolation of analytical mapping
-        map_analytic = model.mapping.get_callable_mapping()
-        map_discrete = SplineMapping.from_mapping(V, map_analytic)
-        # Create symbolic mapping with callable mapping as spline
-        mapping = Mapping("M", dim=2)
-        mapping.set_callable_mapping(map_discrete)
-        # In order to create a sympde.Domain object from this mapping we have
-        # to create first a HDF5 file and then load as sympde.Domain.fromfile
-        t0 = time()
-        geometry = Geometry.from_discrete_mapping(map_discrete, comm=mpi_comm)
-        geometry.export("geo.h5")
-        t1 = time()
-        timing["export"] += t1 - t0
-        domain = Domain.from_file("geo.h5")
-
-        # check_regular_ring_map(map_discrete)
-
-    else:
-        # Only symbolic mapping is necessary
-        mapping = model.mapping
-        domain = mapping(model.domain_log)
-
-    # ========================== SYMBOLIC DEFINITION ==============================#
-
-    # Equations
-    V0 = ScalarFunctionSpace("V0", domain)
-    u0, v0 = elements_of(V0, names="u0, v0")
-    aM = BilinearForm((u0, v0), integral(domain, u0 * v0))
-    aS = BilinearForm((u0, v0), integral(domain, dot(grad(u0), grad(v0))))
-
-    rhs = LinearForm(v0, integral(domain, model.rho_log * v0))
-
-    # ============================= DISCRETIZATION ================================#
-    if use_spline_mapping:
-        domain_h = discretize(domain, filename="geo.h5", comm=mpi_comm)
-        V0_h = discretize(V0, domain_h)
-        F = list(domain_h.mappings.values()).pop()
-    else:
-        domain_h = discretize(domain, ncells=ncells, periodic=periodic, comm=mpi_comm)
-        V0_h = discretize(V0, domain_h, degree=degree)
-        F = mapping.get_callable_mapping()
-
-    aM_h = discretize(aM, domain_h, (V0_h, V0_h), backend=backend)
-    aS_h = discretize(aS, domain_h, (V0_h, V0_h), backend=backend)
-    rhs_h = discretize(rhs, domain_h, V0_h, backend=backend)
-
-    M = aM_h.assemble()
-    S = aS_h.assemble()
-    b = rhs_h.assemble()
-
-    S.update_ghost_regions()
-    b.update_ghost_regions()
-    M.update_ghost_regions()
-
-    # =================== PROJECT THE EXACT SOLUTION  =========================#
-
-    from psydac.feec.global_geometric_projectors import GlobalGeometricProjectorH1
-
-    Pi0 = GlobalGeometricProjectorH1(V0_h)
-    phi_ref = Pi0(model.phi_log_callable)
-    phi_ref.coeffs.update_ghost_regions()
-
-    # ========================= HANDLING THE SINGULARITY ===========================#
-
-    # If required by user, create C1 projector and then restrict
-    # stiffness/mass matrices and right-hand-side vector to C1 space
-    t0 = time()
-    bc = None
-    Sc = None
-    if smooth_method == "polar-spec":
-        proj = C1Projector(F)
-        Sp = proj.change_matrix_basis(S)
-        bp = proj.change_rhs_basis(b)
-        alpha = "None"
-    if smooth_method == "polar-std":
-        # Build standard polar map from control points of standard polar map
-        n1, n2 = [W.nbasis for W in V0_h.spaces]
-        rho = np.array([i1 / (n1 - 1) for i1 in range(n1)])
-        theta = np.array([i2 * 2 * np.pi / n2 for i2 in range(n2)])
-        sin_theta = np.sin(theta)
-        cos_theta = np.cos(theta)
-        cp = np.zeros((n1, n2, 2))
-        for i1 in range(n1):
-            for i2 in range(n2):
-                cp[i1, i2, 0] = rho[i1] * cos_theta[i2]
-                cp[i1, i2, 1] = rho[i1] * sin_theta[i2]
-        F_std = SplineMapping.from_control_points(V0_h, cp)
-        proj = C1Projector(F_std)
-        Sp = proj.change_matrix_basis(S)
-        bp = proj.change_rhs_basis(b)
-        alpha = "None"
-    elif smooth_method == "C1conga":
-        gamma = 1.0  # any value would be ok.
-        alpha = alphaCONGA
-        P0 = C1PolarProjection_V0(
-            V0_h, gamma=gamma, hbc=True
-        )  # hbc imposes the boundary conditions
-        Sc = CongaLaplacian(S, M, P0, alpha)
-        bc = P0.T.dot(b)
-    elif smooth_method == "C0conga":
-        alpha = alphaCONGA
-        P0 = C0PolarProjection_V0(V0_h, hbc=True)  # hbc imposes the boundary conditions
-        Sc = CongaLaplacian(S, M, P0, alpha)
-        bc = P0.T.dot(b)
-    elif smooth_method == "None":
-        alpha = "None"
-    t1 = time()
-    timing["projection"] = t1 - t0
-
-    # Apply homogeneous Dirichlet boundary conditions for the conforming
-    # smooth_method case 'polar' and non-conforming case 'None'
-    # NOTE: this does not affect ghost regions
-    # For each angular index j on the last owned radial line, replace the assembled equation
-    #     (S u)[e1, j] = b[e1, j]
-    # by the equation
-    #     u[e1, j] = 0.
-
-    e1 = V0_h.coeff_space.ends[0]
-    if e1 == V0_h.coeff_space.npts[0] - 1:
-        if smooth_method in ("polar-std", "polar-spec"):
-            last = bp[1].space.npts[0] - 1
-            Sp[1, 1][last, :, :, :] = 0.0
-            Sp[1, 1][last, :, 0, 0] = 1.0
-            bp[1][last, :] = 0.0
-        elif smooth_method == "None":
-            S[e1, :, :, :] = 0.0
-            S[e1, :, 0, 0] = 1.0  # set diagonal entries to 1
-            b[e1, :] = 0.0  # RHS is 0 at the outer radial boundary
-
-    # ====================== SOLVE GALERKIN SYSTEM WITH CG ========================#
-
-    # Solve linear system
-    t0 = time()
-    if smooth_method in ("polar-std", "polar-spec"):
-        Sp_inv = inverse(Sp, "cg", tol=cgtol, maxiter=cgiter, verbose=verbose)
-        xp = Sp_inv.dot(bp)
-        xsol = proj.convert_to_tensor_basis(xp)
-        info = Sp_inv.get_info()
-    elif smooth_method == "C1conga":
-        Sc_inv = inverse(Sc, "cg", tol=cgtol, maxiter=cgiter, verbose=verbose)
-        xsol = Sc_inv.dot(bc)
-        info = Sc_inv.get_info()
-    elif smooth_method == "C0conga":
-        Sc_inv = inverse(Sc, "cg", tol=cgtol, maxiter=cgiter, verbose=verbose)
-        xsol = Sc_inv.dot(bc)
-        info = Sc_inv.get_info()
-    elif smooth_method == "None":
-        pc = S.diagonal(inverse=True)
-        S_inv = inverse(S, "cg", pc=pc, tol=cgtol, maxiter=cgiter, verbose=verbose)
-        xsol = S_inv.dot(b)
-        info = S_inv.get_info()
-    t1 = time()
-    timing["solution"] = t1 - t0
-
-    # ========================= APPROXIMATION ERROR ===============================#
-
-    # Create potential field for discrete solution
-    phi = FemField(V0_h, coeffs=xsol)
-    phi.coeffs.update_ghost_regions()
-
-    t0 = time()
-    errors = compute_errors(phi, phi_ref, M, S)
-    t1 = time()
-    timing["diagnostics"] = t1 - t0
-
-    # Write solution to HDF5 file
-    t0 = time()
-    V0_h.export_fields("fields.h5", phi=phi)
-    t1 = time()
-    timing["export"] += t1 - t0
-    # =============================== PRINTING INFO ===============================#
-
-    # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-    # Print some information to terminal
-    for i in range(mpi_size):
-        if i == mpi_rank:
-            print("--------------------------------------------------")
-            print(" RANK = {}".format(mpi_rank))
-            print("--------------------------------------------------")
-            print(
-                "> Grid                :: [{ne1},{ne2}]".format(
-                    ne1=ncells[0], ne2=ncells[1]
-                )
-            )
-            print(
-                "> Degree              :: [{p1},{p2}]".format(
-                    p1=degree[0], p2=degree[1]
-                )
-            )
-            print("> Penalization alpha  :: {alpha} ".format(alpha=alpha))
-            print("> CG info            :: ", info)
-            print("> L2 norm solution    :: {:.2e}".format(errors.ref_l2))
-            print("> H1 norm solution    :: {:.2e}".format(errors.ref_h1))
-            print("> L2 error (relative) :: {:.2e}".format(errors.rel_l2))
-            print("> H1 error (relative) :: {:.2e}".format(errors.rel_h1))
-            print("")
-            print("> Assembly time :: {:.2e}".format(timing["assembly"]))
-            if smooth_method:
-                print("> Project. time :: {:.2e}".format(timing["projection"]))
-            print("> Solution time :: {:.2e}".format(timing["solution"]))
-            print("> Evaluat. time :: {:.2e}".format(timing["diagnostics"]))
-            print("> Export   time :: {:.2e}".format(timing["export"]))
-            print("", flush=True)
-            sleep(0.001)
-        mpi_comm.Barrier()
-
-    # =============================== VISUALIZATION ===============================#
-
-    N = 10
-    V0_h.plot_2d_decomposition(mapping.get_callable_mapping(), refine=N)
-
-    # Non-master processes stop here
-    if mpi_rank != 0:
-        return
-
-    plot_solution(use_spline_mapping, model, ncells, periodic, V0_h, refine=N)
-
-    return locals()
 
 
 def compute_errors(phi, phi_ref, M, S):
@@ -633,7 +346,7 @@ def compute_errors(phi, phi_ref, M, S):
 
 
 # ==============================================================================
-# Plotting
+# VISUALIZATION
 # ==============================================================================
 def plot_solution(use_spline_mapping, model, ncells, periodic, V0_h, refine=10):
     """
@@ -717,7 +430,314 @@ def plot_solution(use_spline_mapping, model, ncells, periodic, V0_h, refine=10):
 
 
 # ==============================================================================
-# Parser
+# SIMULATION
+# ==============================================================================
+def run_poisson_2d(
+    *,
+    test_case,
+    ncells,
+    degree,
+    shift_D,
+    R,
+    use_spline_mapping,
+    smooth_method,
+    cgtol,
+    cgiter,
+    alphaCONGA,
+    verbose=False,
+):
+    timing = {}
+    timing["assembly"] = 0.0
+    timing["projection"] = 0.0
+    timing["solution"] = 0.0
+    timing["diagnostics"] = 0.0
+    timing["export"] = 0.0
+
+    # Method of manufactured solution
+    if test_case == "disk":
+        model = Poisson2D.disk(R=R, shift_D=shift_D)
+    elif test_case == "target":
+        model = Poisson2D.target()
+    elif test_case == "czarny":
+        model = Poisson2D.czarny()
+    else:
+        raise ValueError("Only available test-cases are 'disk', 'target' and 'czarny'")
+
+    if smooth_method not in ("polar-std", "polar-spec", "C0conga", "C1conga", "None"):
+        raise ValueError(
+            "Only available options for pole smoothness are 'polar-spec', 'polar-std', 'C0conga', 'C1conga', 'None'"
+        )
+
+    if smooth_method == "polar-spec" and (not use_spline_mapping):
+        print(
+            "WARNING: C1 conforming discretization only available for spline mappings"
+        )
+        print("The domain will be approximated in the 0-forms spline space.")
+        print()
+        use_spline_mapping = True
+
+    # Communicator, size, rank
+    mpi_comm = MPI.COMM_WORLD
+    mpi_size = mpi_comm.Get_size()
+    mpi_rank = mpi_comm.Get_rank()
+
+    periodic = [False, True]
+
+    if use_spline_mapping:
+
+        # ----------------------------------------------------------------------
+        # Spline space for spline mappings
+        # ----------------------------------------------------------------------
+        V = create_tensor_spline_space(
+            ncells,
+            degree,
+            periodic,
+            (model.domain_log.bounds1, model.domain_log.bounds2),
+            mpi_comm,
+        )
+
+        # TODO: maybe define a parent class Model
+
+        # ----------------------------------------------------------------------
+        # Mapping & physical domain
+        # ----------------------------------------------------------------------
+
+        # Create spline mapping by interpolation of analytical mapping
+        map_analytic = model.mapping.get_callable_mapping()
+        map_discrete = SplineMapping.from_mapping(V, map_analytic)
+        # Create symbolic mapping with callable mapping as spline
+        mapping = Mapping("M", dim=2)
+        mapping.set_callable_mapping(map_discrete)
+        # In order to create a sympde.Domain object from this mapping we have
+        # to create first a HDF5 file and then load as sympde.Domain.fromfile
+        t0 = time()
+        geometry = Geometry.from_discrete_mapping(map_discrete, comm=mpi_comm)
+        geometry.export("geo.h5")
+        t1 = time()
+        timing["export"] += t1 - t0
+        domain = Domain.from_file("geo.h5")
+
+        # check_regular_ring_map(map_discrete)
+
+    else:
+        # Only symbolic mapping is necessary
+        mapping = model.mapping
+        domain = mapping(model.domain_log)
+
+    # --------------------------------------------------------------------------
+    # Symbolic definition
+    # --------------------------------------------------------------------------
+
+    # Equations
+    V0 = ScalarFunctionSpace("V0", domain)
+    u0, v0 = elements_of(V0, names="u0, v0")
+    aM = BilinearForm((u0, v0), integral(domain, u0 * v0))
+    aS = BilinearForm((u0, v0), integral(domain, dot(grad(u0), grad(v0))))
+
+    rhs = LinearForm(v0, integral(domain, model.rho_log * v0))
+
+    # --------------------------------------------------------------------------
+    # Discretization
+    # --------------------------------------------------------------------------
+    if use_spline_mapping:
+        domain_h = discretize(domain, filename="geo.h5", comm=mpi_comm)
+        V0_h = discretize(V0, domain_h)
+        F = list(domain_h.mappings.values()).pop()
+    else:
+        domain_h = discretize(domain, ncells=ncells, periodic=periodic, comm=mpi_comm)
+        V0_h = discretize(V0, domain_h, degree=degree)
+        F = mapping.get_callable_mapping()
+
+    aM_h = discretize(aM, domain_h, (V0_h, V0_h), backend=backend)
+    aS_h = discretize(aS, domain_h, (V0_h, V0_h), backend=backend)
+    rhs_h = discretize(rhs, domain_h, V0_h, backend=backend)
+
+    M = aM_h.assemble()
+    S = aS_h.assemble()
+    b = rhs_h.assemble()
+
+    S.update_ghost_regions()
+    b.update_ghost_regions()
+    M.update_ghost_regions()
+
+    # --------------------------------------------------------------------------
+    # Project the exact solution
+    # --------------------------------------------------------------------------
+    from psydac.feec.global_geometric_projectors import GlobalGeometricProjectorH1
+
+    Pi0 = GlobalGeometricProjectorH1(V0_h)
+    phi_ref = Pi0(model.phi_log_callable)
+    phi_ref.coeffs.update_ghost_regions()
+
+    # --------------------------------------------------------------------------
+    # Handle the singularity
+    # --------------------------------------------------------------------------
+
+    # If required by user, create C1 projector and then restrict
+    # stiffness/mass matrices and right-hand-side vector to C1 space
+    t0 = time()
+    bc = None
+    Sc = None
+    if smooth_method == "polar-spec":
+        proj = C1Projector(F)
+        Sp = proj.change_matrix_basis(S)
+        bp = proj.change_rhs_basis(b)
+        alpha = "None"
+    if smooth_method == "polar-std":
+        # Build standard polar map from control points of standard polar map
+        n1, n2 = [W.nbasis for W in V0_h.spaces]
+        rho = np.array([i1 / (n1 - 1) for i1 in range(n1)])
+        theta = np.array([i2 * 2 * np.pi / n2 for i2 in range(n2)])
+        sin_theta = np.sin(theta)
+        cos_theta = np.cos(theta)
+        cp = np.zeros((n1, n2, 2))
+        for i1 in range(n1):
+            for i2 in range(n2):
+                cp[i1, i2, 0] = rho[i1] * cos_theta[i2]
+                cp[i1, i2, 1] = rho[i1] * sin_theta[i2]
+        F_std = SplineMapping.from_control_points(V0_h, cp)
+        proj = C1Projector(F_std)
+        Sp = proj.change_matrix_basis(S)
+        bp = proj.change_rhs_basis(b)
+        alpha = "None"
+    elif smooth_method == "C1conga":
+        gamma = 1.0  # any value would be ok.
+        alpha = alphaCONGA
+        P0 = C1PolarProjection_V0(
+            V0_h, gamma=gamma, hbc=True
+        )  # hbc imposes the boundary conditions
+        Sc = CongaLaplacian(S, M, P0, alpha)
+        bc = P0.T.dot(b)
+    elif smooth_method == "C0conga":
+        alpha = alphaCONGA
+        P0 = C0PolarProjection_V0(V0_h, hbc=True)  # hbc imposes the boundary conditions
+        Sc = CongaLaplacian(S, M, P0, alpha)
+        bc = P0.T.dot(b)
+    elif smooth_method == "None":
+        alpha = "None"
+    t1 = time()
+    timing["projection"] = t1 - t0
+
+    # Apply homogeneous Dirichlet boundary conditions for the conforming
+    # smooth_method case 'polar' and non-conforming case 'None'
+    # NOTE: this does not affect ghost regions
+    # For each angular index j on the last owned radial line, replace the assembled equation
+    #     (S u)[e1, j] = b[e1, j]
+    # by the equation
+    #     u[e1, j] = 0.
+
+    e1 = V0_h.coeff_space.ends[0]
+    if e1 == V0_h.coeff_space.npts[0] - 1:
+        if smooth_method in ("polar-std", "polar-spec"):
+            last = bp[1].space.npts[0] - 1
+            Sp[1, 1][last, :, :, :] = 0.0
+            Sp[1, 1][last, :, 0, 0] = 1.0
+            bp[1][last, :] = 0.0
+        elif smooth_method == "None":
+            S[e1, :, :, :] = 0.0
+            S[e1, :, 0, 0] = 1.0  # set diagonal entries to 1
+            b[e1, :] = 0.0  # RHS is 0 at the outer radial boundary
+
+    # --------------------------------------------------------------------------
+    # Solve Galerkin system with CG
+    # --------------------------------------------------------------------------
+
+    # Solve linear system
+    t0 = time()
+    if smooth_method in ("polar-std", "polar-spec"):
+        Sp_inv = inverse(Sp, "cg", tol=cgtol, maxiter=cgiter, verbose=verbose)
+        xp = Sp_inv.dot(bp)
+        xsol = proj.convert_to_tensor_basis(xp)
+        info = Sp_inv.get_info()
+    elif smooth_method == "C1conga":
+        Sc_inv = inverse(Sc, "cg", tol=cgtol, maxiter=cgiter, verbose=verbose)
+        xsol = Sc_inv.dot(bc)
+        info = Sc_inv.get_info()
+    elif smooth_method == "C0conga":
+        Sc_inv = inverse(Sc, "cg", tol=cgtol, maxiter=cgiter, verbose=verbose)
+        xsol = Sc_inv.dot(bc)
+        info = Sc_inv.get_info()
+    elif smooth_method == "None":
+        pc = S.diagonal(inverse=True)
+        S_inv = inverse(S, "cg", pc=pc, tol=cgtol, maxiter=cgiter, verbose=verbose)
+        xsol = S_inv.dot(b)
+        info = S_inv.get_info()
+    t1 = time()
+    timing["solution"] = t1 - t0
+
+    # --------------------------------------------------------------------------
+    # Approximation error
+    # --------------------------------------------------------------------------
+
+    # Create potential field for discrete solution
+    phi = FemField(V0_h, coeffs=xsol)
+    phi.coeffs.update_ghost_regions()
+
+    t0 = time()
+    errors = compute_errors(phi, phi_ref, M, S)
+    t1 = time()
+    timing["diagnostics"] = t1 - t0
+
+    # Write solution to HDF5 file
+    t0 = time()
+    V0_h.export_fields("fields.h5", phi=phi)
+    t1 = time()
+    timing["export"] += t1 - t0
+
+    # --------------------------------------------------------------------------
+    # Print info
+    # --------------------------------------------------------------------------
+
+    # Print some information to terminal
+    for i in range(mpi_size):
+        if i == mpi_rank:
+            print("--------------------------------------------------")
+            print(" RANK = {}".format(mpi_rank))
+            print("--------------------------------------------------")
+            print(
+                "> Grid                :: [{ne1},{ne2}]".format(
+                    ne1=ncells[0], ne2=ncells[1]
+                )
+            )
+            print(
+                "> Degree              :: [{p1},{p2}]".format(
+                    p1=degree[0], p2=degree[1]
+                )
+            )
+            print("> Penalization alpha  :: {alpha} ".format(alpha=alpha))
+            print("> CG info             :: {info}".format(info=info))
+            print("> L2 norm solution    :: {:.2e}".format(errors.ref_l2))
+            print("> H1 norm solution    :: {:.2e}".format(errors.ref_h1))
+            print("> L2 error (relative) :: {:.2e}".format(errors.rel_l2))
+            print("> H1 error (relative) :: {:.2e}".format(errors.rel_h1))
+            print("")
+            print("> Assembly time :: {:.2e}".format(timing["assembly"]))
+            if smooth_method:
+                print("> Project. time :: {:.2e}".format(timing["projection"]))
+            print("> Solution time :: {:.2e}".format(timing["solution"]))
+            print("> Evaluat. time :: {:.2e}".format(timing["diagnostics"]))
+            print("> Export   time :: {:.2e}".format(timing["export"]))
+            print("", flush=True)
+            sleep(0.001)
+        mpi_comm.Barrier()
+
+    # --------------------------------------------------------------------------
+    # Visualization
+    # --------------------------------------------------------------------------
+    N = 10
+    V0_h.plot_2d_decomposition(mapping.get_callable_mapping(), refine=N)
+
+    # Non-master processes stop here
+    if mpi_rank != 0:
+        return
+
+    plot_solution(use_spline_mapping, model, ncells, periodic, V0_h, refine=N)
+
+    return locals()
+
+
+# ==============================================================================
+# PARSER
 # ==============================================================================
 def parse_input_arguments():
     import argparse
@@ -819,7 +839,7 @@ def parse_input_arguments():
 
 
 # ==============================================================================
-# Script functionality
+# SCRIPT FUNCTIONALITY
 # ==============================================================================
 if __name__ == "__main__":
 
