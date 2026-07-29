@@ -84,8 +84,8 @@ try:
     from mpi4py import MPI
 
     _comm = MPI.COMM_WORLD
-    rank = _comm.Get_rank()
-    size = _comm.Get_size()
+    # rank = _comm.Get_rank()
+    # size = _comm.Get_size()
     mpi_enabled = True
 except ImportError:
     # mpi4py not installed
