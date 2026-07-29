@@ -808,7 +808,7 @@ def run_maxwell_2d_TE(
 
         if show_figs:
             # Plot exact and approximate solutions at t = 0
-            fig, axs = plt.subplots(3, 3, figsize=(12, 12))
+            fig, axs = plt.subplots(3, 3, figsize=(12, 8.5))
             im0 = axs[0, 0].contourf(x, y, Ex_ex_values, 50)
             im1 = axs[0, 1].contourf(x, y, Ey_ex_values, 50)
             im2 = axs[0, 2].contourf(x, y, Bz_ex_values, 50)
@@ -844,7 +844,7 @@ def run_maxwell_2d_TE(
             add_colorbar(im7, axs[2, 1])
             add_colorbar(im8, axs[2, 2])
             fig.suptitle(
-                "Compare Exact Solution and Approximate solution at initial time"
+                "Compare Exact Solution and Approximate Solution at initial time"
             )
             fig.tight_layout()
 
@@ -1018,7 +1018,7 @@ def run_maxwell_2d_TE(
 
     if eval_data is not None and show_figs:
         # Plot exact and approximate solution at final time
-        fig1, axs = plt.subplots(3, 3, figsize=(12, 12))
+        fig1, axs = plt.subplots(3, 3, figsize=(12, 8.5))
         im0 = axs[0, 0].contourf(x, y, Ex_ex_values, 50)
         im1 = axs[0, 1].contourf(x, y, Ey_ex_values, 50)
         im2 = axs[0, 2].contourf(x, y, Bz_ex_values, 50)
@@ -1053,7 +1053,7 @@ def run_maxwell_2d_TE(
         add_colorbar(im6, axs[2, 0])
         add_colorbar(im7, axs[2, 1])
         add_colorbar(im8, axs[2, 2])
-        fig1.suptitle("Compare Exact Solution and Approximate solution at final time")
+        fig1.suptitle("Compare Exact Solution and Approximate Solution at final time")
         fig1.tight_layout()
 
         # fields along s, final time
