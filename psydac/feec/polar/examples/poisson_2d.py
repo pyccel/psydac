@@ -743,13 +743,13 @@ def run_poisson_2d(
     # Visualization
     # --------------------------------------------------------------------------
     N = 10
-    V0_h.plot_2d_decomposition(mapping.get_callable_mapping(), refine=N)
+    fig = V0_h.plot_2d_decomposition(mapping.get_callable_mapping(), refine=N)
+    if fig:
+        fig.show()
 
-    # Non-master processes stop here
-    if mpi_rank != 0:
-        return locals()
-
-    plot_solution(use_spline_mapping, model, ncells, periodic, V0_h, refine=N)
+    # Root process: load numerical solution from hdf5 file and plot it
+    if mpi_rank == 0:
+        plot_solution(use_spline_mapping, model, ncells, periodic, V0_h, refine=N)
 
     return locals()
 
