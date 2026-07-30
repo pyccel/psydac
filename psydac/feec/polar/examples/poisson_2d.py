@@ -17,6 +17,7 @@ import numpy as np
 from mpi4py import MPI
 from sympy import Matrix, Rational, cos, lambdify, pi, sin, sqrt, symbols
 
+from psydac.feec.polar.examples.polar_model_2d import PolarModel2D
 from psydac.linalg.basic import LinearOperator
 from psydac.linalg.stencil import StencilMatrix, StencilVector
 
@@ -57,7 +58,7 @@ class Laplacian:
         return lapl
 
 
-class Poisson2D:
+class Poisson2D(PolarModel2D):
     r"""
     Exact solution to the 2D Poisson equation with Dirichlet boundary
     conditions, to be employed for the method of manufactured solutions.
@@ -68,9 +69,7 @@ class Poisson2D:
     """
 
     def __init__(self, domain_log, mapping, phi_log, rho_log):
-        from sympde.topology.mapping import Mapping
-
-        assert isinstance(mapping, Mapping)
+        super().__init__(domain_log, mapping)
 
         self._domain_log = domain_log
         self._mapping = mapping
@@ -446,17 +445,13 @@ def run_poisson_2d(
     from sympde.calculus import dot, grad
     from sympde.expr import BilinearForm, LinearForm, integral
     from sympde.topology import ScalarFunctionSpace, elements_of
-    from sympde.topology.domain import Domain
-    from sympde.topology.mapping import Mapping
 
     from psydac.api.discretization import discretize
     from psydac.api.settings import PSYDAC_BACKENDS
-    from psydac.cad.geometry import Geometry
     from psydac.feec.polar.conga_projections import (
         C0PolarProjection_V0,
         C1PolarProjection_U0,
     )
-    from psydac.feec.polar.examples.utils_congapol import create_tensor_spline_space
     from psydac.fem.basic import FemField
     from psydac.linalg.solvers import inverse
     from psydac.mapping.discrete import SplineMapping
@@ -501,46 +496,18 @@ def run_poisson_2d(
 
     periodic = [False, True]
 
-    if use_spline_mapping:
+    model.build_geometry(
+        ncells=ncells,
+        degree=degree,
+        periodic=periodic,
+        mpi_comm=mpi_comm,
+        use_spline_mapping=use_spline_mapping,
+    )
 
-        # ----------------------------------------------------------------------
-        # Spline space for spline mappings
-        # ----------------------------------------------------------------------
-        V = create_tensor_spline_space(
-            ncells,
-            degree,
-            periodic,
-            (model.domain_log.bounds1, model.domain_log.bounds2),
-            mpi_comm,
-        )
+    domain = model.domain
+    mapping = model.mapping
 
-        # TODO: maybe define a parent class Model
-
-        # ----------------------------------------------------------------------
-        # Mapping & physical domain
-        # ----------------------------------------------------------------------
-
-        # Create spline mapping by interpolation of analytical mapping
-        map_analytic = model.mapping.get_callable_mapping()
-        map_discrete = SplineMapping.from_mapping(V, map_analytic)
-        # Create symbolic mapping with callable mapping as spline
-        mapping = Mapping("M", dim=2)
-        mapping.set_callable_mapping(map_discrete)
-        # In order to create a sympde.Domain object from this mapping we have
-        # to create first a HDF5 file and then load as sympde.Domain.fromfile
-        t0 = time()
-        geometry = Geometry.from_discrete_mapping(map_discrete, comm=mpi_comm)
-        geometry.export("geo.h5")
-        t1 = time()
-        timing["export"] += t1 - t0
-        domain = Domain.from_file("geo.h5")
-
-        # check_regular_ring_map(map_discrete)
-
-    else:
-        # Only symbolic mapping is necessary
-        mapping = model.mapping
-        domain = mapping(model.domain_log)
+    timing["export"] += model.geometry_export_time
 
     # --------------------------------------------------------------------------
     # Symbolic definition
