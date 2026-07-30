@@ -939,7 +939,9 @@ def run_maxwell_2d_TE(
 
     N = 10
     if show_figs:
-        V0_h.plot_2d_decomposition(F, refine=N)
+        fig = V0_h.plot_2d_decomposition(F, refine=N)
+        if fig:
+            fig.show()
 
     e = P1 @ e
     b = P2 @ b
@@ -1057,6 +1059,7 @@ def run_maxwell_2d_TE(
         add_colorbar(im8, axs[2, 2])
         fig1.suptitle("Compare Exact Solution and Approximate Solution at final time")
         fig1.tight_layout()
+        fig1.show()
 
         # fields along s, final time
         plot_fields_along_s(tstr="T")
