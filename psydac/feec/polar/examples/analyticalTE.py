@@ -12,7 +12,7 @@ class CircularCavitySolution:
     """
     Time-harmonic solution of Maxwell's equations in a disk-like domain with
     perfectly conducting walls. This is a "transverse electric" solution, with
-    E = (Ex, Ey) and B = Bz. Domain is [0, R] x [0, 2pi].
+    E = (Ex, Ey) and B = Bz. The logical domain is [0, R] x [0, 2pi].
 
     Parameters
     ----------
