@@ -15,6 +15,67 @@ import os
 import numpy as np
 from mpi4py import MPI
 
+from psydac.feec.polar.examples.analyticalTE import CircularCavitySolution
+from psydac.feec.polar.examples.polar_model_2d import PolarModel2D
+from psydac.feec.polar.examples.waveTE import GaussianSolution
+
+
+class Maxwell2D(PolarModel2D):
+    """Analytical TE Maxwell model on a mapped polar disk."""
+
+    def __init__(self, domain_log, mapping, exact_solution):
+        super().__init__(domain_log, mapping)
+
+        self._exact_solution = exact_solution
+
+    @staticmethod
+    def disk(R, shift_D, study, use_polar_mapping=False):
+        from sympde.topology import Square
+        from sympde.topology.analytical_mapping import (
+            PolarMapping,
+            TargetMapping,
+        )
+        from sympy import pi
+
+        # Speed of light and scaling
+        c = 1.0
+        scale = 1.0
+
+        # Mode number
+        m, n = (2, 3)
+
+        if study == "maxwell_wave":
+            # This is just the initial solution
+            exact_solution = GaussianSolution(sigma=1e-1, x0=0, y0=0, scale=scale)
+        else:
+            exact_solution = CircularCavitySolution(R=R, c=c, m=m, n=n, scale=scale)
+
+        domain_log = Square("Omega", bounds1=(0, R), bounds2=(0, 2 * pi))
+
+        if use_polar_mapping:
+            mapping = PolarMapping("PM", c1=0, c2=0, rmin=0, rmax=1)
+        else:
+            # domain   = ((0, 1), (0, 2 * np.pi))
+            mapping = TargetMapping("TM", c1=shift_D * R * R, c2=0, k=0, D=shift_D)
+
+        return Maxwell2D(domain_log, mapping, exact_solution)
+
+    @property
+    def exact_solution(self):
+        return self._exact_solution
+
+    @property
+    def Ex_ex_t(self):
+        return self._exact_solution.Ex_ex
+
+    @property
+    def Ey_ex_t(self):
+        return self._exact_solution.Ey_ex
+
+    @property
+    def Bz_ex_t(self):
+        return self._exact_solution.Bz_ex
+
 
 # ==============================================================================
 # TIME DISCRETIZATION
@@ -185,32 +246,22 @@ def run_maxwell_2d_TE(
     import matplotlib.pyplot as plt
     from sympde.calculus import dot
     from sympde.expr import BilinearForm, LinearForm, integral
-    from sympde.topology import Derham, Domain, Square, element_of, elements_of
-    from sympde.topology.analytical_mapping import PolarMapping, TargetMapping
-    from sympde.topology.mapping import Mapping
-    from sympy import Tuple, cos, pi, sin, sqrt
+    from sympde.topology import Derham, Square, element_of, elements_of
+    from sympy import Tuple, cos, sin, sqrt
 
     from psydac.api.discretization import discretize
     from psydac.api.settings import PSYDAC_BACKENDS
-    from psydac.cad.geometry import Geometry
     from psydac.feec.polar.conga_projections import (
         C0PolarProjection_V1,
         C0PolarProjection_V2,
         C1PolarProjection_U1,
         C1PolarProjection_U2,
     )
-    from psydac.feec.polar.examples.analyticalTE import CircularCavitySolution
-    from psydac.feec.polar.examples.utils_congapol import (
-        add_colorbar,
-        check_regular_ring_map,
-        create_tensor_spline_space,
-    )
-    from psydac.feec.polar.examples.waveTE import GaussianSolution
+    from psydac.feec.polar.examples.utils_congapol import add_colorbar
     from psydac.feec.pull_push import push_2d_hcurl, push_2d_l2
     from psydac.fem.basic import FemField
     from psydac.linalg.basic import IdentityOperator
     from psydac.linalg.solvers import inverse
-    from psydac.mapping.discrete import SplineMapping
     from psydac.utilities.utils import refine_array_1d
 
     assert splitting_order in [2, 4]
@@ -235,30 +286,11 @@ def run_maxwell_2d_TE(
     visdir = f"plots_{study}"
     os.makedirs(visdir, exist_ok=True)
 
-    if study == "maxwell_wave":
-        # This is just the initial solution
-        exact_solution = GaussianSolution(sigma=1e-1, x0=0, y0=0, scale=scale)
-    else:
-        exact_solution = CircularCavitySolution(R=R, c=c, m=m, n=n, scale=scale)
-
-    Ex_ex_t = exact_solution.Ex_ex
-    Ey_ex_t = exact_solution.Ey_ex
-    Bz_ex_t = exact_solution.Bz_ex
-
     # Logical domain: [0, R] x [0, 2pi]
     logical_bounds = [[0, R], [0, 2 * np.pi]]
     logical_domain = Square(
         "Omega", bounds1=logical_bounds[0], bounds2=logical_bounds[1]
     )
-
-    # Physical domain: disk of radius R obtained as image of the logical_domain
-    # with the analytical mapping of a circle
-    polar_mapping = False
-    if polar_mapping:
-        mapping = PolarMapping("PM", c1=0, c2=0, rmin=0, rmax=1)
-    else:
-        # domain   = ((0, 1), (0, 2 * np.pi))
-        mapping = TargetMapping("TM", c1=shift_D * R * R, c2=0, k=0, D=shift_D)
 
     # run parameters string
     rp_str = f"{ncells[0]}_{ncells[1]}_p{degree[0]}_D{shift_D}_s{smooth}"
@@ -272,41 +304,22 @@ def run_maxwell_2d_TE(
     mpi_size = mpi_comm.size  # size of MPI communicator
     mpi_rank = mpi_comm.rank  # process rank within MPI communicator
 
-    if use_spline_mapping:
+    model = Maxwell2D.disk(R=R, shift_D=shift_D, study=study)
 
-        # ----------------------------------------------------------------------
-        # Spline space for spline mappings
-        # ----------------------------------------------------------------------
-        V = create_tensor_spline_space(
-            ncells,
-            degree,
-            [False, True],
-            (logical_bounds[0], logical_bounds[1]),
-            mpi_comm,
-        )
+    model.build_geometry(
+        ncells=ncells,
+        degree=degree,
+        periodic=[False, True],
+        mpi_comm=mpi_comm,
+        use_spline_mapping=use_spline_mapping,
+    )
 
-        # ----------------------------------------------------------------------
-        # Mapping & physical domain
-        # ----------------------------------------------------------------------
+    domain = model.domain
+    mapping = model.mapping
 
-        # Create spline mapping by interpolation of analytical mapping
-        map_analytic = mapping.get_callable_mapping()
-        map_discrete = SplineMapping.from_mapping(V, map_analytic)
-
-        check_regular_ring_map(map_discrete)
-
-        # Create symbolic mapping with callable mapping as spline
-        mapping = Mapping("M", dim=2)
-        mapping.set_callable_mapping(map_discrete)
-        # In order to create a sympde.Domain object from this mapping we have
-        # to create first a HDF5 file and then load as sympde.Domain.fromfile
-        geometry = Geometry.from_discrete_mapping(map_discrete, comm=mpi_comm)
-        geometry.export("geo.h5")
-        domain = Domain.from_file("geo.h5")
-
-    else:
-        # Only symbolic mapping is necessary
-        domain = mapping(logical_domain)
+    Ex_ex_t = model.Ex_ex_t
+    Ey_ex_t = model.Ey_ex_t
+    Bz_ex_t = model.Bz_ex_t
 
     # DeRham sequence
     derham = Derham(domain, sequence=["h1", "hcurl", "l2"])
