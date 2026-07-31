@@ -17,7 +17,7 @@ from psydac.feec.polar.conga_projections import (
 )
 from psydac.fem.basic import FemField
 from psydac.linalg.block import BlockVector
-from psydac.utilities.gather_variable_len_arrays import (
+from psydac.utilities.parallel_utils import (
     gather_vlen_array,
     gather_vlen_arrays,
 )
