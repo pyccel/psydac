@@ -246,7 +246,7 @@ def run_maxwell_2d_TE(
     Bz_ex_t = exact_solution.Bz_ex
 
     # Logical domain: [0, R] x [0, 2pi]
-    logical_bounds = [[0, R], [0, 2 * pi]]
+    logical_bounds = [[0, R], [0, 2 * np.pi]]
     logical_domain = Square(
         "Omega", bounds1=logical_bounds[0], bounds2=logical_bounds[1]
     )
