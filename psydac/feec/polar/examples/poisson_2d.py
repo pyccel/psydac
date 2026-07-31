@@ -1,3 +1,8 @@
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 """
 Solve manufactured 2D Poisson problems on polar mapped domains.
 
@@ -820,6 +825,7 @@ def parse_input_arguments():
         help="max number of iterations for CG",
     )
 
+    # Read and return input arguments
     return parser.parse_args()
 
 
@@ -827,48 +833,7 @@ def parse_input_arguments():
 # SCRIPT FUNCTIONALITY
 # ==============================================================================
 if __name__ == "__main__":
+    from psydac.utilities.parallel_utils import parallel_run_from_cli
 
-    # Select MPI communicator
-    mpi_comm = MPI.COMM_WORLD
-
-    # Let root process (with rank=0) parse the CLI arguments and broadcast them
-    # to all the other processes in the communicator. This keeps the standard
-    # output clean in the case of help and error messages.
-    args = None
-    try:
-        if mpi_comm.rank == 0:
-            args = parse_input_arguments()
-    finally:
-        args = mpi_comm.bcast(args, root=0)
-        if args is None:
-            import sys
-
-            sys.exit(0)
-
-    # Convert argparse Namespace to dictionary and add MPI communicator to it
-    args_dict = vars(args)
-    args_dict["mpi_comm"] = mpi_comm
-
-    # Print information to standard output
-    if mpi_comm.rank == 0:
-        import pprint
-
-        if mpi_comm.size == 1:
-            msg = f"Running function 'run_poisson_2d' in serial with arguments:"
-        else:
-            msg = f"Running function 'run_poisson_2d' in parallel with " \
-              f"{mpi_comm.size} MPI processes, and arguments:"
-        print(msg)
-        pprint.pp(args_dict)
-        print(flush=True)
-
-    # Run simulation in parallel
-    namespace = run_poisson_2d(**args_dict)
-
-    # Make all variables available (including imported modules)
+    namespace = parallel_run_from_cli(parse_input_arguments, run_poisson_2d)
     globals().update(namespace)
-
-    # Keep matplotlib windows open
-    import matplotlib.pyplot as plt
-
-    plt.show()

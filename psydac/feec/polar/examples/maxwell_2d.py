@@ -1,3 +1,8 @@
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 """
 Solve the Transverse Electric Time dependent Maxwell Problem on an analytical disk domain.
 
@@ -875,6 +880,7 @@ def run_maxwell_2d_TE(
     error_l2_Ey = l2_norm_of(erry) / norm_l2_Ey
     error_l2_Bz = l2_norm_of(errz) / norm_l2_Bz
 
+    # TODO: only root should print to terminal
     print(
         "L2 norm of rel. error on Ex(t,x,y) at initial time: {:.2e}".format(error_l2_Ex)
     )
@@ -935,6 +941,7 @@ def run_maxwell_2d_TE(
         e = P1 @ e
         b = P2 @ b
 
+        # TODO: only root should print to terminal
         print("ts = {:4d},  t = {:8.4f}".format(ts, t))
 
     N = 10
@@ -978,6 +985,8 @@ def run_maxwell_2d_TE(
         error_Ex = abs(Ex_ex_values - Ex_values).max()
         error_Ey = abs(Ey_ex_values - Ey_values).max()
         error_Bz = abs(Bz_ex_values - Bz_values).max()
+
+        # TODO: perform an MPI (max) reduction and have only root print to terminal
         print()
         print("Max-norm of error on Ex(t,x) at final time: {:.2e}".format(error_Ex))
         print("Max-norm of error on Ey(t,x) at final time: {:.2e}".format(error_Ey))
@@ -1009,6 +1018,7 @@ def run_maxwell_2d_TE(
     error_l2_Ey = l2_norm_of(erry) / norm_l2_Ey
     error_l2_Bz = l2_norm_of(errz) / norm_l2_Bz
 
+    # TODO: only root should print to terminal
     print()
     print(
         "L2 norm of rel. error on Ex(t,x,y) at final time: {:.2e}".format(error_l2_Ex)
@@ -1207,48 +1217,7 @@ def parse_input_arguments():
 # SCRIPT FUNCTIONALITY
 # ==============================================================================
 if __name__ == "__main__":
+    from psydac.utilities.parallel_utils import parallel_run_from_cli
 
-    # Select MPI communicator
-    mpi_comm = MPI.COMM_WORLD
-
-    # Let root process (with rank=0) parse the CLI arguments and broadcast them
-    # to all the other processes in the communicator. This keeps the standard
-    # output clean in the case of help and error messages.
-    args = None
-    try:
-        if mpi_comm.rank == 0:
-            args = parse_input_arguments()
-    finally:
-        args = mpi_comm.bcast(args, root=0)
-        if args is None:
-            import sys
-
-            sys.exit(0)
-
-    # Convert argparse Namespace to dictionary and add MPI communicator to it
-    args_dict = vars(args)
-    args_dict["mpi_comm"] = mpi_comm
-
-    # Print information to standard output
-    if mpi_comm.rank == 0:
-        import pprint
-
-        if mpi_comm.size == 1:
-            msg = f"Running function 'run_maxwell_2d_TE' in serial with arguments:"
-        else:
-            msg = f"Running function 'run_maxwell_2d_TE' in parallel with " \
-              f"{mpi_comm.size} MPI processes, and arguments:"
-        print(msg)
-        pprint.pp(args_dict)
-        print(flush=True)
-
-    # Run simulation in parallel
-    namespace = run_maxwell_2d_TE(**args_dict)
-
-    # Make all variables available (including imported modules)
+    namespace = parallel_run_from_cli(parse_input_arguments, run_maxwell_2d_TE)
     globals().update(namespace)
-
-    # Keep matplotlib windows open
-    import matplotlib.pyplot as plt
-
-    plt.show()
