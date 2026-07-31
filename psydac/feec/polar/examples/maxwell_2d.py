@@ -1,8 +1,8 @@
-#---------------------------------------------------------------------------#
+# ------------------------------------------------------------------------- #
 # This file is part of PSYDAC which is released under MIT License. See the  #
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
-#---------------------------------------------------------------------------#
+# ------------------------------------------------------------------------- #
 """
 Solve the Transverse Electric Time dependent Maxwell Problem on an analytical disk domain.
 
@@ -421,10 +421,11 @@ def run_maxwell_2d_TE(
         f_y = -ys + cos(omega * (2 * xs - ys * ys)) * (r - R)
         f_phys = Tuple(f_x, f_y)
 
-        from sympy import lambdify
+        from pyccel import lambdify
 
-        fx_call = lambdify([xs, ys], f_x)
-        fy_call = lambdify([xs, ys], f_y)
+        annotated_args = {xs: "float", ys: "float"}
+        fx_call = lambdify(f_x, annotated_args)
+        fy_call = lambdify(f_y, annotated_args)
 
         v = element_of(derham.V1, name="u")
 

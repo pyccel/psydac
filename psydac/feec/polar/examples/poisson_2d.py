@@ -1,8 +1,8 @@
-#---------------------------------------------------------------------------#
+# ------------------------------------------------------------------------- #
 # This file is part of PSYDAC which is released under MIT License. See the  #
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
-#---------------------------------------------------------------------------#
+# ------------------------------------------------------------------------- #
 """
 Solve manufactured 2D Poisson problems on polar mapped domains.
 
@@ -20,7 +20,8 @@ from time import sleep, time
 
 import numpy as np
 from mpi4py import MPI
-from sympy import Matrix, Rational, cos, lambdify, pi, sin, sqrt, symbols
+from pyccel import lambdify
+from sympy import Matrix, Rational, cos, pi, sin, sqrt, symbols
 
 from psydac.feec.polar.examples.polar_model_2d import PolarModel2D
 from psydac.linalg.basic import LinearOperator
@@ -82,8 +83,9 @@ class Poisson2D(PolarModel2D):
         self._rho_log = rho_log
 
         s, t = mapping.logical_coordinates
-        self._phi_log_callable = lambdify([s, t], phi_log)
-        self._rho_log_callable = lambdify([s, t], rho_log)
+        annotated_args = {s: "float", t: "float"}
+        self._phi_log_callable = lambdify(phi_log, annotated_args)
+        self._rho_log_callable = lambdify(rho_log, annotated_args)
 
     @staticmethod
     def disk(R, shift_D):
