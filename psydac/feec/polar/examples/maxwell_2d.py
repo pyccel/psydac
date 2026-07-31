@@ -894,16 +894,17 @@ def run_maxwell_2d_TE(
     error_l2_Ey = l2_norm_of(erry) / norm_l2_Ey
     error_l2_Bz = l2_norm_of(errz) / norm_l2_Bz
 
-    # TODO: only root should print to terminal
-    print(
-        "L2 norm of rel. error on Ex(t,x,y) at initial time: {:.2e}".format(error_l2_Ex)
-    )
-    print(
-        "L2 norm of rel. error on Ey(t,x,y) at initial time: {:.2e}".format(error_l2_Ey)
-    )
-    print(
-        "L2 norm of rel. error on Bz(t,x,y) at initial time: {:.2e}".format(error_l2_Bz)
-    )
+    if mpi_rank == 0:
+        print()
+        print(
+            "L2 norm of rel. error on Ex(t,x,y) at initial time: {:.2e}".format(error_l2_Ex)
+        )
+        print(
+            "L2 norm of rel. error on Ey(t,x,y) at initial time: {:.2e}".format(error_l2_Ey)
+        )
+        print(
+            "L2 norm of rel. error on Bz(t,x,y) at initial time: {:.2e}".format(error_l2_Bz)
+        )
 
     # --------------------------------------------------------------------------
     # Solution
@@ -955,8 +956,8 @@ def run_maxwell_2d_TE(
         e = P1 @ e
         b = P2 @ b
 
-        # TODO: only root should print to terminal
-        print("ts = {:4d},  t = {:8.4f}".format(ts, t))
+        if mpi_rank == 0:
+            print("ts = {:4d},  t = {:8.4f}".format(ts, t))
 
     N = 10
     if show_figs:
@@ -1000,7 +1001,6 @@ def run_maxwell_2d_TE(
         error_Ey = abs(Ey_ex_values - Ey_values).max()
         error_Bz = abs(Bz_ex_values - Bz_values).max()
 
-        # TODO: perform an MPI (max) reduction and have only root print to terminal
         print()
         print("Max-norm of error on Ex(t,x) at final time: {:.2e}".format(error_Ex))
         print("Max-norm of error on Ey(t,x) at final time: {:.2e}".format(error_Ey))
@@ -1032,17 +1032,17 @@ def run_maxwell_2d_TE(
     error_l2_Ey = l2_norm_of(erry) / norm_l2_Ey
     error_l2_Bz = l2_norm_of(errz) / norm_l2_Bz
 
-    # TODO: only root should print to terminal
-    print()
-    print(
-        "L2 norm of rel. error on Ex(t,x,y) at final time: {:.2e}".format(error_l2_Ex)
-    )
-    print(
-        "L2 norm of rel. error on Ey(t,x,y) at final time: {:.2e}".format(error_l2_Ey)
-    )
-    print(
-        "L2 norm of rel. error on Bz(t,x,y) at final time: {:.2e}".format(error_l2_Bz)
-    )
+    if mpi_rank == 0:
+        print()
+        print(
+            "L2 norm of rel. error on Ex(t,x,y) at final time: {:.2e}".format(error_l2_Ex)
+        )
+        print(
+            "L2 norm of rel. error on Ey(t,x,y) at final time: {:.2e}".format(error_l2_Ey)
+        )
+        print(
+            "L2 norm of rel. error on Bz(t,x,y) at final time: {:.2e}".format(error_l2_Bz)
+        )
 
     if eval_data is not None and show_figs:
         # Plot exact and approximate solution at final time
