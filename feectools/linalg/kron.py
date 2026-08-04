@@ -74,6 +74,12 @@ class KroneckerStencilMatrix(LinearOperator):
         return self._mats
 
     # ...
+    @property
+    def nbytes( self ):
+        """Local (per-MPI-rank) memory footprint of the 1d factor matrices, in bytes."""
+        return int(sum(getattr(mat, 'nbytes', 0) for mat in self._mats))
+
+    # ...
     def dot(self, x, out=None):
 
         dot = np.dot

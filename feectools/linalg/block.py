@@ -883,6 +883,14 @@ class BlockLinearOperator(LinearOperator):
         return tuple(self._blocks)
 
     # ...
+    @property
+    def nbytes(self):
+        """Local (per-MPI-rank) memory footprint of all non-zero blocks, in bytes.
+        Blocks which do not expose an 'nbytes' attribute (e.g. matrix-free operators)
+        are counted as zero."""
+        return int(sum(getattr(Lij, 'nbytes', 0) for Lij in self._blocks.values()))
+
+    # ...
     def update_ghost_regions(self):
         for Lij in self._blocks.values():
             Lij.update_ghost_regions()
