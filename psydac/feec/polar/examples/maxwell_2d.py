@@ -15,7 +15,10 @@ import os
 import numpy as np
 from mpi4py import MPI
 
-from psydac.feec.polar.examples.analytical_solutions import CircularCavitySolution, GaussianInitialCondition
+from psydac.feec.polar.examples.analytical_solutions import (
+    CircularCavitySolution,
+    GaussianInitialCondition,
+)
 from psydac.feec.polar.examples.polar_model_2d import PolarModel2D
 
 
@@ -45,7 +48,9 @@ class Maxwell2D(PolarModel2D):
 
         if study == "maxwell_wave":
             # This is just the initial solution
-            exact_solution = GaussianInitialCondition(sigma=1e-1, x0=0, y0=0, scale=scale)
+            exact_solution = GaussianInitialCondition(
+                sigma=1e-1, x0=0, y0=0, scale=scale
+            )
         else:
             exact_solution = CircularCavitySolution(R=R, c=c, m=m, n=n, scale=scale)
 
@@ -67,31 +72,54 @@ class Maxwell2D(PolarModel2D):
 # ==============================================================================
 # TIME DISCRETIZATION
 # ==============================================================================
-def compute_stable_dt(cfl, C_m, dC_m, V, tau=None, light_c=1):
+def compute_stable_dt(cfl, C_m, dC_m, V, tau=None, light_c=1.0, comm=None):
     """
-    compute stable time step for a leap-frog Maxwell solver,
+    Compute stable time step for a leap-frog Maxwell solver,
     given the (discrete) primal and dual curl operators
 
-        cfl: stability factor (1 to choose the maximum stable dt)
-        C_m: (primal) curl V -> dV
-        dC_m: (dual) curl dV -> V
-        V: FEM space
-        tau: (optional) time to solve with an integer number of time steps
-        light_c: Maxwell parameter
+    Parameters
+    ----------
+    cfl: float
+        Stability factor (1 to choose the maximum stable dt).
+    C_m: LinearOperator
+        (primal) curl V -> dV.
+    dC_m: LinearOperator
+        (dual) curl dV -> V.
+    V: FEMSpace
+        Finite element space.
+    tau: float, optional
+        Time to solve with an integer number of time steps.
+    light_c: float, default = 1.0
+        Speed of light, i.e. the parameter c in Maxwell's equations.
+    comm: mpi4py.MPI.Comm, optional
+        If given, only the "root" MPI process with rank=0 will print to std out.
 
+    Returns
+    -------
+    Nt_per_tau: int
+        Integer number of time steps (>0) in simulation.
+    dt: float
+        Stable time step size (>0).
+    norm_op: float
+        Operator norm (>0) of the time evolution matrix which computes the solution vector at time t+∆t given the solution vector at time t.
     """
-    print(f" .. compute stable dt by estimating the operator norm of ")
-    print(f" ..   dual_curl_h @ curl_h:   V_h -> V_h ")
-    print(f" ..   with dim(V_h) =  {V.coeff_space.dimension}      ... ")
+
+    # Only print if function is run serially, or if MPI rank is 0
+    should_print = comm is None or comm.rank == 0
+
+    if should_print:
+        print(f"type(V.coeff_space) = {type(V.coeff_space)}")
+        print(f"V.coeff_space.shape = {tuple(int(s) for s in V.coeff_space.shape)}")
+        print(f"V.coeff_space.dimension = {V.coeff_space.dimension}")
+        print()
+        print(f" .. Compute stable dt by estimating the operator norm of ")
+        print(f" ..   dual_curl_h @ curl_h:   V_h -> V_h ")
+        print(f" ..   with dim(V_h) =  {V.coeff_space.dimension}")
 
     def vect_norm_2(vv):
         return np.sqrt(vv.inner(vv))
 
     vv = V.coeff_space.zeros()
-    print(f"type(V.coeff_space) = {type(V.coeff_space)}")
-    print(
-        f"V.coeff_space.shape = {V.coeff_space.shape}, V.coeff_space.dimension = {V.coeff_space.dimension}"
-    )
     vv[:] = np.random.random(size=V.coeff_space.shape)
     norm_vv = vect_norm_2(vv)
     max_ncfl = 500
@@ -107,9 +135,10 @@ def compute_stable_dt(cfl, C_m, dC_m, V, tau=None, light_c=1):
         old_spectral_rho = spectral_rho
         spectral_rho = norm_vv.copy()  # copy ??
         conv = abs((spectral_rho - old_spectral_rho) / spectral_rho) < 0.001
-        print(
-            f"    ... spectral radius iteration: spectral_rho( dC_m @ C_m ) ~= {spectral_rho}"
-        )
+        if should_print:
+            print(
+                f"    ... spectral radius iteration: spectral_rho( dC_m @ C_m ) ~= {spectral_rho}"
+            )
     norm_op = np.sqrt(spectral_rho)
     c_dt_max = 2.0 / norm_op
     dt = cfl * c_dt_max / light_c
@@ -120,16 +149,19 @@ def compute_stable_dt(cfl, C_m, dC_m, V, tau=None, light_c=1):
     else:
         Nt_per_tau = 1
     assert light_c * dt <= cfl * c_dt_max
-    print(f"  Time step dt computed for Maxwell solver:")
-    print(
-        f"  with cfl = repr({cfl} we found dt = {dt} -- that is Nt_per_tau = {Nt_per_tau} on tau = {tau}."
-    )
-    print(
-        f"   -- note that c*Dt = {light_c * dt} and c_dt_max = {c_dt_max} thus c * dt / c_dt_max = {light_c * dt / c_dt_max}"
-    )
-    print(
-        f"   -- and spectral_radius((c*dt)**2* dC_m @ C_m ) = {(light_c * dt * norm_op) ** 2} (should be < 4)"
-    )
+
+    if should_print:
+        print(f"  Time step dt computed for Maxwell solver:")
+        print(
+            f"  with cfl = {cfl} we found dt = {dt} -- that is Nt_per_tau = {Nt_per_tau} on tau = {tau}."
+        )
+        print(
+            f"   -- note that c*Dt = {light_c * dt} and c_dt_max = {c_dt_max} thus c * dt / c_dt_max = {light_c * dt / c_dt_max}"
+        )
+        print(
+            f"   -- and spectral_radius((c*dt)**2* dC_m @ C_m ) = {(light_c * dt * norm_op) ** 2} (should be < 4)"
+        )
+
     return Nt_per_tau, dt, norm_op
 
 
@@ -469,33 +501,25 @@ def run_maxwell_2d_TE(
         error_l2_fy = l2_norm_of(erry)
         error_l2_fx_filter = l2_norm_of(errx_filter)
         error_l2_fy_filter = l2_norm_of(erry_filter)
-        print("L2 norm of projection error on fx: {:.2e}".format(error_l2_fx))
-        print("L2 norm of projection error on fy: {:.2e}".format(error_l2_fy))
-        print(
-            "L2 norm of projection error on fx (filtered): {:.2e}".format(
-                error_l2_fx_filter
-            )
-        )
-        print(
-            "L2 norm of projection error on fy (filtered): {:.2e}".format(
-                error_l2_fy_filter
-            )
-        )
+        print(f"L2 norm of projection error on fx: {error_l2_fx:.2e}")
+        print(f"L2 norm of projection error on fy: {error_l2_fy:.2e}")
+        print(f"L2 norm of projection error on fx (filtered): {error_l2_fx_filter:.2e}")
+        print(f"L2 norm of projection error on fy (filtered): {error_l2_fy_filter:.2e}")
 
         cst_wo_det = lambda x1, x2: 1
         cst_wi_det = lambda x1, x2: 1 * np.sqrt(F.metric_det(x1, x2))
         int_wo_det = derham_h.V0.integral(cst_wo_det)
         int_wi_det = derham_h.V0.integral(cst_wi_det)
-        print("V0 - integral of 1 (no det):   {:.2e}".format(int_wo_det))
-        print("V0 - integral of 1 (with det): {:.2e}".format(int_wi_det))
-        print("radius of disk: {:.2e}".format(R))
-        print("area of log domain: {:.2e}".format(2 * np.pi * R))
-        print("area of disk:       {:.2e}".format(np.pi * R * R))
+        print(f"V0 - integral of 1 (no det):   {int_wo_det:.2e}")
+        print(f"V0 - integral of 1 (with det): {int_w1_det:.2e}")
+        print(f"Radius of disk: {R:.2e}".format(R))
+        print(f"Area of log domain: {2 * np.pi * R:.2e}")
+        print(f"Area of disk:       {np.pi * R * R:.2e}")
 
         int_wo_det = derham_h.V1.spaces[0].integral(cst_wo_det)
         int_wi_det = derham_h.V1.spaces[0].integral(cst_wi_det)
-        print("V1.x - integral of 1 (no det):   {:.2e}".format(int_wo_det))
-        print("V1.x - integral of 1 (with det): {:.2e}".format(int_wi_det))
+        print(f"V1.x - integral of 1 (no det):   {int_wo_det:.2e}")
+        print(f"V1.x - integral of 1 (with det): {int_wi_det:.2e}")
 
         if not show_figs:
             return locals()
@@ -609,6 +633,15 @@ def run_maxwell_2d_TE(
 
     # Geometric Projectors
 
+    # Plot domain decomposition
+    N = 10
+    if show_figs:
+        fig = V0_h.plot_2d_decomposition(F, refine=N)
+        if fig:
+            # Need a small pause to actually show the figure to the screen
+            plt.pause(0.1)
+            fig.show()
+
     # --------------------------------------------------------------------------
     # Time integration setup
     # --------------------------------------------------------------------------
@@ -687,16 +720,26 @@ def run_maxwell_2d_TE(
         step_faraday_2d = D1 @ P1
 
     Nt, dt, norm_curlh = compute_stable_dt(
-        cfl, C_m=step_ampere_2d, dC_m=step_faraday_2d, V=V2_h, tau=tend, light_c=1
+        cfl,
+        C_m=step_ampere_2d,
+        dC_m=step_faraday_2d,
+        V=V2_h,
+        tau=tend,
+        light_c=1,
+        comm=mpi_comm,
     )
 
     # If final time is given, recompute number of time steps
     if tend is None:
         tend = nsteps * dt
-        print(f"final time (re)computed: {tend}")
+        if mpi_rank == 0:
+            print()
+            print(f"Final time (re)computed: {tend}")
     else:
         nsteps = Nt
-        print(f"nsteps recomputed: {nsteps}")
+        if mpi_rank == 0:
+            print()
+            print(f"nsteps recomputed: {nsteps}")
 
     # --------------------------------------------------------------------------
     # Visualization setup
@@ -856,8 +899,9 @@ def run_maxwell_2d_TE(
             )
             fig.tight_layout()
 
-            # Need a small pause to show the plot of the initial condition
+            # Need a small pause to actually show the figure to the screen
             plt.pause(0.1)
+            fig.show()
 
     # L2 norms (of ref solution)
     normx = lambda x1, x2: Ex_ex_t(t, *F(x1, x2))
@@ -884,14 +928,15 @@ def run_maxwell_2d_TE(
     if mpi_rank == 0:
         print()
         print(
-            "L2 norm of rel. error on Ex(t,x,y) at initial time: {:.2e}".format(error_l2_Ex)
+            f"Relative L2-norm of error on Ex(t,x,y) at initial time: {error_l2_Ex:.2e}"
         )
         print(
-            "L2 norm of rel. error on Ey(t,x,y) at initial time: {:.2e}".format(error_l2_Ey)
+            f"Relative L2-norm of error on Ey(t,x,y) at initial time: {error_l2_Ey:.2e}"
         )
         print(
-            "L2 norm of rel. error on Bz(t,x,y) at initial time: {:.2e}".format(error_l2_Bz)
+            f"Relative L2-norm of error on Bz(t,x,y) at initial time: {error_l2_Bz:.2e}"
         )
+        print()
 
     # --------------------------------------------------------------------------
     # Solution
@@ -911,15 +956,13 @@ def run_maxwell_2d_TE(
         db = step_faraday_2d @ e
         b.mul_iadd(-dtau / 2, db)
 
-        # weights for Suzuki-Yoshida composition (4th-order splitting)
-
+    # Weights for Suzuki-Yoshida composition (4th-order splitting)
+    # TODO: use a better 4th-order splitting (with smaller error/cost ratio)
     gamma_1 = 1 / (2 - 2 ** (1 / 3))
     gamma_2 = 1 - 2 * gamma_1
 
     # Time loop
     for ts in range(1, nsteps + 1):
-
-        print(f"step = {ts}/{nsteps}")
 
         if splitting_order == 2:
 
@@ -944,13 +987,7 @@ def run_maxwell_2d_TE(
         b = P2 @ b
 
         if mpi_rank == 0:
-            print("ts = {:4d},  t = {:8.4f}".format(ts, t))
-
-    N = 10
-    if show_figs:
-        fig = V0_h.plot_2d_decomposition(F, refine=N)
-        if fig:
-            fig.show()
+            print(f"ts = {ts:4d}/{nsteps},  t = {t:8.4f}")
 
     e = P1 @ e
     b = P2 @ b
@@ -989,9 +1026,9 @@ def run_maxwell_2d_TE(
         error_Bz = abs(Bz_ex_values - Bz_values).max()
 
         print()
-        print("Max-norm of error on Ex(t,x) at final time: {:.2e}".format(error_Ex))
-        print("Max-norm of error on Ey(t,x) at final time: {:.2e}".format(error_Ey))
-        print("Max-norm of error on Bz(t,x) at final time: {:.2e}".format(error_Bz))
+        print("Max-norm of error on Ex(t,x,y) at final time: {:.2e}".format(error_Ex))
+        print("Max-norm of error on Ey(t,x,y) at final time: {:.2e}".format(error_Ey))
+        print("Max-norm of error on Bz(t,x,y) at final time: {:.2e}".format(error_Bz))
 
     # L2 norms (of ref solution)
     normx = lambda x1, x2: Ex_ex_t(t, *F(x1, x2))
@@ -1022,13 +1059,13 @@ def run_maxwell_2d_TE(
     if mpi_rank == 0:
         print()
         print(
-            "L2 norm of rel. error on Ex(t,x,y) at final time: {:.2e}".format(error_l2_Ex)
+            f"Relative L2-norm of error on Ex(t,x,y) at final time: {error_l2_Ex:.2e}"
         )
         print(
-            "L2 norm of rel. error on Ey(t,x,y) at final time: {:.2e}".format(error_l2_Ey)
+            f"Relative L2-norm of error on Ey(t,x,y) at final time: {error_l2_Ey:.2e}"
         )
         print(
-            "L2 norm of rel. error on Bz(t,x,y) at final time: {:.2e}".format(error_l2_Bz)
+            f"Relative L2-norm of error on Bz(t,x,y) at final time: {error_l2_Bz:.2e}"
         )
 
     if eval_data is not None and show_figs:
