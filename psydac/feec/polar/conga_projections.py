@@ -1,17 +1,18 @@
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
+
 import numpy as np
 from numpy import pi
-from scipy.linalg import matmul_toeplitz, toeplitz
 from scipy.sparse import coo_matrix
-from scipy.sparse import eye as sp_eye
-from scipy.sparse import lil_matrix, spmatrix
-from scipy.sparse.linalg import inv as sp_inv
 
 from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import VectorFemSpace
 from psydac.linalg.basic import LinearOperator, Vector
 from psydac.linalg.block import BlockLinearOperator
 from psydac.linalg.stencil import StencilVector
-from psydac.linalg.utilities import array_to_psydac
 
 
 class C0PolarProjection_V0(LinearOperator):

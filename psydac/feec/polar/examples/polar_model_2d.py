@@ -1,3 +1,9 @@
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
+
 class PolarModel2D:
     """Base class for analytical models on mapped 2D polar domains."""
 
