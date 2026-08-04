@@ -15,9 +15,8 @@ import os
 import numpy as np
 from mpi4py import MPI
 
-from psydac.feec.polar.examples.analyticalTE import CircularCavitySolution
+from psydac.feec.polar.examples.analytical_solutions import CircularCavitySolution, GaussianInitialCondition
 from psydac.feec.polar.examples.polar_model_2d import PolarModel2D
-from psydac.feec.polar.examples.waveTE import GaussianSolution
 
 
 class Maxwell2D(PolarModel2D):
@@ -46,7 +45,7 @@ class Maxwell2D(PolarModel2D):
 
         if study == "maxwell_wave":
             # This is just the initial solution
-            exact_solution = GaussianSolution(sigma=1e-1, x0=0, y0=0, scale=scale)
+            exact_solution = GaussianInitialCondition(sigma=1e-1, x0=0, y0=0, scale=scale)
         else:
             exact_solution = CircularCavitySolution(R=R, c=c, m=m, n=n, scale=scale)
 
@@ -63,18 +62,6 @@ class Maxwell2D(PolarModel2D):
     @property
     def exact_solution(self):
         return self._exact_solution
-
-    @property
-    def Ex_ex_t(self):
-        return self._exact_solution.Ex_ex
-
-    @property
-    def Ey_ex_t(self):
-        return self._exact_solution.Ey_ex
-
-    @property
-    def Bz_ex_t(self):
-        return self._exact_solution.Bz_ex
 
 
 # ==============================================================================
@@ -317,9 +304,9 @@ def run_maxwell_2d_TE(
     domain = model.domain
     mapping = model.mapping
 
-    Ex_ex_t = model.Ex_ex_t
-    Ey_ex_t = model.Ey_ex_t
-    Bz_ex_t = model.Bz_ex_t
+    Ex_ex_t = model.exact_solution.Ex_ex
+    Ey_ex_t = model.exact_solution.Ey_ex
+    Bz_ex_t = model.exact_solution.Bz_ex
 
     # DeRham sequence
     derham = Derham(domain, sequence=["h1", "hcurl", "l2"])

@@ -1,3 +1,5 @@
+from abc import ABC, abstractmethod
+
 import matplotlib.pyplot as plt
 import numpy as np
 from numpy import pi
@@ -8,7 +10,32 @@ from psydac.api.tests.test_api_feec_2d import add_colorbar
 from psydac.feec.pull_push import push_2d_hcurl, push_2d_l2
 
 
-class CircularCavitySolution:
+class TESolution(ABC):
+    """
+    Base class for analytical/initial solutions of the 2D TE Maxwell problem.
+
+    The physical fields are
+
+        E = (Ex, Ey),
+        B = Bz.
+
+    Subclasses must provide the physical field components.
+    """
+
+    @abstractmethod
+    def Ex_ex(self, t, x, y):
+        pass
+
+    @abstractmethod
+    def Ey_ex(self, t, x, y):
+        pass
+
+    @abstractmethod
+    def Bz_ex(self, t, x, y):
+        pass
+
+
+class CircularCavitySolution(TESolution):
     """
     Time-harmonic solution of Maxwell's equations in a disk-like domain with
     perfectly conducting walls. This is a "transverse electric" solution, with
@@ -159,6 +186,67 @@ class CircularCavitySolution:
 
         r, alpha = self.get_radius_angle(x, y)
         return self.B_ex(t, r, alpha, s_factor=False)
+
+
+class GaussianInitialCondition(TESolution):
+    """
+    Initial Gaussian circular wave for the TE Maxwell test.
+
+    This class defines the initial condition used for the Gaussian wave
+    propagation experiment. It is not an exact time-dependent Maxwell solution.
+    The electric field is initialized as a localized rotational Gaussian pulse,
+
+        E0(x, y) = scale * (y - y0, -(x - x0))
+                  * exp(-((x - x0)^2 + (y - y0)^2) / (2 sigma^2)),
+
+    and the magnetic field is initialized as
+
+        B0 = curl E0 = d_x Ey - d_y Ex.
+
+    Parameters
+    ----------
+    sigma : float
+        Width of the Gaussian pulse.
+
+    x0, y0 : float
+        Center of the Gaussian pulse in physical coordinates.
+
+    scale : float, optional
+        Amplitude scaling factor for the initial fields.
+    """
+
+    def __init__(self, sigma, x0, y0, scale=1):
+
+        self.x0 = x0
+        self.y0 = y0
+        self.sigma = sigma
+        self.scale = scale
+
+    def _gaussian(self, x, y):
+        from numpy import exp
+
+        X = x - self.x0
+        Y = y - self.y0
+        sig2 = self.sigma**2
+        return self.scale * exp(-(X * X + Y * Y) / (2 * sig2))
+
+    def Ex_ex(self, t, x, y):
+        Y = y - self.y0
+        return Y * self._gaussian(x, y)
+
+    def Ey_ex(self, t, x, y):
+        X = x - self.x0
+        return -X * self._gaussian(x, y)
+
+    def Bz_ex(self, t, x, y):
+        """
+        Bz = curl E = d_x Ey - d_y Ex
+        """
+        X = x - self.x0
+        Y = y - self.y0
+        sig2 = self.sigma**2
+        r2 = X * X + Y * Y
+        return (r2 / sig2 - 2.0) * self._gaussian(x, y)
 
 
 def main():
