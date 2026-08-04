@@ -467,6 +467,7 @@ def run_poisson_2d(
     backend = PSYDAC_BACKENDS["pyccel-gcc"]
 
     timing = {}
+    timing["discretization"] = 0.0
     timing["assembly"] = 0.0
     timing["projection"] = 0.0
     timing["solution"] = 0.0
@@ -531,6 +532,7 @@ def run_poisson_2d(
     # --------------------------------------------------------------------------
     # Discretization
     # --------------------------------------------------------------------------
+    t0 = time()
     if use_spline_mapping:
         domain_h = discretize(domain, filename="geo.h5", comm=mpi_comm)
         V0_h = discretize(V0, domain_h)
@@ -543,7 +545,10 @@ def run_poisson_2d(
     aM_h = discretize(aM, domain_h, (V0_h, V0_h), backend=backend)
     aS_h = discretize(aS, domain_h, (V0_h, V0_h), backend=backend)
     rhs_h = discretize(rhs, domain_h, V0_h, backend=backend)
+    t1 = time()
+    timing["discretization"] = t1 - t0
 
+    t0 = time()
     M = aM_h.assemble()
     S = aS_h.assemble()
     b = rhs_h.assemble()
@@ -551,6 +556,9 @@ def run_poisson_2d(
     S.update_ghost_regions()
     b.update_ghost_regions()
     M.update_ghost_regions()
+
+    t1 = time()
+    timing["assembly"] = t1 - t0
 
     # --------------------------------------------------------------------------
     # Project the exact solution
@@ -703,12 +711,13 @@ def run_poisson_2d(
             print("> L2 error (relative) :: {:.2e}".format(errors.rel_l2))
             print("> H1 error (relative) :: {:.2e}".format(errors.rel_h1))
             print("")
-            print("> Assembly time :: {:.2e}".format(timing["assembly"]))
+            print("> Discret. time :: {:.2e} s".format(timing["discretization"]))
+            print("> Assembly time :: {:.2e} s".format(timing["assembly"]))
             if smooth_method:
-                print("> Project. time :: {:.2e}".format(timing["projection"]))
-            print("> Solution time :: {:.2e}".format(timing["solution"]))
-            print("> Evaluat. time :: {:.2e}".format(timing["diagnostics"]))
-            print("> Export   time :: {:.2e}".format(timing["export"]))
+                print("> Project. time :: {:.2e} s".format(timing["projection"]))
+            print("> Solution time :: {:.2e} s".format(timing["solution"]))
+            print("> Evaluat. time :: {:.2e} s".format(timing["diagnostics"]))
+            print("> Export   time :: {:.2e} s".format(timing["export"]))
             print("", flush=True)
             sleep(0.001)
         mpi_comm.Barrier()
