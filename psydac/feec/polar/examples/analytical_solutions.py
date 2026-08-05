@@ -1,8 +1,8 @@
-#---------------------------------------------------------------------------#
+# ------------------------------------------------------------------------- #
 # This file is part of PSYDAC which is released under MIT License. See the  #
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
-#---------------------------------------------------------------------------#
+# ------------------------------------------------------------------------- #
 
 from abc import ABC, abstractmethod
 
@@ -193,6 +193,7 @@ class CircularCavitySolution(TESolution):
         r, alpha = self.get_radius_angle(x, y)
         return self.B_ex(t, r, alpha, s_factor=False)
 
+
 class GaussianInitialCondition(TESolution):
     """
     Initial Gaussian circular wave for the TE Maxwell test.
@@ -316,8 +317,8 @@ def main():
     N = 50
 
     # 2D grids, logical (rho, theta) and physical (x, y)
-    rho = np.linspace(1e-20, R, N+1)
-    theta = np.linspace(0, 2 * pi, N*2)
+    rho = np.linspace(1e-20, R, N + 1)
+    theta = np.linspace(0, 2 * pi, N * 2)
     rho, theta = np.meshgrid(rho, theta, indexing="ij")
     x, y = F(rho, theta)
 
@@ -385,7 +386,9 @@ def main():
             for j in range(nj):
                 x1_ij = rho[i, j]
                 x2_ij = theta[i, j]
-                Ex_values[i, j], Ey_values[i, j] = push_2d_hcurl(Es, Et, x1_ij, x2_ij, F)
+                Ex_values[i, j], Ey_values[i, j] = push_2d_hcurl(
+                    Es, Et, x1_ij, x2_ij, F
+                )
                 Bz_values[i, j] = push_2d_l2(B, x1_ij, x2_ij, F)
                 Bt_values[i, j] = push_2d_l2(dB_dt, x1_ij, x2_ij, F)
     # Otherwise, access exact solution in physical coordinates
@@ -397,9 +400,9 @@ def main():
 
     # Compute curl(E)
     curlE_values = np.zeros_like(rho)
-    curlE_values[1:-1, 1:-1] = \
-            (Ey_values[2:, 1:-1] - Ey_values[0:-2, 1:-1]) / (2 * dx)  - \
-            (Ex_values[1:-1, 2:] - Ex_values[1:-1, 0:-2]) / (2 * dy)
+    curlE_values[1:-1, 1:-1] = (Ey_values[2:, 1:-1] - Ey_values[0:-2, 1:-1]) / (
+        2 * dx
+    ) - (Ex_values[1:-1, 2:] - Ex_values[1:-1, 0:-2]) / (2 * dy)
 
     # Maximum consistency error on grid
     valerr = abs(Bt_values + curlE_values).max()
@@ -409,7 +412,9 @@ def main():
     skip = (slice(None, None, int(N / 20)), slice(None, None, int(N / 20)))
 
     fig, axs = plt.subplots(2, 3, figsize=(14, 8))
-    fig.suptitle(f"Analytical solution at t = {t}: consistency checks in inscribed square")
+    fig.suptitle(
+        f"Analytical solution at t = {t}: consistency checks in inscribed square"
+    )
 
     ax = axs[0, 0]
     ax.set_title("$E_x$")
