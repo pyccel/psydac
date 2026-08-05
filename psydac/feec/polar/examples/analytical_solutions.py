@@ -300,10 +300,11 @@ def main():
     dB_dt = lambda x, y: dB_dt_ex(t, x, y)
 
     # Plot of fields
-    N = 100
+    N = 50
 
-    rho = np.linspace(1e-20, R, N)
-    theta = np.linspace(0, 2 * pi, N)
+    # 2D grids, logical (rho, theta) and physical (x, y)
+    rho = np.linspace(1e-20, R, N+1)
+    theta = np.linspace(0, 2 * pi, N*2)
     rho, theta = np.meshgrid(rho, theta, indexing="ij")
     x, y = F(rho, theta)
 
@@ -331,6 +332,11 @@ def main():
     add_colorbar(im2, axs[1, 0])
     add_colorbar(im3, axs[1, 1])
     for ax in axs.flat:
+        lines_const_rho = x[::5, :].T, y[::5, :].T
+        lines_const_theta = x[:, ::5], y[:, ::5]
+        kwargs = dict(linewidth=0.5, color="k", zorder=100)
+        ax.plot(*lines_const_rho, **kwargs)
+        ax.plot(*lines_const_theta, **kwargs)
         ax.set_aspect("equal", "box")
         ax.set_xlabel("x", rotation="horizontal")
         ax.set_ylabel("y", rotation="horizontal")
