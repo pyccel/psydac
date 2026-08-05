@@ -273,6 +273,7 @@ def main():
     m, n = (2, 3)
 
     # Exact solution
+    # TODO: allow switching between CircularCavitySolution and GaussianInitialCondition
     exact_solution = CircularCavitySolution(R=R, c=c, m=m, n=n, scale=scale)
 
     # Exact fields, as callable functions of (t, s, theta)
@@ -313,10 +314,10 @@ def main():
     for i, x1i in enumerate(rho[:, 0]):
         for j, x2j in enumerate(theta[0, :]):
             Ex_values[i, j], Ey_values[i, j] = push_2d_hcurl(Es, Et, x1i, x2j, F)
-
             B_values[i, j] = push_2d_l2(B, x1i, x2j, F)
 
-    fig, axs = plt.subplots(2, 2, figsize=(12, 12))
+    fig, axs = plt.subplots(2, 2, figsize=(10, 8))
+    fig.suptitle(f"Analytical solution at t = {t}")
     im0 = axs[0, 0].contourf(x, y, Ex_values, 50)
     im1 = axs[0, 1].contourf(x, y, Ey_values, 50)
     im2 = axs[1, 0].contourf(x, y, np.sqrt(Ex_values**2 + Ey_values**2), 50)
@@ -324,12 +325,18 @@ def main():
     axs[0, 0].set_title(r"$E_x$")
     axs[0, 1].set_title(r"$E_y$")
     axs[1, 0].set_title(r"$||\mathbf{E}||$")
-    axs[1, 1].set_title("$B$")
+    axs[1, 1].set_title("$B_z$")
     add_colorbar(im0, axs[0, 0])
     add_colorbar(im1, axs[0, 1])
     add_colorbar(im2, axs[1, 0])
     add_colorbar(im3, axs[1, 1])
+    for ax in axs.flat:
+        ax.set_aspect("equal", "box")
+        ax.set_xlabel("x", rotation="horizontal")
+        ax.set_ylabel("y", rotation="horizontal")
+    fig.tight_layout()
 
+    # -------------------------------------------------------------------------
     # Test: curl E = - d_t B_z with finite Differences
     # on a tensor grid in the square inscribed the disk
     N = 160
@@ -344,6 +351,7 @@ def main():
     Ex_values = np.empty_like(rho)
     Ey_values = np.empty_like(rho)
     Bt_values = np.empty_like(rho)
+    B_values = np.empty_like(rho)
 
     ni, nj = rho.shape
     for i in range(ni):
@@ -351,45 +359,64 @@ def main():
             x1_ij = rho[i, j]
             x2_ij = theta[i, j]
             Ex_values[i, j], Ey_values[i, j] = push_2d_hcurl(Es, Et, x1_ij, x2_ij, F)
-
             Bt_values[i, j] = push_2d_l2(dB_dt, x1_ij, x2_ij, F)
-
-    fig, axs = plt.subplots(2, 3, figsize=(15, 15))
-    im1 = axs[0, 0].contourf(x, y, np.sqrt(Ex_values**2 + Ey_values**2))
-    im2 = axs[0, 1].contourf(x, y, -Bt_values)
-    axs[0, 0].set_title(r"$||\mathbf{E}||$")
-    axs[0, 1].set_title(r"$-\partial_t B$")
-    for axi in axs.flat:
-        axi.set_aspect("equal")
-    add_colorbar(im1, axs[0, 0])
-    add_colorbar(im2, axs[0, 1])
+            B_values[i, j] = push_2d_l2(B, x1_ij, x2_ij, F)
 
     curlE_values = np.zeros_like(rho)
-    valerr = 0
-    for i in range(1, ni - 1):
-        for j in range(1, nj - 1):
-            curlE_values[i, j] = (Ey_values[i + 1, j] - Ey_values[i - 1, j]) / (
-                2 * dx
-            ) - (Ex_values[i, j + 1] - Ex_values[i, j - 1]) / (2 * dy)
+    curlE_values[1:-1, 1:-1] = \
+            (Ey_values[2:, 1:-1] - Ey_values[0:-2, 1:-1]) / (2 * dx)  - \
+            (Ex_values[1:-1, 2:] - Ex_values[1:-1, 0:-2]) / (2 * dy)
 
-            d = np.abs(Bt_values[i, j] + curlE_values[i, j])
+    # Maximum consistency error on grid
+    valerr = abs(Bt_values + curlE_values).max()
+    print(f"|curl E + d_t B| <= {valerr}")
 
-            if valerr < d:
-                valerr = d
-
+    # Data slicing for quiver plots
     skip = (slice(None, None, int(N / 20)), slice(None, None, int(N / 20)))
-    im3 = axs[1, 0].contourf(x, y, curlE_values)
-    axs[1, 0].quiver(x[skip], y[skip], Ex_values[skip], Ey_values[skip])
-    add_colorbar(im3, axs[1, 0])
-    axs[1, 0].set_title(r"curl $\mathbf{E}$")
-    im4 = axs[1, 1].contourf(x, y, -Bt_values)
-    axs[1, 1].quiver(x[skip], y[skip], Ex_values[skip], Ey_values[skip])
-    add_colorbar(im4, axs[1, 1])
-    im5 = axs[0, 2].contourf(x, y, Ex_values)
-    im6 = axs[1, 2].contourf(x, y, Ey_values)
-    add_colorbar(im5, axs[0, 2])
-    add_colorbar(im6, axs[1, 2])
-    print("|curlE + d_t B| <= ", valerr)
+
+    # ...
+    fig, axs = plt.subplots(2, 3, figsize=(14, 8))
+    fig.suptitle(f"Analytical solution at t = {t}: consistency checks in inscribed square")
+
+    ax = axs[0, 0]
+    ax.set_title("$E_x$")
+    im = ax.contourf(x, y, Ex_values)
+    add_colorbar(im, ax)
+
+    ax = axs[0, 1]
+    ax.set_title("$E_y$")
+    im = ax.contourf(x, y, Ey_values)
+    add_colorbar(im, ax)
+
+    ax = axs[1, 0]
+    ax.set_title(r"$||\mathbf{E}||$")
+    im = ax.contourf(x, y, np.sqrt(Ex_values**2 + Ey_values**2))
+    add_colorbar(im, ax)
+
+    ax = axs[1, 1]
+    ax.set_title(r"$B_z$")
+    im = ax.contourf(x, y, B_values)
+    add_colorbar(im, ax)
+
+    ax = axs[0, 2]
+    ax.set_title(r"curl $\mathbf{E}$")
+    im = ax.contourf(x, y, curlE_values)
+    add_colorbar(im, ax)
+    ax.quiver(x[skip], y[skip], Ex_values[skip], Ey_values[skip])
+
+    ax = axs[1, 2]
+    ax.set_title(r"$-\partial_t B_z$")
+    im = ax.contourf(x, y, -Bt_values)
+    add_colorbar(im, ax)
+    ax.quiver(x[skip], y[skip], Ex_values[skip], Ey_values[skip])
+
+    for ax in axs.flat:
+        ax.set_aspect("equal", "box")
+        ax.set_xlabel("x", rotation="horizontal")
+        ax.set_ylabel("y", rotation="horizontal")
+
+    fig.tight_layout()
+    fig.show()
 
 
 if __name__ == "__main__":
