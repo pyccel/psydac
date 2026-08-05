@@ -193,7 +193,6 @@ class CircularCavitySolution(TESolution):
         r, alpha = self.get_radius_angle(x, y)
         return self.B_ex(t, r, alpha, s_factor=False)
 
-
 class GaussianInitialCondition(TESolution):
     """
     Initial Gaussian circular wave for the TE Maxwell test.
@@ -254,11 +253,27 @@ class GaussianInitialCondition(TESolution):
         r2 = X * X + Y * Y
         return (r2 / sig2 - 2.0) * self._gaussian(x, y)
 
+    def dBz_dt_ex(self, t, x, y):
+        """
+        ∂/∂t(Bz) = -curl(E)
+        """
+        X = x - self.x0
+        Y = y - self.y0
+        sig2 = self.sigma**2
+        r2 = X * X + Y * Y
+        return -(r2 / sig2 - 2.0) * self._gaussian(x, y)
 
+
+# =============================================================================
+# SCRIPT FUNCTIONALITY
+# =============================================================================
 def main():
     """
     This function is not currently used. It is kept for possible future development.
     """
+
+    # Set time
+    t = 0
 
     # Logical domain is rectangle [0, R] x [0, 2pi]
     R = 2.0
@@ -273,14 +288,9 @@ def main():
     m, n = (2, 3)
 
     # Exact solution
-    # TODO: allow switching between CircularCavitySolution and GaussianInitialCondition
-    exact_solution = CircularCavitySolution(R=R, c=c, m=m, n=n, scale=scale)
-
-    # Exact fields, as callable functions of (t, s, theta)
-    Es_ex = exact_solution.Es_ex
-    Et_ex = exact_solution.Et_ex
-    B_ex = exact_solution.B_ex
-    dB_dt_ex = exact_solution.dB_dt_ex
+    # TODO: allow switching between solutions using CLI arguments
+#    exact_solution = CircularCavitySolution(R=R, c=c, m=m, n=n, scale=scale)
+    exact_solution = GaussianInitialCondition(sigma=0.3, x0=0.2, y0=0.2, scale=scale)
 
     # Logical domain: [0, R] x [0, 2pi]
     logical_domain = Square("Omega", bounds1=[0, R], bounds2=[0, 2 * pi])
@@ -291,13 +301,16 @@ def main():
     domain = mapping(logical_domain)
     F = mapping.get_callable_mapping()
 
-    # Set time
-    t = 0
+    # Is the solution available in logical coordinates?
+    log_field_names = ("Es_ex", "Et_ex", "B_ex", "dB_dt_ex")
+    is_log_solution = all(hasattr(exact_solution, f) for f in log_field_names)
 
-    Es = lambda x, y: Es_ex(t, x, y)
-    Et = lambda x, y: Et_ex(t, x, y)
-    B = lambda x, y: B_ex(t, x, y)
-    dB_dt = lambda x, y: dB_dt_ex(t, x, y)
+    # Exact logical fields at given time t
+    if is_log_solution:
+        Es = lambda x, y: exact_solution.Es_ex(t, x, y)
+        Et = lambda x, y: exact_solution.Et_ex(t, x, y)
+        B = lambda x, y: exact_solution.B_ex(t, x, y)
+        dB_dt = lambda x, y: exact_solution.dB_dt_ex(t, x, y)
 
     # Plot of fields
     N = 50
@@ -308,21 +321,27 @@ def main():
     rho, theta = np.meshgrid(rho, theta, indexing="ij")
     x, y = F(rho, theta)
 
-    Ex_values = np.empty_like(rho)
-    Ey_values = np.empty_like(rho)
-    B_values = np.empty_like(rho)
-
-    for i, x1i in enumerate(rho[:, 0]):
-        for j, x2j in enumerate(theta[0, :]):
-            Ex_values[i, j], Ey_values[i, j] = push_2d_hcurl(Es, Et, x1i, x2j, F)
-            B_values[i, j] = push_2d_l2(B, x1i, x2j, F)
+    # If exact solution is given in logical coordinates, use push-forward
+    if is_log_solution:
+        Ex_values = np.empty_like(rho)
+        Ey_values = np.empty_like(rho)
+        Bz_values = np.empty_like(rho)
+        for i, x1i in enumerate(rho[:, 0]):
+            for j, x2j in enumerate(theta[0, :]):
+                Ex_values[i, j], Ey_values[i, j] = push_2d_hcurl(Es, Et, x1i, x2j, F)
+                Bz_values[i, j] = push_2d_l2(B, x1i, x2j, F)
+    # Otherwise, access exact solution in physical coordinates
+    else:
+        Ex_values = exact_solution.Ex_ex(t, x, y)
+        Ey_values = exact_solution.Ey_ex(t, x, y)
+        Bz_values = exact_solution.Bz_ex(t, x, y)
 
     fig, axs = plt.subplots(2, 2, figsize=(10, 8))
     fig.suptitle(f"Analytical solution at t = {t}")
     im0 = axs[0, 0].contourf(x, y, Ex_values, 50)
     im1 = axs[0, 1].contourf(x, y, Ey_values, 50)
     im2 = axs[1, 0].contourf(x, y, np.sqrt(Ex_values**2 + Ey_values**2), 50)
-    im3 = axs[1, 1].contourf(x, y, B_values, 50)
+    im3 = axs[1, 1].contourf(x, y, Bz_values, 50)
     axs[0, 0].set_title(r"$E_x$")
     axs[0, 1].set_title(r"$E_y$")
     axs[1, 0].set_title(r"$||\mathbf{E}||$")
@@ -348,26 +367,35 @@ def main():
     N = 160
     l = R / np.sqrt(2)  # edge length
 
+    # 2D grids, logical (rho, theta) and physical (x, y)
     x, dx = np.linspace(-l, l, N, retstep=True)
     y, dy = np.linspace(-l, l, N, retstep=True)
     x, y = np.meshgrid(x, y, indexing="ij")
     rho = np.sqrt(x**2 + y**2)
     theta = np.arctan2(y, x) % (2 * pi)
 
-    Ex_values = np.empty_like(rho)
-    Ey_values = np.empty_like(rho)
-    Bt_values = np.empty_like(rho)
-    B_values = np.empty_like(rho)
+    # If exact solution is given in logical coordinates, use push-forward
+    if is_log_solution:
+        Ex_values = np.empty_like(rho)
+        Ey_values = np.empty_like(rho)
+        Bz_values = np.empty_like(rho)
+        Bt_values = np.empty_like(rho)
+        ni, nj = rho.shape
+        for i in range(ni):
+            for j in range(nj):
+                x1_ij = rho[i, j]
+                x2_ij = theta[i, j]
+                Ex_values[i, j], Ey_values[i, j] = push_2d_hcurl(Es, Et, x1_ij, x2_ij, F)
+                Bz_values[i, j] = push_2d_l2(B, x1_ij, x2_ij, F)
+                Bt_values[i, j] = push_2d_l2(dB_dt, x1_ij, x2_ij, F)
+    # Otherwise, access exact solution in physical coordinates
+    else:
+        Ex_values = exact_solution.Ex_ex(t, x, y)
+        Ey_values = exact_solution.Ey_ex(t, x, y)
+        Bz_values = exact_solution.Bz_ex(t, x, y)
+        Bt_values = exact_solution.dBz_dt_ex(t, x, y)
 
-    ni, nj = rho.shape
-    for i in range(ni):
-        for j in range(nj):
-            x1_ij = rho[i, j]
-            x2_ij = theta[i, j]
-            Ex_values[i, j], Ey_values[i, j] = push_2d_hcurl(Es, Et, x1_ij, x2_ij, F)
-            Bt_values[i, j] = push_2d_l2(dB_dt, x1_ij, x2_ij, F)
-            B_values[i, j] = push_2d_l2(B, x1_ij, x2_ij, F)
-
+    # Compute curl(E)
     curlE_values = np.zeros_like(rho)
     curlE_values[1:-1, 1:-1] = \
             (Ey_values[2:, 1:-1] - Ey_values[0:-2, 1:-1]) / (2 * dx)  - \
@@ -380,7 +408,6 @@ def main():
     # Data slicing for quiver plots
     skip = (slice(None, None, int(N / 20)), slice(None, None, int(N / 20)))
 
-    # ...
     fig, axs = plt.subplots(2, 3, figsize=(14, 8))
     fig.suptitle(f"Analytical solution at t = {t}: consistency checks in inscribed square")
 
@@ -401,7 +428,7 @@ def main():
 
     ax = axs[1, 1]
     ax.set_title(r"$B_z$")
-    im = ax.contourf(x, y, B_values)
+    im = ax.contourf(x, y, Bz_values)
     add_colorbar(im, ax)
 
     ax = axs[0, 2]
