@@ -160,7 +160,7 @@ class CircularCavitySolution(TESolution):
         phase = self.phase
 
         return (
-            scale * omega * s * cos(n * theta) * jv(n, kc * s) * sin(omega * t + phase)
+            -scale * omega * s * cos(n * theta) * jv(n, kc * s) * sin(omega * t + phase)
         )
 
     # physical field
