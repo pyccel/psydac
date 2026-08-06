@@ -268,8 +268,12 @@ class GaussianInitialCondition(TESolution):
 # =============================================================================
 # SCRIPT FUNCTIONALITY
 # =============================================================================
-def main():
+def main(args):
     """
+    Visualize an analytical solution of the 2D TE Maxwell problem.
+    Plots the electric and magnetic fields in the physical domain
+    and performs a consistency check of Faraday's law.
+
     This function is not currently used. It is kept for possible future development.
     """
 
@@ -289,9 +293,10 @@ def main():
     m, n = (2, 3)
 
     # Exact solution
-    # TODO: allow switching between solutions using CLI arguments
-#    exact_solution = CircularCavitySolution(R=R, c=c, m=m, n=n, scale=scale)
-    exact_solution = GaussianInitialCondition(sigma=0.3, x0=0.2, y0=0.2, scale=scale)
+    if args.solution == "cavity":
+        exact_solution = CircularCavitySolution(R=R, c=c, m=m, n=n, scale=scale)
+    elif args.solution == "gaussian":
+        exact_solution = GaussianInitialCondition(sigma=0.3, x0=0.2, y0=0.2, scale=scale)
 
     # Logical domain: [0, R] x [0, 2pi]
     logical_domain = Square("Omega", bounds1=[0, R], bounds2=[0, 2 * pi])
@@ -338,7 +343,7 @@ def main():
         Bz_values = exact_solution.Bz_ex(t, x, y)
 
     fig, axs = plt.subplots(2, 2, figsize=(10, 8))
-    fig.suptitle(f"Analytical solution at t = {t}")
+    fig.suptitle(f"Analytical {args.solution} solution at t = {t}")
     im0 = axs[0, 0].contourf(x, y, Ex_values, 50)
     im1 = axs[0, 1].contourf(x, y, Ey_values, 50)
     im2 = axs[1, 0].contourf(x, y, np.sqrt(Ex_values**2 + Ey_values**2), 50)
@@ -413,7 +418,7 @@ def main():
 
     fig, axs = plt.subplots(2, 3, figsize=(14, 8))
     fig.suptitle(
-        f"Analytical solution at t = {t}: consistency checks in inscribed square"
+        f"Analytical {args.solution} solution at t = {t}: consistency checks in inscribed square"
     )
 
     ax = axs[0, 0]
@@ -457,6 +462,24 @@ def main():
     fig.show()
 
 
+def parse_input_arguments():
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Visualize analytical solutions of the 2D TE Maxwell problem"
+    )
+
+    parser.add_argument(
+        "--solution",
+        choices=("cavity", "gaussian"),
+        default="cavity",
+        help="Analytical solution to visualize",
+    )
+
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
-    main()
+    args = parse_input_arguments()
+    main(args)
     plt.show()
