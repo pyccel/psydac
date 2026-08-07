@@ -374,7 +374,7 @@ def vec_topetsc(vec):
     # Sum over the blocks to get the total local size
     localsize = np.sum(np.prod(npts_local, axis=1))
 
-    gvec  = PETSc.Vec().create(comm=carts[0].global_comm)    
+    gvec  = PETSc.Vec().create(comm=carts[0].global_comm)
 
     # Set global and local size:
     gvec.setSizes(size=(localsize, globalsize))
@@ -387,45 +387,49 @@ def vec_topetsc(vec):
 
     vec_block = vec
 
-    for b in range(n_blocks): 
+    # Index shift for each block, for the *current* process only. A call to vec_topetsc
+    # only ever needs the PETSc global index of data local to the calling process, so the
+    # owning process of every such index is always the calling process itself -- there is
+    # no need to search for it index-by-index (as psydac_to_petsc_global does), which is
+    # what makes this vectorizable.
+    index_shift_per_block = get_index_shift_per_block_per_process(vec.space) # [block][process]
+    rank = carts[0].global_comm.Get_rank() if carts[0].global_comm else 0
+
+    for b in range(n_blocks):
         if isinstance(vec, BlockVector):
             vec_block = vec.blocks[b]
-        
-        s = carts[b].starts
+
         ghost_size = [pi*mi for pi,mi in zip(carts[b].pads, carts[b].shifts)]
+        index_shift = index_shift_per_block[b][rank]
+
+        # Range of data owned by local process (no ghost regions):
+        local_slices = tuple(slice(gh, gh + n) for gh, n in zip(ghost_size, npts_local[b]))
+        local_data = vec_block._data[local_slices]
 
         if ndims[b] == 1:
-            for i1 in range(npts_local[b][0]):
-                value = vec_block._data[i1 + ghost_size[0]]
-                if value != 0:
-                    i1_n = s[0] + i1
-                    i_g = psydac_to_petsc_global(vec.space, (b,), (i1_n,))
-                    petsc_indices.append(i_g)
-                    petsc_data.append(value)        
+            (nz1,) = np.nonzero(local_data)
+            i_g = index_shift + nz1
+            petsc_indices.append(i_g)
+            petsc_data.append(local_data[nz1])
 
         elif ndims[b] == 2:
-            for i1 in range(npts_local[b][0]):
-                for i2 in range(npts_local[b][1]):
-                    value = vec_block._data[i1 + ghost_size[0], i2 + ghost_size[1]]
-                    if value != 0:
-                        i1_n = s[0] + i1
-                        i2_n = s[1] + i2                    
-                        i_g = psydac_to_petsc_global(vec.space, (b,), (i1_n, i2_n))
-                        petsc_indices.append(i_g)
-                        petsc_data.append(value)
+            nz1, nz2 = np.nonzero(local_data)
+            i_g = index_shift + nz2 + nz1 * npts_local[b][1]
+            petsc_indices.append(i_g)
+            petsc_data.append(local_data[nz1, nz2])
 
         elif ndims[b] == 3:
-            for i1 in np.arange(npts_local[b][0]):             
-                for i2 in np.arange(npts_local[b][1]):
-                    for i3 in np.arange(npts_local[b][2]):
-                        value = vec_block._data[i1 + ghost_size[0], i2 + ghost_size[1], i3 + ghost_size[2]]
-                        if value != 0:
-                            i1_n = s[0] + i1
-                            i2_n = s[1] + i2
-                            i3_n = s[2] + i3    
-                            i_g = psydac_to_petsc_global(vec.space, (b,), (i1_n, i2_n, i3_n))                    
-                            petsc_indices.append(i_g)
-                            petsc_data.append(value)        
+            nz1, nz2, nz3 = np.nonzero(local_data)
+            i_g = index_shift + nz3 + nz2 * npts_local[b][2] + nz1 * npts_local[b][1] * npts_local[b][2]
+            petsc_indices.append(i_g)
+            petsc_data.append(local_data[nz1, nz2, nz3])
+
+    petsc_indices = np.concatenate(petsc_indices) if petsc_indices else np.array([], dtype='int64')
+    petsc_indices = petsc_indices.astype(PETSc.IntType)
+    petsc_data = np.concatenate(petsc_data) if petsc_data else np.array([], dtype=vec.dtype)
+    # If PETSc was built with a real scalar type but the vector is complex, drop the
+    # imaginary part (silently, matching the previous per-scalar behaviour).
+    petsc_data = petsc_data.astype(PETSc.ScalarType)
 
     # Set the values. The values are stored in a cache memory.
     gvec.setValues(petsc_indices, petsc_data, addv=PETSc.InsertMode.ADD_VALUES) #The addition mode the values is necessary when periodic BC
