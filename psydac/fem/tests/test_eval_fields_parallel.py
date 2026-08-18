@@ -149,3 +149,53 @@ def test_eval_fields_irregular(geometry, npts_irregular):
 
         fh5.close()
         os.remove('result_parallel_i.h5')
+
+#==============================================================================
+@pytest.mark.mpi
+def test_eval_field_roundoff():
+    """
+    Check field and gradient evaluation under round-off
+    at periodic MPI boundaries
+    """
+
+    from psydac.ddm.cart import DomainDecomposition
+    from psydac.fem.basic import FemField
+    from psydac.fem.splines import SplineSpace
+    from psydac.fem.tensor import TensorFemSpace
+
+    ncells = [8, 16]
+    degree = [2, 2]
+
+    grid_s     = np.linspace(0.0, 1.0, ncells[0] + 1)
+    grid_theta = np.linspace(0.0, 2.0 * np.pi, ncells[1] + 1)
+
+    V_s = SplineSpace(degree=degree[0], grid=grid_s, periodic=False)
+    V_theta = SplineSpace(degree=degree[1], grid=grid_theta, periodic=True)
+
+    # Force MPI decomposition only in theta
+    domain_decomposition = DomainDecomposition(
+        ncells,
+        periods=[False, True],
+        comm=comm,
+        mpi_dims_mask=[False, True],
+    )
+
+    V = TensorFemSpace(domain_decomposition,V_s, V_theta)
+    u = FemField(V)
+
+    # Evaluation point inside the local radial interval
+    s = (V.eta_lims[0][0] + V.eta_lims[0][1]) / 2.0
+
+    theta_max_local = V.eta_lims[1][1]
+    theta_max_global = V_theta.breaks[-1]
+
+    # Only test internal MPI boundaries
+    if theta_max_local < theta_max_global:
+
+        # Smallest representable float larger than the boundary
+        theta_roundoff = np.nextafter(theta_max_local, theta_max_local + 1)
+
+        # Check that TensorFemSpace field and gradient evaluation remains valid
+        # when round-off places the point just beyond the local MPI boundary
+        value_with_roundoff = u(s, theta_roundoff)
+        grad_with_roundoff = u.gradient(s, theta_roundoff)
