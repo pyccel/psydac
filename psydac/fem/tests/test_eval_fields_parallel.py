@@ -182,6 +182,7 @@ def test_eval_field_roundoff():
 
     V = TensorFemSpace(domain_decomposition,V_s, V_theta)
     u = FemField(V)
+    u.coeffs.update_ghost_regions()
 
     # Evaluation point inside the local radial interval
     s = (V.eta_lims[0][0] + V.eta_lims[0][1]) / 2.0

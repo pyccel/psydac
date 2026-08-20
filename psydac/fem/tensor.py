@@ -226,14 +226,14 @@ class TensorFemSpace(FemSpace):
             field.coeffs.update_ghost_regions()
 
         for (x, xlim, space) in zip( eta, self.eta_lims, self.spaces ):
-            # scale = max(abs(xlim[0]), abs(xlim[1]), 1.0)
-            # tol = np.spacing(scale)
-            #
-            # if x < xlim[0] and xlim[0] - x <= tol:
-            #     x = xlim[0]
-            #
-            # elif x > xlim[1] and x - xlim[1] <= tol:
-            #     x = xlim[1]
+            scale = max(abs(xlim[0]), abs(xlim[1]), 1.0)
+            tol = np.spacing(scale)
+
+            if x < xlim[0] and xlim[0] - x <= tol:
+                x = xlim[0]
+
+            elif x > xlim[1] and x - xlim[1] <= tol:
+                x = xlim[1]
 
             knots  = space.knots
             degree = space.degree
@@ -635,14 +635,14 @@ class TensorFemSpace(FemSpace):
         index   = []
 
         for (x, xlim, space) in zip( eta, self.eta_lims, self.spaces ):
-            # scale = max(abs(xlim[0]), abs(xlim[1]), 1.0)
-            # tol = np.spacing(scale)
-            #
-            # if x < xlim[0] and xlim[0] - x <= tol:
-            #     x = xlim[0]
-            #
-            # elif x > xlim[1] and x - xlim[1] <= tol:
-            #     x = xlim[1]
+            scale = max(abs(xlim[0]), abs(xlim[1]), 1.0)
+            tol = np.spacing(scale)
+
+            if x < xlim[0] and xlim[0] - x <= tol:
+                x = xlim[0]
+
+            elif x > xlim[1] and x - xlim[1] <= tol:
+                x = xlim[1]
 
             knots   = space.knots
             degree  = space.degree
