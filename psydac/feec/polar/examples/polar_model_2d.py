@@ -5,7 +5,41 @@
 #---------------------------------------------------------------------------#
 
 class PolarModel2D:
-    """Base class for analytical models on mapped 2D polar domains."""
+    """
+    Base class for analytical models on mapped 2D polar domains.
+
+    Parameters
+    ----------
+    domain_log : sympde.topology.Domain
+        Logical domain on which the analytical mapping is defined.
+
+    analytical_mapping : sympde.topology.mapping.Mapping
+        Analytical mapping from the logical domain to the physical domain.
+
+    Attributes
+    ----------
+    logical_bounds : tuple
+        Bounds of the logical domain.
+
+    mapping : sympde.topology.mapping.Mapping
+        Mapping used by the solver. It is either the analytical mapping or
+        its spline approximation. Initialized by calling ``build_geometry``.
+
+    analytical_mapping : sympde.topology.mapping.Mapping
+        Original analytical mapping from the logical to the physical domain.
+
+    domain : sympde.topology.Domain
+        Physical domain associated with ``mapping``. Initialized by
+        calling ``build_geometry``.
+
+    domain_log : sympde.topology.Domain
+        Logical domain.
+
+    geometry_export_time : float
+        Time spent exporting the discrete geometry, in seconds.
+        It is zero when the analytical mapping is used directly.
+
+    """
 
     def __init__(self, domain_log, analytical_mapping):
         from sympde.topology.mapping import Mapping
@@ -29,7 +63,36 @@ class PolarModel2D:
         filename="geo.h5",
         verbose=False,
     ):
-        """Build the physical domain and the mapping used by the solver."""
+        """
+        Build the physical domain and the mapping used by the solver.
+
+        Parameters
+        ----------
+        ncells : sequence of int
+            Number of cells in each logical coordinate direction.
+
+        degree : sequence of int
+            Polynomial degree of the spline space in each logical coordinate
+            direction.
+
+        periodic : sequence of bool
+            Periodicity of the spline space in each logical coordinate direction.
+
+        mpi_comm : mpi4py.MPI.Comm
+            MPI communicator used to construct and export the discrete geometry.
+
+        use_spline_mapping : bool
+            If ``True``, approximate the analytical mapping by a spline mapping.
+            If ``False``, use the analytical mapping directly.
+
+        filename : str, default="geo.h5"
+            Name of the HDF5 file used to export the spline geometry.
+
+        verbose : bool, default=False
+            If ``True``, print additional information when checking the regularity
+            of the spline mapping in serial.
+
+        """
 
         if not use_spline_mapping:
             # Only symbolic mapping is necessary
