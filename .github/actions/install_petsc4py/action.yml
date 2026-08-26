@@ -56,5 +56,5 @@ runs:
       shell: bash
       working-directory: ./petsc
       run: | 
-        pip install wheel Cython numpy
+        pip install wheel numpy
         pip install src/binding/petsc4py
