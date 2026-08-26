@@ -18,7 +18,7 @@ runs:
       name: Download a specific release of PETSc
       shell: bash
       run: |
-        git clone --depth 1 --branch v3.25.0 https://gitlab.com/petsc/petsc.git
+        git clone --depth 1 --branch v3.25.4 https://gitlab.com/petsc/petsc.git
       # The branch "release" contains work towards the next version of PETSc,
       # and it may not be stable. If necessary, it can be cloned as follows:
       # git clone --depth 1 --branch release https://gitlab.com/petsc/petsc.git
