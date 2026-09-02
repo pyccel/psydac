@@ -1,0 +1,124 @@
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
+"""
+Unit tests for the sum-factorization code-generation internals in
+`psydac.api.fem_bilinear_form` (`DiscreteBilinearForm.read_BilinearForm()`
+and the generated assembly function it feeds into via `make_file()`).
+
+These tests use `PSYDAC_BACKEND_PYTHON` so that the assembly module is
+generated and imported, but never compiled via pyccel/Fortran, keeping them
+fast and independent of any compiler toolchain.
+"""
+import types
+
+from sympde.topology import Cube, ScalarFunctionSpace
+from sympde.topology import elements_of
+from sympde.calculus  import dot, grad
+from sympde.expr      import BilinearForm, integral
+
+from psydac.api.discretization    import discretize
+from psydac.api.settings          import PSYDAC_BACKEND_PYTHON
+from psydac.api.fem_bilinear_form import DiscreteBilinearForm
+from psydac.fem.basic              import FemField
+
+#==============================================================================
+def discretize_mass_matrix_form():
+
+    domain = Cube()
+    V = ScalarFunctionSpace('V', domain)
+    u, v = elements_of(V, names='u, v')
+
+    a = BilinearForm((u, v), integral(domain, u * v))
+
+    domain_h = discretize(domain, ncells=(2, 2, 2))
+    Vh       = discretize(V, domain_h, degree=(1, 1, 1))
+
+    return discretize(a, domain_h, [Vh, Vh], backend=PSYDAC_BACKEND_PYTHON)
+
+#==============================================================================
+def test_read_bilinear_form_mass_matrix_structure():
+
+    ah = discretize_mass_matrix_form()
+    assert type(ah) is DiscreteBilinearForm
+
+    (temps, ordered_stmts, ordered_sub_exprs_keys, mapping_option,
+     field_derivatives, g_mat_information_false, g_mat_information_true,
+     max_logical_derivative) = ah.read_BilinearForm()
+
+    # No mapping, no free FemFields, no derivatives, scalar (non-Matrix) expr.
+    assert mapping_option is None
+    assert field_derivatives == {}
+    assert g_mat_information_false == []
+    assert g_mat_information_true  == []
+    assert max_logical_derivative  == 0
+
+    # A single scalar u*v block, with at least one coupling-term assignment.
+    assert len(ordered_stmts) == 1
+    assert len(ordered_sub_exprs_keys) == 1
+    (block,) = ordered_stmts.keys()
+    assert len(ordered_stmts[block]) >= 1
+
+    # `temps`/`ordered_stmts` values must be assignment-like objects with a
+    # left- and right-hand side (Assign from psydac.pyccel.ast.core).
+    for assign in temps:
+        assert hasattr(assign, 'lhs') and hasattr(assign, 'rhs')
+    for assign in ordered_stmts[block]:
+        assert hasattr(assign, 'lhs') and hasattr(assign, 'rhs')
+
+#==============================================================================
+def test_read_bilinear_form_stiffness_matrix_has_first_derivative():
+
+    domain = Cube()
+    V = ScalarFunctionSpace('V', domain)
+    u, v = elements_of(V, names='u, v')
+
+    a = BilinearForm((u, v), integral(domain, dot(grad(u), grad(v))))
+
+    domain_h = discretize(domain, ncells=(2, 2, 2))
+    Vh       = discretize(V, domain_h, degree=(2, 2, 2))
+
+    ah = discretize(a, domain_h, [Vh, Vh], backend=PSYDAC_BACKEND_PYTHON)
+    assert type(ah) is DiscreteBilinearForm
+
+    *_, max_logical_derivative = ah.read_BilinearForm()
+
+    # dot(grad(u), grad(v)) only needs first-order partial derivatives.
+    assert max_logical_derivative == 1
+
+#==============================================================================
+def test_read_bilinear_form_detects_free_field_derivatives():
+
+    domain = Cube()
+    V = ScalarFunctionSpace('V', domain)
+    u, v, w = elements_of(V, names='u, v, w')
+
+    a = BilinearForm((u, v), integral(domain, dot(grad(w), grad(w)) * u * v))
+
+    domain_h = discretize(domain, ncells=(2, 2, 2))
+    Vh       = discretize(V, domain_h, degree=(1, 1, 1))
+
+    ah = discretize(a, domain_h, [Vh, Vh], backend=PSYDAC_BACKEND_PYTHON)
+
+    (_, _, _, _, field_derivatives, *_rest) = ah.read_BilinearForm()
+
+    # The free field `w` (and its partial derivatives) must be detected.
+    assert len(field_derivatives) == 1
+    (derivs,) = field_derivatives.values()
+    assert len(derivs) >= 1
+
+#==============================================================================
+def test_python_backend_generates_uncompiled_callable_that_runs():
+
+    ah = discretize_mass_matrix_form()
+
+    # With the 'python' backend, no pyccel/Fortran compilation happens: the
+    # assembly function stays a plain Python function...
+    assert isinstance(ah._func, types.FunctionType)
+
+    # ...and it must still run correctly, exercising the templated code
+    # generated by `make_file()` end-to-end without a compiler toolchain.
+    M = ah.assemble()
+    assert M.toarray().sum() > 0.0

@@ -11,7 +11,6 @@ from psydac.linalg.utilities import array_to_psydac, petsc_to_psydac
 from psydac.ddm.cart import DomainDecomposition, CartDecomposition
 
 # TODO : test update ghost region interface
-# TODO : add test exchange_assembly_data
 
 # ===============================================================================
 def compute_global_starts_ends(domain_decomposition, npts):
@@ -61,6 +60,49 @@ def test_stencil_vector_2d_serial_init(dtype, n1, n2, p1, p2, s1, s2, P1=True, P
     assert x._data.shape == (n1 + 2 * p1 * s1, n2 + 2 * p2 * s2)
     assert x._data.dtype == dtype
     assert not x.ghost_regions_in_sync
+
+# ===============================================================================
+@pytest.mark.parametrize('n1', [5, 8])
+@pytest.mark.parametrize('p1', [1, 2])
+def test_stencil_vector_1d_serial_exchange_assembly_data_periodic(n1, p1, s1=1):
+    """
+    During assembly on a periodic domain, contributions belonging to cells
+    near the seam can end up written into the ghost region on the opposite
+    side. `exchange_assembly_data()` must fold such contributions back into
+    the corresponding interior cell, and leave the ghost regions at zero.
+    """
+    # Create domain decomposition
+    D = DomainDecomposition([n1], periods=[True])
+
+    # Partition the points
+    npts = [n1]
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
+    C = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1], shifts=[s1])
+
+    # Create vector space and stencil vector
+    V = StencilVectorSpace(C)
+    x = StencilVector(V)
+
+    # Fill in known interior values
+    for i in range(n1):
+        x[i] = 10. * (i + 1)
+
+    # Simulate a contribution that landed in the right ghost region (single
+    # ghost layer, since s1=1) instead of wrapping around to the first cell.
+    x._data[-p1:] = 99.
+
+    x.exchange_assembly_data()
+
+    # The wrapped ghost contribution must be folded into the first `p1`
+    # interior cells...
+    for i in range(p1):
+        assert x[i] == pytest.approx(10. * (i + 1) + 99.)
+    for i in range(p1, n1):
+        assert x[i] == pytest.approx(10. * (i + 1))
+
+    # ...and both ghost regions must now be zero.
+    assert np.all(x._data[:p1]  == 0.)
+    assert np.all(x._data[-p1:] == 0.)
 
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
