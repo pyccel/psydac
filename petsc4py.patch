@@ -1,8 +1,0 @@
-@@ -1,6 +1,6 @@
- [build-system]
- requires = [
--  "cython >= 3",
-+  "cython >= 3, < 3.3",
-   "numpy",
-   "setuptools",
- ]
