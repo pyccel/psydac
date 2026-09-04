@@ -10,7 +10,7 @@ import numpy as np
 from psydac.linalg.basic   import Vector
 from psydac.linalg.stencil import StencilVector, StencilVectorSpace
 from psydac.linalg.block   import BlockVector, BlockVectorSpace
-from psydac.linalg.topetsc import petsc_local_to_psydac, get_npts_per_block
+from psydac.linalg.topetsc import get_npts_local
 
 __all__ = (
     'array_to_psydac',
@@ -115,26 +115,28 @@ def petsc_to_psydac(x, Xh, out=None):
         else:
             u = BlockVector(Xh)
 
-        comm       = x.comm
         dtype      = Xh._dtype
         localsize, globalsize = x.getSizes()
         assert globalsize == u.shape[0], 'Sizes of global vectors do not match'
 
-        # Find shift for process k:
-        # ..get number of points for each block, each process and each dimension:
-        npts_local_per_block_per_process = np.array(get_npts_per_block(Xh)) #indexed [b,k,d] for block b and process k and dimension d
-        # ..get local sizes for each block and each process:
-        local_sizes_per_block_per_process = np.prod(npts_local_per_block_per_process, axis=-1) #indexed [b,k] for block b and process k
-        # ..sum the sizes over all the blocks and the previous processes:
-        index_shift = 0 + np.sum(local_sizes_per_block_per_process[:,:comm.Get_rank()], dtype=int) #global variable
+        # Local PETSc data (this process only), ordered block-by-block (see vec_topetsc):
+        values = x.getArray(readonly=True)
 
-        for local_petsc_index in range(localsize):
-            block_index, psydac_index = petsc_local_to_psydac(Xh, local_petsc_index)
-            # Get value of local PETSc vector passing the global PETSc index
-            value = x.getValue(local_petsc_index + index_shift) 
-            if value != 0:
-                u[block_index[0]]._data[psydac_index] = value if dtype is complex else value.real # PETSc always handles dtype specified in the installation configuration
-        
+        # Local shape of this process, per block:
+        npts_local_per_block = get_npts_local(Xh) # indexed [b][d]
+
+        offset = 0
+        for bb in range(Xh.n_blocks):
+            npts_local = npts_local_per_block[bb]
+            n = int(np.prod(npts_local))
+            block_values = values[offset:offset + n]
+            offset += n
+
+            block_indices = _local_petsc_indices_to_data_indices(
+                np.arange(n), npts_local, Xh.spaces[bb].pads, Xh.spaces[bb].shifts,
+            )
+            u[bb]._data[block_indices] = block_values if dtype is complex else block_values.real # PETSc always handles dtype specified in the installation configuration
+
     elif isinstance(Xh, StencilVectorSpace):
 
         if out is not None:
@@ -144,25 +146,16 @@ def petsc_to_psydac(x, Xh, out=None):
         else:
             u = StencilVector(Xh)
 
-        comm       = x.comm
         dtype      = Xh.dtype
         localsize, globalsize = x.getSizes()
         assert globalsize == u.shape[0], 'Sizes of global vectors do not match'
 
-        # Find shift for process k:
-        # ..get number of points for each process and each dimension:
-        npts_local_per_block_per_process = np.array(get_npts_per_block(Xh))[0] #indexed [k,d] for process k and dimension d
-        # ..get local sizes for each process:
-        local_sizes_per_block_per_process = np.prod(npts_local_per_block_per_process, axis=-1) #indexed [k] for process k
-        # ..sum the sizes over all the previous processes:
-        index_shift = 0 + np.sum(local_sizes_per_block_per_process[:comm.Get_rank()], dtype=int) #global variable
+        # Local PETSc data (this process only):
+        values = x.getArray(readonly=True)
+        npts_local = get_npts_local(Xh)[0]
 
-        for local_petsc_index in range(localsize):
-            block_index, psydac_index = petsc_local_to_psydac(Xh, local_petsc_index) 
-            # Get value of local PETSc vector passing the global PETSc index
-            value = x.getValue(local_petsc_index + index_shift)
-            if value != 0:
-                u._data[psydac_index] = value if dtype is complex else value.real # PETSc always handles dtype specified in the installation configuration            
+        indices = _local_petsc_indices_to_data_indices(np.arange(localsize), npts_local, Xh.pads, Xh.shifts)
+        u._data[indices] = values if dtype is complex else values.real # PETSc always handles dtype specified in the installation configuration
 
     else:
         raise ValueError('Xh must be a StencilVectorSpace or a BlockVectorSpace')
@@ -170,6 +163,34 @@ def petsc_to_psydac(x, Xh, out=None):
     u.update_ghost_regions()
 
     return u
+
+#==============================================================================
+def _local_petsc_indices_to_data_indices(local_petsc_indices, npts_local, pads, shifts):
+    """ Vectorized equivalent of calling `petsc_local_to_psydac` for every index in
+    `local_petsc_indices` (all belonging to the same block), returning a tuple of
+    integer arrays directly usable to index a StencilVector's `._data` array.
+    """
+    ndim = len(npts_local)
+
+    if ndim == 1:
+        i0 = local_petsc_indices + pads[0] * shifts[0]
+        return (i0,)
+
+    elif ndim == 2:
+        i0 = local_petsc_indices // npts_local[1] + pads[0] * shifts[0]
+        i1 = local_petsc_indices % npts_local[1] + pads[1] * shifts[1]
+        return (i0, i1)
+
+    elif ndim == 3:
+        n1n2 = npts_local[1] * npts_local[2]
+        i0 = local_petsc_indices // n1n2 + pads[0] * shifts[0]
+        rem = local_petsc_indices % n1n2
+        i1 = rem // npts_local[2] + pads[1] * shifts[1]
+        i2 = rem % npts_local[2] + pads[2] * shifts[2]
+        return (i0, i1, i2)
+
+    else:
+        raise NotImplementedError("Cannot handle more than 3 dimensions.")
 
 #==============================================================================
 def _sym_ortho(a, b):
