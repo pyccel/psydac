@@ -21,6 +21,7 @@ runs:
       run: |
         export CC="mpicc"
         export HDF5_MPI="ON"
+        pip install 'mpi4py>=4.0.0'
         pip install h5py --no-cache-dir --no-binary h5py
         pip list
 

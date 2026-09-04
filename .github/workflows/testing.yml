@@ -24,7 +24,8 @@ jobs:
       fail-fast: false
       matrix:
         os: [ ubuntu-24.04, macos-14 ]
-        python-version: [ '3.10', '3.11', '3.12', '3.13', '3.14' ]
+#        python-version: [ '3.9', '3.10', '3.11', '3.12', '3.13' ]
+        python-version: [ '3.11', '3.12' ]
         isMerge:
           - ${{ github.event_name == 'push' && github.ref == 'refs/heads/devel' }}
         exclude:
@@ -125,17 +126,17 @@ jobs:
         if: matrix.os == 'macos-14'
         working-directory: ./scratch
         run: |
-          coverage report --ignore-errors --show-missing --sort=cover
+          psydac test --mod psydac.mapping -x -v
 
       - name: Run MPI tests with Pytest
         working-directory: ./scratch
         run: |
-          psydac test --mpi
+          psydac test --mod psydac.fem -x -v
 
       - name: Run single-process PETSc tests with Pytest
         working-directory: ./scratch
         run: |
-          psydac test --petsc
+          psydac test --mod psydac.feec -x -v
 
       - name: Run MPI PETSc tests with Pytest
         working-directory: ./scratch

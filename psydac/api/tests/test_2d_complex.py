@@ -363,7 +363,7 @@ def test_complex_poisson_2d_multipatch():
     A = Square('A',bounds1=(0, 0.5), bounds2=(0, 1))
     B = Square('B',bounds1=(0.5, 1.), bounds2=(0, 1))
 
-    domain = Domain.join([A, B], [((0, 0, 1), (1, 0, -1))], 'domain')
+    domain = Domain.join([A, B], [((0, 0, 1), (1, 0, -1), 1)], 'domain')
 
     x, y = domain.coordinates
 
