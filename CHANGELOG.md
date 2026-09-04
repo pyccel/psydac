@@ -28,6 +28,7 @@ All notable changes to this project will be documented in this file.
 ### Changed
 
 -   #527 : Improve `Geometry` class in module `psydac.cad.geometry`
+-   #595 : Use PETSc 3.25.5 whose Python bindings `petsc4py` are built correctly with `cython>=3`
 -   #580 : Use PETSc 3.25.0 whose Python bindings `petsc4py` install correctly with `setuptools>=81.0`
 -   #579 : Require `pyccel>=2.2.3` which can compile all kernels with C
 -   #579 : Require `numpy>=2.1` to support Python >= 3.10
