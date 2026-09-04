@@ -21,7 +21,7 @@ keywords     = ["FEM", "IGA", "B-spline", "NURBS"]
 classifiers  = ["Programming Language :: Python :: 3"]
 dependencies = [
     # Third-party packages from PyPi
-    'numpy >= 2.1, < 2.4',  # >=2.1 for python 3.10, <2.4 for igakit
+    'numpy >= 2.1',
     'scipy >= 1.12',
     'sympy >= 1.5',
     'matplotlib',
@@ -31,7 +31,7 @@ dependencies = [
     'termcolor',
 
     # Our packages from PyPi
-    'sympde == 0.19.2',
+    'sympde == 0.19.3',
     'pyccel >= 2.2.3',
     'gelato == 0.12',
 
