@@ -722,7 +722,7 @@ def compute_boundary_jacobian(parent_namespace, boundary, mapping=None):
 
     else:
         # Compute metric determinant g on manifold
-        J  = SymbolicExpr(mapping.jacobian)
+        J  = SymbolicExpr(mapping.jacobian_symbol)
         Jm = J[:, [i for i in range(J.shape[1]) if i != boundary.axis]]
         g  = (Jm.T * Jm).det()
 
@@ -755,7 +755,7 @@ def compute_normal_vector(parent_namespace, vector, boundary, mapping=None):
     # be normalized anyway.
     #
     # NOTE: we also change the vector orientation according to 'ext'
-    J = SymbolicExpr(mapping.jacobian)
+    J = SymbolicExpr(mapping.jacobian_symbol)
     values = [ext * J.cofactor(i, j=axis) for i in range(J.shape[0])]
 
     # Create statements for computing normal vector components
