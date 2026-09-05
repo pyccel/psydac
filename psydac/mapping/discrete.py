@@ -12,6 +12,7 @@ import numpy as np
 import h5py
 
 from sympde.topology.callable_mapping import BasicCallableMapping
+from sympde.topology.mapping import DefinedMapping
 
 from psydac.fem.basic    import FemField
 from psydac.fem.tensor   import TensorFemSpace
@@ -808,6 +809,18 @@ class SplineMapping(BasicCallableMapping):
                 coords = np.array(m.fields[dim_idx].coeffs[pnt_idx])
 
             return coords
+
+# SplineMapping cannot literally subclass DefinedMapping: DefinedMapping's
+# MRO includes sympy's IndexedBase (via SymbolicMapping), whose __new__
+# would intercept SplineMapping's (FemField, FemField, ...) constructor
+# arguments as a symbolic (label, shape) pair -- breaking every
+# multi-component construction. Register it as a virtual subclass instead:
+# SplineMapping keeps its own plain-Python construction untouched, while
+# isinstance(_, DefinedMapping) / issubclass(SplineMapping, DefinedMapping)
+# become True, making it interchangeable with sympde's AnalyticMapping
+# wherever a point-evaluable mapping is expected. NurbsMapping inherits
+# this automatically (it is a real subclass of SplineMapping).
+DefinedMapping.register(SplineMapping)
 
 #==============================================================================
 class NurbsMapping(SplineMapping):

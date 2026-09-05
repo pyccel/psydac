@@ -309,3 +309,35 @@ def test_nurbs_circle():
             J_i = disk.gradient(u=x1, v=x2)
 
             assert np.allclose(J_i[:2], J_p, atol=ATOL, rtol=RTOL)
+
+#==============================================================================
+def test_spline_mapping_is_a_defined_mapping():
+    # WP04: SplineMapping/NurbsMapping are registered as virtual subclasses of
+    # sympde's DefinedMapping (they cannot literally inherit it -- see
+    # refactor/04-psydac-spline-under-defined.md), so they are interchangeable
+    # with AnalyticMapping wherever a point-evaluable mapping is expected.
+    from sympde.topology.mapping import DefinedMapping, BasicCallableMapping
+    from psydac.mapping.discrete import SplineMapping
+
+    assert issubclass(SplineMapping, DefinedMapping)
+    assert issubclass(NurbsMapping, DefinedMapping)
+    # registration is additive: the original relationship must still hold
+    assert issubclass(SplineMapping, BasicCallableMapping)
+    assert issubclass(NurbsMapping, BasicCallableMapping)
+
+    # and on a real instance, not just the classes
+    rmin, rmax = 0.2, 1
+    c_ext = circle(radius=rmax, center=(0, 0))
+    c_int = circle(radius=rmin, center=(0, 0))
+    disk  = ruled(c_ext, c_int).transpose()
+
+    spaces = [SplineSpace(degree, knot) for degree, knot in zip(disk.degree, disk.knots)]
+    ncells  = [len(space.breaks) - 1 for space in spaces]
+    periods = [space.periodic for space in spaces]
+    domain_decomposition = DomainDecomposition(ncells=ncells, periods=periods, comm=None)
+    T = TensorFemSpace(domain_decomposition, *spaces)
+    mapping = NurbsMapping.from_control_points_weights(
+        T, control_points=disk.points[..., :2], weights=disk.weights)
+
+    assert isinstance(mapping, DefinedMapping)
+    assert isinstance(mapping, BasicCallableMapping)
