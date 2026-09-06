@@ -17,7 +17,7 @@ from sympde.topology.space       import ScalarFunction
 from sympde.topology.space       import VectorFunction
 from sympde.topology.space       import IndexedVectorFunction
 from sympde.topology.space       import element_of
-from sympde.topology             import Mapping
+from sympde.topology             import SymbolicMapping
 from sympde.topology             import Boundary
 from sympde.topology.derivatives import _partial_derivatives
 from sympde.topology.derivatives import _logical_partial_derivatives
@@ -118,10 +118,10 @@ def is_mapping(expr):
     if isinstance(expr, _logical_partial_derivatives):
         return is_mapping(expr.args[0])
 
-    elif isinstance(expr, Indexed) and isinstance(expr.base, Mapping):
+    elif isinstance(expr, Indexed) and isinstance(expr.base, SymbolicMapping):
         return True
 
-    elif isinstance(expr, Mapping):
+    elif isinstance(expr, SymbolicMapping):
         return True
 
     return False

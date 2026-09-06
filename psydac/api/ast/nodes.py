@@ -22,7 +22,7 @@ from sympde.topology import ScalarFunction, VectorFunction
 from sympde.topology import VectorFunctionSpace
 from sympde.topology import IndexedVectorFunction
 from sympde.topology import H1SpaceType, L2SpaceType, UndefinedSpaceType
-from sympde.topology import Mapping
+from sympde.topology import SymbolicMapping
 from sympde.topology import dx1, dx2, dx3
 from sympde.topology import get_atom_logical_derivatives
 from sympde.topology import Interface
@@ -1042,7 +1042,7 @@ class CoefficientBasis(ScalarNode):
     """
     """
     def __new__(cls, target):
-        ls = target.atoms(ScalarFunction, VectorFunction, Mapping)
+        ls = target.atoms(ScalarFunction, VectorFunction, SymbolicMapping)
         if not len(ls) == 1:
             raise TypeError('Expecting a scalar/vector test function or a Mapping')
         return Basic.__new__(cls, target)
@@ -2025,7 +2025,7 @@ class GeometryAtom(AtomicNode):
     """
     """
     def __new__(cls, expr):
-        ls = list(expr.atoms(Mapping))
+        ls = list(expr.atoms(SymbolicMapping))
         if not(len(ls) == 1):
             raise ValueError('Expecting an expression with one mapping')
 

@@ -17,7 +17,7 @@ from sympy.printing.pycode  import pycode
 from pyccel import epyccel
 
 from sympde.topology.basic       import Boundary, Interface
-from sympde.topology.mapping     import Mapping, SymbolicExpr
+from sympde.topology.mapping     import SymbolicMapping, SymbolicExpr
 from sympde.topology.space       import ScalarFunction, VectorFunction, IndexedVectorFunction
 from sympde.topology.derivatives import get_atom_logical_derivatives
 from sympde.topology.derivatives import _logical_partial_derivatives
@@ -134,7 +134,7 @@ class DiscreteBilinearForm:
         assert isinstance(         backend, (NoneType, dict))
         assert isinstance(  linalg_backend, (NoneType, dict))
         assert isinstance(assembly_backend, (NoneType, dict))
-        assert isinstance(symbolic_mapping, (NoneType, Mapping))
+        assert isinstance(symbolic_mapping, (NoneType, SymbolicMapping))
         #...
 
         if isinstance(kernel_expr, (tuple, list)):
@@ -1555,7 +1555,7 @@ class DiscreteBilinearForm:
             a = get_atom_logical_derivatives(atom)
             # IF: NOT Indexed Mapping AND NOT VectorFunction
             # I guess: <=> IF ScalarFunction
-            if not ((isinstance(a, Indexed) and isinstance(a.base, Mapping)) or (isinstance(a, IndexedVectorFunction))):
+            if not ((isinstance(a, Indexed) and isinstance(a.base, SymbolicMapping)) or (isinstance(a, IndexedVectorFunction))):
                 if a in tests:
                     # tests is a tuple, e.g. (v, ), hence tests[0] = v
                     test_atoms[tests[0]].append(atom)

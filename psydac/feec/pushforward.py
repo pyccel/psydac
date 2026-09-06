@@ -5,7 +5,7 @@
 #---------------------------------------------------------------------------#
 import numpy as np
 
-from sympde.topology.mapping import Mapping
+from sympde.topology.mapping import SymbolicMapping
 from sympde.topology.callable_mapping import CallableMapping
 from sympde.topology.analytical_mapping import IdentityMapping
 from sympde.topology.datatype import UndefinedSpaceType, H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType
@@ -108,7 +108,7 @@ class Pushforward:
         if grid_local is None:
             grid_local=grid
 
-        if isinstance(mapping, Mapping):
+        if isinstance(mapping, SymbolicMapping):
             self._mesh_grids = np.meshgrid(*grid_local, indexing='ij', sparse=True)
             if isinstance(mapping.get_callable_mapping(), SplineMapping):
                 c_m = mapping.get_callable_mapping()

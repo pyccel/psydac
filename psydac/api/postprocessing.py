@@ -15,7 +15,7 @@ import numpy as np
 import mpi4py
 import h5py as h5
 
-from sympde.topology import Domain, VectorFunctionSpace, ScalarFunctionSpace, InteriorDomain, MultiPatchMapping, Mapping
+from sympde.topology import Domain, VectorFunctionSpace, ScalarFunctionSpace, InteriorDomain, MultiPatchMapping, SymbolicMapping
 from sympde.topology.datatype import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType, UndefinedSpaceType
 
 from pyevtk.hl import unstructuredGridToVTK
@@ -1722,7 +1722,7 @@ class PostProcessManager:
                 i_name_i: {} for i_name_i in self._available_patches}
         for (interior_name, i_patch), space_dict in interior_to_dict_fields.items():
             mapping = self._mappings[interior_name]
-            assert isinstance(mapping, (Mapping, SplineMapping)) or mapping is None
+            assert isinstance(mapping, (SymbolicMapping, SplineMapping)) or mapping is None
 
             i_mesh_info, i_point_data, i_mpi_dd = self._compute_single_patch(
                 interior_name=interior_name,
@@ -2308,7 +2308,7 @@ class PostProcessManager:
                 mesh = np.meshgrid(*grid_local, indexing='ij')
             else:
                 mesh = grid_local
-            if isinstance(mapping, Mapping):
+            if isinstance(mapping, SymbolicMapping):
                 c_m = mapping.get_callable_mapping()
                 if isinstance(c_m, SplineMapping):
                     mesh = c_m.build_mesh(grid, npts_per_cell=npts_per_cell)

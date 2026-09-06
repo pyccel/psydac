@@ -23,7 +23,7 @@ from sympde.expr.evaluation import _split_test_function
 from sympde.topology import SymbolicWeightedVolume
 from sympde.topology import Boundary, NormalVector, Interface
 from sympde.topology.basic import BasicDomain
-from sympde.topology.mapping import Mapping
+from sympde.topology.mapping import SymbolicMapping
 
 from sympde.topology.derivatives import get_index_logical_derivatives
 
@@ -183,7 +183,7 @@ class Parser(object):
 
         mapping = settings.pop('mapping', None)
         if mapping is not None:
-            assert isinstance(mapping, Mapping)
+            assert isinstance(mapping, SymbolicMapping)
         # ...
 
         # Store extracted values and other settings

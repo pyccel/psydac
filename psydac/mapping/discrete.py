@@ -817,9 +817,13 @@ class SplineMapping(BasicCallableMapping):
 # multi-component construction. Register it as a virtual subclass instead:
 # SplineMapping keeps its own plain-Python construction untouched, while
 # isinstance(_, DefinedMapping) / issubclass(SplineMapping, DefinedMapping)
-# become True, making it interchangeable with sympde's AnalyticMapping
-# wherever a point-evaluable mapping is expected. NurbsMapping inherits
-# this automatically (it is a real subclass of SplineMapping).
+# become True -- so it satisfies the *point-evaluation interface*
+# (DefinedMapping / BasicCallableMapping) wherever that is expected,
+# interchangeably with sympde's AnalyticMapping. It is deliberately NOT a
+# SymbolicMapping: the ABC registration on DefinedMapping does not propagate
+# to SymbolicMapping (different metaclass), and a spline mapping has no
+# symbolic identity. NurbsMapping inherits this automatically (real subclass
+# of SplineMapping).
 DefinedMapping.register(SplineMapping)
 
 #==============================================================================
