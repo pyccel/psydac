@@ -10,7 +10,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from   mpl_toolkits.axes_grid1 import make_axes_locatable
 
-from sympde.topology.callable_mapping   import CallableMapping
+from sympde.topology.mapping            import AnalyticMapping
 from sympde.topology.analytical_mapping import IdentityMapping, PolarMapping
 from sympde.topology.analytical_mapping import TargetMapping, CzarnyMapping
 
@@ -31,9 +31,9 @@ class Laplacian:
 
     def __init__(self, mapping):
 
-        assert isinstance(mapping, CallableMapping)
+        assert isinstance(mapping, AnalyticMapping)
 
-        sym = mapping.symbolic_mapping
+        sym = mapping
 
         self._eta        = sym.logical_coordinates
         self._metric     = sym.metric_expr
@@ -125,8 +125,8 @@ class Poisson2D:
         from sympy import symbols, sin, cos, pi, lambdify
 
         lapl  = Laplacian(mapping)
-        r, t  = mapping.symbolic_mapping.logical_coordinates
-        x, y  = mapping.symbolic_mapping.expressions
+        r, t  = mapping.logical_coordinates
+        x, y  = mapping.expressions
 
         # Manufactured solutions in logical coordinates
         parab = (r-rmin) * (rmax-r) * 4 / (rmax-rmin)**2
@@ -165,7 +165,7 @@ class Poisson2D:
         from sympy import lambdify
 
         lapl  = Laplacian(mapping)
-        r, t  = mapping.symbolic_mapping.logical_coordinates
+        r, t  = mapping.logical_coordinates
 
         # Manufactured solutions in logical coordinates
         phi_e = 1-r**2
@@ -191,8 +191,8 @@ class Poisson2D:
         from sympy import symbols, sin, cos, pi, lambdify
 
         lapl  = Laplacian(mapping)
-        s, t  = mapping.symbolic_mapping.logical_coordinates
-        x, y  = mapping.symbolic_mapping.expressions
+        s, t  = mapping.logical_coordinates
+        x, y  = mapping.expressions
 
         # Manufactured solution in logical coordinates
         k     = params['k']
@@ -220,8 +220,8 @@ class Poisson2D:
         from sympy import symbols, sin, cos, pi, lambdify
 
         lapl = Laplacian(mapping)
-        s, t = mapping.symbolic_mapping.logical_coordinates
-        x, y = mapping.symbolic_mapping.expressions
+        s, t = mapping.logical_coordinates
+        x, y = mapping.expressions
 
         # Manufactured solution in logical coordinates
         phi_e = (1-s**8) * sin(pi*x) * cos(pi*y)

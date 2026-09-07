@@ -810,20 +810,23 @@ class SplineMapping(BasicCallableMapping):
 
             return coords
 
-# SplineMapping cannot literally subclass DefinedMapping: DefinedMapping's
-# MRO includes sympy's IndexedBase (via SymbolicMapping), whose __new__
-# would intercept SplineMapping's (FemField, FemField, ...) constructor
-# arguments as a symbolic (label, shape) pair -- breaking every
-# multi-component construction. Register it as a virtual subclass instead:
-# SplineMapping keeps its own plain-Python construction untouched, while
-# isinstance(_, DefinedMapping) / issubclass(SplineMapping, DefinedMapping)
-# become True -- so it satisfies the *point-evaluation interface*
-# (DefinedMapping / BasicCallableMapping) wherever that is expected,
-# interchangeably with sympde's AnalyticMapping. It is deliberately NOT a
-# SymbolicMapping: the ABC registration on DefinedMapping does not propagate
-# to SymbolicMapping (different metaclass), and a spline mapping has no
-# symbolic identity. NurbsMapping inherits this automatically (real subclass
-# of SplineMapping).
+# SplineMapping gets the point-evaluation interface two ways:
+#   * it *inherits* BasicCallableMapping (its literal base, above) -- the plain
+#     abc.ABC that declares __call__ / jacobian / jacobian_inv / metric /
+#     metric_det / ldim / pdim, with no sympy in its MRO;
+#   * it is *registered* below as a virtual subclass of DefinedMapping -- the
+#     sympde hierarchy interface (DefinedMapping(SymbolicMapping,
+#     BasicCallableMapping)) -- so isinstance(_, DefinedMapping) /
+#     issubclass(SplineMapping, DefinedMapping) are True.
+# It cannot literally subclass DefinedMapping: that MRO carries sympy's
+# IndexedBase (via SymbolicMapping), whose __new__ would eat SplineMapping's
+# (FemField, FemField, ...) constructor args as a symbolic (label, shape)
+# pair. Registration leaves SplineMapping's plain-Python construction
+# untouched while making it interchangeable with sympde's AnalyticMapping
+# wherever a point-evaluable mapping is expected. It is deliberately NOT a
+# SymbolicMapping: the registration does not propagate there (different
+# metaclass) and a spline has no symbolic identity. NurbsMapping inherits
+# both relationships (real subclass of SplineMapping).
 DefinedMapping.register(SplineMapping)
 
 #==============================================================================

@@ -366,3 +366,19 @@ def test_psydac_analytic_gallery_classes_are_analytic_mappings():
         discrete_mapping('collela', ncells=[6, 6, 6], degree=[2, 2, 2])
     assert not any('CallableMapping' in str(w.message) for w in caught), \
         [str(w.message) for w in caught]
+
+#==============================================================================
+def test_basiccallablemapping_name_stays_importable():
+    # WP06d-3: BasicCallableMapping is NOT deleted -- SplineMapping's literal
+    # base, the base for plain user callables, set_callable_mapping()'s guard,
+    # and imported by downstream (struphy). Both it and DefinedMapping must stay
+    # importable from both module paths.
+    from sympde.topology.mapping import BasicCallableMapping as BCM_m, DefinedMapping as DM_m
+    from sympde.topology.callable_mapping import BasicCallableMapping as BCM_cm
+    from sympde.topology import BasicCallableMapping as BCM_pkg
+    from psydac.mapping.discrete import SplineMapping
+
+    assert BCM_m is BCM_cm is BCM_pkg
+    assert issubclass(SplineMapping, BCM_m)          # literal base
+    assert issubclass(SplineMapping, DM_m)           # virtual (registered)
+    assert issubclass(DM_m, BCM_m)

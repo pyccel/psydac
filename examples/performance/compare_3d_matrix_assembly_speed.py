@@ -16,7 +16,7 @@ from   sympy   import  sin
 
 from   sympde.calculus             import dot, cross, grad, curl
 from   sympde.expr                 import BilinearForm, integral
-from   sympde.topology             import element_of, elements_of, Cube, Mapping, ScalarFunctionSpace, Domain, Derham
+from   sympde.topology             import element_of, elements_of, Cube, AnalyticMapping, ScalarFunctionSpace, Domain, Derham
 
 from   psydac.api.discretization   import discretize
 from   psydac.api.settings         import PSYDAC_BACKEND_GPYCCEL
@@ -41,7 +41,7 @@ if mpi_rank == 0:
     print('Expected runtime: 4 min.')
     print()
 
-class SquareTorus(Mapping):
+class SquareTorus(AnalyticMapping):
 
     _expressions = {'x': 'x1 * cos(x2)',
                     'y': 'x1 * sin(x2)',
