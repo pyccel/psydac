@@ -198,10 +198,7 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
 
     from sympde.topology import Domain
     from sympde.topology import Square
-    from sympde.topology import Mapping
     from sympde.topology import AnalyticMapping
-    from sympde.topology import CallableMapping
-#    from sympde.topology import CollelaMapping2D
     from sympde.topology import Derham
     from sympde.topology import elements_of
     from sympde.topology import NormalVector
@@ -260,7 +257,7 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
         logical_domain = Square('Omega')
 
         # Mapping and physical domain
-        class CollelaMapping2D(Mapping):
+        class CollelaMapping2D(AnalyticMapping):
 
             _ldim = 2
             _pdim = 2
@@ -346,7 +343,7 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
     # TODO: fix for spline mapping
     if isinstance(F, (SplineMapping, NurbsMapping)):
         grid_x, grid_y = F.build_mesh([grid_x1, grid_x2])
-    elif isinstance(F, (AnalyticMapping, CallableMapping)):
+    elif isinstance(F, AnalyticMapping):
         grid_x, grid_y = F(*np.meshgrid(grid_x1, grid_x2, indexing='ij'))
     else:
         raise TypeError(F)

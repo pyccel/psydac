@@ -4,7 +4,6 @@ from sympde.topology import NCube
 from sympde.topology import domain
 from sympde.topology import Square, PolarMapping
 from sympde.topology.mapping import BasicCallableMapping
-from sympde.topology.callable_mapping import CallableMapping
 from sympde.utilities.utils import plot_domain
 
 from psydac.mapping.discrete import SplineMapping
@@ -127,13 +126,14 @@ def test_poisson_mapping(spline_mapping):
     # Simple visualization of the topological domain.
     # The spline callable mapping used for the solve path may only support
     # scalar evaluation, while plot_domain evaluates mappings on array grids.
-    # Use analytic callables for plotting, then restore original callables.
+    # An AnalyticMapping is its own array-capable callable, so temporarily
+    # point each symbolic mapping back at itself for plotting, then restore.
     _plot_backups = []
     for _mapping in [Omega_1.mapping, Omega_2.mapping]:
         _callable = _mapping.get_callable_mapping()
         if isinstance(_callable, SplineMapping):
             _plot_backups.append((_mapping, _callable))
-            _mapping.set_callable_mapping(CallableMapping(_mapping))
+            _mapping.set_callable_mapping(_mapping)
 
     try:
         plot_domain(Omega, draw=False, isolines=True)

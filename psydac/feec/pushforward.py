@@ -6,7 +6,6 @@
 import numpy as np
 
 from sympde.topology.mapping import SymbolicMapping, AnalyticMapping
-from sympde.topology.callable_mapping import CallableMapping
 from sympde.topology.analytical_mapping import IdentityMapping
 from sympde.topology.datatype import UndefinedSpaceType, H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType
 
@@ -134,7 +133,7 @@ class Pushforward:
         self._eval_func = self._eval_functions[self.grid_type]
 
     def jacobian(self):
-        if isinstance(self.mapping, (AnalyticMapping, CallableMapping)):
+        if isinstance(self.mapping, AnalyticMapping):
             return np.ascontiguousarray(
                         np.moveaxis(
                             self.mapping.jacobian(*self._mesh_grids), [0, 1], [-2, -1]
@@ -147,7 +146,7 @@ class Pushforward:
                 return self.mapping.jac_mat_regular_tensor_grid(self.grid)
 
     def jacobian_inv(self):
-        if isinstance(self.mapping, (AnalyticMapping, CallableMapping)):
+        if isinstance(self.mapping, AnalyticMapping):
             return np.ascontiguousarray(
                         np.moveaxis(
                             self.mapping.jacobian_inv(*self._mesh_grids), [0, 1], [-2, -1]
@@ -160,7 +159,7 @@ class Pushforward:
                 return self.mapping.inv_jac_mat_regular_tensor_grid(self.grid)
 
     def sqrt_metric_det(self):
-        if isinstance(self.mapping, (AnalyticMapping, CallableMapping)):
+        if isinstance(self.mapping, AnalyticMapping):
             return np.ascontiguousarray(
                         np.sqrt(self.mapping.metric_det(*self._mesh_grids))
                     )

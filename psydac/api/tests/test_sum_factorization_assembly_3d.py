@@ -13,7 +13,7 @@ from    sympy   import  sin, sqrt, pi, Abs, cos, tan
 
 from    sympde.calculus             import dot, cross, grad, curl, div, laplace
 from    sympde.expr                 import BilinearForm, integral
-from    sympde.topology             import element_of, elements_of, Cube, Mapping, ScalarFunctionSpace, VectorFunctionSpace, Domain, Derham
+from    sympde.topology             import element_of, elements_of, Cube, AnalyticMapping, ScalarFunctionSpace, VectorFunctionSpace, Domain, Derham
 
 from    psydac.api.discretization   import discretize
 from    psydac.api.settings         import PSYDAC_BACKEND_GPYCCEL
@@ -84,7 +84,7 @@ def test_assembly(): # mapping):
 
     elif mapping == 'Analytical':
 
-        class HalfSquareTorusMapping3D(Mapping):
+        class HalfSquareTorusMapping3D(AnalyticMapping):
             _expressions = {'x': 'x1 * cos(x2)',
                             'y': 'x1 * sin(x2)',
                             'z': 'x3'}

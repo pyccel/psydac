@@ -9,7 +9,7 @@ import pytest
 from psydac.api.discretization  import discretize
 from sympde.topology            import ScalarFunctionSpace
 from sympde.topology            import Square
-from sympde.topology            import Mapping
+from sympde.topology            import AnalyticMapping
 from psydac.mapping.discrete    import SplineMapping
 from psydac.feec.pushforward    import Pushforward
 
@@ -21,7 +21,7 @@ def test_basic_call():
     degree = [2, 2]
 
     # Mapping and physical domain
-    class CollelaMapping2D(Mapping):
+    class CollelaMapping2D(AnalyticMapping):
 
         _ldim = 2
         _pdim = 2

@@ -20,7 +20,7 @@ is required.
 import numpy as np
 import pytest
 
-from sympde.topology import Mapping, Cube, ScalarFunctionSpace
+from sympde.topology import AnalyticMapping, Cube, ScalarFunctionSpace
 from sympde.topology import elements_of
 from sympde.topology import dx1, dx2, dx3
 from sympde.calculus  import dot, grad
@@ -33,7 +33,7 @@ from psydac.api.fem_bilinear_form import DiscreteBilinearForm
 #==============================================================================
 A, B, C = 2., 3., 4.
 
-class ScalingMapping3D(Mapping):
+class ScalingMapping3D(AnalyticMapping):
     _expressions = {'x': f'{A}*x1', 'y': f'{B}*x2', 'z': f'{C}*x3'}
     _ldim        = 3
     _pdim        = 3

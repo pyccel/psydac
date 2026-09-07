@@ -341,3 +341,28 @@ def test_spline_mapping_is_a_defined_mapping():
 
     assert isinstance(mapping, DefinedMapping)
     assert isinstance(mapping, BasicCallableMapping)
+
+#==============================================================================
+def test_psydac_analytic_gallery_classes_are_analytic_mappings():
+    # WP06d-1: every analytic `class X(Mapping)` defined in psydac is re-parented
+    # onto AnalyticMapping (like WP02b's sympde gallery classes), so
+    # get_callable_mapping() returns self and nothing routes through the
+    # deprecated CallableMapping wrapper.
+    import warnings
+    from sympde.topology.mapping import AnalyticMapping
+    from psydac.mapping.discrete_gallery import Collela3D, discrete_mapping
+    from psydac.feec.multipatch_domain_utilities import TransposedPolarMapping
+
+    for cls in (Collela3D, TransposedPolarMapping):
+        assert issubclass(cls, AnalyticMapping)
+
+    F = Collela3D('M', dim=3)
+    assert F.get_callable_mapping() is F
+
+    # the 3D collela path used to build a CallableMapping (DeprecationWarning);
+    # after re-parenting it must not.
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter('always')
+        discrete_mapping('collela', ncells=[6, 6, 6], degree=[2, 2, 2])
+    assert not any('CallableMapping' in str(w.message) for w in caught), \
+        [str(w.message) for w in caught]
