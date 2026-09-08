@@ -17,7 +17,7 @@ import h5py
 import yaml
 from mpi4py import MPI
 
-from sympde.topology       import Domain, Interface, Line, Square, Cube, NCubeInterior, Mapping, NCube
+from sympde.topology       import Domain, Interface, Line, Square, Cube, NCubeInterior, SymbolicMapping, NCube
 from sympde.topology.basic import Union
 from sympde.topology.callable_mapping import BasicCallableMapping
 
@@ -232,7 +232,7 @@ class Geometry:
 
         mapping_name = name if name else 'mapping'
         dim      = mapping.ldim
-        M        = Mapping(mapping_name, dim = dim)  # this is a symbolic mapping
+        M        = SymbolicMapping(mapping_name, dim = dim)  # this is a symbolic mapping
         domain   = M(NCube(name = 'Omega',
                            dim  = dim,
                            min_coords = [0.] * dim,
@@ -680,7 +680,7 @@ def export_nurbs_to_hdf5(filename, nurbs, periodic=None, comm=None ):
     else:
         raise NotImplementedError('> nurbs.dim > 3 not implemented')
 
-    mapping = Mapping(mapping_id, dim=nurbs.dim)
+    mapping = SymbolicMapping(mapping_id, dim=nurbs.dim)
     domain  = mapping(domain)
     topo_yml = domain.todict()
 
