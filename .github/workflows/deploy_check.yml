@@ -21,13 +21,13 @@ jobs:
           paths: '["psydac/**", "pyproject.toml", ".github/workflows/deploy_check.yml", ".github/actions/**"]'
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 
       - name: Checkout repository
         if: steps.duplicate_check.outputs.should_skip != 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: true
 
