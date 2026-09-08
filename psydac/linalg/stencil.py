@@ -698,11 +698,11 @@ class StencilVector(Vector):
         return out.flatten( order=order)
 
     #...
-    def topetsc(self):
+    def topetsc(self, out=None):
         """ Convert to petsc data structure.
         """
         from psydac.linalg.topetsc import vec_topetsc
-        vec = vec_topetsc( self )
+        vec = vec_topetsc( self, out=out )
         return vec
 
     # ...

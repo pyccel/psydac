@@ -482,11 +482,11 @@ class BlockVector(Vector):
         return np.block([blocks])[0]
 
     # ...
-    def topetsc(self):
+    def topetsc(self, out=None):
         """ Convert to petsc data structure.
         """
         from psydac.linalg.topetsc import vec_topetsc
-        vec = vec_topetsc( self )
+        vec = vec_topetsc( self, out=out )
         return vec
 
 #===============================================================================
@@ -886,17 +886,20 @@ class BlockLinearOperator(LinearOperator):
     # ...
     def update_ghost_regions(self):
         for Lij in self._blocks.values():
-            Lij.update_ghost_regions()
+            if hasattr(Lij, 'update_ghost_regions'):
+                Lij.update_ghost_regions()
 
     # ...
     def exchange_assembly_data(self):
         for Lij in self._blocks.values():
-            Lij.exchange_assembly_data()
+            if hasattr(Lij, 'exchange_assembly_data'):
+                Lij.exchange_assembly_data()
 
     # ...
-    def remove_spurious_entries(self ):
+    def remove_spurious_entries(self):
         for Lij in self._blocks.values():
-            Lij.remove_spurious_entries()
+            if hasattr(Lij, 'remove_spurious_entries'):
+                Lij.remove_spurious_entries()
 
     @property
     def ghost_regions_in_sync(self):
