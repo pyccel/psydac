@@ -64,9 +64,8 @@ def test_poisson_mapping(spline_mapping):
             degree=F_degree, ncells=F_ncells, periodic=(False, False),
             )
         F_1.set_callable_mapping(F_1s)
-        Omega_1 = F_1(domain_log_1)
-    else:
-        Omega_1 = F_1(domain_log_1)
+
+    Omega_1 = F_1(domain_log_1)
     
     # Second quarter annulus
     F_2 = PolarMapping('F_2', dim=2, c1=rmin+rmax, c2=0., rmin=rmax, rmax=rmin)   ## rmin > rmax ??? 
@@ -77,9 +76,8 @@ def test_poisson_mapping(spline_mapping):
             degree=F_degree, ncells=F_ncells, periodic=(False, False)
             )
         F_2.set_callable_mapping(F_2s)
-        Omega_2 = F_2(domain_log_2)
-    else:
-        Omega_2 = F_2(domain_log_2)
+
+    Omega_2 = F_2(domain_log_2)
 
     # Join the patches
     from sympde.topology import Domain
@@ -251,7 +249,72 @@ def test_poisson_mapping(spline_mapping):
     plot_field(fem_field=uh, domain=Omega, title='Poisson solution uh', hide_plot=False, filename=f'poisson_uh_splinemap={spline_mapping}.png')
 
 
+def test_poisson_2d_single_patch_discrete_mapping():
+    # WP07b: a Poisson solve on a *single-patch* domain whose mapping is a
+    # DiscreteMapping wrapping a SplineMapping (is_analytical=False), i.e.
+    # psydac assembles the geometry via grid evaluation of the spline -- the
+    # same path as Domain.from_file, but built in memory. Manufactured solution
+    # x**2 + y**2 on a spline-approximated quarter annulus.
+    from sympy import pi
+
+    from sympde.calculus       import grad, dot
+    from sympde.topology       import ScalarFunctionSpace, elements_of
+    from sympde.expr.expr      import BilinearForm, LinearForm, integral, Norm
+    from sympde.expr           import find, EssentialBC
+
+    from psydac.api.discretization import discretize
+    from psydac.api.settings       import PSYDAC_BACKENDS
+
+    rmin, rmax = 0.3, 1.0
+    A = Square('A', bounds1=(0., 1.), bounds2=(0., 0.5 * float(pi)))
+    F = PolarMapping('F', dim=2, c1=0., c2=0., rmin=rmin, rmax=rmax)
+
+    # spline approximation of the geometry (degree 3, coarse grid)
+    geo_ncells, geo_degree = (8, 8), (3, 3)
+    grids = [np.linspace(A.min_coords[d], A.max_coords[d], geo_ncells[d] + 1)
+             for d in range(2)]
+    V_geo = TensorFemSpace(
+        DomainDecomposition(list(geo_ncells), [False, False]),
+        *[SplineSpace(geo_degree[d], grid=grids[d], periodic=False) for d in range(2)])
+    F_h  = SplineMapping.from_mapping(V_geo, F.get_callable_mapping())
+
+    F_disc = F_h.to_defined_mapping('F')            # DiscreteMapping, is_analytical=False
+    assert F_disc.is_analytical is False
+    Omega  = F_disc(A)
+
+    patches = [Omega.interior]
+    Omega_h = Geometry(
+        domain   = Omega, pdim = 2,
+        ncells   = {p.name: [12, 12]        for p in patches},
+        periodic = {p.name: [False, False]  for p in patches},
+        mappings = {p.name: p.mapping.get_callable_mapping() for p in patches},
+    )
+
+    x, y = Omega.coordinates
+    ue   = x**2 + y**2
+    f    = -4
+
+    V    = ScalarFunctionSpace('V', Omega)
+    u, v = elements_of(V, names='u, v')
+    a    = BilinearForm((u, v), integral(Omega, dot(grad(u), grad(v))))
+    l    = LinearForm(v, integral(Omega, f * v))
+    bc   = EssentialBC(u, ue, Omega.boundary)
+    eq   = find(u, forall=v, lhs=a(u, v), rhs=l(v), bc=bc)
+    l2   = Norm(u - ue, Omega, kind='l2')
+
+    backend = PSYDAC_BACKENDS['python']
+    Vh   = discretize(V,  Omega_h, degree=[3, 3])
+    eqh  = discretize(eq, Omega_h, [Vh, Vh], backend=backend)
+    l2h  = discretize(l2, Omega_h, Vh, backend=backend)
+
+    uh = eqh.solve()
+    l2_error = float(l2h.assemble(u=uh))
+    print(f'single-patch DiscreteMapping Poisson: L2 error = {l2_error:.2e}')
+    assert l2_error < 1e-4
+
+
 if __name__ == '__main__':
     for spline_mapping in [True, False]:
         print(f'Running test_poisson_mapping with spline_mapping={spline_mapping}')
         test_poisson_mapping(spline_mapping=spline_mapping)
+    test_poisson_2d_single_patch_discrete_mapping()

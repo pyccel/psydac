@@ -17,7 +17,7 @@ import h5py
 import yaml
 from mpi4py import MPI
 
-from sympde.topology       import Domain, Interface, Line, Square, Cube, NCubeInterior, SymbolicMapping, NCube
+from sympde.topology       import Domain, Interface, Line, Square, Cube, NCubeInterior, SymbolicMapping, DiscreteMapping, NCube
 from sympde.topology.basic import Union
 from sympde.topology.callable_mapping import BasicCallableMapping
 
@@ -204,40 +204,92 @@ class Geometry:
     # Option [2]: from a discrete mapping
     #--------------------------------------------------------------------------
     @classmethod
-    def from_discrete_mapping(cls, mapping, *, comm=None, mpi_dims_mask=None, name=None):
+    def from_discrete_mapping(cls, mapping, *, comm=None, mpi_dims_mask=None,
+                             name=None, domain_log=None):
         """
         Create a single-patch Geometry instance from one discrete mapping.
 
         Parameters
         ----------
         mapping : BasicCallableMapping
-            The mapping from the unit square to the physical domain.
+            The mapping from the logical domain to the physical domain.
 
         comm : MPI.Comm
             MPI intra-communicator.
-    
+
         mpi_dims_mask: list of bool
-            True if the dimension is to be used in the domain decomposition (=default for each dimension). 
+            True if the dimension is to be used in the domain decomposition (=default for each dimension).
             If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
-    
+
         name : str
-            Optional name for the symbolic Mapping that will be created.
+            Optional name for the symbolic mapping that will be created.
             Needed to avoid conflicts in case several mappings are created.
+
+        domain_log : sympde.topology.NCube, optional
+            The logical (parametric) domain the mapping acts on. Defaults to an
+            ``NCube`` spanning the spline's own parametric box (identical to
+            ``[0, 1]^ldim`` for a ``[0, 1]``-parametrised spline). If given, it
+            must be an ``NCube`` (``Line`` / ``Square`` / ``Cube``) of the same
+            dimension *and the same per-axis extent* as the spline: psydac draws
+            quadrature points from this box and evaluates the spline there, so a
+            mismatch would silently corrupt the Jacobian and boundary matching.
 
         Returns
         -------
         Geometry
             The new instance.
+
+        Raises
+        ------
+        TypeError
+            If ``domain_log`` is not an ``NCube``.
+        ValueError
+            If ``domain_log``'s dimension or per-axis extent disagrees with the
+            spline's parametric box.
         """
 
         mapping_name = name if name else 'mapping'
         dim      = mapping.ldim
-        M        = SymbolicMapping(mapping_name, dim = dim)  # this is a symbolic mapping
-        domain   = M(NCube(name = 'Omega',
-                           dim  = dim,
-                           min_coords = [0.] * dim,
-                           max_coords = [1.] * dim)) 
-        M.set_callable_mapping(mapping)
+
+        # Parametric interval of the spline in each logical direction, e.g.
+        # [(0.0, 1.0), (0.0, pi/2)]. The symbolic logical domain must span
+        # exactly this box (see `domain_log` above). A non-spline callable has
+        # no `.space`, in which case we cannot check and trust the caller (such
+        # an input already fails at `mapping.space.domain_decomposition` below).
+        spline_space = getattr(mapping, 'space', None)
+        if spline_space is not None:
+            par_min = [float(sp.domain[0]) for sp in spline_space.spaces]
+            par_max = [float(sp.domain[1]) for sp in spline_space.spaces]
+        else:
+            par_min = par_max = None
+
+        if domain_log is None:
+            if par_min is None:
+                par_min, par_max = [0.] * dim, [1.] * dim
+            domain_log = NCube(name = 'Omega',
+                               dim  = dim,
+                               min_coords = par_min,
+                               max_coords = par_max)
+        else:
+            if not isinstance(domain_log, NCube):
+                raise TypeError("domain_log must be an NCube (Line/Square/Cube);"
+                                " got {}".format(type(domain_log).__name__))
+            if domain_log.dim != dim:
+                raise ValueError("domain_log.dim ({}) does not match mapping.ldim"
+                                 " ({})".format(domain_log.dim, dim))
+            if par_min is not None and not (
+                    np.allclose(domain_log.min_coords, par_min, rtol=1e-9, atol=1e-12) and
+                    np.allclose(domain_log.max_coords, par_max, rtol=1e-9, atol=1e-12)):
+                raise ValueError(
+                    "domain_log extent {} does not match the spline's parametric"
+                    " box {}".format(list(zip(domain_log.min_coords, domain_log.max_coords)),
+                                     list(zip(par_min, par_max))))
+
+        # A DiscreteMapping: a symbolic carrier whose get_callable_mapping() is
+        # `mapping` and whose is_analytical is False, so a domain built from it
+        # assembles via grid evaluation of the spline (like Domain.from_file).
+        M        = DiscreteMapping(mapping, mapping_name)
+        domain   = M(domain_log)
         pdim     = mapping.pdim
         mappings = {domain.name: mapping}
         ncells   = {domain.name: mapping.space.domain_decomposition.ncells}

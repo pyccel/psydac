@@ -248,6 +248,56 @@ def test_from_discrete_mapping():
     assert geo_from_mapping.ddm.ends   == expected_ends
 
 # ==============================================================================
+def test_spline_mapping_to_defined_mapping_and_geometry_domain_log():
+    # WP07b / WP07b-2: SplineMapping.to_defined_mapping wraps the spline in a
+    # DiscreteMapping (symbolic carrier, is_analytical=False); Geometry.
+    # from_discrete_mapping is built on it, and the logical (parametric) domain
+    # tracks -- or is validated against -- the spline's own parametric box.
+    from sympde.topology.mapping import DiscreteMapping
+
+    ncells, degree = [4, 4], [2, 2]
+    spl = discrete_mapping('identity', ncells=ncells, degree=degree)   # box [0, 1]^2
+
+    M = spl.to_defined_mapping('M')
+    assert isinstance(M, DiscreteMapping)
+    assert M.get_callable_mapping() is spl
+    assert M.is_analytical is False
+    assert (M.ldim, M.pdim) == (2, 2)
+
+    # default logical domain: spans the spline's parametric box ([0, 1]^2 here)
+    geo0 = Geometry.from_discrete_mapping(spl, name='g0')
+    assert isinstance(geo0.domain.mapping, DiscreteMapping)
+    assert geo0.domain.mapping.get_callable_mapping() is spl
+    assert geo0.domain.mapping.is_analytical is False
+    assert geo0.domain.logical_domain.min_coords == (0., 0.)
+    assert geo0.domain.logical_domain.max_coords == (1., 1.)
+
+    # a non-unit parametric box: the default logical domain tracks it, and is
+    # NOT silently [0, 1]^2.
+    qa = discrete_mapping('quarter_annulus', ncells=ncells, degree=degree)  # ((1, 4), (0, pi/2))
+    geo_qa = Geometry.from_discrete_mapping(qa, name='gqa')
+    assert np.allclose(geo_qa.domain.logical_domain.min_coords, (1., 0.))
+    assert np.allclose(geo_qa.domain.logical_domain.max_coords, (4., np.pi / 2))
+
+    # an explicit domain_log that matches the spline box is accepted
+    L_ok = Square('L', bounds1=(1., 4.), bounds2=(0., np.pi / 2))
+    geo1 = Geometry.from_discrete_mapping(qa, name='g1', domain_log=L_ok)
+    assert np.allclose(geo1.domain.logical_domain.min_coords, (1., 0.))
+    assert np.allclose(geo1.domain.logical_domain.max_coords, (4., np.pi / 2))
+    assert geo1.domain.mapping.get_callable_mapping() is qa
+
+    # an explicit domain_log whose extent disagrees with the spline is rejected
+    L_bad = Square('L', bounds1=(0., 2.), bounds2=(0., 1.))
+    with pytest.raises(ValueError):
+        Geometry.from_discrete_mapping(qa, name='g2', domain_log=L_bad)
+
+    # wrong dimensionality is rejected
+    with pytest.raises(ValueError):
+        Geometry.from_discrete_mapping(
+            qa, name='g3',
+            domain_log=Cube('C', bounds1=(1., 4.), bounds2=(0., np.pi / 2), bounds3=(0., 1.)))
+
+# ==============================================================================
 @pytest.mark.mpi
 def test_from_topological_domain():
 

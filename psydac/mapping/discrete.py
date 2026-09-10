@@ -12,7 +12,7 @@ import numpy as np
 import h5py
 
 from sympde.topology.callable_mapping import BasicCallableMapping
-from sympde.topology.mapping import DefinedMapping
+from sympde.topology.mapping import DefinedMapping, DiscreteMapping
 
 from psydac.fem.basic    import FemField
 from psydac.fem.tensor   import TensorFemSpace
@@ -149,6 +149,46 @@ class SplineMapping(BasicCallableMapping):
     @property
     def pdim(self):
         return self._pdim
+
+    #--------------------------------------------------------------------------
+    # Symbolic carrier
+    #--------------------------------------------------------------------------
+    def to_defined_mapping(self, name, *, ldim=None, pdim=None):
+        """
+        Wrap this spline in a fresh :class:`~sympde.topology.DiscreteMapping`.
+
+        The result is a symbolic :class:`DefinedMapping` (it has a name, is
+        callable on a topological domain, and appears as ``domain.mapping``)
+        whose ``get_callable_mapping()`` returns this ``SplineMapping``. Use it
+        to give a spline geometry a first-class symbolic identity without
+        mutating some analytic mapping via ``set_callable_mapping``.
+
+        Parameters
+        ----------
+        name : str
+            Non-empty symbolic name for the mapping (a ``SplineMapping`` built by
+            ``from_mapping`` has no name of its own).
+        ldim, pdim : int, optional
+            If given, must equal this spline's ``ldim`` / ``pdim``.
+
+        Returns
+        -------
+        DiscreteMapping
+
+        Raises
+        ------
+        ValueError
+            If ``name`` is empty, or ``ldim`` / ``pdim`` contradicts the spline
+            (both raised by :class:`~sympde.topology.DiscreteMapping`).
+
+        Examples
+        --------
+        >>> F_h = SplineMapping.from_mapping(V, F)
+        >>> G   = F_h.to_defined_mapping('F')
+        >>> G.get_callable_mapping() is F_h
+        True
+        """
+        return DiscreteMapping(self, name, ldim=ldim, pdim=pdim)
 
     #--------------------------------------------------------------------------
     # Fast evaluation on a grid
