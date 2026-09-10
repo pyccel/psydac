@@ -39,15 +39,114 @@ __all__ = (
 NoneType = type(None)
 
 #==============================================================================
+# Helpers shared by `from_discrete_mapping` (single patch) and
+# `from_discrete_domain` (single / multi patch) -- see those methods.
+#==============================================================================
+def _spline_parametric_box(spline_space):
+    """
+    Per-direction parametric interval of a spline `TensorFemSpace`, e.g.
+    ``([0.0, 0.0], [1.0, pi/2])``. Returns ``(None, None)`` for a callable
+    without a `.space` (a non-spline `BasicCallableMapping`), signalling
+    "cannot check -- trust the caller".
+    """
+    if spline_space is None:
+        return None, None
+    par_min = [float(sp.domain[0]) for sp in spline_space.spaces]
+    par_max = [float(sp.domain[1]) for sp in spline_space.spaces]
+    return par_min, par_max
+
+
+def _check_logical_box(min_coords, max_coords, spline_space, *, what):
+    """
+    Raise ``ValueError`` if the logical (parametric) box ``(min_coords,
+    max_coords)`` does not span exactly the spline's own knot span
+    (``spline_space.spaces[d].domain``). psydac draws quadrature points from the
+    logical box and evaluates the spline there, so a mismatch silently corrupts
+    the Jacobian scaling and the boundary identification. A no-op when
+    ``spline_space`` is ``None``. ``what`` names the offending object in the
+    message.
+    """
+    par_min, par_max = _spline_parametric_box(spline_space)
+    if par_min is None:
+        return
+    if not (len(min_coords) == len(max_coords) == len(par_min)):
+        raise ValueError("{} dimension ({}) does not match the spline ldim ({})"
+                         .format(what, len(min_coords), len(par_min)))
+    if not (np.allclose(min_coords, par_min, rtol=1e-9, atol=1e-12) and
+            np.allclose(max_coords, par_max, rtol=1e-9, atol=1e-12)):
+        raise ValueError(
+            "{} extent {} does not match the spline's parametric box {}".format(
+                what,
+                list(zip([float(c) for c in min_coords], [float(c) for c in max_coords])),
+                list(zip(par_min, par_max))))
+
+
+def is_spline_discrete_domain(domain):
+    """
+    True if every patch of ``domain`` is mapped by a `DiscreteMapping` whose
+    callable is a psydac `SplineMapping` (or `NurbsMapping`) -- i.e. the domain
+    carries its own discrete geometry and `discretize(domain)` can build a
+    `Geometry` from it with no ``filename`` / ``ncells``. False for anything
+    else (analytic mapping, no mapping, a bare topological `NCube`), so callers'
+    existing behaviour is unchanged.
+    """
+    interior  = domain.interior
+    interiors = list(interior.args) if isinstance(interior, Union) else [interior]
+    for itr in interiors:
+        M = getattr(itr, 'mapping', None)
+        if not isinstance(M, DiscreteMapping):
+            return False
+        try:
+            if not isinstance(M.get_callable_mapping(), SplineMapping):
+                return False
+        except (ValueError, AttributeError):
+            return False
+    return True
+
+
+def _interior_index(coeff_space):
+    return tuple(slice(s, e + 1) for s, e in zip(coeff_space.starts, coeff_space.ends))
+
+
+def _spline_control_points(spline, pdim):
+    """``(*nbasis, pdim)`` array of the interior control points of ``spline``."""
+    idx = _interior_index(spline.space.coeff_space)
+    return np.stack([np.asarray(spline.fields[d].coeffs[idx]) for d in range(pdim)],
+                    axis=-1)
+
+
+def _sync_multipatch_ghost_regions(mappings, connectivity):
+    """
+    Update the ghost regions of the spline control-point coefficients (and NURBS
+    weights) across patch interfaces, so each field's `StencilVector` carries
+    the cross-interface `_interface_data` that assembly reads. Mirrors the tail
+    of :meth:`Geometry.read`.
+    """
+    coeffs         = [[f.coeffs for f in m.fields] for m in mappings]
+    patch_spaces   = [BlockVectorSpace(*[c.space for c in ci]) for ci in coeffs]
+    patch_spaces_w = [ci[0].space for ci in coeffs]
+    v = BlockVector(BlockVectorSpace(*patch_spaces,   connectivity=connectivity))
+    w = BlockVector(BlockVectorSpace(*patch_spaces_w, connectivity=connectivity))
+    for i, m in enumerate(mappings):
+        for j in range(len(coeffs[i])):
+            v[i][j] = coeffs[i][j]
+        w[i] = m.weights_field.coeffs if isinstance(m, NurbsMapping) \
+               else v[i][0].space.zeros()
+    v.update_ghost_regions()
+    w.update_ghost_regions()
+
+
+#==============================================================================
 class Geometry:
     """
     Distributed discrete geometry that works for single and multiple patches.
 
-    The Geometry object can be created in four ways:
+    The Geometry object can be created in five ways:
     - case 0 : providing a `Domain` to `__init__` with detailed parameters for each patch.
     - case 1 : passing the path to a geometry file to `from_file`.
     - case 2 : passing a `SplineMapping` to `from_discrete_mapping` (single patch).
     - case 3 : passing a `Domain`, ncells, and periodicity to `from_topological_domain` (single or multi-patch).
+    - case 4 : passing a `Domain` whose patches are all mapped by a spline `DiscreteMapping` to `from_discrete_domain` (single or multi-patch, serial); this is what `discretize(domain)` uses when given no `filename` / `ncells`.
 
     Parameters
     ----------
@@ -251,19 +350,14 @@ class Geometry:
         mapping_name = name if name else 'mapping'
         dim      = mapping.ldim
 
-        # Parametric interval of the spline in each logical direction, e.g.
-        # [(0.0, 1.0), (0.0, pi/2)]. The symbolic logical domain must span
-        # exactly this box (see `domain_log` above). A non-spline callable has
-        # no `.space`, in which case we cannot check and trust the caller (such
-        # an input already fails at `mapping.space.domain_decomposition` below).
+        # The symbolic logical domain must span exactly the spline's own knot
+        # span (see `domain_log` above). A non-spline callable has no `.space`,
+        # in which case we cannot check and trust the caller (such an input
+        # already fails at `mapping.space.domain_decomposition` below).
         spline_space = getattr(mapping, 'space', None)
-        if spline_space is not None:
-            par_min = [float(sp.domain[0]) for sp in spline_space.spaces]
-            par_max = [float(sp.domain[1]) for sp in spline_space.spaces]
-        else:
-            par_min = par_max = None
 
         if domain_log is None:
+            par_min, par_max = _spline_parametric_box(spline_space)
             if par_min is None:
                 par_min, par_max = [0.] * dim, [1.] * dim
             domain_log = NCube(name = 'Omega',
@@ -277,13 +371,8 @@ class Geometry:
             if domain_log.dim != dim:
                 raise ValueError("domain_log.dim ({}) does not match mapping.ldim"
                                  " ({})".format(domain_log.dim, dim))
-            if par_min is not None and not (
-                    np.allclose(domain_log.min_coords, par_min, rtol=1e-9, atol=1e-12) and
-                    np.allclose(domain_log.max_coords, par_max, rtol=1e-9, atol=1e-12)):
-                raise ValueError(
-                    "domain_log extent {} does not match the spline's parametric"
-                    " box {}".format(list(zip(domain_log.min_coords, domain_log.max_coords)),
-                                     list(zip(par_min, par_max))))
+            _check_logical_box(domain_log.min_coords, domain_log.max_coords,
+                               spline_space, what='domain_log')
 
         # A DiscreteMapping: a symbolic carrier whose get_callable_mapping() is
         # `mapping` and whose is_analytical is False, so a domain built from it
@@ -302,6 +391,149 @@ class Geometry:
                         mappings = mappings,
                         comm     = comm,
                         mpi_dims_mask = mpi_dims_mask)
+
+    #--------------------------------------------------------------------------
+    # Option [4]: from a Domain carrying spline DiscreteMappings
+    #--------------------------------------------------------------------------
+    @classmethod
+    def from_discrete_domain(cls, domain, *, comm=None, mpi_dims_mask=None):
+        """
+        Create a Geometry from a symbolic ``Domain`` whose every patch is mapped
+        by a spline ``DiscreteMapping`` (single or multi patch, serial).
+
+        This is the in-memory equivalent of :meth:`from_file`: it takes the
+        ``SplineMapping`` carried by each patch's ``DiscreteMapping``
+        (``patch.mapping.get_callable_mapping()``) and, for a multipatch domain,
+        builds the coefficient-space interface connectivity that assembling an
+        interface term (``integral(domain.interfaces, ...)``) requires -- the
+        same ``construct_interface_spaces`` + ghost-region sync that
+        :meth:`read` runs from HDF5 metadata, which
+        :func:`~psydac.api.discretization.discretize_space` does *not* run for a
+        discrete geometry. ``discretize(domain)`` dispatches here when neither
+        ``filename`` nor ``ncells`` is given and :func:`is_spline_discrete_domain`
+        holds.
+
+        For a multipatch domain the per-patch ``SplineMapping`` objects are
+        *rebuilt* on fresh interface-aware spaces (the pre-existing coefficient
+        vectors cannot acquire cross-interface data after the fact), so
+        ``geo.mappings[name]`` is a fresh object -- numerically identical to, but
+        not the same as, ``domain.interior[i].mapping.get_callable_mapping()``.
+        That only matters for direct point evaluation of the symbolic mapping in
+        post-processing.
+
+        Parameters
+        ----------
+        domain : sympde.topology.Domain
+            Each interior's ``.mapping`` must be a ``DiscreteMapping`` whose
+            ``get_callable_mapping()`` is a psydac ``SplineMapping`` /
+            ``NurbsMapping``. Each patch's logical box must match its spline's
+            parametric knot span.
+
+        comm : MPI.Intracomm, optional
+            Serial only. A communicator of size > 1 raises
+            ``NotImplementedError`` -- use :meth:`from_file` for parallel
+            multipatch.
+
+        mpi_dims_mask : Iterable[bool], optional
+            Passed through to the (single-patch) domain decomposition.
+
+        Returns
+        -------
+        Geometry
+            The new instance.
+
+        Raises
+        ------
+        TypeError
+            If some patch is not mapped by a spline ``DiscreteMapping``.
+        ValueError
+            If a patch's logical box disagrees with its spline's parametric box.
+        NotImplementedError
+            If ``comm`` has size > 1.
+
+        Examples
+        --------
+        >>> MA = spl_A.to_defined_mapping('MA')          # a DiscreteMapping
+        >>> MB = spl_B.to_defined_mapping('MB')
+        >>> Omega = Domain.join([MA(A), MB(B)], connectivity, 'annulus')
+        >>> geo = Geometry.from_discrete_domain(Omega)   # == discretize(Omega)
+        """
+        if comm is not None and getattr(comm, 'size', 1) > 1:
+            raise NotImplementedError(
+                "Geometry.from_discrete_domain: parallel multipatch is not "
+                "supported; use Geometry.from_file")
+
+        interior  = domain.interior
+        interiors = list(interior.args) if isinstance(interior, Union) else [interior]
+
+        # Pull the SplineMapping carried by each patch; check the logical box.
+        splines = []
+        for itr in interiors:
+            M   = getattr(itr, 'mapping', None)
+            spl = M.get_callable_mapping() if isinstance(M, DiscreteMapping) else None
+            if not isinstance(spl, SplineMapping):
+                raise TypeError(
+                    "Geometry.from_discrete_domain: patch '{}' is not mapped by "
+                    "a spline DiscreteMapping (got {})".format(
+                        itr.name, type(M).__name__))
+            _check_logical_box(itr.min_coords, itr.max_coords, spl.space,
+                               what="patch '{}' logical domain".format(itr.name))
+            splines.append(spl)
+
+        pdim = splines[0].pdim
+        assert all(s.pdim == pdim for s in splines)
+
+        ncells   = {itr.name: list(s.space.domain_decomposition.ncells)
+                    for itr, s in zip(interiors, splines)}
+        periodic = {itr.name: list(s.space.domain_decomposition.periods)
+                    for itr, s in zip(interiors, splines)}
+
+        geo = Geometry(domain   = domain,
+                       pdim     = pdim,
+                       ncells   = ncells,
+                       periodic = periodic,
+                       mappings = {itr.name: s for itr, s in zip(interiors, splines)},
+                       comm     = comm,
+                       mpi_dims_mask = mpi_dims_mask)
+
+        connectivity = construct_connectivity(domain)
+        if not connectivity:
+            # Single patch: no interface wiring needed.
+            return geo
+
+        # Multipatch: rebuild the SplineMappings on fresh TensorFemSpaces that
+        # carry the interface coefficient spaces (mirrors `read`). The 1D
+        # SplineSpaces are DomainDecomposition-independent, so we reuse them.
+        ddms      = geo.ddm.domains
+        spaces_1d = [list(s.space.spaces) for s in splines]
+        carts     = create_cart(ddms, spaces_1d)
+        g_spaces  = {itr: TensorFemSpace(ddms[i], *spaces_1d[i], cart=carts[i])
+                     for i, itr in enumerate(interiors)}
+
+        for i, j in connectivity:
+            max_ncells = [max(ni, nj) for ni, nj in
+                          zip(ncells[interiors[i].name], ncells[interiors[j].name])]
+            g_spaces[interiors[i]].add_refined_space(ncells=max_ncells)
+            g_spaces[interiors[j]].add_refined_space(ncells=max_ncells)
+
+        construct_interface_spaces(geo.ddm, g_spaces, carts, interiors, connectivity)
+
+        new_mappings = {}
+        for itr, spl in zip(interiors, splines):
+            cp = _spline_control_points(spl, pdim)
+            if isinstance(spl, NurbsMapping):
+                idx = _interior_index(spl.space.coeff_space)
+                w   = np.asarray(spl.weights_field.coeffs[idx])
+                m   = NurbsMapping.from_control_points_weights(g_spaces[itr], cp, w)
+            else:
+                m   = SplineMapping.from_control_points(g_spaces[itr], cp)
+            m.set_name(itr.name)
+            new_mappings[itr.name] = m
+
+        _sync_multipatch_ghost_regions(list(new_mappings.values()), connectivity)
+
+        geo._mappings = new_mappings
+        return geo
 
     #--------------------------------------------------------------------------
     # Option [3]: discrete topological line/square/cube

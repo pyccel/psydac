@@ -43,7 +43,7 @@ from psydac.fem.splines      import SplineSpace
 from psydac.fem.tensor       import TensorFemSpace
 from psydac.fem.partitioning import create_cart, construct_connectivity, construct_interface_spaces, construct_reduced_interface_spaces
 from psydac.fem.vector       import MultipatchFemSpace, VectorFemSpace
-from psydac.cad.geometry     import Geometry
+from psydac.cad.geometry     import Geometry, is_spline_discrete_domain
 from psydac.linalg.stencil   import StencilVectorSpace
 from psydac.linalg.block     import BlockVectorSpace
 
@@ -571,10 +571,7 @@ def discretize_domain(domain, *, filename=None, ncells=None, periodic=None, comm
         # Create a copy of the communicator
         comm = comm.Dup()
 
-    if not (filename or ncells):
-        raise ValueError("Must provide either 'filename' or 'ncells'")
-
-    elif filename and ncells:
+    if filename and ncells:
         raise ValueError("Cannot provide both 'filename' and 'ncells'")
 
     elif filename:
@@ -582,6 +579,15 @@ def discretize_domain(domain, *, filename=None, ncells=None, periodic=None, comm
 
     elif ncells:
         return Geometry.from_topological_domain(domain, ncells, periodic=periodic, comm=comm, mpi_dims_mask=mpi_dims_mask)
+
+    # No filename / ncells: the domain may carry its own discrete geometry, i.e.
+    # every patch mapped by a spline DiscreteMapping (see Geometry.from_discrete_domain).
+    elif is_spline_discrete_domain(domain):
+        return Geometry.from_discrete_domain(domain, comm=comm, mpi_dims_mask=mpi_dims_mask)
+
+    else:
+        raise ValueError("Must provide 'filename' or 'ncells', or a Domain whose "
+                         "patches are all mapped by a spline DiscreteMapping")
 
 #==============================================================================
 def discretize(a, *args, **kwargs):

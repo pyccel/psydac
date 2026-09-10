@@ -298,6 +298,76 @@ def test_spline_mapping_to_defined_mapping_and_geometry_domain_log():
             domain_log=Cube('C', bounds1=(1., 4.), bounds2=(0., np.pi / 2), bounds3=(0., 1.)))
 
 # ==============================================================================
+def _two_patch_spline_annulus(degree=(2, 2), ncells=(6, 6)):
+    """Two 90-deg annular patches, each a SplineMapping approx of a PolarMapping,
+    joined into a DiscreteMapping-carried multipatch Domain."""
+    from sympde.topology import PolarMapping
+
+    A = Square('A', bounds1=(0.5, 1.0), bounds2=(0.0,      np.pi / 2))
+    B = Square('B', bounds1=(0.5, 1.0), bounds2=(np.pi / 2, np.pi   ))
+
+    def approx(pm, sq):
+        grids = [np.linspace(sq.min_coords[d], sq.max_coords[d], ncells[d] + 1)
+                 for d in range(2)]
+        V = TensorFemSpace(DomainDecomposition(list(ncells), [False, False]),
+                           *[SplineSpace(degree[d], grid=grids[d], periodic=False)
+                             for d in range(2)])
+        return SplineMapping.from_mapping(V, pm.get_callable_mapping())
+
+    spl_A = approx(PolarMapping('MA', 2, c1=0., c2=0., rmin=0., rmax=1.), A)
+    spl_B = approx(PolarMapping('MB', 2, c1=0., c2=0., rmin=0., rmax=1.), B)
+    M_A = spl_A.to_defined_mapping('MA')
+    M_B = spl_B.to_defined_mapping('MB')
+    Omega = Domain.join([M_A(A), M_B(B)], [((0, 1, 1), (1, 1, -1), 1)], 'ann2')
+    return Omega, spl_A, spl_B
+
+# ==============================================================================
+def test_from_discrete_domain_2patch():
+    # WP07c-1: Geometry.from_discrete_domain on a 2-patch domain whose patches
+    # are spline DiscreteMappings builds the coefficient-space interface
+    # connectivity that assembling an interface term needs.
+    from sympde.topology.mapping import DiscreteMapping
+    from psydac.cad.geometry import is_spline_discrete_domain
+
+    Omega, spl_A, spl_B = _two_patch_spline_annulus()
+    assert is_spline_discrete_domain(Omega) is True
+
+    geo = Geometry.from_discrete_domain(Omega)
+    assert len(geo) == 2
+    interiors = list(Omega.interior.args)
+    for itr in interiors:
+        assert isinstance(itr.mapping, DiscreteMapping)
+        assert itr.mapping.is_analytical is False
+        sp = geo.mappings[itr.name].space
+        # each patch has the coefficient-space interface on its joined axis/ext,
+        # on both the base space and the connectivity-refined space
+        assert len(sp.interfaces) == 1
+        (axis, ext), = sp.interfaces.keys()
+        for key in sp._refined_space:
+            assert (axis, ext) in sp.get_refined_space(key).interfaces
+        # the spline control-point coeffs carry cross-interface data
+        assert (axis, ext) in geo.mappings[itr.name].fields[0].coeffs._interface_data
+
+# ==============================================================================
+def test_discretize_domain_dispatches_to_from_discrete_domain():
+    # WP07c-1: discretize(Omega) with no filename/ncells dispatches to
+    # from_discrete_domain when the domain carries spline DiscreteMappings, and
+    # still raises ValueError otherwise.
+    from psydac.api.discretization import discretize
+
+    Omega, _, _ = _two_patch_spline_annulus()
+    geo_a = discretize(Omega)
+    geo_b = Geometry.from_discrete_domain(Omega)
+    assert isinstance(geo_a, Geometry)
+    assert len(geo_a) == len(geo_b) == 2
+    assert set(geo_a.mappings) == set(geo_b.mappings)
+    assert geo_a.ncells == geo_b.ncells
+
+    plain = Square('P', bounds1=(0., 1.), bounds2=(0., 1.))
+    with pytest.raises(ValueError):
+        discretize(plain)
+
+# ==============================================================================
 @pytest.mark.mpi
 def test_from_topological_domain():
 
