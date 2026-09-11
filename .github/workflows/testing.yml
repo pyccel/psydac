@@ -41,7 +41,8 @@ jobs:
       OMP_NUM_THREADS: 2
 
     steps:
-      - uses: actions/checkout@v6
+      - name: Checkout
+        uses: actions/checkout@v6
         with:
           submodules: true
 
