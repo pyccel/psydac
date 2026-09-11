@@ -7,4 +7,4 @@ cmd
     :toctree: STUBDIR
     :template: autosummary/module.rst
 
-    cmd.mesh
+    cmd.psydac_mesh

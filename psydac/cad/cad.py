@@ -3,6 +3,8 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
+from typing import Iterable
+
 import numpy as np
 
 from psydac.fem.splines      import SplineSpace
@@ -12,26 +14,48 @@ from psydac.mapping.discrete import SplineMapping, NurbsMapping
 from psydac.ddm.cart         import DomainDecomposition
 
 #==============================================================================
-def translate(mapping, displ):
+def translate(mapping : SplineMapping, displ : Iterable[float]):
+    """
+    Translate a CAD geometry by a given vector displacement.
+
+    Translate a single-patch CAD geometry (given as a spline or NURBS mapping)
+    by adding a given displacement vector to the control points of the mapping.
+
+    Parameters
+    ----------
+    mapping : SplineMapping
+        The discrete mapping to be translated, which represents a CAD geometry.
+
+    displ : Iterable[float]
+        The vector displacement by which to translate the geometry.
+
+    Returns
+    -------
+    SplineMapping
+        A new discrete mapping representing the translated geometry.
+    """
+    assert isinstance(mapping, SplineMapping)
+    assert isinstance(displ, Iterable)
+
     displ = np.array(displ)
-    assert( mapping.pdim == len(displ) )
+    assert mapping.pdim == len(displ)
 
     pdim           = mapping.pdim
     space          = mapping.space
     control_points = mapping.control_points
 
-    fields = [FemField( space ) for d in range( pdim )]
+    fields = [FemField(space) for d in range(pdim)]
 
     # Get spline coefficients for each coordinate X_i
     starts = space.coeff_space.starts
     ends   = space.coeff_space.ends
-    idx_to = tuple( slice( s, e+1 ) for s,e in zip( starts, ends ) )
-    for i,field in enumerate( fields ):
+    idx_to = tuple(slice(s, e+1) for s, e in zip(starts, ends))
+    for i, field in enumerate(fields):
         idx_from = tuple(list(idx_to)+[i])
         field.coeffs[idx_to] = control_points[idx_from] + displ[i]
         field.coeffs.update_ghost_regions()
 
-    return SplineMapping( *fields )
+    return SplineMapping(*fields)
 
 #==============================================================================
 def elevate(mapping, axis, times):
