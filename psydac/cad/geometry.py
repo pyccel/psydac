@@ -30,6 +30,7 @@ from psydac.ddm.cart           import DomainDecomposition, MultiPatchDomainDecom
 
 __all__ = (
     'Geometry',
+    'is_spline_discrete_domain',
     'export_nurbs_to_hdf5',
     'import_geopdes_to_nurbs',
     'refine_knots',
@@ -413,13 +414,23 @@ class Geometry:
         ``filename`` nor ``ncells`` is given and :func:`is_spline_discrete_domain`
         holds.
 
-        For a multipatch domain the per-patch ``SplineMapping`` objects are
-        *rebuilt* on fresh interface-aware spaces (the pre-existing coefficient
-        vectors cannot acquire cross-interface data after the fact), so
-        ``geo.mappings[name]`` is a fresh object -- numerically identical to, but
-        not the same as, ``domain.interior[i].mapping.get_callable_mapping()``.
-        That only matters for direct point evaluation of the symbolic mapping in
-        post-processing.
+        For a **multipatch** domain the per-patch ``SplineMapping`` objects are
+        *rebuilt* on fresh interface-aware spaces and stored in
+        ``geo.mappings``. The originals on the domain are left untouched: unlike
+        :meth:`read` (which re-points each ``patch.mapping``'s callable via
+        ``set_callable_mapping``), a ``DiscreteMapping``'s callable is part of
+        its immutable identity (it is in ``_hashable_content``) and cannot be
+        swapped. So after this call
+
+            geo.mappings[name]                                   # rebuilt spline
+            domain.interior[i].mapping.get_callable_mapping()    # original spline
+
+        are two different objects. This is **benign**: they share control points,
+        knots and degree, so *point evaluation* -- all any post-processing
+        consumer (e.g. ``PostProcessManager``) does per patch -- is identical.
+        The rebuilt spline differs only in carrying the coefficient-space
+        interface connectivity, which matters solely for *assembly*, and
+        assembly reads ``geo.mappings``.
 
         Parameters
         ----------
@@ -435,7 +446,12 @@ class Geometry:
             multipatch.
 
         mpi_dims_mask : Iterable[bool], optional
-            Passed through to the (single-patch) domain decomposition.
+            Passed through to the (single-patch) domain decomposition. Note that
+            for a single-patch domain ``geo.mappings[name].space`` keeps the
+            *incoming* spline's own decomposition, which may differ from
+            ``geo.ddm`` if a non-default ``mpi_dims_mask`` (or a different comm)
+            is given -- harmless for the supported serial / size-1 case, to be
+            revisited with parallel support (see the ``TODO(parallel)`` below).
 
         Returns
         -------
@@ -470,7 +486,14 @@ class Geometry:
         splines = []
         for itr in interiors:
             M   = getattr(itr, 'mapping', None)
-            spl = M.get_callable_mapping() if isinstance(M, DiscreteMapping) else None
+            spl = None
+            if isinstance(M, DiscreteMapping):
+                # get_callable_mapping() raises ValueError for a DiscreteMapping
+                # with no attached callable -- treat that like "not a spline".
+                try:
+                    spl = M.get_callable_mapping()
+                except (ValueError, AttributeError):
+                    spl = None
             if not isinstance(spl, SplineMapping):
                 raise TypeError(
                     "Geometry.from_discrete_domain: patch '{}' is not mapped by "
@@ -498,7 +521,12 @@ class Geometry:
 
         connectivity = construct_connectivity(domain)
         if not connectivity:
-            # Single patch: no interface wiring needed.
+            # Single patch: no interface wiring needed. The spline keeps its own
+            # decomposition here; `geo.ddm` (built by __init__ from comm /
+            # mpi_dims_mask) is only consistent with it in the serial / size-1 /
+            # mask=None case this method supports.
+            # TODO(parallel): rebuild the spline on `geo.ddm` (as `read` does)
+            # once comm.size > 1 is supported, or delegate to from_discrete_mapping.
             return geo
 
         # Multipatch: rebuild the SplineMappings on fresh TensorFemSpaces that

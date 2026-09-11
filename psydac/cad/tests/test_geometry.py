@@ -368,6 +368,35 @@ def test_discretize_domain_dispatches_to_from_discrete_domain():
         discretize(plain)
 
 # ==============================================================================
+def test_is_spline_discrete_domain_is_public():
+    # WP07c-1a F5: is_spline_discrete_domain is part of the module's public API.
+    import psydac.cad.geometry as geo_mod
+    assert 'is_spline_discrete_domain' in geo_mod.__all__
+    ns = {}
+    exec('from psydac.cad.geometry import *', ns)
+    assert 'is_spline_discrete_domain' in ns
+
+# ==============================================================================
+def test_from_discrete_domain_callable_less_mapping_raises_typeerror():
+    # WP07c-1a F4: a DiscreteMapping with no attached callable must surface as
+    # the documented TypeError, not the raw ValueError from get_callable_mapping().
+    from sympde.topology import PolarMapping
+
+    ncells, degree = [4, 4], [2, 2]
+    A = Square('A', bounds1=(0.5, 1.0), bounds2=(0.0, np.pi / 2))
+    grids = [np.linspace(A.min_coords[d], A.max_coords[d], ncells[d] + 1) for d in range(2)]
+    V = TensorFemSpace(DomainDecomposition(ncells, [False, False]),
+                       *[SplineSpace(degree[d], grid=grids[d], periodic=False) for d in range(2)])
+    spl = SplineMapping.from_mapping(V, PolarMapping('M', 2, c1=0., c2=0., rmin=0., rmax=1.)
+                                    .get_callable_mapping())
+    M = spl.to_defined_mapping('M')
+    Omega = M(A)
+    Omega.interior.mapping._callable_map = None       # simulate a detached carrier
+
+    with pytest.raises(TypeError):
+        Geometry.from_discrete_domain(Omega)
+
+# ==============================================================================
 @pytest.mark.mpi
 def test_from_topological_domain():
 

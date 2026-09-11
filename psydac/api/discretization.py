@@ -568,26 +568,34 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
 def discretize_domain(domain, *, filename=None, ncells=None, periodic=None, comm=None, mpi_dims_mask=None):
 
     if comm is not None:
-        # Create a copy of the communicator
+        # Create a copy of the communicator; the Geometry owns it for its
+        # lifetime. Freed here if no Geometry is built (every path below either
+        # returns one or raises).
         comm = comm.Dup()
 
-    if filename and ncells:
-        raise ValueError("Cannot provide both 'filename' and 'ncells'")
+    try:
+        if filename and ncells:
+            raise ValueError("Cannot provide both 'filename' and 'ncells'")
 
-    elif filename:
-        return Geometry.from_file(filename, comm=comm, mpi_dims_mask=mpi_dims_mask)
+        elif filename:
+            return Geometry.from_file(filename, comm=comm, mpi_dims_mask=mpi_dims_mask)
 
-    elif ncells:
-        return Geometry.from_topological_domain(domain, ncells, periodic=periodic, comm=comm, mpi_dims_mask=mpi_dims_mask)
+        elif ncells:
+            return Geometry.from_topological_domain(domain, ncells, periodic=periodic, comm=comm, mpi_dims_mask=mpi_dims_mask)
 
-    # No filename / ncells: the domain may carry its own discrete geometry, i.e.
-    # every patch mapped by a spline DiscreteMapping (see Geometry.from_discrete_domain).
-    elif is_spline_discrete_domain(domain):
-        return Geometry.from_discrete_domain(domain, comm=comm, mpi_dims_mask=mpi_dims_mask)
+        # No filename / ncells: the domain may carry its own discrete geometry,
+        # i.e. every patch mapped by a spline DiscreteMapping (see
+        # Geometry.from_discrete_domain).
+        elif is_spline_discrete_domain(domain):
+            return Geometry.from_discrete_domain(domain, comm=comm, mpi_dims_mask=mpi_dims_mask)
 
-    else:
-        raise ValueError("Must provide 'filename' or 'ncells', or a Domain whose "
-                         "patches are all mapped by a spline DiscreteMapping")
+        else:
+            raise ValueError("Must provide 'filename' or 'ncells', or a Domain whose "
+                             "patches are all mapped by a spline DiscreteMapping")
+    except Exception:
+        if comm is not None:
+            comm.Free()
+        raise
 
 #==============================================================================
 def discretize(a, *args, **kwargs):
