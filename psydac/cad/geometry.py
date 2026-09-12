@@ -82,25 +82,67 @@ def _check_logical_box(min_coords, max_coords, spline_space, *, what):
                 list(zip(par_min, par_max))))
 
 
-def _patch_spline(itr):
+#==============================================================================
+# Helpers for `from_discrete_domain` (multipatch rebuild) and its dispatch
+# predicate `is_spline_discrete_domain` -- not used by `from_discrete_mapping`
+# (single patch has no "is this a spline domain" question, and no interface
+# to wire).
+#==============================================================================
+def _spline_of(M):
     """
-    The `SplineMapping` (or `NurbsMapping`) carried by interior domain ``itr``'s
-    `DiscreteMapping`, or ``None`` if ``itr`` isn't mapped by one (no mapping, an
-    analytic mapping, or a callable-less `DiscreteMapping`). The one
-    classification `is_spline_discrete_domain` and `Geometry.from_discrete_domain`
-    both need -- shared so the two can't drift.
+    The SplineMapping (or NurbsMapping) `M` wraps, if `M` is a spline-backed
+    `DiscreteMapping` with an attached callable.
+
+    Parameters
+    ----------
+    M : object
+        Typically an interior domain's `.mapping` -- anything is accepted;
+        non-`DiscreteMapping` values simply return `None`.
+
+    Returns
+    -------
+    SplineMapping or None
+        `None` if `M` is not a `DiscreteMapping`, has no attached callable, or
+        wraps a non-spline `BasicCallableMapping`.
+
+    Examples
+    --------
+    >>> _spline_of(itr.mapping) is None  # itr not mapped by a spline
+    True
     """
-    M = getattr(itr, 'mapping', None)
     if not isinstance(M, DiscreteMapping):
         return None
-    try:
-        spl = M.get_callable_mapping()
-    except (ValueError, AttributeError):
-        # get_callable_mapping() raises ValueError for a callable-less
-        # DiscreteMapping; AttributeError is a defensive extra (mirrors the
-        # guard in Geometry.from_discrete_domain).
+    if not M.has_callable_mapping():
         return None
+    spl = M.get_callable_mapping()
     return spl if isinstance(spl, SplineMapping) else None
+
+
+def _patch_spline(itr):
+    """
+    The SplineMapping carried by interior domain `itr`'s `DiscreteMapping` --
+    see `_spline_of`. Used by `is_spline_discrete_domain`; `Geometry.
+    from_discrete_domain` calls `_spline_of` directly (its own `itr.mapping`
+    lookup and this function's would otherwise be two independent lookups that
+    could in principle diverge) so its error message reuses the exact mapping
+    object classified.
+
+    Parameters
+    ----------
+    itr : sympde.topology.InteriorDomain
+        One patch of a (possibly multipatch) `Domain`.
+
+    Returns
+    -------
+    SplineMapping or None
+        See `_spline_of`.
+
+    Examples
+    --------
+    >>> _patch_spline(Omega.interior) is not None
+    True
+    """
+    return _spline_of(getattr(itr, 'mapping', None))
 
 
 def is_spline_discrete_domain(domain):
@@ -487,7 +529,8 @@ class Geometry:
         TypeError
             If some patch is not mapped by a spline ``DiscreteMapping``.
         ValueError
-            If a patch's logical box disagrees with its spline's parametric box.
+            If a patch's logical box disagrees with its spline's parametric box,
+            or the patches' splines have inconsistent ``pdim``.
         NotImplementedError
             If ``comm`` has size > 1.
 
@@ -509,18 +552,21 @@ class Geometry:
         # Pull the SplineMapping carried by each patch; check the logical box.
         splines = []
         for itr in interiors:
-            spl = _patch_spline(itr)
+            M   = getattr(itr, 'mapping', None)
+            spl = _spline_of(M)
             if spl is None:
                 raise TypeError(
                     "Geometry.from_discrete_domain: patch '{}' is not mapped by "
-                    "a spline DiscreteMapping (got {})".format(
-                        itr.name, type(getattr(itr, 'mapping', None)).__name__))
+                    "a spline DiscreteMapping (got {})".format(itr.name, type(M).__name__))
             _check_logical_box(itr.min_coords, itr.max_coords, spl.space,
                                what="patch '{}' logical domain".format(itr.name))
             splines.append(spl)
 
         pdim = splines[0].pdim
-        assert all(s.pdim == pdim for s in splines)
+        if not all(s.pdim == pdim for s in splines):
+            raise ValueError(
+                "Geometry.from_discrete_domain: patches have inconsistent pdim "
+                "({})".format({itr.name: s.pdim for itr, s in zip(interiors, splines)}))
 
         ncells   = {itr.name: list(s.space.domain_decomposition.ncells)
                     for itr, s in zip(interiors, splines)}

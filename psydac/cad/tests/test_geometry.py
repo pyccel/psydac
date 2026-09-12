@@ -322,6 +322,25 @@ def _two_patch_spline_annulus(degree=(2, 2), ncells=(6, 6)):
     return Omega, spl_A, spl_B
 
 # ==============================================================================
+def _detached_spline_domain(A, name='M', ncells=(4, 4), degree=(2, 2)):
+    """(Omega, spl): Omega = M(A) where M is a DiscreteMapping wrapping spline
+    `spl`, with M's attached callable then cleared -- simulates a "detached
+    carrier" for the callable-less-DiscreteMapping error paths. `spl` is
+    returned too so a caller can build another (non-detached) carrier from the
+    same spline without rebuilding it."""
+    from sympde.topology import PolarMapping
+
+    grids = [np.linspace(A.min_coords[d], A.max_coords[d], ncells[d] + 1) for d in range(2)]
+    V = TensorFemSpace(DomainDecomposition(list(ncells), [False, False]),
+                       *[SplineSpace(degree[d], grid=grids[d], periodic=False) for d in range(2)])
+    spl = SplineMapping.from_mapping(V, PolarMapping(name, 2, c1=0., c2=0., rmin=0., rmax=1.)
+                                    .get_callable_mapping())
+    M = spl.to_defined_mapping(name)
+    Omega = M(A)
+    Omega.interior.mapping._callable_map = None       # simulate a detached carrier
+    return Omega, spl
+
+# ==============================================================================
 def test_from_discrete_domain_2patch():
     # WP07c-1: Geometry.from_discrete_domain on a 2-patch domain whose patches
     # are spline DiscreteMappings builds the coefficient-space interface
@@ -380,18 +399,8 @@ def test_is_spline_discrete_domain_is_public():
 def test_from_discrete_domain_callable_less_mapping_raises_typeerror():
     # WP07c-1a F4: a DiscreteMapping with no attached callable must surface as
     # the documented TypeError, not the raw ValueError from get_callable_mapping().
-    from sympde.topology import PolarMapping
-
-    ncells, degree = [4, 4], [2, 2]
     A = Square('A', bounds1=(0.5, 1.0), bounds2=(0.0, np.pi / 2))
-    grids = [np.linspace(A.min_coords[d], A.max_coords[d], ncells[d] + 1) for d in range(2)]
-    V = TensorFemSpace(DomainDecomposition(ncells, [False, False]),
-                       *[SplineSpace(degree[d], grid=grids[d], periodic=False) for d in range(2)])
-    spl = SplineMapping.from_mapping(V, PolarMapping('M', 2, c1=0., c2=0., rmin=0., rmax=1.)
-                                    .get_callable_mapping())
-    M = spl.to_defined_mapping('M')
-    Omega = M(A)
-    Omega.interior.mapping._callable_map = None       # simulate a detached carrier
+    Omega, _ = _detached_spline_domain(A)
 
     with pytest.raises(TypeError):
         Geometry.from_discrete_domain(Omega)
@@ -417,15 +426,7 @@ def test_patch_spline_classification():
     assert is_spline_discrete_domain(Omega_analytic) is False
 
     # 3. a spline DiscreteMapping with no attached callable
-    ncells, degree = [4, 4], [2, 2]
-    grids = [np.linspace(A.min_coords[d], A.max_coords[d], ncells[d] + 1) for d in range(2)]
-    V = TensorFemSpace(DomainDecomposition(ncells, [False, False]),
-                       *[SplineSpace(degree[d], grid=grids[d], periodic=False) for d in range(2)])
-    spl = SplineMapping.from_mapping(V, PolarMapping('M', 2, c1=0., c2=0., rmin=0., rmax=1.)
-                                    .get_callable_mapping())
-    M = spl.to_defined_mapping('M')
-    Omega_detached = M(A)
-    Omega_detached.interior.mapping._callable_map = None
+    Omega_detached, spl = _detached_spline_domain(A)
     assert _patch_spline(Omega_detached.interior) is None
     assert is_spline_discrete_domain(Omega_detached) is False
 
