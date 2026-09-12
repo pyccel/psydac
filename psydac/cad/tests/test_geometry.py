@@ -397,6 +397,45 @@ def test_from_discrete_domain_callable_less_mapping_raises_typeerror():
         Geometry.from_discrete_domain(Omega)
 
 # ==============================================================================
+def test_patch_spline_classification():
+    # WP07d-1 F3/F5: _patch_spline is the single classification shared by
+    # is_spline_discrete_domain and Geometry.from_discrete_domain.
+    from sympde.topology import PolarMapping
+    from psydac.cad.geometry import _patch_spline, is_spline_discrete_domain
+
+    A = Square('A', bounds1=(0.5, 1.0), bounds2=(0.0, np.pi / 2))
+
+    # 1. no mapping at all (bare topological patch)
+    assert A.interior.mapping is None
+    assert _patch_spline(A.interior) is None
+    assert is_spline_discrete_domain(A) is False
+
+    # 2. an analytic (non-spline) mapping
+    F = PolarMapping('F', dim=2, c1=0., c2=0., rmin=0.5, rmax=1.0)
+    Omega_analytic = F(A)
+    assert _patch_spline(Omega_analytic.interior) is None
+    assert is_spline_discrete_domain(Omega_analytic) is False
+
+    # 3. a spline DiscreteMapping with no attached callable
+    ncells, degree = [4, 4], [2, 2]
+    grids = [np.linspace(A.min_coords[d], A.max_coords[d], ncells[d] + 1) for d in range(2)]
+    V = TensorFemSpace(DomainDecomposition(ncells, [False, False]),
+                       *[SplineSpace(degree[d], grid=grids[d], periodic=False) for d in range(2)])
+    spl = SplineMapping.from_mapping(V, PolarMapping('M', 2, c1=0., c2=0., rmin=0., rmax=1.)
+                                    .get_callable_mapping())
+    M = spl.to_defined_mapping('M')
+    Omega_detached = M(A)
+    Omega_detached.interior.mapping._callable_map = None
+    assert _patch_spline(Omega_detached.interior) is None
+    assert is_spline_discrete_domain(Omega_detached) is False
+
+    # 4. a real spline DiscreteMapping
+    M2 = spl.to_defined_mapping('M2')
+    Omega_spline = M2(A)
+    assert _patch_spline(Omega_spline.interior) is spl
+    assert is_spline_discrete_domain(Omega_spline) is True
+
+# ==============================================================================
 @pytest.mark.mpi
 def test_from_topological_domain():
 

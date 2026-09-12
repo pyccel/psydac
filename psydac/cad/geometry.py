@@ -82,27 +82,44 @@ def _check_logical_box(min_coords, max_coords, spline_space, *, what):
                 list(zip(par_min, par_max))))
 
 
+def _patch_spline(itr):
+    """
+    The `SplineMapping` (or `NurbsMapping`) carried by interior domain ``itr``'s
+    `DiscreteMapping`, or ``None`` if ``itr`` isn't mapped by one (no mapping, an
+    analytic mapping, or a callable-less `DiscreteMapping`). The one
+    classification `is_spline_discrete_domain` and `Geometry.from_discrete_domain`
+    both need -- shared so the two can't drift.
+    """
+    M = getattr(itr, 'mapping', None)
+    if not isinstance(M, DiscreteMapping):
+        return None
+    try:
+        spl = M.get_callable_mapping()
+    except (ValueError, AttributeError):
+        # get_callable_mapping() raises ValueError for a callable-less
+        # DiscreteMapping; AttributeError is a defensive extra (mirrors the
+        # guard in Geometry.from_discrete_domain).
+        return None
+    return spl if isinstance(spl, SplineMapping) else None
+
+
 def is_spline_discrete_domain(domain):
     """
     True if every patch of ``domain`` is mapped by a `DiscreteMapping` whose
     callable is a psydac `SplineMapping` (or `NurbsMapping`) -- i.e. the domain
-    carries its own discrete geometry and `discretize(domain)` can build a
-    `Geometry` from it with no ``filename`` / ``ncells``. False for anything
-    else (analytic mapping, no mapping, a bare topological `NCube`), so callers'
-    existing behaviour is unchanged.
+    carries its own discrete geometry, so ``discretize(domain)`` (given no
+    ``filename`` / ``ncells``) *dispatches* to `Geometry.from_discrete_domain`.
+    False for anything else (analytic mapping, no mapping, a bare topological
+    `NCube`), so callers' existing behaviour is unchanged.
+
+    A `True` result is not itself a guarantee that `from_discrete_domain` will
+    succeed: it can still raise `ValueError` if some patch's logical (symbolic)
+    box disagrees with its spline's own parametric knot span -- this predicate
+    only checks that every patch is spline-mapped, not the box.
     """
     interior  = domain.interior
     interiors = list(interior.args) if isinstance(interior, Union) else [interior]
-    for itr in interiors:
-        M = getattr(itr, 'mapping', None)
-        if not isinstance(M, DiscreteMapping):
-            return False
-        try:
-            if not isinstance(M.get_callable_mapping(), SplineMapping):
-                return False
-        except (ValueError, AttributeError):
-            return False
-    return True
+    return all(_patch_spline(itr) is not None for itr in interiors)
 
 
 def _interior_index(coeff_space):
@@ -396,6 +413,12 @@ class Geometry:
     #--------------------------------------------------------------------------
     # Option [4]: from a Domain carrying spline DiscreteMappings
     #--------------------------------------------------------------------------
+    # `comm` here is whatever `discretize_domain` passed in (already `Dup()`'d
+    # there, `Free()`'d on failure) -- `Geometry`'s classmethods do not
+    # Dup/Free their own `comm` on any path (`from_file` / `from_topological_
+    # domain` included), so a caller invoking this directly with a shared
+    # `comm` owns its lifecycle. Making `Geometry` own comm duplication
+    # uniformly is a separate design change, not taken up here.
     @classmethod
     def from_discrete_domain(cls, domain, *, comm=None, mpi_dims_mask=None):
         """
@@ -418,19 +441,20 @@ class Geometry:
         *rebuilt* on fresh interface-aware spaces and stored in
         ``geo.mappings``. The originals on the domain are left untouched: unlike
         :meth:`read` (which re-points each ``patch.mapping``'s callable via
-        ``set_callable_mapping``), a ``DiscreteMapping``'s callable is part of
-        its immutable identity (it is in ``_hashable_content``) and cannot be
-        swapped. So after this call
+        ``set_callable_mapping``), a ``DiscreteMapping``'s callable *cannot* be
+        reattached after construction -- ``DiscreteMapping.set_callable_mapping``
+        raises ``TypeError`` (it is part of ``_hashable_content``, i.e. identity).
+        So
 
             geo.mappings[name]                                   # rebuilt spline
             domain.interior[i].mapping.get_callable_mapping()    # original spline
 
-        are two different objects. This is **benign**: they share control points,
-        knots and degree, so *point evaluation* -- all any post-processing
-        consumer (e.g. ``PostProcessManager``) does per patch -- is identical.
-        The rebuilt spline differs only in carrying the coefficient-space
-        interface connectivity, which matters solely for *assembly*, and
-        assembly reads ``geo.mappings``.
+        are, and stay, two different-but-equivalent objects: same control
+        points, knots and degree, so *point evaluation* -- all any
+        post-processing consumer (e.g. ``PostProcessManager``) does per patch --
+        is identical. The rebuilt spline differs only in carrying the
+        coefficient-space interface connectivity, which matters solely for
+        *assembly*, and assembly reads ``geo.mappings``.
 
         Parameters
         ----------
@@ -485,20 +509,12 @@ class Geometry:
         # Pull the SplineMapping carried by each patch; check the logical box.
         splines = []
         for itr in interiors:
-            M   = getattr(itr, 'mapping', None)
-            spl = None
-            if isinstance(M, DiscreteMapping):
-                # get_callable_mapping() raises ValueError for a DiscreteMapping
-                # with no attached callable -- treat that like "not a spline".
-                try:
-                    spl = M.get_callable_mapping()
-                except (ValueError, AttributeError):
-                    spl = None
-            if not isinstance(spl, SplineMapping):
+            spl = _patch_spline(itr)
+            if spl is None:
                 raise TypeError(
                     "Geometry.from_discrete_domain: patch '{}' is not mapped by "
                     "a spline DiscreteMapping (got {})".format(
-                        itr.name, type(M).__name__))
+                        itr.name, type(getattr(itr, 'mapping', None)).__name__))
             _check_logical_box(itr.min_coords, itr.max_coords, spl.space,
                                what="patch '{}' logical domain".format(itr.name))
             splines.append(spl)
