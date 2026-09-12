@@ -4,7 +4,6 @@ from sympde.topology import NCube
 from sympde.topology import domain
 from sympde.topology import Square, PolarMapping
 from sympde.topology.mapping import BasicCallableMapping
-from sympde.utilities.utils import plot_domain
 
 from psydac.mapping.discrete import SplineMapping
 from psydac.cad.geometry     import Geometry
@@ -47,214 +46,124 @@ def spline_mapping_approx(
 
     return F_h
 
-@pytest.mark.parametrize('spline_mapping', [False, True])    
-def test_poisson_mapping(spline_mapping):    
-    # Define the topological geometry for each patch
-    rmin, rmax = 0.3, 1.
+@pytest.mark.parametrize('spline_mapping', [False, True])
+def test_poisson_mapping(spline_mapping):
+    _, _, l2_error = _solve_poisson_mapping(spline_mapping)
+    # Actual: ~1e-5 (True, 8x8 deg-2 spline mesh -- the geometry approximation
+    # dominates) / ~2e-5 (False, 10x10 deg-2 -- x**2+y**2 is not a degree-2
+    # polynomial once pulled back through the non-affine polar map). Thresholds
+    # leave ~50x / ~10x headroom.
+    assert l2_error < (1e-3 if spline_mapping else 2e-4)
 
-    F_degree = (2, 2)
-    F_ncells = (8, 8)
 
-    # First quarter annulus
-    domain_log_1 = Square('A_1', bounds1=(0., 1.), bounds2=(0., 1/2 * np.pi))
-    F_1 = PolarMapping('F_1', dim=2, c1=0., c2=0., rmin=rmin, rmax=rmax)
+def _solve_poisson_mapping(spline_mapping):
+    # WP07c-2: a coupled multipatch Poisson solve (SIPG interface + Nitsche
+    # boundary, manufactured solution x**2 + y**2) on a 2-patch mapped geometry.
+    #   spline_mapping=False : analytic PolarMapping geometry
+    #                          -> discretize(Omega, ncells=..., periodic=...)
+    #   spline_mapping=True  : each patch a DiscreteMapping wrapping a
+    #                          SplineMapping approximation of that PolarMapping
+    #                          -> discretize(Omega) builds the Geometry from the
+    #                          splines (is_analytical=False, so assembly is by
+    #                          grid evaluation of the spline, not the analytic
+    #                          Jacobian). Same abstract model, same solve.
+    #
+    # Returns (Omega, uh, l2_error) -- not just the l2_error -- so `__main__`
+    # below can plot `uh` on `Omega` for each variant (e.g. to derive a
+    # documentation example from this test).
+    from sympde.calculus       import grad, dot, minus, plus
+    from sympde.topology       import Domain, ScalarFunctionSpace, elements_of, NormalVector
+    from sympde.expr.expr      import BilinearForm, LinearForm, integral, Norm
+    from sympde.expr           import find
+
+    from psydac.api.discretization import discretize
+    from psydac.api.settings       import PSYDAC_BACKENDS
+
+    rmin, rmax        = 0.3, 1.
+    F_degree, F_ncells = (2, 2), (8, 8)
+
+    # Two quarter-annulus patches (the geometry the test has always used).
+    domain_log_1 = Square('A_1', bounds1=(0., 1.), bounds2=(0.,     0.5 * np.pi))
+    domain_log_2 = Square('A_2', bounds1=(0., 1.), bounds2=(np.pi,  1.5 * np.pi))
+    F_1 = PolarMapping('F_1', dim=2, c1=0.,          c2=0., rmin=rmin, rmax=rmax)
+    F_2 = PolarMapping('F_2', dim=2, c1=rmin + rmax, c2=0., rmin=rmax, rmax=rmin)
+
     if spline_mapping:
         F_1s = spline_mapping_approx(F=F_1,
             min_coords=domain_log_1.min_coords, max_coords=domain_log_1.max_coords,
-            degree=F_degree, ncells=F_ncells, periodic=(False, False),
-            )
-        F_1.set_callable_mapping(F_1s)
-
-    Omega_1 = F_1(domain_log_1)
-    
-    # Second quarter annulus
-    F_2 = PolarMapping('F_2', dim=2, c1=rmin+rmax, c2=0., rmin=rmax, rmax=rmin)   ## rmin > rmax ??? 
-    domain_log_2 = Square('A_2', bounds1=(0., 1.), bounds2=(np.pi, 3/2 * np.pi))
-    if spline_mapping:
+            degree=F_degree, ncells=F_ncells, periodic=(False, False))
         F_2s = spline_mapping_approx(F=F_2,
             min_coords=domain_log_2.min_coords, max_coords=domain_log_2.max_coords,
-            degree=F_degree, ncells=F_ncells, periodic=(False, False)
-            )
-        F_2.set_callable_mapping(F_2s)
+            degree=F_degree, ncells=F_ncells, periodic=(False, False))
+        # A fresh DefinedMapping per patch whose callable IS the spline.
+        M_1, M_2 = F_1s.to_defined_mapping('F_1'), F_2s.to_defined_mapping('F_2')
+        assert M_1.is_analytical is False
+        Omega_1, Omega_2 = M_1(domain_log_1), M_2(domain_log_2)
+    else:
+        Omega_1, Omega_2 = F_1(domain_log_1), F_2(domain_log_2)
 
-    Omega_2 = F_2(domain_log_2)
+    connectivity = [((0, 1, -1), (1, 1, -1), 1)]
+    Omega = Domain.join([Omega_1, Omega_2], connectivity, 'domain')
 
-    # Join the patches
-    from sympde.topology import Domain
-    connectivity = [((0,1,-1),(1,1,-1), 1)]
-    patches = [Omega_1, Omega_2]
-    Omega = Domain.join(patches, connectivity, 'domain')
+    # ------------------------------------------------------------------ model
+    x, y     = Omega.coordinates
+    solution = x**2 + y**2
+    f        = -4
 
-    for map in [Omega_1.mapping, Omega_2.mapping]:
-        map_call = map.get_callable_mapping()
-        print(f'map_call = {map_call}, {type(map_call)}')
-        patch = Omega_1.interior
-        linspace_0 = np.linspace(patch.min_coords[0], patch.max_coords[0], 10, endpoint=True)
-        linspace_1 = np.linspace(patch.min_coords[1], patch.max_coords[1], 10, endpoint=True)
-
-        # if isolines:
-        mesh_grid = np.meshgrid(linspace_0, linspace_1, indexing='ij')
-
-        # print(f'mesh_grid: {type(mesh_grid)}, {len(mesh_grid)}')
-        # print(f'mesh_grid[0]: {type(mesh_grid[0])}, {len(mesh_grid[0])}, {mesh_grid[0].shape}')
-        # for map_Xd in map_call._fields:
-            # print(f'map_Xd = {map_Xd}, {type(map_Xd)}')
-
-        print(f'single point evaluation:')
-        XX, YY = map_call(1.1, 0.2)
-        # XX, YY = map_call(*mesh_grid)
-        print(f'XX = {XX}')
-        print(f'YY = {YY}')
-
-        print(f'array evaluation:')
-        eta_1 = np.array([0.1, 0.4])
-        eta_2 = np.array([0.2, 0.45])
-        try:
-            XX, YY = map_call(eta_1, eta_2)
-        except TypeError as err:
-            # Some callable mappings only support scalar evaluation.
-            if 'length-1 arrays' not in str(err):
-                raise
-            values = [map_call(float(e1), float(e2)) for e1, e2 in zip(eta_1, eta_2)]
-            XX = np.array([v[0] for v in values])
-            YY = np.array([v[1] for v in values])
-        print(f'XX = {XX}')
-        print(f'YY = {YY}')
-
-    # Simple visualization of the topological domain.
-    # The spline callable mapping used for the solve path may only support
-    # scalar evaluation, while plot_domain evaluates mappings on array grids.
-    # An AnalyticMapping is its own array-capable callable, so temporarily
-    # point each symbolic mapping back at itself for plotting, then restore.
-    _plot_backups = []
-    for _mapping in [Omega_1.mapping, Omega_2.mapping]:
-        _callable = _mapping.get_callable_mapping()
-        if isinstance(_callable, SplineMapping):
-            _plot_backups.append((_mapping, _callable))
-            _mapping.set_callable_mapping(_mapping)
-
-    try:
-        plot_domain(Omega, draw=False, isolines=True)
-    finally:
-        for _mapping, _callable in _plot_backups:
-            _mapping.set_callable_mapping(_callable)
-
-    from sympde.calculus import grad, dot
-    from sympde.calculus import minus, plus
-    from sympde.topology import Derham
-
-    from sympde.expr.expr          import LinearForm, BilinearForm
-    from sympde.expr.expr          import integral              
-    from sympde.expr.expr          import Norm                       
-    from sympde.expr               import find, EssentialBC
-
-    from sympde.topology import ScalarFunctionSpace
-    from sympde.topology import elements_of
-    from sympde.topology import NormalVector
-
-    from psydac.api.discretization import discretize
-    from psydac.api.settings import PSYDAC_BACKENDS
-
-    from    psydac.linalg.basic     import IdentityOperator
-    from    psydac.linalg.solvers   import inverse
-    from psydac.fem.plotting_utilities import plot_field_2d as plot_field
-
-    from psydac.fem.basic import FemField
-        
-        
-    # print(f'domain = {domain}, {type(domain)}')
-    # print(f'mapping = {domain.mapping}, {type(domain.mapping)}')
-
-    # Define the abstract model to solve Poisson's equation using the manufactured solution method
-    x,y       = Omega.coordinates
-    solution  = x**2 + y**2
-    f         = -4
-    
-    derham   = Derham(Omega, sequence=['h1', 'hcurl'])
-
-    V, V1, V2  = derham.spaces
-
-    # V   = ScalarFunctionSpace('V', Omega, kind=None)
-
+    V    = ScalarFunctionSpace('V', Omega, kind=None)
     u, v = elements_of(V, names='u, v')
     nn   = NormalVector('nn')
+    I    = Omega.interfaces
+    bnd  = Omega.boundary
+    kappa = 1e3
 
-#     bc   = EssentialBC(u, solution, Omega.boundary)
+    expr_I = (- 0.5*dot(grad(plus(u)), nn)*minus(v)  + 0.5*dot(grad(minus(v)), nn)*plus(u)  - kappa*plus(u)*minus(v)
+              + 0.5*dot(grad(minus(u)), nn)*plus(v)  - 0.5*dot(grad(plus(v)), nn)*minus(u)  - kappa*plus(v)*minus(u)
+              - 0.5*dot(grad(minus(v)), nn)*minus(u) - 0.5*dot(grad(minus(u)), nn)*minus(v) + kappa*minus(u)*minus(v)
+              + 0.5*dot(grad(plus(v)), nn)*plus(u)   + 0.5*dot(grad(plus(u)), nn)*plus(v)   + kappa*plus(u)*plus(v))
+    expr_b = -dot(grad(u), nn)*v - dot(grad(v), nn)*u + kappa*u*v
 
-    error  = u - solution
+    a = BilinearForm((u, v), integral(Omega, dot(grad(u), grad(v)))
+                             + integral(I, expr_I) + integral(bnd, expr_b))
+    l = LinearForm(v, integral(Omega, f*v)
+                      + integral(bnd, -dot(grad(v), nn)*solution + kappa*solution*v))
+    equation = find(u, forall=v, lhs=a(u, v), rhs=l(v))
+    l2norm   = Norm(u - solution, Omega, kind='l2')
 
-    I = Omega.interfaces
-
-    kappa  = 10**3
-
-    expr_I =- 0.5*dot(grad(plus(u)),nn)*minus(v)  + 0.5*dot(grad(minus(v)),nn)*plus(u)  - kappa*plus(u)*minus(v)\
-            + 0.5*dot(grad(minus(u)),nn)*plus(v)  - 0.5*dot(grad(plus(v)),nn)*minus(u)  - kappa*plus(v)*minus(u)\
-            - 0.5*dot(grad(minus(v)),nn)*minus(u) - 0.5*dot(grad(minus(u)),nn)*minus(v) + kappa*minus(u)*minus(v)\
-            + 0.5*dot(grad(plus(v)),nn)*plus(u)   + 0.5*dot(grad(plus(u)),nn)*plus(v)   + kappa*plus(u)*plus(v)
-
-    expr   = dot(grad(u),grad(v))
-
-    a = BilinearForm((u,v),  integral(Omega, expr) + integral(I, expr_I))
-#     a = BilinearForm((u,v),  integral(Omega, expr))
-    l = LinearForm(v, integral(Omega, f*v))
-
-#     equation = find(u, forall=v, lhs=a(u,v), rhs=l(v), bc=bc)
-
-    l2norm = Norm(error, Omega, kind='l2')
-    h1norm = Norm(error, Omega, kind='h1')
-
+    # --------------------------------------------------------------- discretize
     backend = PSYDAC_BACKENDS['python']
+    if spline_mapping:
+        # No filename / ncells: Omega carries its own discrete geometry.
+        # degree / ncells are taken from the spline spaces (F_degree, F_ncells).
+        Omega_h = discretize(Omega)
+        Vh      = discretize(V, Omega_h)
+    else:
+        Omega_h = discretize(Omega, ncells=[10, 10], periodic=[False, False])
+        Vh      = discretize(V, Omega_h, degree=[2, 2])
 
-    # Uncomment to use OpenMp
-    # import os
-    # os.environ['OMP_NUM_THREADS'] = "4"
-    # backend['omp'] = True
+    equation_h = discretize(equation, Omega_h, [Vh, Vh], backend=backend)
+    l2norm_h   = discretize(l2norm,   Omega_h, Vh, backend=backend)
 
-    ncells = [10, 10]
-    degree = [2, 2]
-    periodic = [False, False]
+    uh       = equation_h.solve()
+    l2_error = float(l2norm_h.assemble(u=uh))
+    print(f'test_poisson_mapping[spline_mapping={spline_mapping}]: L2 error = {l2_error:.2e}')
 
-    nquads = [p + 1 for p in degree]
-
-    # MPI version
-    # from mpi4py import MPI
-    # comm = MPI.COMM_WORLD
-    # Omega_h = discretize(Omega, ncells=ncells, comm=comm)
-    Omega_h = discretize(Omega, ncells=ncells, periodic=periodic)
-
-    derham_h = discretize(derham, Omega_h, degree=degree)
-    Vh, V1h, V2h = derham_h.spaces
-    # Vh        = discretize(V, Omega_h, degree=degree)
-
-    # Discrete bilinear forms
-    print(f'discretization of the bilinear form...')    
-    a_h = discretize(a, Omega_h, (Vh, Vh), nquads=nquads, backend=backend)
-    b_h = discretize(l, Omega_h, Vh, nquads=nquads, backend=backend)
-
-    # Mass matrices (StencilMatrix or BlockLinearOperator objects)
-    print(f'assembling of the matrix...')    
-    A_pw = a_h.assemble()
-    B = b_h.assemble()
-
-    DP0, DP1, _ = derham_h.dirichlet_projectors(kind='linop')
-    I0             = IdentityOperator(Vh.coeff_space)
-
-    print(f'defining the inverse discrete operator...')
-    A = DP0 @ A_pw @ DP0 + kappa * (I0 - DP0)
-    A_inv = inverse(A, 'cg', maxiter=1000, tol=1e-15)
-
-    uh_c = A_inv @ (DP0 @ B)
-
-    uh = FemField(Vh, coeffs=uh_c)
-    plot_field(fem_field=uh, domain=Omega, title='Poisson solution uh', hide_plot=False, filename=f'poisson_uh_splinemap={spline_mapping}.png')
+    return Omega, uh, l2_error
 
 
 def test_poisson_2d_single_patch_discrete_mapping():
+    _, _, l2_error = _solve_poisson_2d_single_patch_discrete_mapping()
+    assert l2_error < 1e-4
+
+
+def _solve_poisson_2d_single_patch_discrete_mapping():
     # WP07b: a Poisson solve on a *single-patch* domain whose mapping is a
     # DiscreteMapping wrapping a SplineMapping (is_analytical=False), i.e.
     # psydac assembles the geometry via grid evaluation of the spline -- the
     # same path as Domain.from_file, but built in memory. Manufactured solution
     # x**2 + y**2 on a spline-approximated quarter annulus.
+    #
+    # Returns (Omega, uh, l2_error) -- see _solve_poisson_mapping.
     from sympy import pi
 
     from sympde.calculus       import grad, dot
@@ -310,16 +219,24 @@ def test_poisson_2d_single_patch_discrete_mapping():
     uh = eqh.solve()
     l2_error = float(l2h.assemble(u=uh))
     print(f'single-patch DiscreteMapping Poisson: L2 error = {l2_error:.2e}')
-    assert l2_error < 1e-4
+
+    return Omega, uh, l2_error
 
 
 def test_poisson_2d_two_patch_discrete_mapping():
+    _, _, l2_error = _solve_poisson_2d_two_patch_discrete_mapping()
+    assert l2_error < 1e-3
+
+
+def _solve_poisson_2d_two_patch_discrete_mapping():
     # WP07c-1: a coupled (interface-term) Poisson solve on a *two-patch* domain
     # whose patches are DiscreteMappings wrapping SplineMappings. Omega_h comes
     # straight from `discretize(Omega)` -- no filename, no ncells: the domain
     # carries its own discrete geometry, and Geometry.from_discrete_domain wires
     # the coefficient-space interface connectivity. SIPG interface + Nitsche
     # boundary, manufactured solution x**2 + y**2 on a spline half-annulus.
+    #
+    # Returns (Omega, uh, l2_error) -- see _solve_poisson_mapping.
     from sympy import pi
 
     from sympde.calculus       import grad, dot, minus, plus
@@ -381,12 +298,40 @@ def test_poisson_2d_two_patch_discrete_mapping():
     uh = eqh.solve()
     l2_error = float(l2h.assemble(u=uh))
     print(f'two-patch DiscreteMapping Poisson: L2 error = {l2_error:.2e}')
-    assert l2_error < 1e-3
+
+    return Omega, uh, l2_error
 
 
 if __name__ == '__main__':
-    for spline_mapping in [True, False]:
+    # Run directly (`python test_spline_mapping_2d.py`) to solve and,
+    # optionally, plot each of the Poisson problems above -- handy for
+    # deriving a documentation example from this file. Plotting is off by
+    # default so a plain run needs no display; flip PLOT to True (or set
+    # MPLBACKEND to an interactive backend) to pop up the figures.
+    PLOT = False
+
+    solutions = []
+    for spline_mapping in [False, True]:
         print(f'Running test_poisson_mapping with spline_mapping={spline_mapping}')
-        test_poisson_mapping(spline_mapping=spline_mapping)
-    test_poisson_2d_single_patch_discrete_mapping()
-    test_poisson_2d_two_patch_discrete_mapping()
+        Omega, uh, l2_error = _solve_poisson_mapping(spline_mapping)
+        solutions.append((f'poisson_mapping[spline_mapping={spline_mapping}]', Omega, uh))
+
+    Omega, uh, l2_error = _solve_poisson_2d_single_patch_discrete_mapping()
+    solutions.append(('poisson_2d_single_patch_discrete_mapping', Omega, uh))
+
+    Omega, uh, l2_error = _solve_poisson_2d_two_patch_discrete_mapping()
+    solutions.append(('poisson_2d_two_patch_discrete_mapping', Omega, uh))
+
+    if PLOT:
+        from psydac.fem.plotting_utilities import plot_field_2d as plot_field
+        for title, Omega, uh in solutions:
+            try:
+                plot_field(fem_field=uh, domain=Omega, title=title, hide_plot=False)
+            except TypeError as e:
+                # plot_field_2d evaluates the mapping on an array grid; a bare
+                # SplineMapping (behind a DiscreteMapping) only supports scalar
+                # evaluation for some single-patch pushforwards -- see the
+                # "Plotting gotcha" in refactor/new_mapping_classes.md Sec 4.5.
+                # Not fixed here: skip rather than crash the rest of the run.
+                print(f'{title}: could not plot ({e}); see '
+                     'new_mapping_classes.md Sec 4.5 (spline array evaluation).')
