@@ -13,7 +13,13 @@ from psydac.fem.tensor import TensorFemSpace
 
 def print_map_polar_coeffs(map_discrete):
     """
-    Used for debugging purposes. Prints information about discrete polar coefficients
+    Used for debugging purposes. Prints information about discrete
+    polar coefficients
+
+    Parameters
+    ----------
+    map_discrete : psydac.mapping.discrete.SplineMapping
+        Discrete spline mapping whose coefficients are inspected.
     """
     # Print spline mapping
     print("Spline mapping:")
@@ -68,6 +74,13 @@ def check_regular_ring_map(map_discrete, verbose=False):
     3. the 1st ring is uniformly spaced in angle
     and prints diagnostic information. Used for debugging purposes.
 
+    Parameters
+    ----------
+    map_discrete : psydac.mapping.discrete.SplineMapping
+        Discrete spline mapping whose coefficients are inspected.
+
+    verbose : bool, default False
+        Print diagnostic information if True.
     """
     n_s = map_discrete._fields[0]._space._spaces[0]._nbasis
     n_theta = map_discrete._fields[0]._space._spaces[1]._nbasis
@@ -124,6 +137,23 @@ def check_regular_ring_map(map_discrete, verbose=False):
 
 
 def add_colorbar(im, ax, **kwargs):
+    """
+    Add a colorbar to the right of an axes.
+
+    Parameters
+    ----------
+    im : matplotlib.cm.ScalarMappable
+        Mappable object associated with the plot
+    ax : matplotlib.axes.Axes
+        Axes to which the colorbar is attached.
+    **kwargs
+        Additional keyword arguments passed to ``Figure.colorbar``.
+
+    Returns
+    -------
+    matplotlib.colorbar.Colorbar
+        The created colorbar.
+    """
     from mpl_toolkits.axes_grid1 import make_axes_locatable
 
     divider = make_axes_locatable(ax)
@@ -136,6 +166,19 @@ def create_tensor_spline_space(ncells, spline_degrees, periodic, bounds, mpi_com
     """
     Create a 2D tensor-product spline finite element space on a rectangular
     logical domain (e.g. with bounds ``[[0, R], [0, 2*pi]]``).
+
+    Parameters
+    -------
+    ncells : sequence of int
+        Number of cells in 2D spline space in each direction.
+    spline_degrees: sequence of int
+        Degree of the spline space in each direction.
+    periodic : sequence of bool
+        Periodicity of spline space in each direction.
+    bounds : sequence of sequence of float
+        Lower and upper bounds of the logical domain in each direction.
+    mpi_comm : mpi4py.MPI.Comm, optional
+        MPI communicator used for the domain decomposition.
 
     Returns
     -------
