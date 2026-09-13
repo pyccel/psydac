@@ -171,7 +171,21 @@ def gather_vlen_arrays(arrays, mpi_comm, mpi_root=0):
 def gather_vlen_array(v, mpi_comm, mpi_root=0):
     """Gather 1D arrays of possibly different lengths onto root process
     Other processes return None
-    Local arrays must be of the same type
+
+    Parameters
+    ----------
+    v : array_like
+        Local 1D array. All ranks must use the same dtype.
+    mpi_comm : mpi4py.MPI.Comm
+        MPI communicator.
+    mpi_root : int, default=0
+        Rank of root process in MPI communicator.
+
+    Returns
+    -------
+    numpy.ndarray or None
+        Gathered 1D array on root. None on the other processes.
+
     """
 
     result = gather_vlen_arrays((v,), mpi_comm, mpi_root=mpi_root)
