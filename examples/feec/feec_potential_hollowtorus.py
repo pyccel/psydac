@@ -1,0 +1,636 @@
+import  os
+import  time
+import  argparse
+
+import  numpy                       as np
+from    mpi4py                      import MPI
+
+from    scipy.sparse                import bmat, csc_matrix
+from    scipy.sparse.linalg         import inv
+from    scipy.sparse.linalg         import spsolve, eigsh
+
+from    sympde.topology             import Cube, Mapping, Derham, Domain
+from    sympde.topology             import Union, NormalVector
+from    sympde.calculus             import inner, cross
+from    sympde.expr                 import integral, BilinearForm
+from    sympde.topology             import elements_of
+
+from    psydac.mapping.discrete     import SplineMapping
+from    psydac.cad.geometry         import Geometry
+from    psydac.api.discretization   import discretize
+from    psydac.api.settings         import PSYDAC_BACKEND_GPYCCEL
+from    psydac.linalg.basic         import IdentityOperator, MatrixFreeLinearOperator
+from    psydac.linalg.solvers       import inverse
+from    psydac.api.postprocessing   import OutputManager, PostProcessManager
+from    psydac.ddm.cart             import DomainDecomposition
+from    psydac.fem.splines          import SplineSpace
+from    psydac.fem.tensor           import TensorFemSpace
+from    psydac.fem.basic            import FemField
+from    psydac.linalg.block         import BlockLinearOperator, BlockVectorSpace
+from    psydac.linalg.utilities     import array_to_psydac
+
+from    struphy                     import domains as str_domains
+from    struphy                     import equils as str_equils
+
+from    utils_harpo                 import *
+
+#==============================================================================
+
+def compute_and_save_fields(cavRad, minRad, majRad, vtu_file, params_name, mapping_name, ncells, degree, periodic, cor_tol):
+
+    save      = True
+    assert not os.path.exists(vtu_file)
+
+    # Print additional timing results
+    verbose               = True
+
+    # Tests
+    plot_domain           = False #True # 
+    convergence_info      = True
+    test_normal_harmonic  = True
+    test_tangent_harmonic = True
+    # ---------------------------------
+
+
+    # ----- Performance Settings -----
+    comm    = MPI.COMM_WORLD # not used
+    backend = PSYDAC_BACKEND_GPYCCEL
+    # --------------------------------
+
+
+    # ----- Mapping & Domain Definition -----
+    log_bounds1 = (0, 1)
+    log_bounds2 = (0, 1)
+    log_bounds3 = (0, 1)
+
+    logical_domain = Cube('C', bounds1=log_bounds1, bounds2=log_bounds2, bounds3=log_bounds3)
+    
+    use_struphy_mapping = mapping_name in ['str_hollow_torus', 'hollow_desc', 'hollow_gvec']
+
+    if use_struphy_mapping:
+        
+        # see https://struphy-hub.github.io/struphy/sections/domains.html
+
+        log_cavity_radius = cavRad/minRad
+        assert 0 <= log_cavity_radius < 1, f'log_cavity_radius should be in [0, 1) but got {log_cavity_radius}'
+
+        if mapping_name == 'hollow_desc':
+            str_domain = str_domains.DESCunit(str_equils.DESCequilibrium(rmin=log_cavity_radius, use_nfp=False))
+        elif mapping_name == 'hollow_gvec':
+            str_domain = str_domains.GVECunit(str_equils.GVECequilibrium(rmin=log_cavity_radius, use_nfp=False))
+        elif mapping_name == 'str_hollow_torus':
+            str_domain = str_domains.HollowTorus(a1=cavRad, a2=minRad, R0=majRad, tor_period=1) # HollowTorus domain from Struphy
+        else:
+            raise ValueError(f'Unknown mapping_name: {mapping_name}')
+
+        if plot_domain:
+            str_domain.show()
+
+        # Create a callable mapping object that implements BasicCallableMapping interface
+        struphy_callable_map = StruphyCallableMapping(
+            struphy_domain=str_domain,
+            logical_ldim=3,
+            physical_pdim=3,
+            normalize_factors=(1, 1, 1) # since str_domain is already defined on the unit cube, no normalization needed
+        )
+        
+        print(f'str_domain(.5, .5, .5)           = {str_domain(.5, .5, .5)}')
+        print(f'struphy_callable_map(.5, .5, .5) = {struphy_callable_map(.5, .5, .5)}')
+
+        # exit()
+        # print(f'struphy_callable_map.jacobian(.5, .5, .5) =\n{struphy_callable_map.jacobian(.5, .5, .5)}')
+
+        # Create uniform grid
+        grid_1 = np.linspace(*log_bounds1, num=ncells[0] + 1)
+        grid_2 = np.linspace(*log_bounds2, num=ncells[1] + 1)
+        grid_3 = np.linspace(*log_bounds3, num=ncells[2] + 1)
+
+        # Create 1D finite element spaces
+        V1 = SplineSpace(degree[0], grid=grid_1, periodic=periodic[0])
+        V2 = SplineSpace(degree[1], grid=grid_2, periodic=periodic[1])
+        V3 = SplineSpace(degree[2], grid=grid_3, periodic=periodic[2])
+
+        # Create 3D tensor product finite element space
+        domain_decomposition = DomainDecomposition(ncells, periodic) #comm=mpi_comm)
+        V = TensorFemSpace(domain_decomposition, V1, V2, V3)
+
+        # Now struphy_callable_map is a proper BasicCallableMapping object
+        map_discrete = SplineMapping.from_mapping(V, struphy_callable_map)
+
+        # Alternative:
+        # Create spline mapping by interpolation of analytical mapping
+        # pre_mapping = HollowTorus('HT', r=r)
+        # map_analytic = pre_mapping.get_callable_mapping()
+        # map_discrete = SplineMapping.from_mapping(V, map_analytic)
+        # Create symbolic mapping with callable mapping as spline
+        
+        # Create symbolic mapping with callable mapping as spline
+        mapping = Mapping('M', dim=3)
+        mapping.set_callable_mapping(map_discrete)
+
+        # In order to create a sympde.Domain object from this mapping we have
+        # to create first a HDF5 file and then load as sympde.Domain.fromfile
+
+        ## QUESTION: what is the logical domain here ? // how to specify it ??
+        geometry = Geometry.from_discrete_mapping(map_discrete, logical_domain=logical_domain) #, comm=mpi_comm)
+        geometry.export('geo.h5')
+        domain = Domain.from_file('geo.h5')
+
+        print(f'map_discrete(.5, .5, .5) = {map_discrete(.5, .5, .5)}')
+
+        # quit()
+
+    else:
+
+        if mapping_name == 'hollow_torus':
+            mapping = HollowTorusUnit('HTU', a1=cavRad, a2=minRad, R0=majRad)
+            domain = mapping(logical_domain)
+        else:
+            raise ValueError(f'Unknown mapping_name: {mapping_name}')
+
+        if plot_domain:
+            from sympde.utilities.utils import plot_domain as plot_domain_sympde
+            plot_domain_sympde(domain, draw=True, isolines=True)
+
+    dim_normal_harmonic_space = 1 # for HollowTorus domain
+    # ---------------------------------------
+
+
+    # ----- Symbolic Objects -----
+    boundary = Union(domain.get_boundary(0,-1), domain.get_boundary(0,1))
+    nn       = NormalVector('nn')
+
+    derham   = Derham(domain)
+
+    V0, V1, V2, V3 = derham.spaces
+
+    u0, v0 = elements_of(V0, names='u0, v0')
+    u1, v1 = elements_of(V1, names='u1, v1')
+    u2, v2 = elements_of(V2, names='u2, v2')
+    u3, v3 = elements_of(V3, names='u3, v3')
+
+    m0 = BilinearForm((u0, v0), integral(domain, u0*v0))
+    m1 = BilinearForm((u1, v1), integral(domain, inner(u1, v1)))
+    m2 = BilinearForm((u2, v2), integral(domain, inner(u2, v2)))
+    m3 = BilinearForm((u3, v3), integral(domain, u3*v3))
+    # ----------------------------
+
+
+    # ----- Psydac Discrete Objects -----
+    if use_struphy_mapping:
+        domain_h = discretize(domain, filename='geo.h5')
+        # V0_h = discretize(V0, domain_h)
+        # F = list(domain_h.mappings.values()).pop()
+    else:
+        domain_h = discretize(domain, ncells=ncells, periodic=periodic)#, comm=comm) <- causes problems when calling .tosparse()
+
+    derham_h = discretize(derham, domain_h, degree=degree)
+
+    V0h,  V1h,  V2h,  V3h  = derham_h.spaces
+    V0cs, V1cs, V2cs, V3cs = [Vh.coeff_space for Vh in derham_h.spaces]
+
+    t0 = time.time()
+    m0h = discretize(m0, domain_h, (V0h, V0h), backend=backend)
+    m1h = discretize(m1, domain_h, (V1h, V1h), backend=backend)
+    m2h = discretize(m2, domain_h, (V2h, V2h), backend=backend)
+    m3h = discretize(m3, domain_h, (V3h, V3h), backend=backend)
+    t_discretize = time.time() - t0
+
+    t0 = time.time()
+    M0 = m0h.assemble()
+    M1 = m1h.assemble()
+    M2 = m2h.assemble()
+    M3 = m3h.assemble()
+    t_assembly = time.time() - t0
+
+    G, C, D = derham_h.derivatives(kind='linop')
+
+    DP0, DP1, DP2, _ = derham_h.dirichlet_projectors(kind='linop')
+    I0, I1, I2       = [IdentityOperator(Vcs) for Vcs in [V0cs, V1cs, V2cs]]
+
+    M0_0     = DP0 @ M0 @ DP0 + (I0 - DP0)
+    M1_0     = DP1 @ M1 @ DP1 + (I1 - DP1)
+
+    t0 = time.time()
+    M0_0_pc, = derham_h.LST_preconditioners(M0=M0, hom_bc=True)
+    M1_0_pc, = derham_h.LST_preconditioners(M1=M1, hom_bc=True)
+    t_pc = time.time() - t0
+
+    inv_M0_0 = inverse(M0_0, 'CG', pc=M0_0_pc, maxiter=1000, tol=1e-15)
+    inv_M1_0 = inverse(M1_0, 'CG', pc=M1_0_pc, maxiter=1000, tol=1e-15)
+    # -----------------------------------
+
+
+    # ----- Scipy Discrete Objects -----
+    t0 = time.time()
+    M0_s = M0.tosparse()
+    M1_s = M1.tosparse()
+    M2_s = M2.tosparse()
+
+    G_s = G.tosparse()
+    C_s = C.tosparse()
+
+    DP0_s = DP0.tosparse()
+    DP1_s = DP1.tosparse()
+
+    I0_s = I0.tosparse()
+    I1_s = I1.tosparse()
+    t_sparse = time.time() - t0
+
+    M0_0_s     = DP0_s @ M0_s @ DP0_s + (I0_s - DP0_s)
+    t0 = time.time()
+    inv_M0_0_s = inv(M0_0_s.tocsc())
+    inv_M0_0_s.eliminate_zeros()
+    t_inv = time.time() - t0
+    # ----------------------------------
+
+
+    # ----- Psydac & Scipy 1-Hodge-Laplacian -----
+    # Psydac
+    S     = C.T @ M2 @ C + M1 @ G @ inv_M0_0 @ DP0 @ G.T @ M1
+    S_0   = DP1 @ S @ DP1 + (I1 - DP1)
+    # Scipy
+    S_s   = C_s.transpose() @ M2_s @ C_s + M1_s @ G_s @ inv_M0_0_s @ DP0_s @ G_s.transpose() @ M1_s
+    S_0_s = DP1_s @ S_s @ DP1_s + (I1_s - DP1_s)
+    # --------------------------------------------
+
+
+    # ----- Compute 0 Eigenvector of 1-Hodge-Laplacian -----
+    t0 = time.time()
+    eigenvalues, eigenvectors = get_eigenvalues(dim_normal_harmonic_space + 2, 1e-6, S_0_s, None)
+    t_evs = time.time() - t0
+    normal_harmonic_field = array_to_psydac(eigenvectors[:,0], V1cs)
+    Normal_harmonic_field = FemField(V1h, normal_harmonic_field)
+    # ------------------------------------------------------
+
+
+    # ----- Obtain Lifting Fields 1 & 2 corresponding to tunnels 1 & 2 -----
+    def get_lifting_field_1():
+        dim = V1cs.dimension
+        array = np.zeros(dim)
+
+        nx, ny, nz = ncells
+        px, py, pz = degree
+
+        Nx = nx+px
+        Ny = ny
+        Nz = nz
+
+        ix = 0
+        iz = 0
+
+        start = (Nx-1)*Ny*Nz + Nx*Ny*Nz
+        for iy in range(Ny):
+            index = start + ix*Ny*Nz + iy*Nz + iz
+            array[index] = 1
+
+        coeffs = array_to_psydac(array, V1cs)
+        return coeffs
+
+    def get_lifting_field_2():
+        dim = V1cs.dimension
+        array = np.zeros(dim)
+
+        nx, ny, nz = ncells
+        px, py, pz = degree
+
+        Nx = nx+px
+        Ny = ny
+        Nz = nz
+
+        iy = int(np.ceil((Ny-1)/2)) # corresponding to theta \approx pi
+        ix = Nx-1 # corresponding to r = r_max
+
+        start = (Nx-1)*Ny*Nz # corresponding to skipping all basis functions in the first component
+        for iz in range(Nz):
+            index = start + ix*Ny*Nz + iy*Nz + iz # corresponding to specific basis functions in the second component
+            array[index] = 1
+
+        coeffs = array_to_psydac(array, V1cs)
+        return coeffs
+
+    lifting_field_1 = get_lifting_field_1()
+    lifting_field_2 = get_lifting_field_2()
+
+    Lifting_field_1 = FemField(V1h, lifting_field_1)
+    Lifting_field_2 = FemField(V1h, lifting_field_2)
+    # ----------------------------------------------------------------------
+
+
+    # ----- Projection onto the space orthogonal to the normal harmonic field -----
+    norm_squared_nhf = normal_harmonic_field.inner(normal_harmonic_field)
+    dot = lambda x : x - (x.inner(normal_harmonic_field) / norm_squared_nhf) * normal_harmonic_field
+    P_H1 = MatrixFreeLinearOperator(domain=V1cs, codomain=V1cs, dot=dot, dot_transpose=dot)
+    # -----------------------------------------------------------------------------
+
+
+    # ----- Remove normal harmonic kernel of 1-Hodge-Laplacian -----
+    S_0_kernel_free = P_H1 @ S_0 @ P_H1 + (I1 - P_H1)
+    # --------------------------------------------------------------
+
+
+    # ----- Compute Correction Potentials 1 & 2 -----
+    #
+    # Solution of 1-Hodge-Laplace Problem with r.h.s. -curl curl lifting_field_i, i=1, 2
+    #
+    maxiter = 20000
+    inv_S_0_kernel_free = inverse(S_0_kernel_free, 'CG', maxiter=maxiter, tol=cor_tol)
+
+    rhs1 = -C.T @ M2 @ C @ lifting_field_1
+    rhs2 = -C.T @ M2 @ C @ lifting_field_2
+
+    rhs1_0 = P_H1 @ DP1 @ rhs1
+    rhs2_0 = P_H1 @ DP1 @ rhs2
+
+    t0 = time.time()
+    correction_field1 = inv_S_0_kernel_free @ rhs1_0
+    t1 = time.time()
+    info1 = inv_S_0_kernel_free.get_info()
+    t2 = time.time()
+    correction_field2 = inv_S_0_kernel_free @ rhs2_0
+    t3 = time.time()
+    info2 = inv_S_0_kernel_free.get_info()
+    if convergence_info:
+        print(f' Correction Field Convergence Stats')
+        print(f' Maxiter = {maxiter} - Tol = {cor_tol}')
+        print(f' Correction Field 1 obtained in {t1-t0:.3g}s')
+        print(f' {info1}')
+        print(f' Correction Field 2 obtained in {t3-t2:.3g}s')
+        print(f' {info2}')
+        print()
+    # -----------------------------------------------
+
+
+    # ----- Obtain Harmonic Vector Potentials 1 & 2 -----
+    harvepo1 = lifting_field_1 + correction_field1
+    harvepo2 = lifting_field_2 + correction_field2
+
+    Harvepo1 = FemField(V1h, harvepo1)
+    Harvepo2 = FemField(V1h, harvepo2)
+    # ---------------------------------------------------
+
+
+    # ----- Obtain & Normalize Tangent Harmonic Fields 1 & 2 -----
+    tangent_harmonic_field1 = C @ harvepo1
+    tangent_harmonic_field2 = C @ harvepo2
+
+    tangent_harmonic_field1 /= np.sqrt(M2.dot_inner(tangent_harmonic_field1, tangent_harmonic_field1))
+    tangent_harmonic_field2 /= np.sqrt(M2.dot_inner(tangent_harmonic_field2, tangent_harmonic_field2))
+
+    Tangent_harmonic_field1 = FemField(V2h, tangent_harmonic_field1)
+    Tangent_harmonic_field2 = FemField(V2h, tangent_harmonic_field2)
+    # ------------------------------------------------------------
+
+
+    # ----- Verify that normal_harmonic_field is in fact normal harmonic -----
+    if test_normal_harmonic:
+        weak_D = - inv_M0_0 @ DP0 @ G.T @ M1
+
+        normal_boundary_int = BilinearForm((u1, v1), integral(boundary, inner(cross(nn, u1), cross(nn, v1))))
+        normal_boundary_int_h = discretize(normal_boundary_int, domain_h, (V1h, V1h), backend=backend)
+        Normal_boundary_int = normal_boundary_int_h.assemble()
+
+        print(f' Test normal harmonic property')
+        a = normal_harmonic_field
+        l2_norm_normal_trace = np.sqrt(Normal_boundary_int.dot_inner(a, a))
+
+        diff               = a - DP1 @ a
+        l2_norm_projection = np.sqrt(M1.dot_inner(diff, diff))
+
+        curl_a        = C @ a
+        weak_div_a    = weak_D @ a
+
+        norm_curl     = np.sqrt(M2.dot_inner(curl_a, curl_a))
+        norm_weak_div = np.sqrt(M0.dot_inner(weak_div_a, weak_div_a))
+        print(f' || A \\times n ||_L2(boundary)      = {l2_norm_normal_trace:.3g}')
+        print(f' || A - DP1(A) ||_L2(domain)        = {l2_norm_projection:.3g}')
+        print(f' || curl A     ||_L2(domain)        = {norm_curl:.3g}')
+        print(f' || weak-div A ||_L2(domain)        = {norm_weak_div:.3g}')
+        print()
+    # ------------------------------------------------------------------------
+
+
+    # ----- Verify that both fields are in fact tangent harmonic -----
+    if test_tangent_harmonic:
+        weak_C = inv_M1_0 @ DP1 @ C.T @ M2
+
+        tangent_boundary_int = BilinearForm((u2, v2), integral(boundary, inner(u2, nn) * inner(v2, nn)))
+        tangent_boundary_int_h = discretize(tangent_boundary_int, domain_h, (V2h, V2h), backend=backend)
+        Tangent_boundary_int = tangent_boundary_int_h.assemble()
+
+        print(f' Test tangent harmonic property')
+        for b in (tangent_harmonic_field1, tangent_harmonic_field2):
+            l2_norm_tangent_trace = np.sqrt(Tangent_boundary_int.dot_inner(b, b))
+
+            diff               = b - DP2 @ b
+            l2_norm_projection = np.sqrt(M2.dot_inner(diff, diff))
+
+            div_b          = D @ b
+            weak_curl_b    = weak_C @ b
+
+            norm_div       = np.sqrt(M3.dot_inner(div_b, div_b))
+            norm_weak_curl = np.sqrt(M1.dot_inner(weak_curl_b, weak_curl_b))
+            print(f' || B.n   ||_L2(boundary)     = {l2_norm_tangent_trace:.3g}')
+            print(f' || B - DP2(B)  ||_L2(domain) = {l2_norm_projection:.3g}')
+            print(f' || div B       ||_L2(domain) = {norm_div:.3g}')
+            print(f' || weak-curl B ||_L2(domain) = {norm_weak_curl:.3g}')
+            print()
+    # ----------------------------------------------------------------
+
+
+    # ----- Export Fields and prepare for Paraview Visualization -----
+    if save:
+        save_fields = {
+            'Normal_harmonic_field'   : Normal_harmonic_field,
+            'Tangent_harmonic_field1' : Tangent_harmonic_field1,
+            'Tangent_harmonic_field2' : Tangent_harmonic_field2,
+            'Lifting_field_1'         : Lifting_field_1,
+            'Lifting_field_2'         : Lifting_field_2,
+            'Harvepo1'                : Harvepo1,
+            'Harvepo2'                : Harvepo2
+        }
+
+        os.makedirs('hollow_torus_output', exist_ok=True)
+        Om = OutputManager(
+            'hollow_torus_output/space_info.yml',
+            'hollow_torus_output/field_info.h5',
+            comm=comm,
+            save_mpi_rank=True, 
+            mode='w' 
+        )
+        Om.add_spaces(V1=V1h)
+        Om.add_spaces(V2=V2h)
+        Om.export_space_info()
+        Om.set_static()
+        Om.export_fields(**save_fields)
+        Om.close()
+
+        Pm = PostProcessManager(
+            domain=domain,
+            space_file=f'hollow_torus_output/space_info.yml',
+            fields_file=f'hollow_torus_output/field_info.h5',
+            comm=comm
+        )
+        Pm.export_to_vtk(
+            f'hollow_torus_output/{params_name}',
+            grid=None,
+            npts_per_cell=[6,6,6],
+            fields=save_fields.keys()
+        )
+        Pm.close()
+    # ----------------------------------------------------------------
+
+    # ----- Print Timings -----
+    if verbose:
+        txt  = f' Discretization : {t_discretize:.3g}\n'
+        txt += f' Assembly       : {t_assembly:.3g}\n'
+        txt += f' Preconditioner : {t_pc:.3g}\n'
+        txt += f' .tosparse()    : {t_sparse:.3g}\n'
+        txt += f' sparse inverse : {t_inv:.3g}\n'
+        txt += f' Eigenvectors   : {t_evs:.3g}'
+        print(txt)
+        print()
+    # -------------------------
+
+
+
+def visualize_with_pyvista(vtu_file):
+    
+    import pyvista as pv
+    assert os.path.exists(vtu_file), f'{vtu_file} not found. Please run with compute=True at least once to generate the .vtu files before visualizing with Pyvista.'
+    mesh = pv.read(vtu_file)
+    
+    # create a subset of arrows using the glyph filter
+    # arrows = mesh.glyph(tolerance=0.1) #scale='Normals', orient='Normals', tolerance=0.05)
+
+    # Fields to visualise: (dataset key, label for window title)
+    vector_fields = [
+        ('Normal_harmonic_field',   'Normal Harmonic Field'),
+        ('Tangent_harmonic_field1', 'Tangent Harmonic Field 1'),
+        ('Tangent_harmonic_field2', 'Tangent Harmonic Field 2'),
+        ('Harvepo1',                'Harmonic Vector Potential 1'),
+        ('Harvepo2',                'Harmonic Vector Potential 2'),
+    ]
+
+    print(f'Available point data fields in the mesh: {list(mesh.point_data.keys())}')
+    print(f'Available cell data fields in the mesh: {list(mesh.cell_data.keys())}')
+    print(f' active_vectors in mesh: {mesh.active_vectors}')
+    print(f' active_scalars in mesh: {mesh.active_scalars}')
+
+    for field_key, field_label in vector_fields:
+
+        print(f'Visualizing field "{field_key}"...')
+
+        if field_key not in mesh.point_data and field_key not in mesh.cell_data:
+            print(f'[pyvista] field "{field_key}" not found in {vtu_file}, skipping.')
+            continue
+
+        # compute magnitude for colouring (on the full mesh so the scalar range is consistent)
+        field_data = (mesh.point_data[field_key]
+                      if field_key in mesh.point_data
+                      else mesh.cell_data[field_key])
+        magnitude_name = field_key + '_magnitude'
+        mesh[magnitude_name] = np.linalg.norm(field_data, axis=1) if field_data.ndim == 2 else np.abs(field_data)
+
+        # re-clip so the new scalar array is present on the clipped mesh
+        clipped = mesh.clip(normal=(-1, 0, 0), origin=(0.2, 0, 0), invert=False)
+
+        print(f' new mesh     : {type(mesh)}')
+        print(f' clipped mesh : {type(clipped)}')
+        print(f' in mesh    : {mesh.array_names}')   # active_scalars.
+        print(f' in clipped mesh: {clipped.array_names}')
+
+        pl = pv.Plotter(window_size=(2000, 1700))
+        pl.add_mesh(clipped, scalars=magnitude_name, cmap='viridis',
+                    show_scalar_bar=True, scalar_bar_args={'title': '|' + field_label + '|'})
+
+        # Glyphs (arrows) on the clipped mesh — subsample to keep the plot readable
+        if field_key in clipped.point_data and clipped.point_data[field_key].ndim == 2:
+            idx = np.random.choice(clipped.n_points, min(2000, clipped.n_points), replace=False)
+            subsample = clipped.extract_points(idx)
+            subsample.set_active_vectors(field_key)
+            glyphs = subsample.glyph(orient=field_key, scale=field_key,
+                                     factor=0.15 / (mesh[magnitude_name].max() + 1e-30), tolerance=0.05)
+            pl.add_mesh(glyphs, color='white', opacity=0.7)
+
+        pl.add_text(field_label, font_size=12)
+        pl.set_position([1.5, -1.5, .5])
+        pl.set_viewup([0, 0, 1])
+        pl.show_bounds(
+            grid='front',
+            location='outer',
+            all_edges=True,
+        )        
+        pl.show(title=field_label)
+
+# ----------------------------------
+
+
+
+def main():
+
+    parser = argparse.ArgumentParser(description="Solver for vector potentials in a hollow torus domain using FEEC with Psydac")
+    parser.add_argument("--slv", action="store_true", help="Solve for the fields and save to .vtu (set to False to only visualize already computed results)")
+    parser.add_argument("--pyv", action="store_true", help="Show Pyvista visualizations of the fields (requires the .vtu files to be already generated)")
+    parser.add_argument("--map", default="hollow_torus", 
+                        help="Mapping name, possible values: 'hollow_torus', 'str_hollow_torus', 'hollow_desc', 'hollow_gvec'"
+                        )
+    parser.add_argument("--deg", type=int, default=2, help="Spline degree in each logical direction")
+    parser.add_argument("--nc", type=int, nargs=3, default=[4, 4, 4], help="nb of cells in each logical direction")
+    args = parser.parse_args()
+
+    # comm = MPI.COMM_WORLD
+
+
+    # ----- Parameters & Settings -----
+    # Domain Parameters
+    r        = 1.   # inner radius of the torus 
+    R        = 3.   # outer radius of the torus
+
+    minRad = (R-r)/2 # minor radius (radius of the tube)
+    majRad = (R+r)/2 # major radius (center of the tube)
+
+    cavRad   = 0.5 # radius of the toroidal cavity (the cavity has the same major radius as the torus itself)
+
+    assert cavRad < minRad, "the cavity must be smaller than the torus itself"
+
+    mapping_name = args.map  #'hollow_torus'
+    # mapping_name = 'str_hollow_torus'
+    # mapping_name = 'hollow_desc' # 'hollow_gvec'
+
+    # Discretization Parameters
+    ncells   = args.nc # [args.nc, args.nc, args.nc] # [4, 4, 4]         # number of cells in each direction
+    # ncells   = [8, 8, 8]         # number of cells in each direction
+    degree   = [args.deg, args.deg, args.deg] # [2, 2, 2]            # B-spline degree in each direction
+    periodic = [False, True, True] # periodicity of the domain
+
+    print(f'type(ncells) = {type(ncells)}, ncells = {ncells}')
+    print(f'type(degree) = {type(degree)}, degree = {degree}')
+
+    # Correction Potential Tolerance - defines the "accuracy" of the harmonic vector potential
+    cor_tol = 1e-12
+
+    # Save results (in particular also as .vtu)?
+    params_name = f'visu_{mapping_name}_cavRad{cavRad}_n{ncells[0]}_{ncells[1]}_{ncells[2]}_d{degree[0]}_tol{cor_tol}'
+    vtu_file = f'hollow_torus_output/{params_name}.static.vtu'
+
+    do_solve = args.slv # True # set to True to run the full example (computing the harmonic vector potentials), or False to only plot already computed results
+    do_pyv = args.pyv # set to True to show Pyvista visualizations of the fields (requires the .vtu files to be already generated by running with compute=True at least once)
+
+    if do_solve:
+        compute_and_save_fields(cavRad, minRad, majRad, vtu_file, params_name, mapping_name, ncells, degree, periodic, cor_tol)
+    else:
+        print(f'Skipping computation.')
+
+    if do_pyv:
+        visualize_with_pyvista(vtu_file)
+    else:
+        print(f'Skipping pyvista visualization.')
+    
+
+if __name__ == "__main__":
+    main()
+
+
+# example:
+# python feec_potential_hollowtorus.py --slv --pyv --map 'hollow_desc'
