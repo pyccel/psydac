@@ -169,7 +169,8 @@ def gather_vlen_arrays(arrays, mpi_comm, mpi_root=0):
 
 
 def gather_vlen_array(v, mpi_comm, mpi_root=0):
-    """Gather 1D arrays of possibly different lengths onto root process
+    """
+    Gather 1D arrays of possibly different lengths onto root process
     Other processes return None
 
     Parameters
@@ -185,7 +186,6 @@ def gather_vlen_array(v, mpi_comm, mpi_root=0):
     -------
     numpy.ndarray or None
         Gathered 1D array on root. None on the other processes.
-
     """
 
     result = gather_vlen_arrays((v,), mpi_comm, mpi_root=mpi_root)
