@@ -217,7 +217,7 @@ class GaussianInitialCondition(TESolution):
     x0, y0 : float
         Center of the Gaussian pulse in physical coordinates.
 
-    scale : float, optional
+    scale : float, default=1.0
         Amplitude scaling factor for the initial fields.
     """
 
