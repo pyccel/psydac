@@ -41,6 +41,16 @@ class Poisson2D(PolarModel2D):
     :code
     $(\partial^2_{xx} + \partial^2_{yy}) \phi(x,y) = -\rho(x,y)$
 
+    Parameters
+    ----------
+    domain_log : sympde.topology.Domain
+        Logical domain on which the solution is defined.
+    mapping : sympde.topology.Mapping
+        Mapping from the logical domain to the physical domain.
+    phi_log : sympy.Expr
+        Exact scalar potential in logical coordinates.
+    rho_log : sympy.Expr
+        Source term in logical coordinates.
     """
 
     def __init__(self, domain_log, mapping, phi_log, rho_log):
@@ -160,14 +170,6 @@ class Poisson2D(PolarModel2D):
         rho_log = -lapl(phi_log)
 
         return Poisson2D(domain_log, mapping, phi_log, rho_log)
-
-    @property
-    def domain_log(self):
-        return self._domain_log
-
-    @property
-    def mapping(self):
-        return self._mapping
 
     @property
     def phi_log(self):
