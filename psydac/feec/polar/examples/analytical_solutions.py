@@ -52,17 +52,17 @@ class CircularCavitySolution(TESolution):
     R : float
         domain radius
 
-    c: float
-        Speed of light in arbitrary units
+    c : float
+        Speed of light in arbitrary units.
 
-    (m, n): int
-        Mode number. Warning: m > 0, n >= 0
+    m, n : int
+        Mode number. Warning: m > 0, n >= 0.
 
-    D: float
-        shift of logical center (in "Target" mapping with c0=D*R2, c1=0, k=0, D=D)
+    D : float, default=0.0
+        Shift of logical center (in "Target" mapping with c0=D*R2, c1=0, k=0, D=D).
 
-    scale: float
-        Rescaling the values by a real factor. Default = 1
+    scale: float, default=1.0
+        Rescaling the values by a real factor.
 
     """
 
