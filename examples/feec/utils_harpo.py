@@ -8,16 +8,16 @@ from scipy.sparse               import bmat, csc_matrix
 from scipy.sparse.linalg        import inv
 from scipy.sparse.linalg        import spsolve, eigsh
 
-from    sympde.topology import Cube, Mapping, Derham, Domain, BasicCallableMapping
+from    sympde.topology import AnalyticMapping, BasicCallableMapping
 
-class HollowTorus(Mapping):
+class HollowTorus(AnalyticMapping):
     _expressions = {'x': '( r + (x1 - r) * cos(x3) ) * cos(x2)',
                     'y': '( r + (x1 - r) * cos(x3) ) * sin(x2)',
                     'z': '(x1 - r) * sin(x3)'}
     _ldim        = 3
     _pdim        = 3
 
-class HollowTorusUnit(Mapping):
+class HollowTorusUnit(AnalyticMapping):
     """
     The hollow torus mapping corresponding to the Struphy HollowTorus domain.
     It should be defined on the unit cube (0,1)^3, with logical coordinates 

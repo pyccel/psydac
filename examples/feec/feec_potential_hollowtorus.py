@@ -9,14 +9,13 @@ from    scipy.sparse                import bmat, csc_matrix
 from    scipy.sparse.linalg         import inv
 from    scipy.sparse.linalg         import spsolve, eigsh
 
-from    sympde.topology             import Cube, Mapping, Derham, Domain
+from    sympde.topology             import Cube, Derham
 from    sympde.topology             import Union, NormalVector
 from    sympde.calculus             import inner, cross
 from    sympde.expr                 import integral, BilinearForm
 from    sympde.topology             import elements_of
 
 from    psydac.mapping.discrete     import SplineMapping
-from    psydac.cad.geometry         import Geometry
 from    psydac.api.discretization   import discretize
 from    psydac.api.settings         import PSYDAC_BACKEND_GPYCCEL
 from    psydac.linalg.basic         import IdentityOperator, MatrixFreeLinearOperator
@@ -57,6 +56,9 @@ def compute_and_save_fields(cavRad, minRad, majRad, vtu_file, params_name, mappi
     backend = PSYDAC_BACKEND_GPYCCEL
     # --------------------------------
 
+    print(f'Computing harmonic fields for hollow torus with mapping = {mapping_name}, backend = {backend}, ncells = {ncells}, degree = {degree}') 
+
+    # exit()
 
     # ----- Mapping & Domain Definition -----
     log_bounds1 = (0, 1)
@@ -124,17 +126,12 @@ def compute_and_save_fields(cavRad, minRad, majRad, vtu_file, params_name, mappi
         # map_discrete = SplineMapping.from_mapping(V, map_analytic)
         # Create symbolic mapping with callable mapping as spline
         
-        # Create symbolic mapping with callable mapping as spline
-        mapping = Mapping('M', dim=3)
-        mapping.set_callable_mapping(map_discrete)
-
-        # In order to create a sympde.Domain object from this mapping we have
-        # to create first a HDF5 file and then load as sympde.Domain.fromfile
-
-        ## QUESTION: what is the logical domain here ? // how to specify it ??
-        geometry = Geometry.from_discrete_mapping(map_discrete, logical_domain=logical_domain) #, comm=mpi_comm)
-        geometry.export('geo.h5')
-        domain = Domain.from_file('geo.h5')
+        # A fresh DefinedMapping whose callable IS the spline -- no need to
+        # attach it after the fact to some other (analytic) mapping, and no
+        # HDF5 round-trip needed to get a sympde.Domain out of it: mapping is
+        # already a full SymbolicMapping, callable directly on logical_domain.
+        mapping = map_discrete.to_defined_mapping('M')
+        domain  = mapping(logical_domain)
 
         print(f'map_discrete(.5, .5, .5) = {map_discrete(.5, .5, .5)}')
 
@@ -178,7 +175,9 @@ def compute_and_save_fields(cavRad, minRad, majRad, vtu_file, params_name, mappi
 
     # ----- Psydac Discrete Objects -----
     if use_struphy_mapping:
-        domain_h = discretize(domain, filename='geo.h5')
+        # domain carries a spline DiscreteMapping -> dispatches to
+        # Geometry.from_discrete_domain, no filename/ncells needed.
+        domain_h = discretize(domain)
         # V0_h = discretize(V0, domain_h)
         # F = list(domain_h.mappings.values()).pop()
     else:
