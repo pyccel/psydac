@@ -21,48 +21,17 @@ from time import sleep, time
 import numpy as np
 from mpi4py import MPI
 from pyccel import lambdify
-from sympy import Matrix, Rational, cos, pi, sin, sqrt, symbols
+from sympy import Rational, cos, pi, sin, symbols
 
 from psydac.feec.polar.examples.polar_model_2d import PolarModel2D
 from psydac.linalg.basic import LinearOperator
 from psydac.linalg.stencil import StencilMatrix, StencilVector
+from psydac.utilities.operators import Laplacian
 
 
 # ==============================================================================
 # EXACT SOLUTION
 # ==============================================================================
-class Laplacian:
-    """
-    Symbolic Laplace operator associated with a mapping F from logical to physical coordinates.
-    Builds Laplacian in logical coordinates using the metric induced by F.
-    """
-
-    def __init__(self, mapping):
-        from sympde.topology.mapping import Mapping
-
-        assert isinstance(mapping, Mapping)
-
-        self._eta = mapping.logical_coordinates
-        self._metric = mapping.metric_expr
-        self._metric_det = mapping.metric_det_expr
-
-    def __call__(self, phi):
-
-        u = self._eta
-        G = self._metric
-        sqrt_g = sqrt(self._metric_det)
-
-        # Store column vector of partial derivatives of phi w.r.t. uj
-        dphi_du = Matrix([phi.diff(uj) for uj in u])
-
-        # Compute gradient of phi in tangent basis: A = G^(-1) dphi_du
-        A = G.LUsolve(dphi_du)
-
-        # Compute Laplacian of phi using formula for divergence of vector A
-        lapl = sum((sqrt_g * Ai).diff(ui) for ui, Ai in zip(u, A)) / sqrt_g
-
-        return lapl
-
 
 class Poisson2D(PolarModel2D):
     r"""
