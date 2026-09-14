@@ -18,40 +18,6 @@ NUM_DIMS_LOGICAL  = 3
 NUM_DIMS_PHYSICAL = 3
 
 #==============================================================================
-class Laplacian:
-
-    def __init__(self, mapping):
-
-        assert isinstance(mapping, Mapping)
-
-        sym = mapping
-
-        self._eta        = sym.logical_coordinates
-        self._metric     = sym.metric_expr
-        self._metric_det = sym.metric_det_expr
-
-    # ...
-    def __call__(self, phi):
-
-        from sympy import sqrt, Matrix
-
-        u      = self._eta
-        G      = self._metric
-        sqrt_g = sqrt( self._metric_det )
-
-        # Store column vector of partial derivatives of phi w.r.t. uj
-        dphi_du = Matrix( [phi.diff( uj ) for uj in u] )
-
-        # Compute gradient of phi in tangent basis: A = G^(-1) dphi_du
-        A = G.LUsolve( dphi_du )
-
-        # Compute Laplacian of phi using formula for divergence of vector A
-        lapl = sum( (sqrt_g*Ai).diff( ui ) for ui,Ai in zip( u,A ) ) / sqrt_g
-
-        return lapl
-
-
-#==============================================================================
 # Define the Spherical coordinate system
 class TargetTorusMapping(Mapping):
     """
