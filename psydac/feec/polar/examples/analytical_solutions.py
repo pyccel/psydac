@@ -268,13 +268,17 @@ class GaussianInitialCondition(TESolution):
 # =============================================================================
 # SCRIPT FUNCTIONALITY
 # =============================================================================
-def main(args):
+def main(solution_name):
     """
     Visualize an analytical solution of the 2D TE Maxwell problem.
     Plots the electric and magnetic fields in the physical domain
     and performs a consistency check of Faraday's law.
 
-    This function is not currently used. It is kept for possible future development.
+    Parameters
+    ----------
+    solution_name : str
+        Name of the analytical solution to visualize.
+        Must be either ``cavity`` or ``gaussian``.
     """
 
     # Set time
@@ -293,9 +297,9 @@ def main(args):
     m, n = (2, 3)
 
     # Exact solution
-    if args.solution == "cavity":
+    if solution_name == "cavity":
         exact_solution = CircularCavitySolution(R=R, c=c, m=m, n=n, scale=scale)
-    elif args.solution == "gaussian":
+    elif solution_name == "gaussian":
         exact_solution = GaussianInitialCondition(sigma=0.3, x0=0.2, y0=0.2, scale=scale)
 
     # Logical domain: [0, R] x [0, 2pi]
@@ -481,5 +485,5 @@ def parse_input_arguments():
 
 if __name__ == "__main__":
     args = parse_input_arguments()
-    main(args)
+    main(args.solution)
     plt.show()
