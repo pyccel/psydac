@@ -212,7 +212,7 @@ class GaussianInitialCondition(TESolution):
     Parameters
     ----------
     sigma : float
-        Width of the Gaussian pulse.
+        Width of the Gaussian pulse (> 0).
 
     x0, y0 : float
         Center of the Gaussian pulse in physical coordinates.
