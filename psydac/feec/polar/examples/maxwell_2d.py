@@ -200,6 +200,9 @@ def plot_field_and_error(name, t, x, y, field_h, field_ex, *gridlines, only_fiel
 
 
 def update_plot(fig, t, x, y, field_h, field_ex):
+    for ax in fig.axes:
+        for c in ax.collections:
+            c.remove()
     ax0, ax1, cax0, cax1 = fig.axes
     im0 = ax0.contourf(x, y, field_h, 50)
     im1 = ax1.contourf(x, y, field_ex - field_h, 50)
