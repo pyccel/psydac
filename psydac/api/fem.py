@@ -22,7 +22,7 @@ from psydac.linalg.stencil   import StencilVector, StencilMatrix, StencilInterfa
 from psydac.linalg.basic     import ComposedLinearOperator
 from psydac.linalg.block     import BlockVectorSpace, BlockVector, BlockLinearOperator
 from psydac.cad.geometry     import Geometry
-from psydac.mapping.discrete import NurbsMapping
+from psydac.mapping.discrete import NurbsCallableMapping
 from psydac.fem.vector       import VectorFemSpace
 from psydac.fem.basic        import FemField
 from psydac.fem.projectors   import knot_insertion_projection_operator
@@ -154,10 +154,10 @@ class DiscreteBilinearForm(BasicDiscrete):
         is_rational_mapping = False
         mapping_space       = None
         if (mapping is not None) and not isinstance(target, Interface):
-            is_rational_mapping = isinstance(mapping, NurbsMapping)
+            is_rational_mapping = isinstance(mapping, NurbsCallableMapping)
             mapping_space = mapping.space
         elif (mapping is not None) and isinstance(target, Interface):
-            is_rational_mapping = (isinstance(mapping[0], NurbsMapping), isinstance(mapping[1], NurbsMapping))
+            is_rational_mapping = (isinstance(mapping[0], NurbsCallableMapping), isinstance(mapping[1], NurbsCallableMapping))
             mapping_space = (mapping[0].space, mapping[1].space)
 
         self._is_rational_mapping = is_rational_mapping
@@ -958,7 +958,7 @@ class DiscreteLinearForm(BasicDiscrete):
             return
 
         if mapping is not None:
-            is_rational_mapping = isinstance(mapping, NurbsMapping)
+            is_rational_mapping = isinstance(mapping, NurbsCallableMapping)
             mapping_space = mapping.space
         else:
             is_rational_mapping = False
@@ -1371,7 +1371,7 @@ class DiscreteFunctional(BasicDiscrete):
             axis = None
 
         if mapping is not None:
-            is_rational_mapping = isinstance( mapping, NurbsMapping )
+            is_rational_mapping = isinstance( mapping, NurbsCallableMapping )
             mapping_space = mapping.space
         else:
             is_rational_mapping = False

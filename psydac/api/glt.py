@@ -24,7 +24,7 @@ from psydac.api.settings        import PSYDAC_BACKEND_PYTHON, PSYDAC_DEFAULT_FOL
 from psydac.api.grid            import CollocationBasisValues
 from psydac.api.utilities       import mkdir_p, touch_init_file, random_string, write_code
 from psydac.cad.geometry        import Geometry
-from psydac.mapping.discrete    import NurbsMapping
+from psydac.mapping.discrete    import NurbsCallableMapping
 from psydac.fem.tensor          import TensorFemSpace
 from psydac.fem.vector          import MultipatchFemSpace
 from psydac.api.printing.pycode import pycode
@@ -448,7 +448,7 @@ class DiscreteGltExpr(GltBasicCodeGen):
 
         is_rational_mapping = False
         if not( mapping is None ):
-            is_rational_mapping = isinstance( mapping, NurbsMapping )
+            is_rational_mapping = isinstance( mapping, NurbsCallableMapping )
 
         self._is_rational_mapping = is_rational_mapping
         # ...

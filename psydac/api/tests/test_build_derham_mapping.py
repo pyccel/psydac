@@ -3,7 +3,7 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-from psydac.mapping.discrete   import SplineMapping
+from psydac.mapping.discrete   import SplineCallableMapping
 from psydac.fem.splines        import SplineSpace
 from psydac.fem.tensor         import TensorFemSpace
 from psydac.ddm.cart           import DomainDecomposition
@@ -30,7 +30,7 @@ def test_build_derham_spline_mapping_id_1d(degree, ncells, periodic):
     nc1, = ncells
     periodic1, = periodic
 
-    # Spaces for the SplineMapping
+    # Spaces for the SplineCallableMapping
     V1 = SplineSpace( grid=np.linspace( 0, 1, num=nc1+1), degree=p1, periodic=periodic1 )
 
     domain_decomposition = DomainDecomposition([nc1], [periodic1])
@@ -39,7 +39,7 @@ def test_build_derham_spline_mapping_id_1d(degree, ncells, periodic):
     # Create the mapping
     map_symbolic = IdentityMapping(name = 'Id', dim = 1)
     map_analytic = map_symbolic.get_callable_mapping()
-    map_discrete = SplineMapping.from_mapping(tensor_space, map_analytic)
+    map_discrete = SplineCallableMapping.from_mapping(tensor_space, map_analytic)
     map_discrete.set_name("map")
 
     # Create the de Rham sequence
@@ -88,7 +88,7 @@ def test_build_derham_spline_mapping_id_2d(degree, ncells, periodic):
     nc1, nc2 = ncells
     periodic1, periodic2 = periodic
 
-    # Spaces for the SplineMapping
+    # Spaces for the SplineCallableMapping
     V1 = SplineSpace( grid=np.linspace( 0, 1, num=nc1+1), degree=p1, periodic=periodic1 )
     V2 = SplineSpace( grid=np.linspace( 0, 1, num=nc2+1), degree=p2, periodic=periodic2 )
 
@@ -98,7 +98,7 @@ def test_build_derham_spline_mapping_id_2d(degree, ncells, periodic):
     # Create the mapping
     map_symbolic = IdentityMapping(name = 'Id', dim = 2)
     map_analytic = map_symbolic.get_callable_mapping()
-    map_discrete = SplineMapping.from_mapping(tensor_space, map_analytic)
+    map_discrete = SplineCallableMapping.from_mapping(tensor_space, map_analytic)
 
     # Create the de Rham sequence
     name = '_' + str(nc1) + '_' + str(nc2) + '_' + str(p1) + '_' + str(p2)
@@ -150,7 +150,7 @@ def test_build_derham_spline_mapping_id_3d(degree, ncells, periodic):
     nc1, nc2, nc3 = ncells
     periodic1, periodic2, periodic3 = periodic
 
-    # Spaces for the SplineMapping
+    # Spaces for the SplineCallableMapping
     V1 = SplineSpace( grid=np.linspace( 0, 1, num=nc1+1), degree=p1, periodic=periodic1 )
     V2 = SplineSpace( grid=np.linspace( 0, 1, num=nc2+1), degree=p2, periodic=periodic2 )
     V3 = SplineSpace( grid=np.linspace( 0, 1, num=nc3+1), degree=p3, periodic=periodic3 )
@@ -161,7 +161,7 @@ def test_build_derham_spline_mapping_id_3d(degree, ncells, periodic):
     # Create the mapping
     map_symbolic = IdentityMapping(name = 'Id', dim = 3)
     map_analytic = map_symbolic.get_callable_mapping()
-    map_discrete = SplineMapping.from_mapping(tensor_space, map_analytic)
+    map_discrete = SplineCallableMapping.from_mapping(tensor_space, map_analytic)
     map_discrete.set_name("map")
 
     # Create the de Rham sequence

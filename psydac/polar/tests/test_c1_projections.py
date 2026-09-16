@@ -10,7 +10,7 @@ from mpi4py import MPI
 from sympde.topology.analytical_mapping import PolarMapping
 
 from psydac.polar.c1_projections import C1Projector
-from psydac.mapping.discrete     import SplineMapping
+from psydac.mapping.discrete     import SplineCallableMapping
 from psydac.linalg.stencil       import StencilVector, StencilMatrix
 from psydac.fem.splines          import SplineSpace
 from psydac.fem.tensor           import TensorFemSpace
@@ -58,7 +58,7 @@ def test_c1_projections(degrees, ncells, verbose=False):
     V = TensorFemSpace(domain_decomposition, V1, V2)
 
     # Spline mapping
-    map_discrete = SplineMapping.from_mapping(V, map_analytic.get_callable_mapping())
+    map_discrete = SplineCallableMapping.from_mapping(V, map_analytic.get_callable_mapping())
 
     # C1 projector
     proj = C1Projector(map_discrete)

@@ -15,7 +15,7 @@ from sympde.topology.analytical_mapping import (IdentityMapping, PolarMapping,
 
 from psydac.fem.splines      import SplineSpace
 from psydac.fem.tensor       import TensorFemSpace
-from psydac.mapping.discrete import SplineMapping
+from psydac.mapping.discrete import SplineCallableMapping
 from psydac.ddm.cart         import DomainDecomposition
 
 #==============================================================================
@@ -77,7 +77,7 @@ def discrete_mapping(mapping, ncells, degree, *,
                      comm = MPI.COMM_WORLD,
                      return_space = False):
     """
-    Create a SplineMapping by interpolating one of the available analytical mappings.
+    Create a SplineCallableMapping by interpolating one of the available analytical mappings.
 
     Parameters
     ----------
@@ -98,7 +98,7 @@ def discrete_mapping(mapping, ncells, degree, *,
 
     Returns
     -------
-    map_discrete : SplineMapping
+    map_discrete : SplineCallableMapping
         The spline mapping created.
 
     space : TensorFemSpace
@@ -204,7 +204,7 @@ def discrete_mapping(mapping, ncells, degree, *,
 
     # Create spline mapping by interpolating analytical one
     map_analytic = map_symbolic.get_callable_mapping()
-    map_discrete = SplineMapping.from_mapping(space, map_analytic)
+    map_discrete = SplineCallableMapping.from_mapping(space, map_analytic)
 
     if return_space:
         return map_discrete, space

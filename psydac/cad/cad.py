@@ -10,11 +10,11 @@ import numpy as np
 from psydac.fem.splines      import SplineSpace
 from psydac.fem.tensor       import TensorFemSpace
 from psydac.fem.basic        import FemField
-from psydac.mapping.discrete import SplineMapping, NurbsMapping
+from psydac.mapping.discrete import SplineCallableMapping, NurbsCallableMapping
 from psydac.ddm.cart         import DomainDecomposition
 
 #==============================================================================
-def translate(mapping : SplineMapping, displ : Iterable[float]):
+def translate(mapping : SplineCallableMapping, displ : Iterable[float]):
     """
     Translate a CAD geometry by a given vector displacement.
 
@@ -23,7 +23,7 @@ def translate(mapping : SplineMapping, displ : Iterable[float]):
 
     Parameters
     ----------
-    mapping : SplineMapping
+    mapping : SplineCallableMapping
         The discrete mapping to be translated, which represents a CAD geometry.
 
     displ : Iterable[float]
@@ -31,10 +31,10 @@ def translate(mapping : SplineMapping, displ : Iterable[float]):
 
     Returns
     -------
-    SplineMapping
+    SplineCallableMapping
         A new discrete mapping representing the translated geometry.
     """
-    assert isinstance(mapping, SplineMapping)
+    assert isinstance(mapping, SplineCallableMapping)
     assert isinstance(displ, Iterable)
 
     displ = np.array(displ)
@@ -55,7 +55,7 @@ def translate(mapping : SplineMapping, displ : Iterable[float]):
         field.coeffs[idx_to] = control_points[idx_from] + displ[i]
         field.coeffs.update_ghost_regions()
 
-    return SplineMapping(*fields)
+    return SplineCallableMapping(*fields)
 
 #==============================================================================
 def elevate(mapping, axis, times):
@@ -70,7 +70,7 @@ def elevate(mapping, axis, times):
     except:
         raise ImportError('Could not find igakit.')
 
-    assert( isinstance(mapping, (SplineSpace, NurbsMapping)) )
+    assert( isinstance(mapping, (SplineSpace, NurbsCallableMapping)) )
     assert( isinstance(times, int) )
     assert( isinstance(axis, int) )
 
@@ -86,7 +86,7 @@ def elevate(mapping, axis, times):
         points[...,i] = f._coeffs.toarray().reshape(shape)
 
     weights = None
-    if isinstance(mapping, NurbsMapping):
+    if isinstance(mapping, NurbsCallableMapping):
         weights = mapping._weights_field._coeffs.toarray().reshape(shape)
 
         for i in range(pdim):
@@ -107,7 +107,7 @@ def elevate(mapping, axis, times):
     for i,field in enumerate( fields ):
         idx_from = tuple(list(idx_to)+[i])
         idw_from = tuple(idx_to)
-        if isinstance(mapping, NurbsMapping):
+        if isinstance(mapping, NurbsCallableMapping):
             field.coeffs[idx_to] = nrb.points[idx_from] * nrb.weights[idw_from]
 
         else:
@@ -115,7 +115,7 @@ def elevate(mapping, axis, times):
 
         field.coeffs.update_ghost_regions()
 
-    if isinstance(mapping, NurbsMapping):
+    if isinstance(mapping, NurbsCallableMapping):
         weights_field = FemField( space )
 
         idx_from = idx_to
@@ -124,9 +124,9 @@ def elevate(mapping, axis, times):
 
         fields.append( weights_field )
 
-        return NurbsMapping( *fields )
+        return NurbsCallableMapping( *fields )
 
-    return SplineMapping( *fields )
+    return SplineCallableMapping( *fields )
 
 
 #==============================================================================
@@ -143,7 +143,7 @@ def refine(mapping, axis, values):
     except:
         raise ImportError('Could not find igakit.')
 
-    assert( isinstance(mapping, (SplineSpace, NurbsMapping)) )
+    assert( isinstance(mapping, (SplineSpace, NurbsCallableMapping)) )
     assert( isinstance(values, (list, tuple)) )
     assert( isinstance(axis, int) )
 
@@ -159,7 +159,7 @@ def refine(mapping, axis, values):
         points[...,i] = f._coeffs.toarray().reshape(shape)
 
     weights = None
-    if isinstance(mapping, NurbsMapping):
+    if isinstance(mapping, NurbsCallableMapping):
         weights = mapping._weights_field._coeffs.toarray().reshape(shape)
 
         for i in range(pdim):
@@ -185,13 +185,13 @@ def refine(mapping, axis, values):
     for i,field in enumerate( fields ):
         idx_from = tuple(list(idx_to)+[i])
         idw_from = tuple(idx_to)
-        if isinstance(mapping, NurbsMapping):
+        if isinstance(mapping, NurbsCallableMapping):
             field.coeffs[idx_to] = nrb.points[idx_from] * nrb.weights[idw_from]
 
         else:
             field.coeffs[idx_to] = nrb.points[idx_from]
 
-    if isinstance(mapping, NurbsMapping):
+    if isinstance(mapping, NurbsCallableMapping):
         weights_field = FemField( space )
 
         idx_from = idx_to
@@ -200,9 +200,9 @@ def refine(mapping, axis, values):
 
         fields.append( weights_field )
 
-        return NurbsMapping( *fields )
+        return NurbsCallableMapping( *fields )
 
-    return SplineMapping( *fields )
+    return SplineCallableMapping( *fields )
 
 
 

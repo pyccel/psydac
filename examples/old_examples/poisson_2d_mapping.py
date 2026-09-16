@@ -20,7 +20,7 @@ from psydac.linalg.solvers       import inverse
 from psydac.fem.splines          import SplineSpace
 from psydac.fem.tensor           import TensorFemSpace
 from psydac.fem.basic            import FemField
-from psydac.mapping.discrete     import SplineMapping
+from psydac.mapping.discrete     import SplineCallableMapping
 from psydac.utilities.utils      import refine_array_1d
 from psydac.cad.geometry         import Geometry
 from psydac.ddm.cart             import DomainDecomposition
@@ -660,7 +660,7 @@ def main(*, test_case, ncells, degree, nquads,
     map_analytic = model.mapping
 
     if use_spline_mapping:
-        map_discrete = SplineMapping.from_mapping(V, map_analytic)
+        map_discrete = SplineCallableMapping.from_mapping(V, map_analytic)
         # Write discrete geometry to HDF5 file
         t0 = time()
         geometry = Geometry.from_discrete_mapping(map_discrete, comm=mpi_comm)

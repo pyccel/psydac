@@ -10,7 +10,7 @@ from psydac.api.discretization  import discretize
 from sympde.topology            import ScalarFunctionSpace
 from sympde.topology            import Square
 from sympde.topology            import AnalyticMapping
-from psydac.mapping.discrete    import SplineMapping
+from psydac.mapping.discrete    import SplineCallableMapping
 from psydac.feec.pushforward    import Pushforward
 
 def test_basic_call():
@@ -38,7 +38,7 @@ def test_basic_call():
     grid_x1 = hat_V0_h.breaks[0]
     grid_x2 = hat_V0_h.breaks[1]
 
-    F = SplineMapping.from_mapping(hat_V0_h, mapping.get_callable_mapping())    
+    F = SplineCallableMapping.from_mapping(hat_V0_h, mapping.get_callable_mapping())    
     Pushforward(grid=(grid_x1, grid_x2), mapping=F, grid_type=0)
 
     F = mapping   

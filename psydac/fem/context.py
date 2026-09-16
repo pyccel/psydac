@@ -10,7 +10,7 @@ import yaml
 from psydac.fem.basic        import FemField
 from psydac.fem.splines      import SplineSpace
 from psydac.fem.tensor       import TensorFemSpace
-from psydac.mapping.discrete import SplineMapping
+from psydac.mapping.discrete import SplineCallableMapping
 
 __all__ = ('fem_context',)
 
@@ -33,7 +33,7 @@ def fem_context( filename, comm=MPI.COMM_WORLD ):
     w : TensorFemSpace
       Tensor-product spline space.
 
-    m : SplineMapping
+    m : SplineCallableMapping
       Tensor-product spline mapping.
 
     """
@@ -67,7 +67,7 @@ def fem_context( filename, comm=MPI.COMM_WORLD ):
                     for p,k,b in zip( degree, knots, periodic )]
 
         tensor_space = TensorFemSpace( *spaces, comm=comm )
-        mapping      = SplineMapping.from_control_points( tensor_space, patch['points'] )
+        mapping      = SplineCallableMapping.from_control_points( tensor_space, patch['points'] )
 
         h5.close()
         return tensor_space, mapping

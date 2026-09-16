@@ -17,7 +17,7 @@ from psydac.api.settings      import PSYDAC_BACKEND_PYTHON
 from psydac.api.grid          import CollocationBasisValues
 from psydac.api.ast.expr      import ExprKernel, ExprInterface
 from psydac.cad.geometry      import Geometry
-from psydac.mapping.discrete  import NurbsMapping
+from psydac.mapping.discrete  import NurbsCallableMapping
 from psydac.fem.vector        import MultipatchFemSpace
 
 __all__ = ('DiscreteExpr',)
@@ -43,7 +43,7 @@ class DiscreteExpr(BasicCodeGen):
 
         is_rational_mapping = False
         if not( mapping is None ):
-            is_rational_mapping = isinstance( mapping, NurbsMapping )
+            is_rational_mapping = isinstance( mapping, NurbsCallableMapping )
 
         self._is_rational_mapping = is_rational_mapping
         # ...

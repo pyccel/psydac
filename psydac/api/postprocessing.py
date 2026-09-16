@@ -26,7 +26,7 @@ from psydac.cad.geometry       import Geometry
 from psydac.fem.basic          import FemSpace, FemField
 from psydac.fem.tensor         import TensorFemSpace
 from psydac.fem.vector         import VectorFemSpace
-from psydac.mapping.discrete   import SplineMapping
+from psydac.mapping.discrete   import SplineCallableMapping
 from psydac.core.bsplines      import cell_index, elevate_knots
 from psydac.feec.pushforward   import Pushforward
 from psydac.utilities.utils    import refine_array_1d
@@ -1722,7 +1722,7 @@ class PostProcessManager:
                 i_name_i: {} for i_name_i in self._available_patches}
         for (interior_name, i_patch), space_dict in interior_to_dict_fields.items():
             mapping = self._mappings[interior_name]
-            assert isinstance(mapping, (SymbolicMapping, SplineMapping)) or mapping is None
+            assert isinstance(mapping, (SymbolicMapping, SplineCallableMapping)) or mapping is None
 
             i_mesh_info, i_point_data, i_mpi_dd = self._compute_single_patch(
                 interior_name=interior_name,
@@ -1983,7 +1983,7 @@ class PostProcessManager:
         interior_name : str
             Name of the current patch
 
-        mapping : Sympde.topology.Mapping or psydac.mapping.discrete.SplineMapping or None
+        mapping : Sympde.topology.Mapping or psydac.mapping.discrete.SplineCallableMapping or None
             Mapping of the patch
 
         space_dict : dict
@@ -2174,7 +2174,7 @@ class PostProcessManager:
         interior_name : str
             Name of the current patch
 
-        mapping : SymPDE.topology.Mapping or psydac.mapping.discrete.SplineMapping or None
+        mapping : SymPDE.topology.Mapping or psydac.mapping.discrete.SplineCallableMapping or None
             Mapping of the current patch
 
         space_dict : dict
@@ -2195,11 +2195,11 @@ class PostProcessManager:
         # Shortcut
         ldim = self._domain_h.ldim
         # Option 1 : mapping is a Spline Mapping -> Use its FemSpace
-        if isinstance(mapping, SplineMapping):
+        if isinstance(mapping, SplineCallableMapping):
             local_domain = mapping.space.local_domain
             global_ends = tuple(nc_i - 1 for nc_i in list(mapping.space.ncells))
             breaks = mapping.space.breaks
-        elif hasattr(mapping, 'callable_mapping') and isinstance(mapping.get_callable_mapping(), SplineMapping):
+        elif hasattr(mapping, 'callable_mapping') and isinstance(mapping.get_callable_mapping(), SplineCallableMapping):
             c_m = mapping.get_callable_mapping()
             local_domain = c_m.space.local_domain
             global_ends = tuple(nc_i - 1 for nc_i in list(c_m.space.ncells))
@@ -2253,7 +2253,7 @@ class PostProcessManager:
 
         Parameters
         ----------
-        mapping : SymPDE.topology.Mapping or psydac.mapping.discrete.SplineMapping or None
+        mapping : SymPDE.topology.Mapping or psydac.mapping.discrete.SplineCallableMapping or None
             Mapping of the current patch
 
         grid : list of array_like
@@ -2301,7 +2301,7 @@ class PostProcessManager:
         TypeError
             If mapping is not of one of the types defined above.
         """
-        if isinstance(mapping, SplineMapping):
+        if isinstance(mapping, SplineCallableMapping):
             mesh = mapping.build_mesh(grid, npts_per_cell=npts_per_cell)
         else:
             if grid_local[0].ndim == 1:
@@ -2310,14 +2310,14 @@ class PostProcessManager:
                 mesh = grid_local
             if isinstance(mapping, SymbolicMapping):
                 c_m = mapping.get_callable_mapping()
-                if isinstance(c_m, SplineMapping):
+                if isinstance(c_m, SplineCallableMapping):
                     mesh = c_m.build_mesh(grid, npts_per_cell=npts_per_cell)
                 else:
                     mesh = c_m(*mesh)
             elif mapping is None:
                 pass
             else:
-                raise TypeError(f'mapping should be SymPDE Mapping or PSYDAC SplineMapping, not {type(mapping)}')
+                raise TypeError(f'mapping should be SymPDE Mapping or PSYDAC SplineCallableMapping, not {type(mapping)}')
         conn, off, typ, i_mpi_dd = self._compute_unstructured_mesh_info(
             local_domain,
             npts_per_cell=npts_per_cell,

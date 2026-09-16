@@ -5,7 +5,7 @@
 #---------------------------------------------------------------------------#
 import numpy as np
 
-from psydac.mapping.discrete import SplineMapping
+from psydac.mapping.discrete import SplineCallableMapping
 from psydac.linalg.stencil   import StencilVectorSpace, StencilVector, StencilMatrix
 from psydac.linalg.block     import BlockVector, BlockLinearOperator
 from psydac.polar .dense     import DenseVector, DenseMatrix
@@ -31,7 +31,7 @@ class C1Projector:
     
     def __init__(self, mapping):
 
-        assert isinstance(mapping, SplineMapping)
+        assert isinstance(mapping, SplineCallableMapping)
 
         S = mapping.space.coeff_space
 

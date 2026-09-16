@@ -16,7 +16,7 @@ def main(*, mapping, degree, ncells, name='F'):
     from sympde.topology.analytical_mapping import (IdentityMapping,
             TargetMapping, CzarnyMapping, PolarMapping, CollelaMapping2D)
 
-    from psydac.mapping.discrete import SplineMapping
+    from psydac.mapping.discrete import SplineCallableMapping
     from psydac.fem.splines      import SplineSpace
     from psydac.fem.tensor       import TensorFemSpace
     from psydac.ddm.cart         import DomainDecomposition
@@ -75,7 +75,7 @@ def main(*, mapping, degree, ncells, name='F'):
     tensor_space = TensorFemSpace(domain_decomposition, V1, V2)
 
     # Create spline mapping by interpolating analytical one
-    map_discrete = SplineMapping.from_mapping(tensor_space, map_analytic)
+    map_discrete = SplineCallableMapping.from_mapping(tensor_space, map_analytic)
 
     # Display analytical and spline mapping on refined grid, then plot error
     N = 20

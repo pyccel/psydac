@@ -9,7 +9,7 @@ import numpy as np
 
 from psydac.fem.splines      import SplineSpace
 from psydac.fem.tensor       import TensorFemSpace
-from psydac.mapping.discrete import SplineMapping, NurbsMapping
+from psydac.mapping.discrete import SplineCallableMapping, NurbsCallableMapping
 from psydac.cad.utils        import plot_mapping
 
 #==============================================================================
@@ -166,7 +166,7 @@ if __name__ == '__main__':
     spaces = [SplineSpace( knots=k, degree=p ) for k,p in zip(knots, degrees)]
     space = TensorFemSpace( *spaces, comm=None )
 
-    mapping = NurbsMapping.from_control_points_weights( space, points, weights )
+    mapping = NurbsCallableMapping.from_control_points_weights( space, points, weights )
 #    plot_mapping(mapping, N=100)
 
     from psydac.cad.cad import elevate, refine

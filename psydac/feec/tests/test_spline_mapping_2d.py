@@ -5,7 +5,7 @@ from sympde.topology import domain
 from sympde.topology import Square, PolarMapping
 from sympde.topology.mapping import BasicCallableMapping
 
-from psydac.mapping.discrete import SplineMapping
+from psydac.mapping.discrete import SplineCallableMapping
 from psydac.cad.geometry     import Geometry
 from psydac.api.tests.build_domain import build_11_patch_pretzel
 from psydac.fem.splines      import SplineSpace
@@ -20,7 +20,7 @@ def spline_mapping_approx(
         degree=None, ncells=None, periodic=(False, False), mpi_comm=None):
     
     """ 
-    should this function be merged with psydac.mapping.discrete.SplineMapping.from_mapping() ?
+    should this function be merged with psydac.mapping.discrete.SplineCallableMapping.from_mapping() ?
     """
 
     # Accept either a callable mapping directly or a symbolic mapping able
@@ -40,7 +40,7 @@ def spline_mapping_approx(
     dd = DomainDecomposition(ncells, periodic, comm=mpi_comm)
     V = TensorFemSpace(dd, *V_spl)
 
-    F_h = SplineMapping.from_mapping(V, F) 
+    F_h = SplineCallableMapping.from_mapping(V, F) 
 
     # domain_h = Geometry.from_discrete_mapping(F_h, domain_log=domain_log, comm=mpi_comm)
 
@@ -62,7 +62,7 @@ def _solve_poisson_mapping(spline_mapping):
     #   spline_mapping=False : analytic PolarMapping geometry
     #                          -> discretize(Omega, ncells=..., periodic=...)
     #   spline_mapping=True  : each patch a DiscreteMapping wrapping a
-    #                          SplineMapping approximation of that PolarMapping
+    #                          SplineCallableMapping approximation of that PolarMapping
     #                          -> discretize(Omega) builds the Geometry from the
     #                          splines (is_analytical=False, so assembly is by
     #                          grid evaluation of the spline, not the analytic
@@ -158,7 +158,7 @@ def test_poisson_2d_single_patch_discrete_mapping():
 
 def _solve_poisson_2d_single_patch_discrete_mapping():
     # WP07b: a Poisson solve on a *single-patch* domain whose mapping is a
-    # DiscreteMapping wrapping a SplineMapping (is_analytical=False), i.e.
+    # DiscreteMapping wrapping a SplineCallableMapping (is_analytical=False), i.e.
     # psydac assembles the geometry via grid evaluation of the spline -- the
     # same path as Domain.from_file, but built in memory. Manufactured solution
     # x**2 + y**2 on a spline-approximated quarter annulus.
@@ -185,7 +185,7 @@ def _solve_poisson_2d_single_patch_discrete_mapping():
     V_geo = TensorFemSpace(
         DomainDecomposition(list(geo_ncells), [False, False]),
         *[SplineSpace(geo_degree[d], grid=grids[d], periodic=False) for d in range(2)])
-    F_h  = SplineMapping.from_mapping(V_geo, F.get_callable_mapping())
+    F_h  = SplineCallableMapping.from_mapping(V_geo, F.get_callable_mapping())
 
     F_disc = F_h.to_defined_mapping('F')            # DiscreteMapping, is_analytical=False
     assert F_disc.is_analytical is False
@@ -230,7 +230,7 @@ def test_poisson_2d_two_patch_discrete_mapping():
 
 def _solve_poisson_2d_two_patch_discrete_mapping():
     # WP07c-1: a coupled (interface-term) Poisson solve on a *two-patch* domain
-    # whose patches are DiscreteMappings wrapping SplineMappings. Omega_h comes
+    # whose patches are DiscreteMappings wrapping SplineCallableMappings. Omega_h comes
     # straight from `discretize(Omega)` -- no filename, no ncells: the domain
     # carries its own discrete geometry, and Geometry.from_discrete_domain wires
     # the coefficient-space interface connectivity. SIPG interface + Nitsche
@@ -257,7 +257,7 @@ def _solve_poisson_2d_two_patch_discrete_mapping():
         V = TensorFemSpace(DomainDecomposition(list(geo_ncells), [False, False]),
                            *[SplineSpace(geo_degree[d], grid=grids[d], periodic=False)
                              for d in range(2)])
-        return SplineMapping.from_mapping(V, pm.get_callable_mapping())
+        return SplineCallableMapping.from_mapping(V, pm.get_callable_mapping())
 
     M_A = approx(PolarMapping('MA', dim=2, c1=0., c2=0., rmin=0., rmax=1.), A).to_defined_mapping('MA')
     M_B = approx(PolarMapping('MB', dim=2, c1=0., c2=0., rmin=0., rmax=1.), B).to_defined_mapping('MB')
@@ -329,7 +329,7 @@ if __name__ == '__main__':
                 plot_field(fem_field=uh, domain=Omega, title=title, hide_plot=False)
             except TypeError as e:
                 # plot_field_2d evaluates the mapping on an array grid; a bare
-                # SplineMapping (behind a DiscreteMapping) only supports scalar
+                # SplineCallableMapping (behind a DiscreteMapping) only supports scalar
                 # evaluation for some single-patch pushforwards -- see the
                 # "Plotting gotcha" in refactor/new_mapping_classes.md Sec 4.5.
                 # Not fixed here: skip rather than crash the rest of the run.

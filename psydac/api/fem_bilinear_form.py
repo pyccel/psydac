@@ -28,7 +28,7 @@ from sympde.expr.evaluation      import KernelExpression, TerminalExpr
 from sympde.calculus.core        import PlusInterfaceOperator
 
 from psydac.cad.geometry      import Geometry
-from psydac.mapping.discrete  import SplineMapping, NurbsMapping
+from psydac.mapping.discrete  import SplineCallableMapping, NurbsCallableMapping
 from psydac.fem.basic         import FemSpace, FemField
 from psydac.fem.vector        import VectorFemSpace
 from psydac.linalg.stencil    import StencilMatrix
@@ -178,10 +178,10 @@ class DiscreteBilinearForm:
         is_rational_mapping = False
         mapping_space       = None
         if (mapping is not None) and not isinstance(target, Interface):
-            is_rational_mapping = isinstance(mapping, NurbsMapping)
+            is_rational_mapping = isinstance(mapping, NurbsCallableMapping)
             mapping_space = mapping.space
         elif (mapping is not None) and isinstance(target, Interface):
-            is_rational_mapping = (isinstance(mapping[0], NurbsMapping), isinstance(mapping[1], NurbsMapping))
+            is_rational_mapping = (isinstance(mapping[0], NurbsCallableMapping), isinstance(mapping[1], NurbsCallableMapping))
             mapping_space = (mapping[0].space, mapping[1].space)
 
         self._is_rational_mapping = is_rational_mapping
@@ -1498,7 +1498,7 @@ class DiscreteBilinearForm:
 
         # Because an analytical mapping only changes the expression, only the case of a Bspline mapping has to be treated 
         # entirely different
-        mapping_option = 'Bspline' if isinstance(self._mapping, SplineMapping) else None
+        mapping_option = 'Bspline' if isinstance(self._mapping, SplineCallableMapping) else None
 
         # The following are tuples consisting of test, trial and free FemField functions appearing, e.g.
         # u, v, F1, F2 = elements_of(V, names='u, v, F1, F2)

@@ -18,7 +18,7 @@ from psydac.api.discretization import discretize
 from psydac.core.bsplines import cell_index
 from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.splines import SplineSpace
-from psydac.mapping.discrete import NurbsMapping
+from psydac.mapping.discrete import NurbsCallableMapping
 from psydac.utilities.utils import refine_array_1d
 from psydac.ddm.cart        import DomainDecomposition
 
@@ -293,7 +293,7 @@ def test_nurbs_circle():
 
     domain_decomposition = DomainDecomposition(ncells=ncells, periods=periods, comm=None)
     T = TensorFemSpace(domain_decomposition, *spaces)
-    mapping = NurbsMapping.from_control_points_weights(T, control_points=control[..., :2], weights=w)
+    mapping = NurbsCallableMapping.from_control_points_weights(T, control_points=control[..., :2], weights=w)
 
     x1_pts = np.linspace(0, 1, 10)
     x2_pts = np.linspace(0, 1, 10)
@@ -312,18 +312,18 @@ def test_nurbs_circle():
 
 #==============================================================================
 def test_spline_mapping_is_a_defined_mapping():
-    # WP04: SplineMapping/NurbsMapping are registered as virtual subclasses of
+    # WP04: SplineCallableMapping/NurbsCallableMapping are registered as virtual subclasses of
     # sympde's DefinedMapping (they cannot literally inherit it -- see
     # refactor/04-psydac-spline-under-defined.md), so they are interchangeable
     # with AnalyticMapping wherever a point-evaluable mapping is expected.
     from sympde.topology.mapping import DefinedMapping, BasicCallableMapping
-    from psydac.mapping.discrete import SplineMapping
+    from psydac.mapping.discrete import SplineCallableMapping
 
-    assert issubclass(SplineMapping, DefinedMapping)
-    assert issubclass(NurbsMapping, DefinedMapping)
+    assert issubclass(SplineCallableMapping, DefinedMapping)
+    assert issubclass(NurbsCallableMapping, DefinedMapping)
     # registration is additive: the original relationship must still hold
-    assert issubclass(SplineMapping, BasicCallableMapping)
-    assert issubclass(NurbsMapping, BasicCallableMapping)
+    assert issubclass(SplineCallableMapping, BasicCallableMapping)
+    assert issubclass(NurbsCallableMapping, BasicCallableMapping)
 
     # and on a real instance, not just the classes
     rmin, rmax = 0.2, 1
@@ -336,7 +336,7 @@ def test_spline_mapping_is_a_defined_mapping():
     periods = [space.periodic for space in spaces]
     domain_decomposition = DomainDecomposition(ncells=ncells, periods=periods, comm=None)
     T = TensorFemSpace(domain_decomposition, *spaces)
-    mapping = NurbsMapping.from_control_points_weights(
+    mapping = NurbsCallableMapping.from_control_points_weights(
         T, control_points=disk.points[..., :2], weights=disk.weights)
 
     assert isinstance(mapping, DefinedMapping)
@@ -369,16 +369,55 @@ def test_psydac_analytic_gallery_classes_are_analytic_mappings():
 
 #==============================================================================
 def test_basiccallablemapping_name_stays_importable():
-    # WP06d-3: BasicCallableMapping is NOT deleted -- SplineMapping's literal
+    # WP06d-3: BasicCallableMapping is NOT deleted -- SplineCallableMapping's literal
     # base, the base for plain user callables, set_callable_mapping()'s guard,
     # and imported by downstream (struphy). Both it and DefinedMapping must stay
     # importable from both module paths.
     from sympde.topology.mapping import BasicCallableMapping as BCM_m, DefinedMapping as DM_m
     from sympde.topology.callable_mapping import BasicCallableMapping as BCM_cm
     from sympde.topology import BasicCallableMapping as BCM_pkg
-    from psydac.mapping.discrete import SplineMapping
+    from psydac.mapping.discrete import SplineCallableMapping
 
     assert BCM_m is BCM_cm is BCM_pkg
-    assert issubclass(SplineMapping, BCM_m)          # literal base
-    assert issubclass(SplineMapping, DM_m)           # virtual (registered)
+    assert issubclass(SplineCallableMapping, BCM_m)          # literal base
+    assert issubclass(SplineCallableMapping, DM_m)           # virtual (registered)
     assert issubclass(DM_m, BCM_m)
+
+#==============================================================================
+def test_legacy_spline_mapping_names_are_deprecated_aliases():
+    # WP11: 'SplineMapping'/'NurbsMapping' are kept as module-level identity
+    # aliases (PEP 562 __getattr__), not subclasses -- a subclass alias would
+    # make isinstance(obj, SplineMapping) False for objects built via the new
+    # name (the WP05 revert failure mode).
+    import psydac.mapping.discrete
+    from psydac.mapping.discrete import SplineCallableMapping
+
+    with pytest.warns(DeprecationWarning, match="deprecated"):
+        from psydac.mapping.discrete import SplineMapping
+    with pytest.warns(DeprecationWarning, match="deprecated"):
+        from psydac.mapping.discrete import NurbsMapping
+
+    assert SplineMapping is SplineCallableMapping
+    assert NurbsMapping is NurbsCallableMapping
+    assert SplineMapping is not None and SplineMapping.__mro__ == SplineCallableMapping.__mro__
+
+    rmin, rmax = 0.2, 1
+    c_ext = circle(radius=rmax, center=(0, 0))
+    c_int = circle(radius=rmin, center=(0, 0))
+    disk  = ruled(c_ext, c_int).transpose()
+
+    spaces = [SplineSpace(degree, knot) for degree, knot in zip(disk.degree, disk.knots)]
+    ncells  = [len(space.breaks) - 1 for space in spaces]
+    periods = [space.periodic for space in spaces]
+    domain_decomposition = DomainDecomposition(ncells=ncells, periods=periods, comm=None)
+    T = TensorFemSpace(domain_decomposition, *spaces)
+    mapping = NurbsCallableMapping.from_control_points_weights(
+        T, control_points=disk.points[..., :2], weights=disk.weights)
+    assert isinstance(mapping, SplineMapping)
+    assert isinstance(mapping, NurbsMapping)
+
+    with pytest.raises(AttributeError):
+        psydac.mapping.discrete.NoSuchMapping
+
+    assert 'SplineCallableMapping' in psydac.mapping.discrete.__all__
+    assert 'SplineMapping' not in psydac.mapping.discrete.__all__

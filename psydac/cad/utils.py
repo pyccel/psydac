@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 
 from psydac.fem.splines      import SplineSpace
 from psydac.fem.tensor       import TensorFemSpace
-from psydac.mapping.discrete import SplineMapping, NurbsMapping
+from psydac.mapping.discrete import SplineCallableMapping, NurbsCallableMapping
 from psydac.utilities.utils  import refine_array_1d
 
 #==============================================================================

@@ -13,7 +13,7 @@ import pytest
 from sympde.topology import Domain, ScalarFunctionSpace, Line, Square, Cube
 from psydac.api.discretization import discretize
 from psydac.fem.basic import FemField
-from psydac.mapping.discrete import NurbsMapping
+from psydac.mapping.discrete import NurbsCallableMapping
 from psydac.core.bsplines import cell_index, basis_ders_on_irregular_grid, breakpoints, elements_spans, basis_ders_on_quad_grid
 
 from psydac.core.field_evaluation_kernels import (eval_fields_1d_no_weights, eval_fields_2d_no_weights, eval_fields_3d_no_weights,
@@ -61,7 +61,7 @@ def test_regular_jacobians(geometry, npts_per_cell):
     ldim = mapping.ldim
     space_h = mapping.space
     # Preprocessing
-    is_nurbs = isinstance(mapping, NurbsMapping)
+    is_nurbs = isinstance(mapping, NurbsCallableMapping)
 
     ncells = tuple(len(space_h.breaks[i]) - 1 for i in range(ldim))
     regular_grid = [np.concatenate(
@@ -209,7 +209,7 @@ def test_irregular_jacobians(geometry, npts):
     ldim = mapping.ldim
     space_h = mapping.space
     # Preprocessing
-    is_nurbs = isinstance(mapping, NurbsMapping)
+    is_nurbs = isinstance(mapping, NurbsCallableMapping)
 
     irregular_grid = [np.random.random(npts) for i in range(ldim)]
 

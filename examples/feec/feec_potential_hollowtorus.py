@@ -15,7 +15,7 @@ from    sympde.calculus             import inner, cross
 from    sympde.expr                 import integral, BilinearForm
 from    sympde.topology             import elements_of
 
-from    psydac.mapping.discrete     import SplineMapping
+from    psydac.mapping.discrete     import SplineCallableMapping
 from    psydac.api.discretization   import discretize
 from    psydac.api.settings         import PSYDAC_BACKEND_GPYCCEL
 from    psydac.linalg.basic         import IdentityOperator, MatrixFreeLinearOperator
@@ -117,13 +117,13 @@ def compute_and_save_fields(cavRad, minRad, majRad, vtu_file, params_name, mappi
         V = TensorFemSpace(domain_decomposition, V1, V2, V3)
 
         # Now struphy_callable_map is a proper BasicCallableMapping object
-        map_discrete = SplineMapping.from_mapping(V, struphy_callable_map)
+        map_discrete = SplineCallableMapping.from_mapping(V, struphy_callable_map)
 
         # Alternative:
         # Create spline mapping by interpolation of analytical mapping
         # pre_mapping = HollowTorus('HT', r=r)
         # map_analytic = pre_mapping.get_callable_mapping()
-        # map_discrete = SplineMapping.from_mapping(V, map_analytic)
+        # map_discrete = SplineCallableMapping.from_mapping(V, map_analytic)
         # Create symbolic mapping with callable mapping as spline
         
         # A fresh DefinedMapping whose callable IS the spline -- no need to

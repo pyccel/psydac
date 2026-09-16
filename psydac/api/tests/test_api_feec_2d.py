@@ -211,7 +211,7 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
     from psydac.feec.pull_push     import push_2d_hcurl, push_2d_l2
     from psydac.linalg.solvers     import inverse
     from psydac.utilities.utils    import refine_array_1d
-    from psydac.mapping.discrete   import SplineMapping, NurbsMapping
+    from psydac.mapping.discrete   import SplineCallableMapping, NurbsCallableMapping
 
     backend = PSYDAC_BACKENDS['pyccel-gcc']
 
@@ -341,7 +341,7 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
     grid_x2 = derham_h.V0.breaks[1]
 
     # TODO: fix for spline mapping
-    if isinstance(F, (SplineMapping, NurbsMapping)):
+    if isinstance(F, (SplineCallableMapping, NurbsCallableMapping)):
         grid_x, grid_y = F.build_mesh([grid_x1, grid_x2])
     elif isinstance(F, AnalyticMapping):
         grid_x, grid_y = F(*np.meshgrid(grid_x1, grid_x2, indexing='ij'))

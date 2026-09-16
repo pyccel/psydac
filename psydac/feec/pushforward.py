@@ -9,7 +9,7 @@ from sympde.topology.mapping import SymbolicMapping, AnalyticMapping
 from sympde.topology.analytical_mapping import IdentityMapping
 from sympde.topology.datatype import UndefinedSpaceType, H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType
 
-from psydac.mapping.discrete import SplineMapping
+from psydac.mapping.discrete import SplineCallableMapping
 from psydac.fem.basic import FemField
 from psydac.fem.vector import MultipatchFemSpace, VectorFemSpace
 from psydac.core.bsplines import cell_index
@@ -35,7 +35,7 @@ class Pushforward:
         If it's a regular tensor grid, then it is expected to be
         a list of 2-D arrays with number of cells as the first dimension.
 
-    mapping : SplineMapping or Mapping or None
+    mapping : SplineCallableMapping or Mapping or None
         Mapping used to push-forward. None is equivalent to
         the identity mapping.
 
@@ -109,7 +109,7 @@ class Pushforward:
 
         if isinstance(mapping, SymbolicMapping):
             self._mesh_grids = np.meshgrid(*grid_local, indexing='ij', sparse=True)
-            if isinstance(mapping.get_callable_mapping(), SplineMapping):
+            if isinstance(mapping.get_callable_mapping(), SplineCallableMapping):
                 c_m = mapping.get_callable_mapping()
                 self.mapping = c_m
                 self.local_domain = c_m.space.local_domain
@@ -120,7 +120,7 @@ class Pushforward:
                 self.local_domain = local_domain
                 self.global_ends = global_ends
 
-        elif isinstance(mapping, SplineMapping):
+        elif isinstance(mapping, SplineCallableMapping):
             self.mapping = mapping
             self.local_domain = mapping.space.local_domain
             self.global_ends = tuple(nc_i - 1 for nc_i in mapping.space.ncells)
@@ -139,7 +139,7 @@ class Pushforward:
                             self.mapping.jacobian(*self._mesh_grids), [0, 1], [-2, -1]
                         )
                     )
-        elif isinstance(self.mapping, SplineMapping):
+        elif isinstance(self.mapping, SplineCallableMapping):
             if self.grid_type == 0:
                 return self.mapping.jac_mat_irregular_tensor_grid(self.grid)
             elif self.grid_type == 1:
@@ -152,7 +152,7 @@ class Pushforward:
                             self.mapping.jacobian_inv(*self._mesh_grids), [0, 1], [-2, -1]
                         )
                     )
-        elif isinstance(self.mapping, SplineMapping):
+        elif isinstance(self.mapping, SplineCallableMapping):
             if self.grid_type == 0:
                 return self.mapping.inv_jac_mat_irregular_tensor_grid(self.grid)
             elif self.grid_type == 1:
@@ -163,7 +163,7 @@ class Pushforward:
             return np.ascontiguousarray(
                         np.sqrt(self.mapping.metric_det(*self._mesh_grids))
                     )
-        elif isinstance(self.mapping, SplineMapping):
+        elif isinstance(self.mapping, SplineCallableMapping):
             if self.grid_type == 0:
                 return np.abs(self.mapping.jac_det_irregular_tensor_grid(self.grid))
             elif self.grid_type == 1:
