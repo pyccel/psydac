@@ -7,6 +7,8 @@ import os
 
 import pytest
 import numpy as np
+import h5py
+import yaml
 from mpi4py import MPI
 
 from sympde.topology import Domain, Line, Square, Cube, SymbolicMapping
@@ -15,7 +17,7 @@ from psydac.cad.geometry             import Geometry, export_nurbs_to_hdf5, refi
 from psydac.cad.geometry             import import_geopdes_to_nurbs
 from psydac.cad.cad                  import elevate, refine
 from psydac.cad.gallery              import quart_circle, circle
-from psydac.mapping.discrete         import SplineMapping, NurbsMapping
+from psydac.mapping.discrete         import SplineCallableMapping, NurbsCallableMapping
 from psydac.mapping.discrete_gallery import discrete_mapping
 from psydac.fem.splines              import SplineSpace
 from psydac.fem.tensor               import TensorFemSpace
@@ -76,7 +78,7 @@ def test_geometry_2d_2():
 
     space = TensorFemSpace( domain_decomposition, *spaces )
 
-    mapping = NurbsMapping.from_control_points_weights( space, points, weights )
+    mapping = NurbsCallableMapping.from_control_points_weights( space, points, weights )
 
     mapping = elevate( mapping, axis=0, times=1 )
     mapping = refine( mapping, axis=0, values=[0.3, 0.6, 0.8] )
@@ -126,7 +128,7 @@ def test_geometry_2d_3():
 
     space = TensorFemSpace( domain_decomposition, *spaces )
 
-    mapping = NurbsMapping.from_control_points_weights( space, points, weights )
+    mapping = NurbsCallableMapping.from_control_points_weights( space, points, weights )
 
     mapping = elevate( mapping, axis=1, times=1 )
 
@@ -161,7 +163,7 @@ def test_geometry_2d_4():
 
     space = TensorFemSpace( domain_decomposition, *spaces )
 
-    mapping = NurbsMapping.from_control_points_weights( space, points, weights )
+    mapping = NurbsCallableMapping.from_control_points_weights( space, points, weights )
 
     n = 8
 #    n = 32
@@ -249,7 +251,7 @@ def test_from_discrete_mapping():
 
 # ==============================================================================
 def test_spline_mapping_to_defined_mapping_and_geometry_domain_log():
-    # WP07b / WP07b-2: SplineMapping.to_defined_mapping wraps the spline in a
+    # WP07b / WP07b-2: SplineCallableMapping.to_defined_mapping wraps the spline in a
     # DiscreteMapping (symbolic carrier, is_analytical=False); Geometry.
     # from_discrete_mapping is built on it, and the logical (parametric) domain
     # tracks -- or is validated against -- the spline's own parametric box.
@@ -299,7 +301,7 @@ def test_spline_mapping_to_defined_mapping_and_geometry_domain_log():
 
 # ==============================================================================
 def _two_patch_spline_annulus(degree=(2, 2), ncells=(6, 6)):
-    """Two 90-deg annular patches, each a SplineMapping approx of a PolarMapping,
+    """Two 90-deg annular patches, each a SplineCallableMapping approx of a PolarMapping,
     joined into a DiscreteMapping-carried multipatch Domain."""
     from sympde.topology import PolarMapping
 
@@ -312,7 +314,7 @@ def _two_patch_spline_annulus(degree=(2, 2), ncells=(6, 6)):
         V = TensorFemSpace(DomainDecomposition(list(ncells), [False, False]),
                            *[SplineSpace(degree[d], grid=grids[d], periodic=False)
                              for d in range(2)])
-        return SplineMapping.from_mapping(V, pm.get_callable_mapping())
+        return SplineCallableMapping.from_mapping(V, pm.get_callable_mapping())
 
     spl_A = approx(PolarMapping('MA', 2, c1=0., c2=0., rmin=0., rmax=1.), A)
     spl_B = approx(PolarMapping('MB', 2, c1=0., c2=0., rmin=0., rmax=1.), B)
@@ -333,7 +335,7 @@ def _detached_spline_domain(A, name='M', ncells=(4, 4), degree=(2, 2)):
     grids = [np.linspace(A.min_coords[d], A.max_coords[d], ncells[d] + 1) for d in range(2)]
     V = TensorFemSpace(DomainDecomposition(list(ncells), [False, False]),
                        *[SplineSpace(degree[d], grid=grids[d], periodic=False) for d in range(2)])
-    spl = SplineMapping.from_mapping(V, PolarMapping(name, 2, c1=0., c2=0., rmin=0., rmax=1.)
+    spl = SplineCallableMapping.from_mapping(V, PolarMapping(name, 2, c1=0., c2=0., rmin=0., rmax=1.)
                                     .get_callable_mapping())
     M = spl.to_defined_mapping(name)
     Omega = M(A)
@@ -533,7 +535,7 @@ def test_export_nurbs_to_hdf5(ncells, degree):
 
     mapping = geo.mappings[domain.logical_domain.name]
 
-    assert isinstance(mapping, NurbsMapping)
+    assert isinstance(mapping, NurbsCallableMapping)
 
     space  = mapping.space
     knots  = space.knots
@@ -589,8 +591,48 @@ def test_import_geopdes_to_nurbs(ncells, degree):
     assert all(np.allclose(pk,k, 1e-15, 1e-15) for pk,k in zip(L_shaped.knots, knots))
     assert degree == list(L_shaped.degree)
 
-    if isinstance(mapping, NurbsMapping):
+    if isinstance(mapping, NurbsCallableMapping):
         assert np.allclose(L_shaped.weights.flatten(), mapping._weights_field.coeffs.toarray(), 1e-15, 1e-15)
+
+#==============================================================================
+@pytest.mark.xdist_group('h5py')
+def test_geometry_type_tag_is_frozen():
+    """Regression net for WP11: the HDF5 'type' tag must stay the literal
+    legacy class name, decoupled from `type(mapping).__name__`, so that a
+    future rename of `SplineCallableMapping`/`NurbsCallableMapping` cannot change the
+    on-disk geometry-file format.
+    """
+    # Spline (non-rational) patch
+    mapping = discrete_mapping('identity', ncells=[4, 4], degree=[2, 2])
+    geo = Geometry.from_discrete_mapping(mapping)
+    geo.export('geo_wp11_tag.h5')
+
+    with h5py.File('geo_wp11_tag.h5', mode='r') as h5:
+        yml = yaml.safe_load(h5['geometry.yml'][()])
+    assert yml['patches'][0]['type'] == 'SplineMapping'  # frozen legacy tag, not the class name
+
+    geo_read = Geometry.from_file('geo_wp11_tag.h5')
+    assert any(m is not None for m in geo_read.mappings.values())
+
+    # Nurbs patch
+    degrees, knots, points, weights = quart_circle(rmin=0.5, rmax=1.0, center=None)
+    spaces = [SplineSpace(knots=k, degree=p) for k, p in zip(knots, degrees)]
+    ncells = [len(space.breaks) - 1 for space in spaces]
+    domain_decomposition = DomainDecomposition(ncells=ncells, periods=[False] * 2, comm=None)
+    space = TensorFemSpace(domain_decomposition, *spaces)
+    nurbs_mapping = NurbsCallableMapping.from_control_points_weights(space, points, weights)
+
+    geo_nurbs = Geometry.from_discrete_mapping(nurbs_mapping)
+    geo_nurbs.export('geo_wp11_tag_nurbs.h5')
+
+    with h5py.File('geo_wp11_tag_nurbs.h5', mode='r') as h5:
+        yml = yaml.safe_load(h5['geometry.yml'][()])
+    assert yml['patches'][0]['type'] == 'NurbsMapping'  # frozen legacy tag, not the class name
+
+    # Committed fixture must still be readable with the frozen tag
+    fixture = os.path.join(base_dir, '..', 'mesh', 'collela_2d.h5')
+    geo_fixture = Geometry.from_file(fixture)
+    assert any(m is not None for m in geo_fixture.mappings.values())
 
 #==============================================================================
 @pytest.mark.xfail
@@ -621,6 +663,8 @@ def teardown_module():
         'pipe.h5',
         'L_shaped.h5',
         'geo_wp10_single.h5',
+        'geo_wp11_tag.h5',
+        'geo_wp11_tag_nurbs.h5',
     ]
     for fname in filenames:
         if os.path.exists(fname):

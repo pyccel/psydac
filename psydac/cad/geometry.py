@@ -24,7 +24,7 @@ from sympde.topology.callable_mapping import BasicCallableMapping
 from psydac.fem.splines        import SplineSpace
 from psydac.fem.tensor         import TensorFemSpace
 from psydac.fem.partitioning   import create_cart, construct_connectivity, construct_interface_spaces
-from psydac.mapping.discrete   import SplineMapping, NurbsMapping
+from psydac.mapping.discrete   import SplineCallableMapping, NurbsCallableMapping
 from psydac.linalg.block       import BlockVectorSpace, BlockVector
 from psydac.ddm.cart           import DomainDecomposition, MultiPatchDomainDecomposition
 
@@ -90,7 +90,7 @@ def _check_logical_box(min_coords, max_coords, spline_space, *, what):
 #==============================================================================
 def _spline_of(M):
     """
-    The SplineMapping (or NurbsMapping) `M` wraps, if `M` is a spline-backed
+    The SplineCallableMapping (or NurbsCallableMapping) `M` wraps, if `M` is a spline-backed
     `DiscreteMapping` with an attached callable.
 
     Parameters
@@ -101,7 +101,7 @@ def _spline_of(M):
 
     Returns
     -------
-    SplineMapping or None
+    SplineCallableMapping or None
         `None` if `M` is not a `DiscreteMapping`, has no attached callable, or
         wraps a non-spline `BasicCallableMapping`.
 
@@ -115,12 +115,12 @@ def _spline_of(M):
     if not M.has_callable_mapping():
         return None
     spl = M.get_callable_mapping()
-    return spl if isinstance(spl, SplineMapping) else None
+    return spl if isinstance(spl, SplineCallableMapping) else None
 
 
 def _patch_spline(itr):
     """
-    The SplineMapping carried by interior domain `itr`'s `DiscreteMapping` --
+    The SplineCallableMapping carried by interior domain `itr`'s `DiscreteMapping` --
     see `_spline_of`. Used by `is_spline_discrete_domain`; `Geometry.
     from_discrete_domain` calls `_spline_of` directly (its own `itr.mapping`
     lookup and this function's would otherwise be two independent lookups that
@@ -134,7 +134,7 @@ def _patch_spline(itr):
 
     Returns
     -------
-    SplineMapping or None
+    SplineCallableMapping or None
         See `_spline_of`.
 
     Examples
@@ -148,7 +148,7 @@ def _patch_spline(itr):
 def is_spline_discrete_domain(domain):
     """
     True if every patch of ``domain`` is mapped by a `DiscreteMapping` whose
-    callable is a psydac `SplineMapping` (or `NurbsMapping`) -- i.e. the domain
+    callable is a psydac `SplineCallableMapping` (or `NurbsCallableMapping`) -- i.e. the domain
     carries its own discrete geometry, so ``discretize(domain)`` (given no
     ``filename`` / ``ncells``) *dispatches* to `Geometry.from_discrete_domain`.
     False for anything else (analytic mapping, no mapping, a bare topological
@@ -190,7 +190,7 @@ def _sync_multipatch_ghost_regions(mappings, connectivity):
     for i, m in enumerate(mappings):
         for j in range(len(coeffs[i])):
             v[i][j] = coeffs[i][j]
-        w[i] = m.weights_field.coeffs if isinstance(m, NurbsMapping) \
+        w[i] = m.weights_field.coeffs if isinstance(m, NurbsCallableMapping) \
                else v[i][0].space.zeros()
     v.update_ghost_regions()
     w.update_ghost_regions()
@@ -205,7 +205,7 @@ class Geometry:
     - case 0 : providing a `Domain` to `__init__` with detailed parameters for each patch.
     - case 1 : passing the path to a geometry file to `from_file`; each patch's
       mapping is a spline-backed `DiscreteMapping`, as in case 4.
-    - case 2 : passing a `SplineMapping` to `from_discrete_mapping` (single patch).
+    - case 2 : passing a `SplineCallableMapping` to `from_discrete_mapping` (single patch).
     - case 3 : passing a `Domain`, ncells, and periodicity to `from_topological_domain` (single or multi-patch).
     - case 4 : passing a `Domain` whose patches are all mapped by a spline `DiscreteMapping` to `from_discrete_domain` (single or multi-patch, serial); this is what `discretize(domain)` uses when given no `filename` / `ncells`.
 
@@ -244,7 +244,7 @@ class Geometry:
                  *,
                  pdim     : int,
                  ncells   : dict[str, Iterable[int]],
-                 mappings : dict[str, SplineMapping | None] = None,
+                 mappings : dict[str, SplineCallableMapping | None] = None,
                  periodic : dict[str, Iterable[bool]] = None,
                  comm : MPI.Intracomm = None,
                  mpi_dims_mask : Iterable[bool] = None):
@@ -339,7 +339,7 @@ class Geometry:
         Create a Geometry instance from an HDF5 input file in Psydac format.
 
         Each patch's `.domain.mapping` is a spline-backed `DiscreteMapping`
-        wrapping the `SplineMapping`/`NurbsMapping` loaded from the file --
+        wrapping the `SplineCallableMapping`/`NurbsCallableMapping` loaded from the file --
         the same carrier `from_discrete_domain` builds for an in-memory
         spline domain.
 
@@ -474,7 +474,7 @@ class Geometry:
         by a spline ``DiscreteMapping`` (single or multi patch, serial).
 
         This is the in-memory equivalent of :meth:`from_file`: it takes the
-        ``SplineMapping`` carried by each patch's ``DiscreteMapping``
+        ``SplineCallableMapping`` carried by each patch's ``DiscreteMapping``
         (``patch.mapping.get_callable_mapping()``) and, for a multipatch domain,
         builds the coefficient-space interface connectivity that assembling an
         interface term (``integral(domain.interfaces, ...)``) requires -- the
@@ -485,7 +485,7 @@ class Geometry:
         ``filename`` nor ``ncells`` is given and :func:`is_spline_discrete_domain`
         holds.
 
-        For a **multipatch** domain the per-patch ``SplineMapping`` objects are
+        For a **multipatch** domain the per-patch ``SplineCallableMapping`` objects are
         *rebuilt* on fresh interface-aware spaces and stored in
         ``geo.mappings``. The originals on the domain are left untouched: unlike
         :meth:`read` (which re-points each ``patch.mapping``'s callable via
@@ -508,8 +508,8 @@ class Geometry:
         ----------
         domain : sympde.topology.Domain
             Each interior's ``.mapping`` must be a ``DiscreteMapping`` whose
-            ``get_callable_mapping()`` is a psydac ``SplineMapping`` /
-            ``NurbsMapping``. Each patch's logical box must match its spline's
+            ``get_callable_mapping()`` is a psydac ``SplineCallableMapping`` /
+            ``NurbsCallableMapping``. Each patch's logical box must match its spline's
             parametric knot span.
 
         comm : MPI.Intracomm, optional
@@ -555,7 +555,7 @@ class Geometry:
         interior  = domain.interior
         interiors = list(interior.args) if isinstance(interior, Union) else [interior]
 
-        # Pull the SplineMapping carried by each patch; check the logical box.
+        # Pull the SplineCallableMapping carried by each patch; check the logical box.
         splines = []
         for itr in interiors:
             M   = getattr(itr, 'mapping', None)
@@ -597,7 +597,7 @@ class Geometry:
             # once comm.size > 1 is supported, or delegate to from_discrete_mapping.
             return geo
 
-        # Multipatch: rebuild the SplineMappings on fresh TensorFemSpaces that
+        # Multipatch: rebuild the SplineCallableMappings on fresh TensorFemSpaces that
         # carry the interface coefficient spaces (mirrors `read`). The 1D
         # SplineSpaces are DomainDecomposition-independent, so we reuse them.
         ddms      = geo.ddm.domains
@@ -617,12 +617,12 @@ class Geometry:
         new_mappings = {}
         for itr, spl in zip(interiors, splines):
             cp = _spline_control_points(spl, pdim)
-            if isinstance(spl, NurbsMapping):
+            if isinstance(spl, NurbsCallableMapping):
                 idx = _interior_index(spl.space.coeff_space)
                 w   = np.asarray(spl.weights_field.coeffs[idx])
-                m   = NurbsMapping.from_control_points_weights(g_spaces[itr], cp, w)
+                m   = NurbsCallableMapping.from_control_points_weights(g_spaces[itr], cp, w)
             else:
-                m   = SplineMapping.from_control_points(g_spaces[itr], cp)
+                m   = SplineCallableMapping.from_control_points(g_spaces[itr], cp)
             m.set_name(itr.name)
             new_mappings[itr.name] = m
 
@@ -717,8 +717,8 @@ class Geometry:
 
         This is `from_file`'s implementation, split out so `from_file` can
         `__new__` the instance first (`read` sets every attribute `__init__`
-        would, without going through it). Builds each patch's `SplineMapping`/
-        `NurbsMapping` from the stored control points, then wraps it in a
+        would, without going through it). Builds each patch's `SplineCallableMapping`/
+        `NurbsCallableMapping` from the stored control points, then wraps it in a
         spline-backed `DiscreteMapping` (WP10) -- the same carrier
         `from_discrete_domain` builds for an in-memory spline domain -- so
         `self.domain`'s per-patch `.mapping` is symbolic-and-point-evaluable
@@ -790,7 +790,7 @@ class Geometry:
             mapping_id = item['mapping_id']
             dtype = item['type']
             patch = h5[mapping_id]
-            if dtype in ['SplineMapping', 'NurbsMapping']:
+            if dtype in [SplineCallableMapping.geometry_dtype, NurbsCallableMapping.geometry_dtype]:
 
                 degree     = [int (p) for p in patch.attrs['degree'  ]]
                 periodic_i = [bool(b) for b in patch.attrs['periodic']]
@@ -833,15 +833,15 @@ class Geometry:
             dtype = item['type']
             patch = h5[mapping_id]
             space_i = spaces[i_patch]
-            if dtype in ['SplineMapping', 'NurbsMapping']:
+            if dtype in [SplineCallableMapping.geometry_dtype, NurbsCallableMapping.geometry_dtype]:
                 tensor_space = g_spaces[interiors[i_patch]]
 
-                if dtype == 'SplineMapping':
-                    mapping = SplineMapping.from_control_points(tensor_space,
+                if dtype == SplineCallableMapping.geometry_dtype:
+                    mapping = SplineCallableMapping.from_control_points(tensor_space,
                                                                 patch['points'][..., :pdim])
 
-                elif dtype == 'NurbsMapping':
-                    mapping = NurbsMapping.from_control_points_weights(tensor_space,
+                elif dtype == NurbsCallableMapping.geometry_dtype:
+                    mapping = NurbsCallableMapping.from_control_points_weights(tensor_space,
                                                                        patch['points'][..., :pdim],
                                                                        patch['weights'])
 
@@ -863,7 +863,7 @@ class Geometry:
                     v[i][j] = coeffs[i][j]
 
                 mapping = mapping_list[i]
-                if isinstance(mapping, NurbsMapping):
+                if isinstance(mapping, NurbsCallableMapping):
                     w[i] = mapping.weights_field.coeffs
                 else:
                     w[i] = v[i][0].space.zeros()
@@ -876,7 +876,7 @@ class Geometry:
             for f in mapping._fields:
                 f.coeffs.update_ghost_regions()
 
-            if isinstance(mapping, NurbsMapping):
+            if isinstance(mapping, NurbsCallableMapping):
                 mapping.weights_field.coeffs.update_ghost_regions()
         # ...
 
@@ -986,7 +986,7 @@ class Geometry:
         for patch_name, mapping in self.mappings.items():
             name       = '{}'.format( patch_name )
             mapping_id = 'mapping_{}'.format( i_mapping  )
-            dtype      = '{}'.format( type( mapping ).__name__ )
+            dtype      = mapping.geometry_dtype
 
             patches_info += [{'name': name,
                               'mapping_id': mapping_id,
@@ -1051,7 +1051,7 @@ class Geometry:
             dset[index] = mapping.control_points[index]
 
             # case of NURBS
-            if isinstance(mapping, NurbsMapping):
+            if isinstance(mapping, NurbsCallableMapping):
                 # Collective: create dataset for weights
                 shape = [n for n in space.coeff_space.npts]
                 dtype = space.coeff_space.dtype
@@ -1109,7 +1109,7 @@ def export_nurbs_to_hdf5(filename, nurbs, periodic=None, comm=None ):
     patch_name = 'patch_{}'.format(i)
     name       = '{}'.format( patch_name )
     mapping_id = 'mapping_{}'.format( i_mapping  )
-    dtype      = 'NurbsMapping' if rational else 'SplineMapping'
+    dtype      = NurbsCallableMapping.geometry_dtype if rational else SplineCallableMapping.geometry_dtype
 
     patches_info += [{'name': name , 'mapping_id':mapping_id, 'type':dtype}]
 

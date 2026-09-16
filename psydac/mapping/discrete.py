@@ -6,6 +6,7 @@
 from itertools import product
 import string
 import random
+import warnings
 
 import yaml
 import numpy as np
@@ -18,10 +19,15 @@ from psydac.fem.basic    import FemField
 from psydac.fem.tensor   import TensorFemSpace
 
 
-__all__ = ('SplineMapping', 'NurbsMapping')
+__all__ = ('SplineCallableMapping', 'NurbsCallableMapping')
 
 #==============================================================================
-class SplineMapping(BasicCallableMapping):
+class SplineCallableMapping(BasicCallableMapping):
+
+    #: Tag written into / read back from the 'type' field of a geometry
+    #: file's geometry.yml. Frozen at the historical class name so that
+    #: renaming the Python class never changes the HDF5 format.
+    geometry_dtype = 'SplineMapping'
 
     def __init__(self, *components, name=None):
 
@@ -43,7 +49,7 @@ class SplineMapping(BasicCallableMapping):
         # as if they were stored in a single multi-dimensional array C with
         # indices [i1, ..., i_n, d] where (i1, ..., i_n) are indices of logical
         # coordinates, and d is index of physical component of interest.
-        self._control_points = SplineMapping.ControlPoints(self)
+        self._control_points = SplineCallableMapping.ControlPoints(self)
         self._name           = name
 
     @property
@@ -86,7 +92,7 @@ class SplineMapping(BasicCallableMapping):
         for pvals, field in zip(values, fields):
             tensor_space.compute_interpolant(pvals, field)
 
-        # Create SplineMapping object
+        # Create SplineCallableMapping object
         return cls(*fields)
 
     #--------------------------------------------------------------------------
@@ -116,7 +122,7 @@ class SplineMapping(BasicCallableMapping):
             field.coeffs[idx_to] = control_points[idx_from]
             field.coeffs.update_ghost_regions()
 
-        # Create SplineMapping object
+        # Create SplineCallableMapping object
         return cls(*fields)
 
     #--------------------------------------------------------------------------
@@ -159,14 +165,14 @@ class SplineMapping(BasicCallableMapping):
 
         The result is a symbolic :class:`DefinedMapping` (it has a name, is
         callable on a topological domain, and appears as ``domain.mapping``)
-        whose ``get_callable_mapping()`` returns this ``SplineMapping``. Use it
+        whose ``get_callable_mapping()`` returns this ``SplineCallableMapping``. Use it
         to give a spline geometry a first-class symbolic identity without
         mutating some analytic mapping via ``set_callable_mapping``.
 
         Parameters
         ----------
         name : str
-            Non-empty symbolic name for the mapping (a ``SplineMapping`` built by
+            Non-empty symbolic name for the mapping (a ``SplineCallableMapping`` built by
             ``from_mapping`` has no name of its own).
         ldim, pdim : int, optional
             If given, must equal this spline's ``ldim`` / ``pdim``.
@@ -183,7 +189,7 @@ class SplineMapping(BasicCallableMapping):
 
         Examples
         --------
-        >>> F_h = SplineMapping.from_mapping(V, F)
+        >>> F_h = SplineCallableMapping.from_mapping(V, F)
         >>> G   = F_h.to_defined_mapping('F')
         >>> G.get_callable_mapping() is F_h
         True
@@ -245,9 +251,9 @@ class SplineMapping(BasicCallableMapping):
 
         See Also
         --------
-        mapping.SplineMapping.inv_jac_mat_grid : Evaluates the inverse
+        mapping.SplineCallableMapping.inv_jac_mat_grid : Evaluates the inverse
             of the Jacobian matrix of the mapping at the given location(s) grid.
-        mapping.SplineMapping.metric_det_grid : Evaluates the metric determinant
+        mapping.SplineCallableMapping.metric_det_grid : Evaluates the metric determinant
             of the mapping at the given location(s) grid.
         """
 
@@ -415,9 +421,9 @@ class SplineMapping(BasicCallableMapping):
 
         See Also
         --------
-        mapping.SplineMapping.jac_mat_grid : Evaluates the Jacobian matrix
+        mapping.SplineCallableMapping.jac_mat_grid : Evaluates the Jacobian matrix
             of the mapping at the given location(s) `grid`.
-        mapping.SplineMapping.metric_det_grid : Evaluates the metric determinant
+        mapping.SplineCallableMapping.metric_det_grid : Evaluates the metric determinant
             of the mapping at the given location(s) `grid`.
         """
 
@@ -586,9 +592,9 @@ class SplineMapping(BasicCallableMapping):
 
         See Also
         --------
-        mapping.SplineMapping.jac_mat_grid : Evaluates the Jacobian matrix
+        mapping.SplineCallableMapping.jac_mat_grid : Evaluates the Jacobian matrix
             of the mapping at the given location(s) grid.
-        mapping.SplineMapping.inv_jac_mat_grid : Evaluates the inverse
+        mapping.SplineCallableMapping.inv_jac_mat_grid : Evaluates the inverse
             of the Jacobian matrix of the mapping at the given location(s) grid.
         """
 
@@ -818,7 +824,7 @@ class SplineMapping(BasicCallableMapping):
         # TODO: should not allow access to ghost regions
 
         def __init__(self, mapping):
-            assert isinstance(mapping, SplineMapping)
+            assert isinstance(mapping, SplineCallableMapping)
             self._mapping = mapping
 
         # ...
@@ -850,36 +856,41 @@ class SplineMapping(BasicCallableMapping):
 
             return coords
 
-# SplineMapping gets the point-evaluation interface two ways:
+# SplineCallableMapping gets the point-evaluation interface two ways:
 #   * it *inherits* BasicCallableMapping (its literal base, above) -- the plain
 #     abc.ABC that declares __call__ / jacobian / jacobian_inv / metric /
 #     metric_det / ldim / pdim, with no sympy in its MRO;
 #   * it is *registered* below as a virtual subclass of DefinedMapping -- the
 #     sympde hierarchy interface (DefinedMapping(SymbolicMapping,
 #     BasicCallableMapping)) -- so isinstance(_, DefinedMapping) /
-#     issubclass(SplineMapping, DefinedMapping) are True.
+#     issubclass(SplineCallableMapping, DefinedMapping) are True.
 # It cannot literally subclass DefinedMapping: that MRO carries sympy's
-# IndexedBase (via SymbolicMapping), whose __new__ would eat SplineMapping's
+# IndexedBase (via SymbolicMapping), whose __new__ would eat SplineCallableMapping's
 # (FemField, FemField, ...) constructor args as a symbolic (label, shape)
-# pair. Registration leaves SplineMapping's plain-Python construction
+# pair. Registration leaves SplineCallableMapping's plain-Python construction
 # untouched while making it interchangeable with sympde's AnalyticMapping
 # wherever a point-evaluable mapping is expected. It is deliberately NOT a
 # SymbolicMapping: the registration does not propagate there (different
-# metaclass) and a spline has no symbolic identity. NurbsMapping inherits
-# both relationships (real subclass of SplineMapping).
-DefinedMapping.register(SplineMapping)
+# metaclass) and a spline has no symbolic identity. NurbsCallableMapping inherits
+# both relationships (real subclass of SplineCallableMapping).
+DefinedMapping.register(SplineCallableMapping)
 
 #==============================================================================
-class NurbsMapping(SplineMapping):
+class NurbsCallableMapping(SplineCallableMapping):
+
+    #: Tag written into / read back from the 'type' field of a geometry
+    #: file's geometry.yml. Frozen at the historical class name so that
+    #: renaming the Python class never changes the HDF5 format.
+    geometry_dtype = 'NurbsMapping'
 
     def __init__(self, *components, name=None):
 
         weights    = components[-1]
         components = components[:-1]
 
-        SplineMapping.__init__(self, *components, name=name)
+        SplineCallableMapping.__init__(self, *components, name=name)
 
-        self._weights = NurbsMapping.Weights(self)
+        self._weights = NurbsCallableMapping.Weights(self)
         self._weights_field = weights
 
     #--------------------------------------------------------------------------
@@ -916,7 +927,7 @@ class NurbsMapping(SplineMapping):
         idx_from = tuple(idx_to)
         fields[-1].coeffs[idx_to] = weights[idx_from]
 
-        # Create SplineMapping object
+        # Create SplineCallableMapping object
         return cls(*fields)
 
     #--------------------------------------------------------------------------
@@ -1334,7 +1345,7 @@ class NurbsMapping(SplineMapping):
         # TODO: should not allow access to ghost regions
 
         def __init__( self, mapping ):
-            assert isinstance( mapping, NurbsMapping )
+            assert isinstance( mapping, NurbsCallableMapping )
             self._mapping = mapping
 
         # ...
@@ -1357,3 +1368,29 @@ class NurbsMapping(SplineMapping):
             pnt_idx = key[:]
 
             return np.array( m._weights_field.coeffs[pnt_idx] )
+
+#==============================================================================
+# Deprecated aliases (pure re-export, PEP 562): 'SplineMapping' /
+# 'NurbsMapping' were renamed to 'SplineCallableMapping' /
+# 'NurbsCallableMapping'. Kept as module-level identity aliases (not
+# subclasses) so isinstance/issubclass stay correct for objects built via the
+# new name.
+_DEPRECATED_NAMES = {
+    'SplineMapping': SplineCallableMapping,
+    'NurbsMapping' : NurbsCallableMapping,
+}
+
+def __getattr__(name):
+    cls = _DEPRECATED_NAMES.get(name)
+    if cls is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    warnings.warn(
+        f"psydac.mapping.discrete.{name} is deprecated; "
+        f"use {cls.__name__} (it implements sympde's BasicCallableMapping, "
+        f"not the symbolic DiscreteMapping).",
+        DeprecationWarning, stacklevel=2,
+    )
+    return cls
+
+def __dir__():
+    return sorted([*globals(), *_DEPRECATED_NAMES])

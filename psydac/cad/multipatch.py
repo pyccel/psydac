@@ -10,6 +10,8 @@ import numpy as np
 from sympde.topology       import Domain, Line, Square, Cube, SymbolicMapping
 from sympde.topology.basic import Union
 
+from psydac.mapping.discrete import SplineCallableMapping, NurbsCallableMapping
+
 
 def export_multipatch_nurbs_to_hdf5(filename:str, nurbs:list, connectivity:dict, comm=None ):
 
@@ -51,7 +53,7 @@ def export_multipatch_nurbs_to_hdf5(filename:str, nurbs:list, connectivity:dict,
     patch_names = ['patch_{}'.format(i) for i in range(len(nurbs))]
     names       = ['{}'.format( patch_name ) for patch_name in patch_names]
     mapping_ids = ['mapping_{}'.format(i) for i in range(len(nurbs))]
-    dtypes      = ['NurbsMapping' if not abs(nurb.weights-1).max()<1e-15 else 'SplineMapping' for nurb in nurbs]
+    dtypes      = [NurbsCallableMapping.geometry_dtype if not abs(nurb.weights-1).max()<1e-15 else SplineCallableMapping.geometry_dtype for nurb in nurbs]
 
     patches_info += [{'name': name , 'mapping_id':mapping_id, 'type':dtype} for name,mapping_id,dtype in zip(names, mapping_ids, dtypes)]
 
@@ -116,7 +118,7 @@ def export_multipatch_nurbs_to_hdf5(filename:str, nurbs:list, connectivity:dict,
     for i in range(len(nurbs)):
         nurbsi   = nurbs[i]
         dtype    = dtypes[i]
-        rational = dtype == 'NurbsMapping'
+        rational = dtype == NurbsCallableMapping.geometry_dtype
         group = h5.create_group( yml['patches'][i]['mapping_id'] )
         group.attrs['degree'     ] = nurbsi.degree
         group.attrs['rational'   ] = rational
