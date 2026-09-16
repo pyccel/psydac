@@ -368,6 +368,44 @@ def test_from_discrete_domain_2patch():
         assert (axis, ext) in geo.mappings[itr.name].fields[0].coeffs._interface_data
 
 # ==============================================================================
+@pytest.mark.xdist_group('h5py')
+def test_from_file_uses_discrete_mapping():
+    # WP10: Geometry.from_file (Geometry.read) builds a domain whose per-patch
+    # mapping is a spline-backed DiscreteMapping -- consistent with
+    # Geometry.from_discrete_domain (WP07c-1) -- instead of a bare
+    # SymbolicMapping + set_callable_mapping.
+    from sympde.topology.mapping import DiscreteMapping
+
+    # single patch: export/read round trip, as the other from_file tests do
+    mapping = discrete_mapping('identity', ncells=[4, 4], degree=[2, 2])
+    geo0 = Geometry.from_discrete_mapping(mapping)
+    geo0.export('geo_wp10_single.h5')
+    geo0_from_file = Geometry.from_file('geo_wp10_single.h5')
+    assert isinstance(geo0_from_file.domain.mapping, DiscreteMapping)
+    assert geo0_from_file.domain.mapping.is_analytical is False
+    assert geo0_from_file.domain.mapping.get_callable_mapping() is not None
+    # the DiscreteMapping carrier must not rename the domain: ncells/periodic
+    # are keyed by Domain.from_file's interior names (see Geometry.read()),
+    # so a mismatch here would silently desync them from self._domain.
+    assert geo0_from_file.domain.name == Domain.from_file('geo_wp10_single.h5').name
+
+    # two patches, from a committed multipatch fixture -- exercises the
+    # Domain.join connectivity-rebuild path
+    filename = os.path.join(base_dir, '..', 'mesh', 'multipatch', 'square.h5')
+    geo_mp = Geometry.from_file(filename)
+    interiors = list(geo_mp.domain.interior.args)
+    assert len(interiors) == 2
+    assert geo_mp.domain.interior_names == Domain.from_file(filename).interior_names
+    for itr in interiors:
+        assert isinstance(itr.mapping, DiscreteMapping)
+        assert itr.mapping.is_analytical is False
+        # discretize_space looks mappings up by the *logical* domain's name
+        # for this exact reason -- see Geometry.read()
+        assert itr.mapping.get_callable_mapping() is geo_mp.mappings[itr.logical_domain.name]
+    # the interface connectivity survived the rebuild
+    assert geo_mp.domain.interfaces is not None
+
+# ==============================================================================
 def test_discretize_domain_dispatches_to_from_discrete_domain():
     # WP07c-1: discretize(Omega) with no filename/ncells dispatches to
     # from_discrete_domain when the domain carries spline DiscreteMappings, and
@@ -582,6 +620,7 @@ def teardown_module():
         'circle.h5',
         'pipe.h5',
         'L_shaped.h5',
+        'geo_wp10_single.h5',
     ]
     for fname in filenames:
         if os.path.exists(fname):

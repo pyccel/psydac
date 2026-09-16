@@ -203,7 +203,8 @@ class Geometry:
 
     The Geometry object can be created in five ways:
     - case 0 : providing a `Domain` to `__init__` with detailed parameters for each patch.
-    - case 1 : passing the path to a geometry file to `from_file`.
+    - case 1 : passing the path to a geometry file to `from_file`; each patch's
+      mapping is a spline-backed `DiscreteMapping`, as in case 4.
     - case 2 : passing a `SplineMapping` to `from_discrete_mapping` (single patch).
     - case 3 : passing a `Domain`, ncells, and periodicity to `from_topological_domain` (single or multi-patch).
     - case 4 : passing a `Domain` whose patches are all mapped by a spline `DiscreteMapping` to `from_discrete_domain` (single or multi-patch, serial); this is what `discretize(domain)` uses when given no `filename` / `ncells`.
@@ -336,6 +337,11 @@ class Geometry:
 
         """
         Create a Geometry instance from an HDF5 input file in Psydac format.
+
+        Each patch's `.domain.mapping` is a spline-backed `DiscreteMapping`
+        wrapping the `SplineMapping`/`NurbsMapping` loaded from the file --
+        the same carrier `from_discrete_domain` builds for an in-memory
+        spline domain.
 
         Parameters
         ----------
@@ -706,6 +712,38 @@ class Geometry:
         return len(self.domain)
 
     def read(self, filename, comm=None, mpi_dims_mask=None):
+        """
+        Populate this instance in place from an HDF5 geometry file.
+
+        This is `from_file`'s implementation, split out so `from_file` can
+        `__new__` the instance first (`read` sets every attribute `__init__`
+        would, without going through it). Builds each patch's `SplineMapping`/
+        `NurbsMapping` from the stored control points, then wraps it in a
+        spline-backed `DiscreteMapping` (WP10) -- the same carrier
+        `from_discrete_domain` builds for an in-memory spline domain -- so
+        `self.domain`'s per-patch `.mapping` is symbolic-and-point-evaluable
+        rather than the bare `SymbolicMapping` legs `Domain.from_file` parses
+        from the file's topology metadata.
+
+        Parameters
+        ----------
+        filename : str
+            Path to the HDF5 geometry file.
+
+        comm : MPI.Intracomm, optional
+            MPI intra-communicator.
+
+        mpi_dims_mask : Iterable[bool], optional
+            True if the dimension is to be used in the domain decomposition
+            (=default for each dimension). If mpi_dims_mask[i]=False, the i-th
+            dimension will not be decomposed.
+
+        Raises
+        ------
+        ValueError
+            If `filename` does not have a `.h5` extension, or the file
+            contains no patches.
+        """
         # ... check extension of the file
         _, ext = os.path.splitext(filename)
         if ext != '.h5':
@@ -846,13 +884,71 @@ class Geometry:
         h5.close()
         # ...
 
-        # Add spline callable mappings to domain undefined mappings
-        # NOTE: We assume that interiors and mappings.values() use the same ordering
-        for patch, F in zip(interiors, mappings.values()):
-            patch.mapping.set_callable_mapping(F)
+        # Build the domain from spline-backed DiscreteMappings -- consistent
+        # with Geometry.from_discrete_domain (WP07c-1) -- instead of mutating
+        # the bare SymbolicMapping legs Domain.from_file built via
+        # set_callable_mapping (WP10). NOTE: we assume that interiors and
+        # mappings.values() use the same ordering.
+        new_legs = []
+        for itr, F in zip(interiors, mappings.values()):
+            # Reuse itr's own mapping name and logical-domain name verbatim,
+            # rather than F.name (the geometry.yml patch name / `mappings`
+            # dict key): F.name is NOT always the same string -- e.g. a
+            # single-patch geometry exported by from_discrete_mapping keys
+            # `mappings` by the *full* domain name ("mapping(Omega)"), while
+            # a plain multipatch file like square.h5 keys it by the bare
+            # logical name ("patch_0"). Naming logical_i after itr.logical_
+            # domain.name reproduces itr's name exactly (`ncells`/`periodic`
+            # above are keyed by it), so this rebuild is a pure type swap
+            # (SymbolicMapping -> DiscreteMapping), never a rename -- whereas
+            # naming it after F.name double-wraps in the first convention
+            # (verified: reading back a from_discrete_mapping export produced
+            # "mapping(mapping(Omega))" instead of "mapping(Omega)").
+            # discretize_space's lookup still resolves either way: its
+            # primary branch matches on the (now unchanged) interior name --
+            # exactly what the full-domain-name convention needs -- and its
+            # fallback matches on inter.logical_domain.name -- exactly what
+            # the bare-logical-name convention needs.
+            logical_i = NCube(name=itr.logical_domain.name, dim=ldim,
+                              min_coords=itr.min_coords, max_coords=itr.max_coords)
+            new_legs.append(F.to_defined_mapping(itr.mapping.name)(logical_i))
+
+            # Compat shim: also attach F to the *original* bare
+            # SymbolicMapping (itr.mapping), mirroring the pre-WP10 side
+            # effect this rebuild otherwise drops. sympy interns
+            # SymbolicMapping instances, so Domain.from_file(filename) always
+            # returns the *same* object for a given file/session; a caller
+            # that parsed the file itself (e.g. to grab `domain.mapping`
+            # before calling `discretize(domain, filename=...)`) holds that
+            # exact instance and may still expect
+            # `mapping.get_callable_mapping()` to work afterwards (see
+            # test_maxwell_2d_dirichlet_spline_mapping). itr.mapping is a
+            # plain SymbolicMapping here, not a DiscreteMapping, so WP07d's
+            # raising guard does not apply.
+            # TODO: drop once callers read the spline off the Geometry
+            # instead (`domain_h.mappings[...]`) -- tracked in WP10's doc.
+            itr.mapping.set_callable_mapping(F)
+
+        if n_patches == 1:
+            new_domain = new_legs[0]
+        else:
+            patch_interfaces = domain.interfaces
+            if isinstance(patch_interfaces, Interface):
+                patch_interfaces = [patch_interfaces]
+            elif isinstance(patch_interfaces, Union):
+                patch_interfaces = list(patch_interfaces.args)
+            else:
+                patch_interfaces = list(patch_interfaces) if patch_interfaces else []
+            patch_index = {itr: i for i, itr in enumerate(interiors)}
+            join_connectivity = [
+                ((patch_index[e.minus.domain], e.minus.axis, e.minus.ext),
+                 (patch_index[e.plus.domain],  e.plus.axis,  e.plus.ext),
+                 e.ornt)
+                for e in patch_interfaces]
+            new_domain = Domain.join(new_legs, join_connectivity, domain.name)
 
         # ...
-        self._domain      = domain
+        self._domain      = new_domain
         self._ldim        = ldim
         self._pdim        = pdim
         self._ncells      = ncells
