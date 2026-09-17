@@ -13,7 +13,7 @@ import numpy as np
 import h5py
 
 from sympde.topology.callable_mapping import BasicCallableMapping
-from sympde.topology.mapping import DefinedMapping, DiscreteMapping
+from sympde.topology.mapping import DiscreteMapping
 
 from psydac.fem.basic    import FemField
 from psydac.fem.splines  import SplineSpace
@@ -927,24 +927,18 @@ class SplineCallableMapping(BasicCallableMapping):
 
             return coords
 
-# SplineCallableMapping gets the point-evaluation interface two ways:
-#   * it *inherits* BasicCallableMapping (its literal base, above) -- the plain
-#     abc.ABC that declares __call__ / jacobian / jacobian_inv / metric /
-#     metric_det / ldim / pdim, with no sympy in its MRO;
-#   * it is *registered* below as a virtual subclass of DefinedMapping -- the
-#     sympde hierarchy interface (DefinedMapping(SymbolicMapping,
-#     BasicCallableMapping)) -- so isinstance(_, DefinedMapping) /
-#     issubclass(SplineCallableMapping, DefinedMapping) are True.
-# It cannot literally subclass DefinedMapping: that MRO carries sympy's
-# IndexedBase (via SymbolicMapping), whose __new__ would eat SplineCallableMapping's
+# SplineCallableMapping implements only BasicCallableMapping (its literal base,
+# above): the plain abc.ABC that declares __call__ / jacobian / jacobian_inv /
+# metric / metric_det / ldim / pdim, with no sympy in its MRO. It is
+# deliberately NOT a DefinedMapping/SymbolicMapping: it has no name and is not
+# callable on a topological domain. Use to_defined_mapping(name) to wrap it in
+# a DiscreteMapping and get a symbolic identity. It cannot literally subclass
+# DefinedMapping: that MRO carries sympy's IndexedBase (via
+# SymbolicMapping), whose __new__ would eat SplineCallableMapping's
 # (FemField, FemField, ...) constructor args as a symbolic (label, shape)
-# pair. Registration leaves SplineCallableMapping's plain-Python construction
-# untouched while making it interchangeable with sympde's AnalyticMapping
-# wherever a point-evaluable mapping is expected. It is deliberately NOT a
-# SymbolicMapping: the registration does not propagate there (different
-# metaclass) and a spline has no symbolic identity. NurbsCallableMapping inherits
-# both relationships (real subclass of SplineCallableMapping).
-DefinedMapping.register(SplineCallableMapping)
+# pair. The WP04 registration that made isinstance(_, DefinedMapping) True for
+# splines was removed in WP12 (D1). NurbsCallableMapping inherits the same
+# relationship (real subclass of SplineCallableMapping).
 
 #==============================================================================
 class NurbsCallableMapping(SplineCallableMapping):

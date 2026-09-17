@@ -311,21 +311,19 @@ def test_nurbs_circle():
             assert np.allclose(J_i[:2], J_p, atol=ATOL, rtol=RTOL)
 
 #==============================================================================
-def test_spline_mapping_is_a_defined_mapping():
-    # WP04: SplineCallableMapping/NurbsCallableMapping are registered as virtual subclasses of
-    # sympde's DefinedMapping (they cannot literally inherit it -- see
-    # refactor/04-psydac-spline-under-defined.md), so they are interchangeable
-    # with AnalyticMapping wherever a point-evaluable mapping is expected.
-    from sympde.topology.mapping import DefinedMapping, BasicCallableMapping
+def test_spline_callable_mapping_is_not_a_defined_mapping():
+    # WP12/D1: the WP04 registration of SplineCallableMapping/NurbsCallableMapping
+    # as virtual subclasses of sympde's DefinedMapping was removed. A spline is a
+    # bare BasicCallableMapping (its real base) with no symbolic identity; use
+    # to_defined_mapping(name) to wrap it in a DiscreteMapping.
+    from sympde.topology.mapping import DefinedMapping, SymbolicMapping, BasicCallableMapping
     from psydac.mapping.discrete import SplineCallableMapping
 
-    assert issubclass(SplineCallableMapping, DefinedMapping)
-    assert issubclass(NurbsCallableMapping, DefinedMapping)
-    # registration is additive: the original relationship must still hold
     assert issubclass(SplineCallableMapping, BasicCallableMapping)
     assert issubclass(NurbsCallableMapping, BasicCallableMapping)
+    assert not issubclass(SplineCallableMapping, DefinedMapping)
+    assert not issubclass(NurbsCallableMapping, DefinedMapping)
 
-    # and on a real instance, not just the classes
     rmin, rmax = 0.2, 1
     c_ext = circle(radius=rmax, center=(0, 0))
     c_int = circle(radius=rmin, center=(0, 0))
@@ -339,8 +337,15 @@ def test_spline_mapping_is_a_defined_mapping():
     mapping = NurbsCallableMapping.from_control_points_weights(
         T, control_points=disk.points[..., :2], weights=disk.weights)
 
-    assert isinstance(mapping, DefinedMapping)
     assert isinstance(mapping, BasicCallableMapping)
+    assert not isinstance(mapping, DefinedMapping)
+    assert not isinstance(mapping, SymbolicMapping)
+
+    # the supported route to a symbolic identity
+    G = mapping.to_defined_mapping('M')
+    assert isinstance(G, DefinedMapping)
+    assert G.get_callable_mapping() is mapping
+    assert G.is_analytical is False
 
 #==============================================================================
 def test_psydac_analytic_gallery_classes_are_analytic_mappings():
@@ -380,7 +385,7 @@ def test_basiccallablemapping_name_stays_importable():
 
     assert BCM_m is BCM_cm is BCM_pkg
     assert issubclass(SplineCallableMapping, BCM_m)          # literal base
-    assert issubclass(SplineCallableMapping, DM_m)           # virtual (registered)
+    assert not issubclass(SplineCallableMapping, DM_m)       # WP12/D1: registration removed
     assert issubclass(DM_m, BCM_m)
 
 #==============================================================================
