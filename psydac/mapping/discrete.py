@@ -16,7 +16,9 @@ from sympde.topology.callable_mapping import BasicCallableMapping
 from sympde.topology.mapping import DefinedMapping, DiscreteMapping
 
 from psydac.fem.basic    import FemField
+from psydac.fem.splines  import SplineSpace
 from psydac.fem.tensor   import TensorFemSpace
+from psydac.ddm.cart     import DomainDecomposition
 
 
 __all__ = ('SplineCallableMapping', 'NurbsCallableMapping')
@@ -63,7 +65,76 @@ class SplineCallableMapping(BasicCallableMapping):
     # Option [1]: initialize from TensorFemSpace and pre-existing mapping
     #--------------------------------------------------------------------------
     @classmethod
-    def from_mapping(cls, tensor_space, mapping):
+    def from_mapping(cls, tensor_space, mapping, *,
+                     ncells=None, degree=None, periodic=None, bounds=None, comm=None):
+        """
+        Interpolate a `BasicCallableMapping` (typically an `AnalyticMapping`'s
+        callable) onto a spline space, at that space's Greville points.
+
+        Parameters
+        ----------
+        tensor_space : TensorFemSpace or None
+            The discrete space to interpolate onto. If `None`, one is built
+            from `ncells` and `degree` (see below) -- a convenience so callers
+            don't need to hand-assemble a `SplineSpace`/`DomainDecomposition`/
+            `TensorFemSpace` just to interpolate a mapping.
+
+        mapping : BasicCallableMapping
+            The mapping to interpolate. Must have the same `ldim` as
+            `tensor_space` (or as `ncells`/`degree`, when building one).
+
+        ncells : Iterable[int], optional
+            Number of cells along each logical dimension. Required (together
+            with `degree`) when `tensor_space` is `None`; ignored otherwise.
+
+        degree : Iterable[int], optional
+            Spline degree along each logical dimension. Required (together
+            with `ncells`) when `tensor_space` is `None`; ignored otherwise.
+
+        periodic : Iterable[bool], optional
+            Periodicity along each logical dimension, used only when building
+            a `tensor_space`. Defaults to non-periodic in every direction.
+
+        bounds : Iterable[tuple[float, float]], optional
+            Per-direction `(min, max)` of the logical domain, used only when
+            building a `tensor_space`. Defaults to `(0, 1)` in every
+            direction.
+
+        comm : MPI.Intracomm, optional
+            MPI communicator for the domain decomposition, used only when
+            building a `tensor_space`. Defaults to serial (`None`).
+
+        Returns
+        -------
+        SplineCallableMapping
+
+        Raises
+        ------
+        ValueError
+            If `tensor_space` is `None` and `ncells`/`degree` are not both
+            given, or disagree in length.
+
+        Examples
+        --------
+        >>> F_h = SplineCallableMapping.from_mapping(
+        ...     None, F, ncells=[8, 8], degree=[3, 3])
+        """
+        if tensor_space is None:
+            if ncells is None or degree is None:
+                raise ValueError("Provide 'tensor_space', or both 'ncells' "
+                                 "and 'degree' to build one.")
+            ldim = len(ncells)
+            if len(degree) != ldim:
+                raise ValueError(f"'ncells' and 'degree' must have the same "
+                                 f"length, got {len(ncells)} and {len(degree)}.")
+            if periodic is None:
+                periodic = [False] * ldim
+            if bounds is None:
+                bounds = [(0., 1.)] * ldim
+            domain_decomposition = DomainDecomposition(ncells=ncells, periods=periodic, comm=comm)
+            spaces_1d = [SplineSpace(degree=p, grid=np.linspace(*b, num=n + 1), periodic=per)
+                        for b, n, p, per in zip(bounds, ncells, degree, periodic)]
+            tensor_space = TensorFemSpace(domain_decomposition, *spaces_1d)
 
         assert isinstance(tensor_space, TensorFemSpace)
         assert isinstance(mapping, BasicCallableMapping)

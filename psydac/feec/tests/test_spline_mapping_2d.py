@@ -3,48 +3,13 @@ import numpy as np
 from sympde.topology import NCube
 from sympde.topology import domain
 from sympde.topology import Square, PolarMapping
-from sympde.topology.mapping import BasicCallableMapping
 
 from psydac.mapping.discrete import SplineCallableMapping
 from psydac.cad.geometry     import Geometry
 from psydac.api.tests.build_domain import build_11_patch_pretzel
-from psydac.fem.splines      import SplineSpace
-from psydac.fem.tensor       import TensorFemSpace
-from psydac.ddm.cart         import DomainDecomposition
 
 import pytest
 
-
-def spline_mapping_approx(
-        F, min_coords=None, max_coords=None,
-        degree=None, ncells=None, periodic=(False, False), mpi_comm=None):
-    
-    """ 
-    should this function be merged with psydac.mapping.discrete.SplineCallableMapping.from_mapping() ?
-    """
-
-    # Accept either a callable mapping directly or a symbolic mapping able
-    # to produce one through get_callable_mapping().
-    if not isinstance(F, BasicCallableMapping):
-        if hasattr(F, 'get_callable_mapping'):
-            F = F.get_callable_mapping()
-        else:
-            raise TypeError('F must be a BasicCallableMapping or expose get_callable_mapping().')
-    assert degree is not None and ncells is not None, "degree and ncells must be provided for spline mapping approximation"   
-    
-    # Create uniform grids and 1d spline spaces         
-    grids = [np.linspace(min_coords[d], max_coords[d], num=ncells[d]+1) for d in range(F.ldim)]
-    V_spl = [SplineSpace(degree[d], grid=grids[d], periodic=periodic[d]) for d in range(F.ldim)]
-    
-    # Decompose domain across MPI processes and create tensor-product spline space, distributed
-    dd = DomainDecomposition(ncells, periodic, comm=mpi_comm)
-    V = TensorFemSpace(dd, *V_spl)
-
-    F_h = SplineCallableMapping.from_mapping(V, F) 
-
-    # domain_h = Geometry.from_discrete_mapping(F_h, domain_log=domain_log, comm=mpi_comm)
-
-    return F_h
 
 @pytest.mark.parametrize('spline_mapping', [False, True])
 def test_poisson_mapping(spline_mapping):
@@ -89,12 +54,12 @@ def _solve_poisson_mapping(spline_mapping):
     F_2 = PolarMapping('F_2', dim=2, c1=rmin + rmax, c2=0., rmin=rmax, rmax=rmin)
 
     if spline_mapping:
-        F_1s = spline_mapping_approx(F=F_1,
-            min_coords=domain_log_1.min_coords, max_coords=domain_log_1.max_coords,
-            degree=F_degree, ncells=F_ncells, periodic=(False, False))
-        F_2s = spline_mapping_approx(F=F_2,
-            min_coords=domain_log_2.min_coords, max_coords=domain_log_2.max_coords,
-            degree=F_degree, ncells=F_ncells, periodic=(False, False))
+        F_1s = SplineCallableMapping.from_mapping(
+            None, F_1.get_callable_mapping(), ncells=F_ncells, degree=F_degree,
+            bounds=zip(domain_log_1.min_coords, domain_log_1.max_coords))
+        F_2s = SplineCallableMapping.from_mapping(
+            None, F_2.get_callable_mapping(), ncells=F_ncells, degree=F_degree,
+            bounds=zip(domain_log_2.min_coords, domain_log_2.max_coords))
         # A fresh DefinedMapping per patch whose callable IS the spline.
         M_1, M_2 = F_1s.to_defined_mapping('F_1'), F_2s.to_defined_mapping('F_2')
         assert M_1.is_analytical is False
@@ -180,12 +145,9 @@ def _solve_poisson_2d_single_patch_discrete_mapping():
 
     # spline approximation of the geometry (degree 3, coarse grid)
     geo_ncells, geo_degree = (8, 8), (3, 3)
-    grids = [np.linspace(A.min_coords[d], A.max_coords[d], geo_ncells[d] + 1)
-             for d in range(2)]
-    V_geo = TensorFemSpace(
-        DomainDecomposition(list(geo_ncells), [False, False]),
-        *[SplineSpace(geo_degree[d], grid=grids[d], periodic=False) for d in range(2)])
-    F_h  = SplineCallableMapping.from_mapping(V_geo, F.get_callable_mapping())
+    F_h = SplineCallableMapping.from_mapping(
+        None, F.get_callable_mapping(), ncells=geo_ncells, degree=geo_degree,
+        bounds=zip(A.min_coords, A.max_coords))
 
     F_disc = F_h.to_defined_mapping('F')            # DiscreteMapping, is_analytical=False
     assert F_disc.is_analytical is False
@@ -252,12 +214,9 @@ def _solve_poisson_2d_two_patch_discrete_mapping():
     B = Square('B', bounds1=(0.5, 1.0), bounds2=(0.5 * float(pi),      float(pi)))
 
     def approx(pm, sq):
-        grids = [np.linspace(sq.min_coords[d], sq.max_coords[d], geo_ncells[d] + 1)
-                 for d in range(2)]
-        V = TensorFemSpace(DomainDecomposition(list(geo_ncells), [False, False]),
-                           *[SplineSpace(geo_degree[d], grid=grids[d], periodic=False)
-                             for d in range(2)])
-        return SplineCallableMapping.from_mapping(V, pm.get_callable_mapping())
+        return SplineCallableMapping.from_mapping(
+            None, pm.get_callable_mapping(), ncells=geo_ncells, degree=geo_degree,
+            bounds=zip(sq.min_coords, sq.max_coords))
 
     M_A = approx(PolarMapping('MA', dim=2, c1=0., c2=0., rmin=0., rmax=1.), A).to_defined_mapping('MA')
     M_B = approx(PolarMapping('MB', dim=2, c1=0., c2=0., rmin=0., rmax=1.), B).to_defined_mapping('MB')

@@ -421,3 +421,38 @@ def test_legacy_spline_mapping_names_are_deprecated_aliases():
 
     assert 'SplineCallableMapping' in psydac.mapping.discrete.__all__
     assert 'SplineMapping' not in psydac.mapping.discrete.__all__
+
+#==============================================================================
+def test_from_mapping_builds_tensor_space_from_grid_parameters():
+    # from_mapping(None, mapping, ncells=..., degree=...) builds the
+    # TensorFemSpace itself, instead of requiring the caller to hand-assemble
+    # a SplineSpace/DomainDecomposition/TensorFemSpace first -- must agree
+    # exactly with the manual construction it replaces.
+    from sympde.topology.mapping import AnalyticMapping
+    from psydac.mapping.discrete import SplineCallableMapping
+
+    class Collela2D(AnalyticMapping):
+        _expressions = {'x': 'x1 + 0.1*sin(2*pi*x1)*sin(2*pi*x2)',
+                        'y': 'x2 + 0.1*sin(2*pi*x1)*sin(2*pi*x2)'}
+
+    F = Collela2D('M', dim=2).get_callable_mapping()
+
+    ncells   = [6, 6]
+    degree   = [3, 3]
+    periodic = [False, False]
+
+    domain_decomposition = DomainDecomposition(ncells=ncells, periods=periodic, comm=None)
+    spaces = [SplineSpace(degree=p, grid=np.linspace(0, 1, n + 1), periodic=per)
+             for n, p, per in zip(ncells, degree, periodic)]
+    T = TensorFemSpace(domain_decomposition, *spaces)
+    F_h_manual = SplineCallableMapping.from_mapping(T, F)
+
+    F_h_auto = SplineCallableMapping.from_mapping(None, F, ncells=ncells, degree=degree)
+
+    assert np.allclose(F_h_manual.control_points[...], F_h_auto.control_points[...])
+
+    with pytest.raises(ValueError, match="ncells.*degree"):
+        SplineCallableMapping.from_mapping(None, F, ncells=ncells)
+
+    with pytest.raises(ValueError, match="same length"):
+        SplineCallableMapping.from_mapping(None, F, ncells=[4, 4, 4], degree=[2, 2])

@@ -21,9 +21,6 @@ from    psydac.api.settings         import PSYDAC_BACKEND_GPYCCEL
 from    psydac.linalg.basic         import IdentityOperator, MatrixFreeLinearOperator
 from    psydac.linalg.solvers       import inverse
 from    psydac.api.postprocessing   import OutputManager, PostProcessManager
-from    psydac.ddm.cart             import DomainDecomposition
-from    psydac.fem.splines          import SplineSpace
-from    psydac.fem.tensor           import TensorFemSpace
 from    psydac.fem.basic            import FemField
 from    psydac.linalg.block         import BlockLinearOperator, BlockVectorSpace
 from    psydac.linalg.utilities     import array_to_psydac
@@ -102,22 +99,12 @@ def compute_and_save_fields(cavRad, minRad, majRad, vtu_file, params_name, mappi
         # exit()
         # print(f'struphy_callable_map.jacobian(.5, .5, .5) =\n{struphy_callable_map.jacobian(.5, .5, .5)}')
 
-        # Create uniform grid
-        grid_1 = np.linspace(*log_bounds1, num=ncells[0] + 1)
-        grid_2 = np.linspace(*log_bounds2, num=ncells[1] + 1)
-        grid_3 = np.linspace(*log_bounds3, num=ncells[2] + 1)
-
-        # Create 1D finite element spaces
-        V1 = SplineSpace(degree[0], grid=grid_1, periodic=periodic[0])
-        V2 = SplineSpace(degree[1], grid=grid_2, periodic=periodic[1])
-        V3 = SplineSpace(degree[2], grid=grid_3, periodic=periodic[2])
-
-        # Create 3D tensor product finite element space
-        domain_decomposition = DomainDecomposition(ncells, periodic) #comm=mpi_comm)
-        V = TensorFemSpace(domain_decomposition, V1, V2, V3)
-
-        # Now struphy_callable_map is a proper BasicCallableMapping object
-        map_discrete = SplineCallableMapping.from_mapping(V, struphy_callable_map)
+        # Now struphy_callable_map is a proper BasicCallableMapping object.
+        # from_mapping builds the 3D tensor-product finite element space
+        # itself from ncells/degree/periodic/bounds (comm=mpi_comm, if needed).
+        map_discrete = SplineCallableMapping.from_mapping(
+            None, struphy_callable_map, ncells=ncells, degree=degree,
+            periodic=periodic, bounds=(log_bounds1, log_bounds2, log_bounds3))
 
         # Alternative:
         # Create spline mapping by interpolation of analytical mapping
