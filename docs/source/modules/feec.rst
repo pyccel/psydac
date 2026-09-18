@@ -14,3 +14,10 @@ feec
     feec.multipatch_domain_utilities
     feec.pull_push
     feec.pushforward
+
+feec submodules
+--------------
+.. toctree::
+    :maxdepth: 1
+
+    feec.polar
