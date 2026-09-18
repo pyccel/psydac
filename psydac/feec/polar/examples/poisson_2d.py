@@ -12,7 +12,7 @@ assembles and solves the scalar Poisson system, applies optional treatments of t
 computes L2/H1 errors against the exact solution, and plots the result.
 
 Example of run:
-mpirun -n 2 python poisson_2d.py -S -n 8 10 -d 2 2 -t disk -D 0.2 -m 'C0conga'
+mpirun -n 6 python poisson_2d.py -S -d 3 3 -t disk -D 0.2 -m 'C0conga'
 """
 
 from dataclasses import dataclass
@@ -77,6 +77,20 @@ class Poisson2D(PolarModel2D):
 
         : code
         $\phi(x,y) = (1 - ((x^2 + y^2) / R^2) ** 4) * sin(kx * x) * cos(ky * y)$.
+
+        Parameters
+        ----------
+        R : float
+            Radius of the disk.
+        shift_D : float
+            Shafranov shift.
+
+        Returns
+        -------
+        Poisson2D
+            Poisson model containing the logical domain, mapping, exact solution
+            and source term.
+
         """
         from sympde.topology.analytical_mapping import TargetMapping
         from sympde.topology.domain import Square
@@ -192,6 +206,21 @@ class Poisson2D(PolarModel2D):
 # CONGA (PENALIZED) POISSON
 # ==============================================================================
 class CongaLaplacian(LinearOperator):
+    """
+    Linear operator for the CONGA discretization of the Poisson problem.
+
+    Parameters
+    ----------
+    S : StencilMatrix
+        Stiffness matrix.
+    M : StencilMatrix
+        Mass matrix.
+    P : {C0PolarProjection_V0, C1PolarProjection_U0}
+        CONGA projection onto the conforming polar spline space.
+    alpha : float
+        Penalization parameter for CONGA methods.
+    """
+
 
     def __init__(self, S, M, P, alpha):
 
@@ -255,14 +284,6 @@ class CongaLaplacian(LinearOperator):
         return self.tosparse().toarray()
 
     @property
-    def T(self):
-        return self.transpose()
-
-    @property
-    def shape(self):
-        return (self.W0.dimension, self.W0.dimension)
-
-    @property
     def domain(self):
         return self.W0
 
@@ -287,6 +308,26 @@ class ErrorDiagnostics:
 
 
 def compute_errors(phi, phi_ref, M, S):
+    """
+    Compute relative L2 and H1 errors of a numerical solution.
+
+    Parameters
+    ----------
+    phi : FemField
+        Numerical solution.
+    phi_ref : FemField
+        Reference solution.
+    M : StencilMatrix
+        Mass matrix used to compute the L2 norm.
+    S : StencilMatrix
+        Stiffness matrix used to compute the H1 norm.
+
+    Returns
+    -------
+    ErrorDiagnostics
+        Reference L2 and H1 norms and relative L2 and H1 errors.
+    """
+
 
     # L2 and H1 norms
     ref_l2_2 = phi_ref.coeffs.inner(M.dot(phi_ref.coeffs))
@@ -315,7 +356,22 @@ def compute_errors(phi, phi_ref, M, S):
 # ==============================================================================
 def plot_solution(use_spline_mapping, model, ncells, periodic, V0_h, refine=10):
     """
-    Plot exact solution, numerical solution and error
+    Plot exact solution, numerical solution and error.
+
+    Parameters
+    ----------
+    use_spline_mapping : bool
+        Whether a spline mapping is used.
+    model : Poisson2D
+        Poisson model containing the mapping and exact solution.
+    ncells : sequence of int
+        Number of grid cells along each logical direction.
+    periodic : sequence of bool
+        Periodicity along each logical direction.
+    V0_h : TensorFemSpace
+        Discrete finite element space of the numerical solution.
+    refine : int, default=10
+        Refinement factor for plotting.
     """
     import matplotlib.pyplot as plt
 
