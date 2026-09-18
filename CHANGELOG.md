@@ -6,10 +6,10 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
--   #576 : Add symbolic Laplacian operator expressed in logical coordinates in `psydac.utilities.operators`
--   #576 : Add a module `psydac.feec.polar.conga_projections` with broken FEEC polar projections in 2D
+-   #576 : Add module `psydac.feec.polar.conga_projections` with broken FEEC polar projections in 2D
 -   #576 : Add 2D Poisson and TE Maxwell examples on polar mapped domains in `psydac/feec/polar/examples`
--   #576 : Add a module `psydac.utilities.parallel_utils` for parallel execution and gathering variable-length arrays 
+-   #576 : Add module `psydac.utilities.parallel_utils` for parallel execution and gathering variable-length arrays
+-   #576 : Add module `psydac.utilities.operators` with class `Laplacian` used in some old examples
 -   #577 : Add an installation configuration option to choose the backend language
 -   [DEVELOPER] Create action `install_petsc4py` to install PETSc & `petsc4py` w/ complex support
 

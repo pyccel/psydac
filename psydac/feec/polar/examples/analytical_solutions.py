@@ -276,9 +276,8 @@ def main(solution_name):
 
     Parameters
     ----------
-    solution_name : str
+    solution_name : {"cavity", "gaussian"}
         Name of the analytical solution to visualize.
-        Must be either ``cavity`` or ``gaussian``.
     """
 
     # Set time
