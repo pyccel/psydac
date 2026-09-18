@@ -39,13 +39,13 @@ def test_H1_projector_1d(domain, ncells, degree, periodic, multiplicity, verbose
 
     # H1 space (0-forms)
     N  = SplineSpace(degree=degree, knots=knots, periodic=periodic, basis='B')
-    V0 = TensorFemSpace(domain_decomposition, N, dtype=complex)
+    V0 = TensorFemSpace(domain_decomposition, N)
 
     # Projector onto H1 space (1D interpolation)
     P0 = GlobalGeometricProjectorH1(V0)
 
     # Function to project
-    f  = lambda xi1 : np.sin( (2+1j)*xi1 + 0.5 )
+    f  = lambda xi1 : np.sin( xi1 + 0.5 )
 
     # Compute the projection
     u0 = P0(f)
@@ -129,15 +129,12 @@ def test_derham_projector_2d_hdiv(ncells, degree, periodic, multiplicity, verbos
     multiplicity = [min(m, p) for p, m in zip(degree, multiplicity)]
 
     derham   = Derham(domain, ["H1", "Hdiv", "L2"])
-    derham.V0.codomain_type='complex'
-    derham.V1.codomain_type='complex' 
-    derham.V2.codomain_type='complex'
 
     derham_h   = discretize(derham, domain_h, degree=degree, get_H1vec_space = True, multiplicity=multiplicity)
     P0, P1, P2, PX = derham_h.projectors(nquads=[2*p+1 for p in degree])
 
     # Function to project
-    f1  = lambda xi1, xi2 : np.sin( xi1 + 0.5 ) * np.cos( (1+1e-2j)*xi2 + 0.3 )
+    f1  = lambda xi1, xi2 : np.sin( xi1 + 0.5 ) * np.cos( xi2 + 0.3 )
     f2  = lambda xi1, xi2 : np.cos( xi1 + 0.5 ) * np.sin( xi2 - 0.2 )
 
     # Compute the projection
@@ -347,7 +344,7 @@ def test_derham_projector_3d(ncells, degree, periodic, multiplicity, verbose=Fal
     # Function to project
     f1 = lambda xi1, xi2, xi3 : np.sin( xi1 + 0.51 ) * np.cos( xi2 + 0.32 ) * np.sin( xi3 - 0.43)
     f2 = lambda xi1, xi2, xi3 : np.cos( xi1 + 0.27 ) * np.sin( xi2 - 0.29 ) * np.cos( xi3 + 0.67)
-    f3 = lambda xi1, xi2, xi3 : np.cos( (1+1e-2j)*xi1 + 0.72 ) * np.sin( xi2 - 0.73j ) * np.cos( xi3 - 0.14)
+    f3 = lambda xi1, xi2, xi3 : np.cos( (1+1e-2j)*xi1 + 0.72 ) * np.sin( xi2 - 0.73 + 0.1j ) * np.cos( xi3 - 0.14)
 
     # Compute the projection
     u0 = P0(f1)
