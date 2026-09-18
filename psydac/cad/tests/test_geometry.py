@@ -4,6 +4,7 @@
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
 import os
+import tempfile
 
 import pytest
 import numpy as np
@@ -633,6 +634,148 @@ def test_geometry_type_tag_is_frozen():
     fixture = os.path.join(base_dir, '..', 'mesh', 'collela_2d.h5')
     geo_fixture = Geometry.from_file(fixture)
     assert any(m is not None for m in geo_fixture.mappings.values())
+
+#==============================================================================
+# WP15-0: pin current Geometry per-patch dict-key / export-byte-identity
+# behaviour before WP15-1 re-keys everything by interior name. These tests
+# must keep passing, unmodified, after WP15-1 (except one deliberately
+# flipped pin -- see WP15-1 step 10).
+#==============================================================================
+_SINGLE_PATCH_FIXTURES = [
+    'bent_pipe', 'circle', 'collela_2d', 'collela_3d',
+    'identity_2d', 'identity_3d', 'pipe', 'quarter_annulus',
+]
+_MULTIPATCH_FIXTURES = ['magnet', 'square', 'square_repeated_knots']
+_XFAIL_MULTIPATCH_FIXTURES = [
+    'plate_with_hole_mp', 'plate_with_hole_mp_6', 'plate_with_hole_mp_7',
+]
+
+def _fixture_path(name):
+    if name in _MULTIPATCH_FIXTURES or name in _XFAIL_MULTIPATCH_FIXTURES:
+        return os.path.join(base_dir, '..', 'mesh', 'multipatch', name + '.h5')
+    return os.path.join(base_dir, '..', 'mesh', name + '.h5')
+
+_GEOMETRY_FIXTURE_PARAMS = (
+    [pytest.param(name, id=name) for name in _SINGLE_PATCH_FIXTURES + _MULTIPATCH_FIXTURES]
+    + [pytest.param(name, marks=pytest.mark.xfail(raises=ValueError, strict=True), id=name)
+       for name in _XFAIL_MULTIPATCH_FIXTURES]
+)
+
+@pytest.mark.xdist_group('h5py')
+@pytest.mark.parametrize('fixture', _GEOMETRY_FIXTURE_PARAMS)
+def test_geometry_fixture_export_is_byte_identical(fixture, tmp_path):
+    filename = _fixture_path(fixture)
+    geo = Geometry.from_file(filename)
+    out = str(tmp_path / 'out.h5')
+    geo.export(out)
+
+    with h5py.File(filename, mode='r') as h5_orig, h5py.File(out, mode='r') as h5_new:
+        assert h5_orig['geometry.yml'][()] == h5_new['geometry.yml'][()]
+        assert h5_orig['topology.yml'][()] == h5_new['topology.yml'][()]
+
+        yml = yaml.safe_load(h5_orig['geometry.yml'][()])
+        pdim = yml['pdim']
+        for patch in yml['patches']:
+            mapping_id = patch['mapping_id']
+            g_orig = h5_orig[mapping_id]
+            g_new  = h5_new[mapping_id]
+            np.testing.assert_array_equal(g_orig['points'][..., :pdim], g_new['points'][..., :pdim])
+            for d in range(yml['ldim']):
+                key = 'knots_{}'.format(d)
+                np.testing.assert_array_equal(g_orig[key][:], g_new[key][:])
+            assert list(g_orig.attrs['degree'])   == list(g_new.attrs['degree'])
+            assert list(g_orig.attrs['periodic']) == list(g_new.attrs['periodic'])
+            assert ('weights' in g_orig) == ('weights' in g_new)
+
+    geo_reread = Geometry.from_file(out)
+    assert geo_reread.domain.name          == geo.domain.name
+    assert geo_reread.domain.interior_names == geo.domain.interior_names
+    for name in geo.domain.interior_names:
+        assert geo_reread.ncells[name] == geo.ncells[name]
+
+#==============================================================================
+def test_geometry_export_names_in_memory_constructors():
+    # from_discrete_mapping: single patch, key = interior name "mapping(Omega)"
+    mapping = discrete_mapping('identity', ncells=[4, 4], degree=[2, 2])
+    geo = Geometry.from_discrete_mapping(mapping)
+    with tempfile.TemporaryDirectory() as d:
+        f0 = os.path.join(d, 'g0.h5')
+        geo.export(f0)
+        with h5py.File(f0, mode='r') as h5:
+            assert h5['geometry.yml'][()] == (
+                b'ldim: 2\npdim: 2\npatches:\n'
+                b'- name: mapping(Omega)\n  mapping_id: mapping_0\n  type: SplineMapping\n'
+            )
+
+        geo_r = Geometry.from_file(f0)
+        f1 = os.path.join(d, 'g1.h5')
+        geo_r.export(f1)
+        with h5py.File(f0, mode='r') as h5_0, h5py.File(f1, mode='r') as h5_1:
+            assert h5_0['geometry.yml'][()]  == h5_1['geometry.yml'][()]
+            assert h5_0['topology.yml'][()]  == h5_1['topology.yml'][()]
+        # no double wrap (WP10 bug 2's pin)
+        assert geo_r.domain.interior_names == ['mapping(Omega)']
+
+    # from_discrete_domain: two patches, keys = interior names "MA(A)", "MB(B)"
+    Omega, spl_A, spl_B = _two_patch_spline_annulus()
+    geo_mp = Geometry.from_discrete_domain(Omega)
+    with tempfile.TemporaryDirectory() as d:
+        f0 = os.path.join(d, 'g0.h5')
+        geo_mp.export(f0)
+        with h5py.File(f0, mode='r') as h5:
+            assert h5['geometry.yml'][()] == (
+                b'ldim: 2\npdim: 2\npatches:\n'
+                b'- name: MA(A)\n  mapping_id: mapping_0\n  type: SplineMapping\n'
+                b'- name: MB(B)\n  mapping_id: mapping_1\n  type: SplineMapping\n'
+            )
+
+        geo_mp_r = Geometry.from_file(f0)
+        assert geo_mp_r.domain.interior_names == ['MA(A)', 'MB(B)']
+        assert [itr.logical_domain.name for itr in geo_mp_r.domain.interior.args] == ['A', 'B']
+        assert geo_mp_r.domain.interfaces is not None
+
+#==============================================================================
+@pytest.mark.xdist_group('h5py')
+def test_geometry_mappings_order_matches_interiors():
+    # from_file: geo.mappings.values() is positionally ordered like interiors,
+    # regardless of the (legacy patch-name) dict keys.
+    for fixture in ('square', 'magnet'):
+        filename = os.path.join(base_dir, '..', 'mesh', 'multipatch', fixture + '.h5')
+        geo = Geometry.from_file(filename)
+        interiors = list(geo.domain.interior.args)
+        values = list(geo.mappings.values())
+        assert len(values) == len(interiors)
+        for i, itr in enumerate(interiors):
+            assert values[i] is itr.mapping.get_callable_mapping()
+
+    # from_discrete_domain: splines are rebuilt on interface-aware spaces, so
+    # compare control points rather than identity.
+    Omega, spl_A, spl_B = _two_patch_spline_annulus()
+    geo_dd = Geometry.from_discrete_domain(Omega)
+    values = list(geo_dd.mappings.values())
+    assert np.allclose(values[0].control_points[...], spl_A.control_points[...])
+    assert np.allclose(values[1].control_points[...], spl_B.control_points[...])
+
+    # from_discrete_mapping: single patch.
+    mapping = discrete_mapping('identity', ncells=[4, 4], degree=[2, 2])
+    geo_dm = Geometry.from_discrete_mapping(mapping)
+    values = list(geo_dm.mappings.values())
+    assert len(values) == 1
+    assert values[0] is geo_dm.domain.mapping.get_callable_mapping()
+
+#==============================================================================
+@pytest.mark.xdist_group('h5py')
+def test_geometry_legacy_patch_key_access():
+    # Pinned current behaviour of Geometry.read() on a multipatch fixture:
+    # `mappings` is keyed by the legacy on-disk patch name, and `periodic`
+    # is a plain list (not a dict) once n_patches > 1. This pin is
+    # deliberately flipped in WP15-1 step 10.
+    filename = os.path.join(base_dir, '..', 'mesh', 'multipatch', 'square.h5')
+    geo = Geometry.from_file(filename)
+
+    assert geo.mappings['patch_0'] is list(geo.mappings.values())[0]
+    assert isinstance(geo.periodic, list)
+    assert geo.periodic[1] == [False, False]
 
 #==============================================================================
 @pytest.mark.xfail
