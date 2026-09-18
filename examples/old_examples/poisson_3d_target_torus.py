@@ -12,6 +12,7 @@ from sympde.topology import Cube, Mapping
 
 from psydac.api.postprocessing import OutputManager, PostProcessManager
 from psydac.fem.basic import FemField
+from psydac.utilities.operators import Laplacian
 from psydac.utilities.utils import refine_array_1d
 
 NUM_DIMS_LOGICAL  = 3
