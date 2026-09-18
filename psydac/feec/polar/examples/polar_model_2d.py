@@ -18,7 +18,7 @@ class PolarModel2D:
 
     Attributes
     ----------
-    logical_bounds : tuple
+    logical_bounds : tuple[tuple[float, ...], ...]
         Bounds of the logical domain.
 
     mapping : sympde.topology.mapping.Mapping
