@@ -155,8 +155,6 @@ class PolarModel2D:
     @property
     def analytical_mapping(self):
         return self._analytical_mapping
-
-
     @property
     def domain(self):
         return self._domain

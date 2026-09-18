@@ -21,7 +21,7 @@ from psydac.fem.splines          import SplineSpace
 from psydac.fem.tensor           import TensorFemSpace
 from psydac.fem.basic            import FemField
 from psydac.mapping.discrete     import SplineMapping
-from psydac.utilities.operators import Laplacian
+from psydac.utilities.operators  import Laplacian
 from psydac.utilities.utils      import refine_array_1d
 from psydac.cad.geometry         import Geometry
 from psydac.ddm.cart             import DomainDecomposition
