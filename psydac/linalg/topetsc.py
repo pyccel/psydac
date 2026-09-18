@@ -458,7 +458,7 @@ def mat_topetsc(mat):
 
     from petsc4py import PETSc
 
-    assert isinstance(mat, StencilMatrix) or isinstance(mat, BlockLinearOperator), 'Conversion only implemented for StencilMatrix and BlockLinearOperator.'
+    assert isinstance(mat, StencilMatrix) or isinstance(mat, BlockLinearOperator) or isinstance(mat, ZeroOperator), 'Conversion only implemented for StencilMatrix, BlockLinearOperator and ZeroOperator.'
 
     if (isinstance(mat.domain, BlockVectorSpace) and any([isinstance(mat.domain.spaces[b], BlockVectorSpace) for b in range(len(mat.domain.spaces))]))\
         or (isinstance(mat.codomain, BlockVectorSpace) and any([isinstance(mat.codomain.spaces[b], BlockVectorSpace) for b in range(len(mat.codomain.spaces))])):
@@ -469,22 +469,10 @@ def mat_topetsc(mat):
     elif isinstance(mat.domain, BlockVectorSpace):
         comm = mat.domain.spaces[0].cart.global_comm
 
-    nonzero_block_indices = ((0,0),) if isinstance(mat, StencilMatrix) else mat.nonzero_block_indices
-
-    mat.update_ghost_regions()
-    mat.remove_spurious_entries()
 
     # Get the number of points local to the current process:
     dnpts_local = get_npts_local(mat.domain) # indexed [block, dimension]. Different for each process.
     cnpts_local = get_npts_local(mat.codomain) # indexed [block, dimension]. Different for each process. 
-
-    # Get the number of points per block, per process and per dimension:
-    dnpts_per_block_per_process = np.array(get_npts_per_block(mat.domain)) # global variable, indexed as [block, process, dimension]
-    cnpts_per_block_per_process = np.array(get_npts_per_block(mat.codomain)) # global variable, indexed as [block, process, dimension]
-
-    # Get the index shift for each block and each process:
-    dindex_shift = get_index_shift_per_block_per_process(mat.domain) # global variable, indexed as [block, process, dimension]
-    cindex_shift = get_index_shift_per_block_per_process(mat.codomain) # global variable, indexed as [block, process, dimension]
 
     globalsize = mat.shape
 
@@ -505,6 +493,23 @@ def mat_topetsc(mat):
 
     gmat.setFromOptions()
     gmat.setUp()
+
+    if isinstance(mat, ZeroOperator):
+        gmat.assemble()
+        return gmat
+
+    nonzero_block_indices = ((0,0),) if isinstance(mat, StencilMatrix) else mat.nonzero_block_indices
+
+    mat.update_ghost_regions()
+    mat.remove_spurious_entries()
+
+    # Get the number of points per block, per process and per dimension:
+    dnpts_per_block_per_process = np.array(get_npts_per_block(mat.domain)) # global variable, indexed as [block, process, dimension]
+    cnpts_per_block_per_process = np.array(get_npts_per_block(mat.codomain)) # global variable, indexed as [block, process, dimension]
+
+    # Get the index shift for each block and each process:
+    dindex_shift = get_index_shift_per_block_per_process(mat.domain) # global variable, indexed as [block, process, dimension]
+    cindex_shift = get_index_shift_per_block_per_process(mat.codomain) # global variable, indexed as [block, process, dimension]
 
     I = [0] # Row pointers
     J = [] # Column indices
