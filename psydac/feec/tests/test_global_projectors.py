@@ -39,13 +39,13 @@ def test_H1_projector_1d(domain, ncells, degree, periodic, multiplicity, verbose
 
     # H1 space (0-forms)
     N  = SplineSpace(degree=degree, knots=knots, periodic=periodic, basis='B')
-    V0 = TensorFemSpace(domain_decomposition, N)
+    V0 = TensorFemSpace(domain_decomposition, N, dtype=complex)
 
     # Projector onto H1 space (1D interpolation)
     P0 = GlobalGeometricProjectorH1(V0)
 
     # Function to project
-    f  = lambda xi1 : np.sin( xi1 + 0.5 )
+    f  = lambda xi1 : np.sin( xi1 + 0.5 -1j )
 
     # Compute the projection
     u0 = P0(f)
@@ -61,6 +61,7 @@ def test_H1_projector_1d(domain, ncells, degree, periodic, multiplicity, verbose
     if verbose:
         print(ncells, maxnorm_error / error_estim)
     assert maxnorm_error <= max(10 * error_estim, 1e-13)
+test_H1_projector_1d((0, 2*np.pi), 500, 1, True,1)
 
 #==============================================================================
 @pytest.mark.parametrize('domain', [(0, 2*np.pi)])
@@ -135,7 +136,7 @@ def test_derham_projector_2d_hdiv(ncells, degree, periodic, multiplicity, verbos
 
     # Function to project
     f1  = lambda xi1, xi2 : np.sin( xi1 + 0.5 ) * np.cos( xi2 + 0.3 )
-    f2  = lambda xi1, xi2 : np.cos( xi1 + 0.5 ) * np.sin( xi2 - 0.2 )
+    f2  = lambda xi1, xi2 : np.cos( xi1 + 0.5 ) * np.sin( xi2 - 0.2j )
 
     # Compute the projection
     u0 = P0(f1)
@@ -344,7 +345,7 @@ def test_derham_projector_3d(ncells, degree, periodic, multiplicity, verbose=Fal
     # Function to project
     f1 = lambda xi1, xi2, xi3 : np.sin( xi1 + 0.51 ) * np.cos( xi2 + 0.32 ) * np.sin( xi3 - 0.43)
     f2 = lambda xi1, xi2, xi3 : np.cos( xi1 + 0.27 ) * np.sin( xi2 - 0.29 ) * np.cos( xi3 + 0.67)
-    f3 = lambda xi1, xi2, xi3 : np.cos( (1+1e-2j)*xi1 + 0.72 ) * np.sin( xi2 - 0.73 + 0.1j ) * np.cos( xi3 - 0.14)
+    f3 = lambda xi1, xi2, xi3 : np.cos( xi1 + 0.72 ) * np.sin( xi2 - 0.73 + 7j ) * np.cos( xi3 - 0.14)
 
     # Compute the projection
     u0 = P0(f1)
