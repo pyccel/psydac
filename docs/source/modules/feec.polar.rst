@@ -1,5 +1,5 @@
 feec.polar
-=======
+==========
 
 .. currentmodule:: psydac.feec
 .. autosummary::
