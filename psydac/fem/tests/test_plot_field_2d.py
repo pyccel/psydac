@@ -106,8 +106,11 @@ def test_plot_field_spline_discrete_mapping(tmp_path):
     x2 = refine_array_1d(grid_x2, N)
     x_loop = np.array([[F_callable(a, b)[0] for b in x2] for a in x1])
     y_loop = np.array([[F_callable(a, b)[1] for b in x2] for a in x1])
-    np.testing.assert_array_equal(gridlines_x1[0], x_loop[:, ::N])
-    np.testing.assert_array_equal(gridlines_x1[1], y_loop[:, ::N])
+    # WP14b: get_patch_knots_gridlines calls the mapping on a dense meshgrid,
+    # which is fast-tensor-grid-eligible -- ~1e-15 agreement with the
+    # per-point loop above, not bitwise-equal (different summation order).
+    np.testing.assert_allclose(gridlines_x1[0], x_loop[:, ::N], rtol=0, atol=5e-14)
+    np.testing.assert_allclose(gridlines_x1[1], y_loop[:, ::N], rtol=0, atol=5e-14)
 
     filename = str(tmp_path / 'uh.png')
     plot_field(fem_field=uh, Vh=Vh, domain=domain, title='uh',

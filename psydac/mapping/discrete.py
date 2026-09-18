@@ -78,6 +78,17 @@ def _eval_pointwise(scalar_fn, eta, comp_shape):
     ndarray
         Shape `comp_shape + S`, where `S` is the broadcast shape of `eta`.
 
+    Warns
+    -----
+    In a distributed (MPI) space, this is the path every array-`eta` call
+    takes when `_fast_tensor_grid` declines (which it always does in
+    parallel -- see there). It carries over the same locality requirement
+    scalar evaluation already had: every point must lie in the calling
+    rank's local domain (plus ghost region), on every rank, or the
+    underlying `FemField` lookup raises or returns wrong values -- this was
+    never checked for scalar `eta` either, so it isn't a new restriction,
+    but it now also applies to whatever array `eta` a caller passes.
+
     Examples
     --------
     >>> X1, X2 = np.meshgrid([0.2, 0.5], [0.3, 0.7], indexing='ij')
@@ -103,6 +114,134 @@ def _eval_pointwise(scalar_fn, eta, comp_shape):
 
     out = out.reshape(shape + comp_shape)
     return np.moveaxis(out, range(len(shape), out.ndim), range(len(comp_shape)))
+
+#==============================================================================
+def _tensor_axes_of_meshgrid(eta):
+    """Detect whether `eta` is (a meshgrid of) a tensor-product grid.
+
+    WP14b's fast path routes tensor grids through psydac's compiled kernels
+    (`build_mesh`/`jac_mat_grid`) instead of `_eval_pointwise`'s per-point
+    loop. Those kernels need one strictly-per-axis 1-D array each; this is a
+    pure-numpy structural test for that shape, independent of any mapping, so
+    it can be unit-tested on its own and reused by `_fast_tensor_grid`'s
+    gates. Diagonal or otherwise non-tensor inputs (e.g. a point cloud, or two
+    arrays that co-vary along a shared index) are rejected, not mis-detected:
+    every array's variation is checked exhaustively against the data, not
+    inferred from `indexing='ij'`/`'xy'` conventions.
+
+    Parameters
+    ----------
+    eta : tuple of array_like
+        One entry per logical coordinate, as passed to e.g. `__call__`.
+
+    Returns
+    -------
+    (axes, perm) or None
+        `axes[i]` is the non-decreasing 1-D `float64` grid along logical axis
+        `i`; `perm[i]` is the array dimension that logical axis `i` indexes
+        (so `perm` is a permutation of `range(len(eta))`). `None` if `eta`
+        is not a tensor grid with at least 2 points along every axis, real
+        dtype, and non-decreasing axes.
+
+    Examples
+    --------
+    >>> X1, X2 = np.meshgrid([0.2, 0.5], [0.3, 0.7, 0.9], indexing='ij')
+    >>> axes, perm = _tensor_axes_of_meshgrid((X1, X2))
+    >>> [a.tolist() for a in axes], perm
+    ([[0.2, 0.5], [0.3, 0.7, 0.9]], [0, 1])
+    """
+    arrs = np.broadcast_arrays(*(np.asarray(e) for e in eta))
+    ldim = len(eta)
+    shape = arrs[0].shape
+
+    # Step 1: must be a genuine ldim-D grid, >= 2 points per axis (the
+    # kernels dispatch on grid[0].size == 1 and would mis-route a length-1
+    # axis into their scalar Case 1).
+    if len(shape) != ldim or any(s < 2 for s in shape):
+        return None
+
+    # Step 2: real dtype only; work in float64 from here.
+    if not all(np.isrealobj(a) for a in arrs):
+        return None
+    arrs = [a.astype(np.float64, copy=False) for a in arrs]
+
+    # Step 3: per array, the (at most one) array dimension it varies along.
+    varying_dim = []
+    for a in arrs:
+        dims = [d for d in range(ldim)
+                if not np.all(a == np.take(a, [0], axis=d))]
+        if len(dims) > 1:
+            return None
+        varying_dim.append(dims[0] if dims else None)
+
+    # Step 4: build the bijection perm from "varies along"; a collision means
+    # two logical axes vary along the same array dimension (e.g. a diagonal).
+    # Constant arrays (vary along none) take the remaining dimensions, in
+    # order -- equivalent by construction since they don't vary anywhere.
+    perm = [None] * ldim
+    used = set()
+    for i, d in enumerate(varying_dim):
+        if d is None:
+            continue
+        if d in used:
+            return None
+        perm[i] = d
+        used.add(d)
+    free = iter(d for d in range(ldim) if d not in used)
+    for i in range(ldim):
+        if perm[i] is None:
+            perm[i] = next(free)
+
+    # Step 5-6: extract each axis (contiguous float64) and require it
+    # non-decreasing (preprocess_irregular_tensor_grid asserts exactly this).
+    axes = []
+    for i, a in enumerate(arrs):
+        idx = [0] * ldim
+        idx[perm[i]] = slice(None)
+        axis = np.ascontiguousarray(a[tuple(idx)], dtype=np.float64)
+        if np.any(np.diff(axis) < 0):
+            return None
+        axes.append(axis)
+
+    return axes, perm
+
+def _components_to_front(arr, perm, ncomp):
+    """Reorder `arr`'s leading grid axes to match `eta`'s array-dimension
+    order, then move the trailing component axes to the front.
+
+    `jac_mat_grid` and friends return grid-axes-first (in logical-axis
+    order), components-last; the point-evaluation contract is components-
+    first, in the array-dimension order of the original `eta` (matching
+    `AnalyticMapping`). `perm`, from `_tensor_axes_of_meshgrid`, maps logical
+    axis `i` to the array dimension it indexes.
+
+    Parameters
+    ----------
+    arr : ndarray
+        Shape `(n_0, ..., n_{ldim-1}) + comp_shape`, `comp_shape` of length
+        `ncomp`, axis `i` (i < ldim) varying along logical axis `i`.
+    perm : list of int
+        Permutation of `range(ldim)` from `_tensor_axes_of_meshgrid`.
+    ncomp : int
+        Number of trailing component axes (0, or 2 for the Jacobian family).
+
+    Returns
+    -------
+    ndarray
+        Shape `comp_shape + S`, `S` the broadcast shape of the original
+        `eta` (array-dimension order).
+
+    Examples
+    --------
+    >>> # eta built with indexing='xy' -> perm = [1, 0] (axes swapped)
+    >>> J = jac_mat_grid([x_axis, y_axis])  # shape (n_x, n_y, pdim, ldim)
+    >>> _components_to_front(J, perm=[1, 0], ncomp=2).shape
+    (pdim, ldim, n_y, n_x)
+    """
+    ldim = len(perm)
+    order = list(np.argsort(perm)) + list(range(ldim, arr.ndim))
+    arr = np.transpose(arr, order)
+    return np.moveaxis(arr, range(ldim, arr.ndim), range(ncomp))
 
 #==============================================================================
 class SplineCallableMapping(BasicCallableMapping):
@@ -282,12 +421,22 @@ class SplineCallableMapping(BasicCallableMapping):
     #--------------------------------------------------------------------------
     def __call__(self, *eta):
         if not _is_scalar_eta(eta):
+            fast = self._fast_tensor_grid(eta)
+            if fast is not None:
+                axes, perm = fast
+                mesh = self.build_mesh(list(axes))
+                return tuple(np.transpose(m, np.argsort(perm)) for m in mesh)
             return tuple(_eval_pointwise(self.__call__, eta, (self.pdim,)))
         return [map_Xd(*eta) for map_Xd in self._fields]
 
     # ...
     def jacobian(self, *eta):
         if not _is_scalar_eta(eta):
+            fast = self._fast_tensor_grid(eta, square=True)
+            if fast is not None:
+                axes, perm = fast
+                J = self.jac_mat_grid(list(axes))
+                return _components_to_front(J, perm, 2)
             return _eval_pointwise(self.jacobian, eta, (self.pdim, self.ldim))
         return np.array([map_Xd.gradient(*eta) for map_Xd in self._fields])
 
@@ -304,12 +453,23 @@ class SplineCallableMapping(BasicCallableMapping):
         # on its first point with no clearer message).
         self._require_square_jacobian()
         if not _is_scalar_eta(eta):
+            fast = self._fast_tensor_grid(eta, square=True)
+            if fast is not None:
+                axes, perm = fast
+                J = self.jac_mat_grid(list(axes))
+                return _components_to_front(np.linalg.inv(J), perm, 2)
             return _eval_pointwise(self.jacobian_inv, eta, (self.ldim, self.pdim))
         return np.linalg.inv(self.jacobian(*eta))
 
     # ...
     def metric(self, *eta):
         if not _is_scalar_eta(eta):
+            fast = self._fast_tensor_grid(eta, square=True)
+            if fast is not None:
+                axes, perm = fast
+                J = self.jac_mat_grid(list(axes))
+                metric_arr = np.einsum('...ki,...kj->...ij', J, J)
+                return _components_to_front(metric_arr, perm, 2)
             return _eval_pointwise(self.metric, eta, (self.ldim, self.ldim))
         J = self.jacobian(*eta)
         return np.dot(J.T, J)
@@ -317,6 +477,12 @@ class SplineCallableMapping(BasicCallableMapping):
     # ...
     def metric_det(self, *eta):
         if not _is_scalar_eta(eta):
+            fast = self._fast_tensor_grid(eta, square=True)
+            if fast is not None:
+                axes, perm = fast
+                J = self.jac_mat_grid(list(axes))
+                metric_arr = np.einsum('...ki,...kj->...ij', J, J)
+                return _components_to_front(np.linalg.det(metric_arr), perm, 0)
             return _eval_pointwise(self.metric_det, eta, ())
         return np.linalg.det(self.metric(*eta))
 
@@ -371,6 +537,65 @@ class SplineCallableMapping(BasicCallableMapping):
     #--------------------------------------------------------------------------
     # Fast evaluation on a grid
     #--------------------------------------------------------------------------
+    def _fast_tensor_grid(self, eta, *, square=False):
+        """WP14b: is `eta` an array input the compiled-kernel grid machinery
+        can evaluate directly, in place of `_eval_pointwise`'s per-point loop?
+
+        `_tensor_axes_of_meshgrid` handles the structural test; this method
+        adds the caller-specific gates that make routing through
+        `build_mesh`/`jac_mat_grid` safe: serial only (`preprocess_*` slice
+        distributed grids to the local domain, incompatible with the "shaped
+        like `eta`" contract), a supported `ldim`, a square Jacobian when
+        `square=True` (the `jacobian`/`jacobian_inv`/`metric`/`metric_det`
+        family, since `jac_mat_grid` itself requires `pdim == ldim`), and
+        every axis inside `self.space.breaks` (the kernels raise on
+        out-of-range points instead of extrapolating like the scalar path).
+
+        Parameters
+        ----------
+        eta : tuple of array_like
+            One entry per logical coordinate.
+        square : bool, optional
+            `True` for the Jacobian-derived methods (default `False`, used
+            by `__call__`).
+
+        Returns
+        -------
+        (axes, perm) or None
+            See `_tensor_axes_of_meshgrid`. `None` means: fall back to the
+            per-point loop.
+
+        Examples
+        --------
+        >>> X1, X2 = np.meshgrid([0.2, 0.5], [0.3, 0.7, 0.9], indexing='ij')
+        >>> spline_mapping._fast_tensor_grid((X1, X2)) is not None  # eligible
+        True
+        >>> spline_mapping._fast_tensor_grid((0.3, 0.4)) is None  # not a grid
+        True
+        """
+        # Cheap gates first: _tensor_axes_of_meshgrid does an O(ldim^2 * size)
+        # scan over the actual data, wasted work if a cheap check below would
+        # reject anyway (e.g. every call on a parallel mapping, or every
+        # jacobian_inv/metric/metric_det call on a surface mapping).
+        if self.space.coeff_space.parallel:
+            return None
+        if len(eta) != self.ldim or self.ldim not in (1, 2, 3):
+            return None
+        if square and (self.pdim != self.ldim or self.ldim == 1):
+            return None
+
+        result = _tensor_axes_of_meshgrid(eta)
+        if result is None:
+            return None
+        axes, perm = result
+
+        for i, axis in enumerate(axes):
+            lo, hi = self.space.breaks[i][0], self.space.breaks[i][-1]
+            if axis[0] < lo or axis[-1] > hi:
+                return None
+
+        return axes, perm
+
     def build_mesh(self, grid, npts_per_cell=None, overlap=0):
         """Evaluation of the mapping on the given grid.
 
@@ -383,7 +608,7 @@ class SplineCallableMapping(BasicCallableMapping):
         npts_per_cell: int, tuple of int or None, optional
             Number of evaluation points in each cell.
             If an integer is given, then assume that it is the same in every direction.
-        
+
         overlap : int
             How much to overlap. Only used in the distributed context.
 
@@ -978,6 +1203,13 @@ class SplineCallableMapping(BasicCallableMapping):
         # rather than leaving a fresh numpy LinAlgError as its scalar answer.
         self._require_square_jacobian()
         if not _is_scalar_eta(eta):
+            # WP14b: route through jac_det_grid's own dedicated kernel
+            # (eval_jac_det_*) rather than jac_mat_grid + np.linalg.det --
+            # cheaper, since it never assembles the full Jacobian matrix.
+            fast = self._fast_tensor_grid(eta, square=True)
+            if fast is not None:
+                axes, perm = fast
+                return _components_to_front(self.jac_det_grid(list(axes)), perm, 0)
             return _eval_pointwise(self.jacobian_det, eta, ())
         return np.linalg.det(self.jacobian(*eta))
 
@@ -1165,6 +1397,11 @@ class NurbsCallableMapping(SplineCallableMapping):
     #--------------------------------------------------------------------------
     def __call__(self, *eta):
         if not _is_scalar_eta(eta):
+            fast = self._fast_tensor_grid(eta)
+            if fast is not None:
+                axes, perm = fast
+                mesh = self.build_mesh(list(axes))
+                return tuple(np.transpose(m, np.argsort(perm)) for m in mesh)
             return tuple(_eval_pointwise(self.__call__, eta, (self.pdim,)))
         map_W = self._weights_field
         w = map_W(*eta)
@@ -1174,6 +1411,11 @@ class NurbsCallableMapping(SplineCallableMapping):
     # ...
     def jacobian(self, *eta):
         if not _is_scalar_eta(eta):
+            fast = self._fast_tensor_grid(eta, square=True)
+            if fast is not None:
+                axes, perm = fast
+                J = self.jac_mat_grid(list(axes))
+                return _components_to_front(J, perm, 2)
             return _eval_pointwise(self.jacobian, eta, (self.pdim, self.ldim))
         map_W = self._weights_field
         w = map_W(*eta)
