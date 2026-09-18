@@ -284,13 +284,4 @@ if __name__ == '__main__':
     if PLOT:
         from psydac.fem.plotting_utilities import plot_field_2d as plot_field
         for title, Omega, uh in solutions:
-            try:
-                plot_field(fem_field=uh, domain=Omega, title=title, hide_plot=False)
-            except TypeError as e:
-                # plot_field_2d evaluates the mapping on an array grid; a bare
-                # SplineCallableMapping (behind a DiscreteMapping) only supports scalar
-                # evaluation for some single-patch pushforwards -- see the
-                # "Plotting gotcha" in refactor/new_mapping_classes.md Sec 4.5.
-                # Not fixed here: skip rather than crash the rest of the run.
-                print(f'{title}: could not plot ({e}); see '
-                     'new_mapping_classes.md Sec 4.5 (spline array evaluation).')
+            plot_field(fem_field=uh, domain=Omega, title=title, hide_plot=False)

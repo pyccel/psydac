@@ -24,6 +24,87 @@ from psydac.ddm.cart     import DomainDecomposition
 __all__ = ('SplineCallableMapping', 'NurbsCallableMapping')
 
 #==============================================================================
+def _is_scalar_eta(eta):
+    """Whether every logical coordinate in `eta` is a single point.
+
+    Used to pick between the two evaluation paths every point-evaluation
+    method offers: the original scalar-only body (`FemField.__call__`/
+    `.gradient` need a true Python/numpy scalar) below this check, or
+    `_eval_pointwise` above it for array-like `eta`.
+
+    Parameters
+    ----------
+    eta : tuple of array_like
+        One entry per logical coordinate, as passed to e.g. `__call__`.
+
+    Returns
+    -------
+    bool
+        `True` when every entry has `ndim == 0` (a `float`, `np.float64`, or
+        0-d `ndarray`); `False` if any entry is a higher-dimensional array.
+
+    Examples
+    --------
+    >>> _is_scalar_eta((0.3, 0.4))
+    True
+    >>> _is_scalar_eta((np.array(0.3), np.array(0.4)))
+    True
+    >>> _is_scalar_eta((np.array([0.3, 0.5]), 0.4))
+    False
+    """
+    return all(np.ndim(e) == 0 for e in eta)
+
+def _eval_pointwise(scalar_fn, eta, comp_shape):
+    """Apply a scalar-only evaluator over broadcast array coordinates.
+
+    `SplineCallableMapping`'s point evaluation goes through `FemField.__call__`/
+    `.gradient`, which read spline coefficients via `find_span`'s `float(x)`
+    and are irreducibly scalar. This loops `scalar_fn` over the broadcast
+    shape of `eta` and reassembles the results with the component axes first
+    (matching `AnalyticMapping`'s convention), so callers can pass array-like
+    `eta` without every evaluator having to be rewritten.
+
+    Parameters
+    ----------
+    scalar_fn : callable
+        A method of `self` accepting `ldim` scalar coordinates.
+    eta : tuple of array_like
+        One array-like per logical coordinate; broadcast together.
+    comp_shape : tuple of int
+        Shape of one scalar-eta result (e.g. `()`, `(pdim,)`, `(pdim, ldim)`).
+
+    Returns
+    -------
+    ndarray
+        Shape `comp_shape + S`, where `S` is the broadcast shape of `eta`.
+
+    Examples
+    --------
+    >>> X1, X2 = np.meshgrid([0.2, 0.5], [0.3, 0.7], indexing='ij')
+    >>> _eval_pointwise(F.metric_det, (X1, X2), ()).shape   # F: a mapping
+    (2, 2)
+    >>> _eval_pointwise(F.jacobian, (X1, X2), (F.pdim, F.ldim)).shape
+    (2, 2, 2, 2)
+    """
+    arrs = np.broadcast_arrays(*map(np.asarray, eta))
+    shape = arrs[0].shape
+    n = arrs[0].size
+
+    out = None
+    for k in range(n):
+        point = [a.flat[k] for a in arrs]
+        value = np.asarray(scalar_fn(*point))
+        if out is None:
+            out = np.empty((n,) + comp_shape, dtype=value.dtype)
+        out[k] = value
+
+    if out is None:
+        out = np.empty((0,) + comp_shape, dtype=float)
+
+    out = out.reshape(shape + comp_shape)
+    return np.moveaxis(out, range(len(shape), out.ndim), range(len(comp_shape)))
+
+#==============================================================================
 class SplineCallableMapping(BasicCallableMapping):
 
     #: Tag written into / read back from the 'type' field of a geometry
@@ -200,23 +281,43 @@ class SplineCallableMapping(BasicCallableMapping):
     # Abstract interface
     #--------------------------------------------------------------------------
     def __call__(self, *eta):
+        if not _is_scalar_eta(eta):
+            return tuple(_eval_pointwise(self.__call__, eta, (self.pdim,)))
         return [map_Xd(*eta) for map_Xd in self._fields]
 
     # ...
     def jacobian(self, *eta):
+        if not _is_scalar_eta(eta):
+            return _eval_pointwise(self.jacobian, eta, (self.pdim, self.ldim))
         return np.array([map_Xd.gradient(*eta) for map_Xd in self._fields])
 
     # ...
     def jacobian_inv(self, *eta):
+        # WP14a follow-up /code-review: np.linalg.inv, like np.linalg.det,
+        # needs a square matrix -- a non-square (surface) mapping's inverse
+        # Jacobian is undefined regardless of pdim/ldim, so raise the same
+        # clear NotImplementedError as jacobian_det/jac_det_grid/
+        # inv_jac_mat_grid instead of leaving a raw numpy LinAlgError as the
+        # answer for the newly-array-capable case (scalar eta on a surface
+        # mapping already raised LinAlgError before this WP; array eta is new
+        # here, via the loop below, and would otherwise hit that same error
+        # on its first point with no clearer message).
+        self._require_square_jacobian()
+        if not _is_scalar_eta(eta):
+            return _eval_pointwise(self.jacobian_inv, eta, (self.ldim, self.pdim))
         return np.linalg.inv(self.jacobian(*eta))
 
     # ...
     def metric(self, *eta):
+        if not _is_scalar_eta(eta):
+            return _eval_pointwise(self.metric, eta, (self.ldim, self.ldim))
         J = self.jacobian(*eta)
         return np.dot(J.T, J)
 
     # ...
     def metric_det(self, *eta):
+        if not _is_scalar_eta(eta):
+            return _eval_pointwise(self.metric_det, eta, ())
         return np.linalg.det(self.metric(*eta))
 
     @property
@@ -300,6 +401,39 @@ class SplineCallableMapping(BasicCallableMapping):
         return mesh
 
     # ...
+    def _require_square_jacobian(self):
+        """Raise if this mapping's Jacobian is not square (`pdim != ldim`).
+
+        Shared by `jac_mat_grid`/`inv_jac_mat_grid`/`jac_det_grid`'s kernel
+        paths (`eval_jacobians_*` reads only the first `ldim` fields, silently
+        truncating a surface mapping's Jacobian otherwise), by
+        `inv_jac_mat_grid`/`jac_det_grid`'s Case-1 scalar path, and by
+        `jacobian_inv`/`jacobian_det` directly (the inverse/determinant of a
+        non-square matrix isn't defined, regardless of how it's evaluated).
+        `jac_mat_grid`'s own Case 1 doesn't need this -- it returns
+        `jacobian(...)`'s raw, possibly non-square matrix -- and neither do
+        `metric`/`metric_det` (`J.T @ J` is always square).
+
+        Raises
+        ------
+        NotImplementedError
+            If `pdim != ldim`.
+
+        Examples
+        --------
+        >>> spline_mapping._require_square_jacobian()          # pdim == ldim: no-op
+        >>> surface_mapping._require_square_jacobian()          # pdim=3, ldim=2
+        Traceback (most recent call last):
+            ...
+        NotImplementedError: Grid evaluation of the Jacobian needs pdim == ldim, ...
+        """
+        if self.pdim != self.ldim:
+            raise NotImplementedError(
+                f'Grid evaluation of the Jacobian needs pdim == ldim, got '
+                f'pdim={self.pdim}, ldim={self.ldim}; the kernels read only the '
+                f'first {self.ldim} components. Use jacobian(*eta) instead.')
+
+    # ...
     def jac_mat_grid(self, grid, npts_per_cell=None, overlap=0):
         """Evaluates the Jacobian matrix of the mapping at the given location(s) grid.
 
@@ -333,13 +467,16 @@ class SplineCallableMapping(BasicCallableMapping):
         assert all(grid[i].ndim == grid[i + 1].ndim for i in range(self.ldim - 1))
 
         # --------------------------
-        # Case 1. Scalar coordinates
-        if (grid[0].size == 1) or grid[0].ndim == 0:
-            return self.jac_mat(*grid)
+        # Case 1. Scalar coordinates -- works for any pdim/ldim: it's just
+        # self.jacobian(...)'s raw (pdim, ldim) matrix, no det/inverse needed.
+        if all(g.size == 1 for g in grid) or grid[0].ndim == 0:
+            return self.jacobian(*(np.asarray(g).item() for g in grid))
+
+        self._require_square_jacobian()
 
         # Case 2. 1D array of coordinates and no npts_per_cell is given
         # -> grid is tensor-product, but npts_per_cell is not the same in each cell
-        elif grid[0].ndim == 1 and npts_per_cell is None:
+        if grid[0].ndim == 1 and npts_per_cell is None:
             jac_mats = self.jac_mat_irregular_tensor_grid(grid, overlap=overlap)
             return jac_mats
 
@@ -502,10 +639,16 @@ class SplineCallableMapping(BasicCallableMapping):
         grid = [np.asarray(grid[i]) for i in range(self.ldim)]
         assert all(grid[i].ndim == grid[i + 1].ndim for i in range(self.ldim - 1))
 
+        # Unlike jac_mat_grid's Case 1, jacobian_inv is only defined for a
+        # square Jacobian -- this must gate Case 1 too, not just the kernel
+        # path below, or a surface mapping hits a confusing LinAlgError from
+        # np.linalg.inv instead of this clear NotImplementedError.
+        self._require_square_jacobian()
+
         # --------------------------
         # Case 1. Scalar coordinates
-        if (grid[0].size == 1) or grid[0].ndim == 0:
-            return np.linalg.inv(self.jac_mat(*grid))
+        if all(g.size == 1 for g in grid) or grid[0].ndim == 0:
+            return self.jacobian_inv(*(np.asarray(g).item() for g in grid))
 
         # Case 2. 1D array of coordinates and no npts_per_cell is given
         # -> grid is tensor-product, but npts_per_cell is not the same in each cell
@@ -673,10 +816,18 @@ class SplineCallableMapping(BasicCallableMapping):
         grid = [np.asarray(grid[i]) for i in range(self.ldim)]
         assert all(grid[i].ndim == grid[i + 1].ndim for i in range(self.ldim - 1))
 
+        # Unlike jac_mat_grid's Case 1, a Jacobian determinant is only defined
+        # for a square Jacobian -- this must gate Case 1 too, not just the
+        # kernel path below, or a surface mapping hits a confusing LinAlgError
+        # from np.linalg.det instead of this clear NotImplementedError.
+        self._require_square_jacobian()
+
         # --------------------------
-        # Case 1. Scalar coordinates
-        if (grid[0].size == 1) or grid[0].ndim == 0:
-            return self.metric(*grid) ** 0.5
+        # Case 1. Scalar coordinates -- delegate to jacobian_det (like
+        # inv_jac_mat_grid delegates to jacobian_inv below), so the two
+        # det-of-jacobian implementations can't drift apart.
+        if all(g.size == 1 for g in grid) or grid[0].ndim == 0:
+            return self.jacobian_det(*(np.asarray(g).item() for g in grid))
 
         # Case 2. 1D array of coordinates and no npts_per_cell is given
         # -> grid is tensor-product, but npts_per_cell is not the same in each cell
@@ -814,7 +965,21 @@ class SplineCallableMapping(BasicCallableMapping):
     # Other properties/methods
     #--------------------------------------------------------------------------
     def jacobian_det(self, *eta):
-        return np.linalg.det(self.jac_mat(*eta))
+        # WP14a: jacobian(*eta) now returns array results with the component
+        # axes first (shape (pdim, ldim) + S), so np.linalg.det -- which needs
+        # the matrix axes last -- can't be applied to it directly for array
+        # eta. Delegate to the pointwise loop instead, matching metric_det.
+        # The square-Jacobian requirement (unlike jacobian_inv/metric, whose
+        # pre-existing scalar bodies this WP doesn't touch) is checked here
+        # explicitly: before the A4 fix this method always raised
+        # AttributeError regardless of pdim/ldim (self.jac_mat never
+        # existed), so this is the first time its non-square behaviour is
+        # reachable at all -- match jac_det_grid's clear NotImplementedError
+        # rather than leaving a fresh numpy LinAlgError as its scalar answer.
+        self._require_square_jacobian()
+        if not _is_scalar_eta(eta):
+            return _eval_pointwise(self.jacobian_det, eta, ())
+        return np.linalg.det(self.jacobian(*eta))
 
     @property
     def space(self):
@@ -999,6 +1164,8 @@ class NurbsCallableMapping(SplineCallableMapping):
     # Abstract interface
     #--------------------------------------------------------------------------
     def __call__(self, *eta):
+        if not _is_scalar_eta(eta):
+            return tuple(_eval_pointwise(self.__call__, eta, (self.pdim,)))
         map_W = self._weights_field
         w = map_W(*eta)
         Xd = [map_Xd(*eta , weights=map_W.coeffs) for map_Xd in self._fields]
@@ -1006,6 +1173,8 @@ class NurbsCallableMapping(SplineCallableMapping):
 
     # ...
     def jacobian(self, *eta):
+        if not _is_scalar_eta(eta):
+            return _eval_pointwise(self.jacobian, eta, (self.pdim, self.ldim))
         map_W = self._weights_field
         w = map_W(*eta)
         grad_w = np.array(map_W.gradient(*eta))

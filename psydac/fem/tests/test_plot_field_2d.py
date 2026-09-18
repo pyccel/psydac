@@ -12,7 +12,8 @@ from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
 
 from psydac.fem.basic              import FemField
 from psydac.api.discretization     import discretize
-from psydac.fem.plotting_utilities import plot_field_2d as plot_field
+from psydac.fem.plotting_utilities import plot_field_2d as plot_field, get_patch_knots_gridlines
+from psydac.mapping.discrete       import SplineCallableMapping
 
 #==============================================================================
 def plot_some_field(Vh):
@@ -69,6 +70,49 @@ def test_plot_field(use_scalar_field, use_multipatch):
     Vh       = discretize(V, domain_h, degree=degree)
 
     plot_some_field(Vh)
+
+#==============================================================================
+def test_plot_field_spline_discrete_mapping(tmp_path):
+    """
+    Regression for WP14a (D5): plot_field_2d on a single-patch domain whose
+    mapping is a DiscreteMapping wrapping a SplineCallableMapping used to
+    raise a TypeError, because get_patch_knots_gridlines calls the mapping
+    on a meshgrid.
+    """
+    rmin, rmax = 0.3, 1.0
+    A = Square('A', bounds1=(0., 1.), bounds2=(0., 0.5 * np.pi))
+    F = PolarMapping('F', dim=2, c1=0., c2=0., rmin=rmin, rmax=rmax)
+
+    geo_ncells, geo_degree = (8, 8), (3, 3)
+    F_h = SplineCallableMapping.from_mapping(
+        None, F.get_callable_mapping(), ncells=geo_ncells, degree=geo_degree,
+        bounds=zip(A.min_coords, A.max_coords))
+
+    domain = F_h.to_defined_mapping('F')(A)
+
+    domain_h = discretize(domain, ncells=[8, 8])
+    V        = ScalarFunctionSpace('V', domain=domain)
+    Vh       = discretize(V, domain_h, degree=[2, 2])
+    uh       = FemField(Vh)
+
+    N = 3
+    gridlines_x1, gridlines_x2 = get_patch_knots_gridlines(Vh, N, domain.mappings, 0)
+
+    F_callable = F_h
+    grid_x1 = Vh.patch_spaces[0].spaces[0].breaks
+    grid_x2 = Vh.patch_spaces[0].spaces[1].breaks
+    from psydac.fem.plotting_utilities import refine_array_1d
+    x1 = refine_array_1d(grid_x1, N)
+    x2 = refine_array_1d(grid_x2, N)
+    x_loop = np.array([[F_callable(a, b)[0] for b in x2] for a in x1])
+    y_loop = np.array([[F_callable(a, b)[1] for b in x2] for a in x1])
+    np.testing.assert_array_equal(gridlines_x1[0], x_loop[:, ::N])
+    np.testing.assert_array_equal(gridlines_x1[1], y_loop[:, ::N])
+
+    filename = str(tmp_path / 'uh.png')
+    plot_field(fem_field=uh, Vh=Vh, domain=domain, title='uh',
+               filename=filename, hide_plot=True)
+    assert (tmp_path / 'uh.png').exists()
 
 if __name__ == '__main__':
     for use_scalar_field in [True, False]:
