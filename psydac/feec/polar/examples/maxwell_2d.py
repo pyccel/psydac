@@ -263,6 +263,7 @@ def run_maxwell_2d_TE(
     study="maxwell_bessel",
     use_scipy=True,
     verbose=False,
+    save_figs=False,
     mpi_comm,
 ):
     import matplotlib.pyplot as plt
@@ -842,25 +843,7 @@ def run_maxwell_2d_TE(
 
                 Bz_ex_values[i, j] = Bz_ex_t(t, xij, yij)
 
-        # fields along s for fixed theta
-        plot_fields_along_s(tstr="t0")
-
-        # Electric field, x component
-        fig = plot_field_and_error(r"E^x", 0, x, y, Ex_values, Ex_ex_values, *gridlines)
-        fig.savefig(f"{visdir}/Ex_t0_{rp_str}.png")
-        plt.close(fig)
-
-        # Electric field, y component
-        fig = plot_field_and_error(r"E^y", 0, x, y, Ey_values, Ey_ex_values, *gridlines)
-        fig.savefig(f"{visdir}/Ey_t0_{rp_str}.png")
-        plt.close(fig)
-
-        # Magnetic field, z component
-        fig = plot_field_and_error(r"B^z", 0, x, y, Bz_values, Bz_ex_values, *gridlines)
-        fig.savefig(f"{visdir}/Bz_t0_{rp_str}.png")
-        plt.close(fig)
-
-        if show_figs:
+        if show_figs or save_figs:
             # Plot exact and approximate solutions at t = 0
             fig, axs = plt.subplots(3, 3, figsize=(12, 8.5))
             im0 = axs[0, 0].contourf(x, y, Ex_ex_values, 50)
@@ -901,10 +884,16 @@ def run_maxwell_2d_TE(
                 "Compare Exact Solution and Approximate Solution at initial time"
             )
             fig.tight_layout()
+            if show_figs:
+                fig.show()
+            else:
+                plt.close(fig)
 
-            # Need a small pause to actually show the figure to the screen
-            plt.pause(0.1)
-            fig.show()
+            if save_figs:
+                # fields along s for fixed theta
+                plot_fields_along_s(tstr="t0")
+                # save fields and errors at initial time
+                fig.savefig(f"{visdir}/fields_and_errors_t0{rp_str}.png", dpi=300)
 
     # L2 norms (of ref solution)
     normx = lambda x1, x2: Ex_ex_t(t, *F(x1, x2))
@@ -1071,7 +1060,7 @@ def run_maxwell_2d_TE(
             f"Relative L2-norm of error on Bz(t,x,y) at final time: {error_l2_Bz:.2e}"
         )
 
-    if eval_data is not None and show_figs:
+    if eval_data is not None and (show_figs or save_figs):
         # Plot exact and approximate solution at final time
         fig1, axs = plt.subplots(3, 3, figsize=(12, 8.5))
         im0 = axs[0, 0].contourf(x, y, Ex_ex_values, 50)
@@ -1110,31 +1099,16 @@ def run_maxwell_2d_TE(
         add_colorbar(im8, axs[2, 2])
         fig1.suptitle("Compare Exact Solution and Approximate Solution at final time")
         fig1.tight_layout()
-        fig1.show()
+        if show_figs:
+            fig1.show()
+        else:
+            plt.close(fig1)
 
-        # fields along s, final time
-        plot_fields_along_s(tstr="T")
-
-        # Electric field, x component
-        fig = plot_field_and_error(
-            r"E^x", tend, x, y, Ex_values, Ex_ex_values, *gridlines
-        )
-        fig.savefig(f"{visdir}/Ex_T_{rp_str}.png")
-        plt.close(fig)  # fig.clf()
-
-        # Electric field, y component
-        fig = plot_field_and_error(
-            r"E^y", tend, x, y, Ey_values, Ey_ex_values, *gridlines
-        )
-        fig.savefig(f"{visdir}/Ey_T_{rp_str}.png")
-        plt.close(fig)  # fig.clf()
-
-        # Magnetic field, z component
-        fig = plot_field_and_error(
-            r"B^z", tend, x, y, Bz_values, Bz_ex_values, *gridlines
-        )
-        fig.savefig(f"{visdir}/Bz_T_{rp_str}.png")
-        plt.close(fig)
+        if save_figs:
+            # fields along s, final time
+            plot_fields_along_s(tstr="T")
+            # save fields and errors at final time
+            fig1.savefig(f"{visdir}/fields_and_errors_T{rp_str}.png", dpi=300)
 
     return locals()
 
@@ -1248,6 +1222,12 @@ def parse_input_arguments():
         "--verbose",
         action="store_true",
         help="Print convergence information of iterative solver",
+    )
+
+    parser.add_argument(
+        "--save_figs",
+        action="store_true",
+        help="Save generated plots to png files",
     )
 
     # Read and return input arguments
