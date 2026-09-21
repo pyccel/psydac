@@ -1039,19 +1039,18 @@ class PostProcessManager:
             domain = Domain.from_file(self.geometry_filename)
             domain_h = discretize(domain, filename=self.geometry_filename, comm=self.comm)
 
+            # `domain_h.mappings` is always keyed by interior name (WP15), so
+            # this is a direct lookup: the `domain.mapping` / `interior.
+            # mapping` fallbacks it used to need are now unreachable (a
+            # `Geometry` built from `self.geometry_filename` always carries
+            # a mapping for every interior).
             spl_maps = domain_h.mappings if domain_h.mappings is not None else {}
 
             if isinstance(domain.interior, InteriorDomain):
-                self._mappings[domain.name] = spl_maps.get(domain.logical_domain.name, domain.mapping)
+                self._mappings[domain.name] = spl_maps[domain.name]
             else:
-                if isinstance(domain.mapping, MultiPatchMapping):
-                    for interior in domain.interior.as_tuple():
-                        self._mappings[interior.name] = spl_maps.get(interior.logical_domain.name, \
-                                                                     domain.mapping.mappings[interior.logical_domain])
-                else:
-                    for interior in domain.interior.as_tuple():
-                        self._mappings[interior.name] = spl_maps.get(interior.logical_domain.name, \
-                                                                     interior.mapping)
+                for interior in domain.interior.as_tuple():
+                    self._mappings[interior.name] = spl_maps[interior.name]
         else:
             domain = self._domain
             if isinstance(domain.interior, InteriorDomain):

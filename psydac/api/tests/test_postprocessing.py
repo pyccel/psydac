@@ -494,6 +494,11 @@ def test_reconstruct_DerhamSequence_discrete_domain(geometry, seq, dtype):
             fields_file='test_reconstruct_DerhamSequence_discrete_domain.h5'
         )
 
+    # WP15-1: `_process_domain` reads `domain_h.mappings` by interior name --
+    # a direct lookup, so it stores exactly the geometry's own splines.
+    for name in Pm._domain_h.domain.interior_names:
+        assert Pm._mappings[name] is Pm._domain_h.mappings[name]
+
     Om2 = OutputManager(
         'test_reconstruct_DerhamSequence_discrete_domain_2.yml',
         'test_reconstruct_DerhamSequence_discrete_domain.h5'
@@ -652,6 +657,78 @@ def test_incorrect_arg_export_to_vtk():
     os.remove('_.static.vtu')
     os.remove("test_incorrect_arg_export_to_vtk.yml")
     os.remove("test_incorrect_arg_export_to_vtk.h5")
+
+
+@pytest.mark.xdist_group('h5py')
+def test_process_domain_uses_geometry_splines(tmp_path):
+    """WP15-1 risk: `_process_domain` now stores the geometry's own
+    SplineCallableMapping (`_compute_single_patch`'s "Option 1") for a file
+    exported from an in-memory geometry, instead of the D3-shim-mutated
+    SymbolicMapping it stored before (which always missed `spl_maps.get(...)`
+    for such a file, since its yml patch name is the interior name, not the
+    logical name -- so it fell through to "Option 2", the first field space).
+
+    Pin that `export_to_vtk`'s mesh is unaffected by this switch: verified
+    live by running this exact scenario against pre-WP15-1 HEAD (psydac
+    `f8a50831`, via `git stash`) -- byte-for-byte identical to the values
+    checked below. `_reconstruct_spaces` (pre-existing, out of this WP's
+    scope) always rebuilds every field space from `domain_h` whenever
+    `geometry_file` carries a real mapping, so Option 1 and Option 2 are
+    guaranteed to agree on ncells/breaks in every reachable case; forcing a
+    genuine ncells mismatch trips a pre-existing, unrelated AssertionError in
+    `_reconstruct_spaces` before `_compute_single_patch` is ever reached.
+    """
+    from psydac.cad.geometry import Geometry
+    from psydac.mapping.discrete import SplineCallableMapping
+    from psydac.mapping.discrete_gallery import discrete_mapping
+    import psydac.api.postprocessing as pp
+
+    geo_file = str(tmp_path / 'g.h5')
+    mapping = discrete_mapping('identity', ncells=[4, 4], degree=[2, 2])
+    geo = Geometry.from_discrete_mapping(mapping)
+    geo.export(geo_file)
+
+    V  = ScalarFunctionSpace('V', geo.domain)
+    Vh = discretize(V, geo, degree=[2, 2])
+    field = FemField(Vh)
+    field.coeffs[:] = 1.
+    field.coeffs.update_ghost_regions()
+
+    space_file  = str(tmp_path / 'space.yml')
+    fields_file = str(tmp_path / 'fields.h5')
+    Om = OutputManager(space_file, fields_file)
+    Om.add_spaces(V=Vh)
+    Om.set_static()
+    Om.export_fields(f=field)
+    Om.export_space_info()
+    Om.close()
+
+    Pm = PostProcessManager(geometry_file=geo_file, space_file=space_file, fields_file=fields_file)
+    name = geo.domain.name
+    assert isinstance(Pm._mappings[name], SplineCallableMapping)
+
+    # Capture the mesh export_to_vtk would write, without touching disk.
+    captured = {}
+    def _capture(path, *args, **kwargs):
+        captured['xyz'] = [np.array(a) for a in args]
+        return path
+    orig_writer = pp.unstructuredGridToVTK
+    pp.unstructuredGridToVTK = _capture
+    try:
+        Pm.export_to_vtk(str(tmp_path / 'out'), grid=None, npts_per_cell=[2, 2],
+                          snapshots='none', fields='f')
+    finally:
+        pp.unstructuredGridToVTK = orig_writer
+
+    x, y, z = captured['xyz']
+    assert x.shape == y.shape == z.shape == (64,)
+    # The 'identity' mapping's control points coincide with the logical grid,
+    # so a correct (geometry-driven) mesh lands exactly on this regular grid;
+    # this is the same set of values HEAD produced (see docstring).
+    grid_values = {0., 0.25, 0.5, 0.75, 1.}
+    assert set(np.round(x, 10).tolist()) <= grid_values
+    assert set(np.round(y, 10).tolist()) <= grid_values
+    assert np.allclose(z, 0.)
 
 
 @pytest.mark.xdist_group('h5py')

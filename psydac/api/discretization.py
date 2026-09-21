@@ -454,11 +454,9 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
 
     connectivity = construct_connectivity(domain)
     if isinstance(domain_h, Geometry) and all(domain_h.mappings.values()):
-        # from a discrete geoemtry
-        if interiors[0].name in domain_h.mappings:
-            mappings  = [domain_h.mappings[inter.name] for inter in interiors]
-        else:
-            mappings  = [domain_h.mappings[inter.logical_domain.name] for inter in interiors]
+        # from a discrete geoemtry -- `domain_h.mappings` is always keyed by
+        # interior name (WP15), so this is a direct lookup.
+        mappings  = [domain_h.mappings[inter.name] for inter in interiors]
 
         # Get all the FEM spaces from the mapping and convert their coeff_space at the dtype needed
         spaces    = [change_dtype(m.space, dtype) for m in mappings]

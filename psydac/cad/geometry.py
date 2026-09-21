@@ -9,6 +9,7 @@
 # For the moment, it is used as a container, that can be loaded from a file
 # (hdf5)
 import os
+import warnings
 from typing import Iterable
 from itertools import chain
 
@@ -197,6 +198,90 @@ def _sync_multipatch_ghost_regions(mappings, connectivity):
 
 
 #==============================================================================
+class _PatchKeyedDict(dict):
+    """
+    Per-patch dict canonically keyed by interior name, that also resolves a
+    fixed set of legacy keys with a ``DeprecationWarning``.
+
+    ``Geometry``'s ``mappings``/``ncells``/``periodic`` dicts used to be keyed
+    inconsistently across constructors (WP15). This class lets every
+    constructor settle on one canonical key -- the interior name -- while
+    still accepting the legacy keys some files/callers relied on, without
+    doubling ``len()``/``.values()`` (which would break every positional
+    reader that iterates these dicts).
+
+    Parameters
+    ----------
+    *args, **kwargs
+        Forwarded to ``dict.__init__``; should already use canonical keys.
+
+    aliases : dict[str | int, str], optional
+        Maps a legacy key to its canonical replacement. A legacy key is only
+        resolved when it is not itself already a canonical (real) key --
+        canonical keys always win and never warn.
+
+    Notes
+    -----
+    Only ``__getitem__``, ``get`` and ``__contains__`` resolve aliases.
+    Iteration, ``len``, ``keys``, ``values``, ``items`` and ``==`` see
+    canonical keys only. ``pop``, ``update`` and ``setdefault`` do **not**
+    resolve aliases -- they behave like on a plain ``dict``.
+
+    Examples
+    --------
+    >>> d = _PatchKeyedDict({'Omega': 1}, aliases={'patch_0': 'Omega'})
+    >>> d['patch_0']  # doctest: +SKIP
+    1
+    """
+    def __init__(self, *args, aliases=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.aliases = dict(aliases) if aliases else {}
+
+    def _alias_of(self, key):
+        """Canonical key `key` aliases to, or None if not a legacy alias."""
+        if super().__contains__(key):
+            return None
+        return self.aliases.get(key)
+
+    def __getitem__(self, key):
+        canonical = self._alias_of(key)
+        if canonical is None:
+            return super().__getitem__(key)
+        warnings.warn(
+            f"Geometry legacy key {key!r} is deprecated; use {canonical!r} instead.",
+            DeprecationWarning, stacklevel=2)
+        return super().__getitem__(canonical)
+
+    def get(self, key, default=None):
+        canonical = self._alias_of(key)
+        if canonical is None:
+            return super().get(key, default)
+        warnings.warn(
+            f"Geometry legacy key {key!r} is deprecated; use {canonical!r} instead.",
+            DeprecationWarning, stacklevel=2)
+        return super().get(canonical, default)
+
+    def __contains__(self, key):
+        canonical = self._alias_of(key)
+        if canonical is None:
+            return super().__contains__(key)
+        warnings.warn(
+            f"Geometry legacy key {key!r} is deprecated; use {canonical!r} instead.",
+            DeprecationWarning, stacklevel=2)
+        # An alias may name a patch this dict has no entry for -- `read()`
+        # builds `mappings`' aliases from every on-disk patch name, but only
+        # spline/NURBS patches get a mapping. Report what `__getitem__` would
+        # actually do, so `k in d` never disagrees with `d[k]`.
+        return super().__contains__(canonical)
+
+    def __reduce__(self):
+        return (self.__class__, (dict(self),), {'aliases': dict(self.aliases)})
+
+    def copy(self):
+        return self.__class__(self, aliases=self.aliases)
+
+
+#==============================================================================
 class Geometry:
     """
     Distributed discrete geometry that works for single and multiple patches.
@@ -208,6 +293,16 @@ class Geometry:
     - case 2 : passing a `SplineCallableMapping` to `from_discrete_mapping` (single patch).
     - case 3 : passing a `Domain`, ncells, and periodicity to `from_topological_domain` (single or multi-patch).
     - case 4 : passing a `Domain` whose patches are all mapped by a spline `DiscreteMapping` to `from_discrete_domain` (single or multi-patch, serial); this is what `discretize(domain)` uses when given no `filename` / `ncells`.
+
+    Keys
+    ----
+    `mappings`, `ncells` and `periodic` are always keyed by `domain.
+    interior_names`, in interior order, regardless of constructor. A file
+    read by `from_file` may have been written with different on-disk patch
+    names (`_patch_names` records the mapping); those names still work as
+    legacy keys on `mappings` (and, for `periodic`, legacy integer keys), but
+    emit a `DeprecationWarning`. `export()` writes the on-disk names back
+    unchanged, so the file format is unaffected by this.
 
     Parameters
     ----------
@@ -234,10 +329,11 @@ class Geometry:
         If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
   
     """
-    _ldim     = None
-    _pdim     = None
-    _patches  = []
-    _topology = None
+    _ldim        = None
+    _pdim        = None
+    _patches     = []
+    _topology    = None
+    _patch_names = None
 
     def __init__(self,
                  domain : Domain,
@@ -291,6 +387,15 @@ class Geometry:
             assert set(mappings.keys()) == set_interior_names
             assert all(isinstance(m, (BasicCallableMapping, NoneType)) for m in mappings.values())
             assert all(m.pdim == pdim for m in mappings.values() if m is not None)
+
+        # Canonical key order (interior_names), wrapped for legacy-key
+        # resolution (see `_PatchKeyedDict`). No aliases here: this Geometry
+        # was built directly from these dicts, so there is no separate
+        # on-disk name to alias -- `_patch_names` is the identity map.
+        ncells   = _PatchKeyedDict({k: ncells  [k] for k in interior_names})
+        periodic = _PatchKeyedDict({k: periodic[k] for k in interior_names})
+        mappings = _PatchKeyedDict({k: mappings[k] for k in interior_names})
+        self._patch_names = {k: k for k in interior_names}
 
         # Check sanity of mpi_dims_mask
         if mpi_dims_mask is not None:
@@ -628,7 +733,7 @@ class Geometry:
 
         _sync_multipatch_ghost_regions(list(new_mappings.values()), connectivity)
 
-        geo._mappings = new_mappings
+        geo._mappings = _PatchKeyedDict(new_mappings)
         return geo
 
     #--------------------------------------------------------------------------
@@ -686,10 +791,12 @@ class Geometry:
 
     @property
     def ncells(self):
+        """dict[str, list[int]]: per-patch cell count, keyed by interior name."""
         return self._ncells
 
     @property
     def periodic(self):
+        """dict[str, list[bool]]: per-patch periodicity, keyed by interior name."""
         return self._periodic
 
     @property
@@ -706,6 +813,7 @@ class Geometry:
 
     @property
     def mappings(self):
+        """dict[str, BasicCallableMapping | None]: per-patch mapping, keyed by interior name."""
         return self._mappings
 
     def __len__(self):
@@ -778,6 +886,57 @@ class Geometry:
             raise ValueError("Input file contains no patches.")
         # ...
 
+        # Pair each on-disk patch with its interior **by name**, not by
+        # position. sympde's `Union` sorts interiors lexicographically
+        # (`sorted(set(args), key=str)`, sympde/topology/basic.py), so from
+        # 11 patches on the yml order (patch_0, patch_1, patch_2, ...) and
+        # the interior order (..., patch_1, patch_10, patch_2, ...) diverge,
+        # and a positional pairing binds every per-patch entry to the wrong
+        # patch. A yml patch name is either the interior name (files exported
+        # from an in-memory Geometry) or the logical-domain name (every
+        # committed fixture, and what export_nurbs_to_hdf5 / cad/multipatch.py
+        # write), so both are accepted.
+        yml_names      = [p['name'] for p in yml['patches']]
+        interior_names = [itr.name for itr in interiors]
+
+        by_name = {}
+        for j, itr in enumerate(interiors):
+            logical = getattr(itr, 'logical_domain', None)
+            for nm in {itr.name} | ({logical.name} if logical is not None else set()):
+                by_name.setdefault(nm, set()).add(j)
+
+        candidates = [by_name.get(nm, set()) for nm in yml_names]
+        if (all(len(c) == 1 for c in candidates)
+                and len({next(iter(c)) for c in candidates}) == n_patches):
+            patch_to_interior = [next(iter(c)) for c in candidates]
+        else:
+            # A name that matches no interior, or matches more than one (two
+            # patches sharing a logical name), or two patches resolving to
+            # the same interior: fall back to the historical positional
+            # pairing rather than guess. Correct whenever the two orders
+            # agree, which is every readable file in tree.
+            patch_to_interior = list(range(n_patches))
+
+        # The interior each on-disk patch belongs to, and the on-disk name of
+        # each interior -- `export()` writes these back verbatim, which is
+        # what keeps a from_file round trip byte identical.
+        patch_interiors = [interiors[j] for j in patch_to_interior]
+        patch_names     = {interiors[j].name: yml_names[i]
+                           for i, j in enumerate(patch_to_interior)}
+
+        # Legacy `mappings` keys: the on-disk (yml) patch name, when it
+        # differs from the canonical interior name, is not itself already a
+        # canonical key, and is unique across this file's patches -- so it
+        # resolves unambiguously to exactly one interior.
+        name_counts = {n: yml_names.count(n) for n in set(yml_names)}
+        mapping_aliases = {
+            yml_name: itr.name
+            for yml_name, itr in zip(yml_names, patch_interiors)
+            if yml_name != itr.name
+            and yml_name not in interior_names
+            and name_counts[yml_name] == 1
+        }
+
         # ... read patches
         mappings = {}
         ncells   = {}
@@ -798,19 +957,22 @@ class Geometry:
                 space_i    = [SplineSpace(degree=p, knots=k, periodic=P)
                               for p, k, P in zip(degree, knots, periodic_i)]
 
-                spaces[i_patch] = space_i
+                # indexed/keyed by the patch's *interior*, so that spaces[j],
+                # g_spaces[interiors[j]] and ncells[interiors[j].name] below
+                # all refer to the same patch (see patch_to_interior above).
+                spaces[patch_to_interior[i_patch]] = space_i
 
-                ncells  [interiors[i_patch].name] = [sp.ncells for sp in space_i]
-                periodic[interiors[i_patch].name] = periodic_i
+                ncells  [patch_interiors[i_patch].name] = [sp.ncells for sp in space_i]
+                periodic[patch_interiors[i_patch].name] = periodic_i
 
         if n_patches == 1:
             ddm  = DomainDecomposition(ncells[domain.name], periodic[domain.name], comm=comm, mpi_dims_mask=mpi_dims_mask)
             ddms = [ddm]
         else:
-            ncells_  = [ncells[itr.name] for itr in interiors]
-            periodic = [periodic[itr.name] for itr in interiors]
-            ddm      = MultiPatchDomainDecomposition(ncells_, periodic, comm=comm)
-            ddms     = ddm.domains
+            ncells_       = [ncells[itr.name] for itr in interiors]
+            periodic_list = [periodic[itr.name] for itr in interiors]
+            ddm           = MultiPatchDomainDecomposition(ncells_, periodic_list, comm=comm)
+            ddms          = ddm.domains
 
         carts    = create_cart(ddms, spaces)
         g_spaces = {inter:TensorFemSpace(ddms[i], *spaces[i], cart=carts[i]) for i,inter in enumerate(interiors)}
@@ -828,13 +990,12 @@ class Geometry:
         for i_patch in range( n_patches ):
 
             item  = yml['patches'][i_patch]
-            patch_name = item['name']
             mapping_id = item['mapping_id']
             dtype = item['type']
             patch = h5[mapping_id]
-            space_i = spaces[i_patch]
+            space_i = spaces[patch_to_interior[i_patch]]
             if dtype in [SplineCallableMapping.geometry_dtype, NurbsCallableMapping.geometry_dtype]:
-                tensor_space = g_spaces[interiors[i_patch]]
+                tensor_space = g_spaces[patch_interiors[i_patch]]
 
                 if dtype == SplineCallableMapping.geometry_dtype:
                     mapping = SplineCallableMapping.from_control_points(tensor_space,
@@ -846,7 +1007,18 @@ class Geometry:
                                                                        patch['weights'])
 
                 mapping.set_name(item['name'])
-                mappings[patch_name] = mapping
+                mappings[patch_interiors[i_patch].name] = mapping
+
+        # Canonical order for all three per-patch dicts: interior order, not
+        # the on-disk patch order (the two differ from 11 patches on). Both
+        # the class docstring's "Keys" section and every caller that walks
+        # these dicts positionally -- the domain rebuild below, the
+        # ghost-region sync, `Geometry.__len__`, and anything zipping
+        # `mappings.values()` against `ncells.values()` -- rely on it.
+        mappings = {itr.name: mappings[itr.name]
+                    for itr in interiors if itr.name in mappings}
+        ncells   = {itr.name: ncells  [itr.name] for itr in interiors}
+        periodic = {itr.name: periodic[itr.name] for itr in interiors}
 
         # ... Update ghost regions within each patch and across interfaces
         if n_patches > 1:
@@ -892,23 +1064,15 @@ class Geometry:
         new_legs = []
         for itr, F in zip(interiors, mappings.values()):
             # Reuse itr's own mapping name and logical-domain name verbatim,
-            # rather than F.name (the geometry.yml patch name / `mappings`
-            # dict key): F.name is NOT always the same string -- e.g. a
-            # single-patch geometry exported by from_discrete_mapping keys
-            # `mappings` by the *full* domain name ("mapping(Omega)"), while
-            # a plain multipatch file like square.h5 keys it by the bare
-            # logical name ("patch_0"). Naming logical_i after itr.logical_
-            # domain.name reproduces itr's name exactly (`ncells`/`periodic`
-            # above are keyed by it), so this rebuild is a pure type swap
-            # (SymbolicMapping -> DiscreteMapping), never a rename -- whereas
-            # naming it after F.name double-wraps in the first convention
-            # (verified: reading back a from_discrete_mapping export produced
-            # "mapping(mapping(Omega))" instead of "mapping(Omega)").
-            # discretize_space's lookup still resolves either way: its
-            # primary branch matches on the (now unchanged) interior name --
-            # exactly what the full-domain-name convention needs -- and its
-            # fallback matches on inter.logical_domain.name -- exactly what
-            # the bare-logical-name convention needs.
+            # rather than F.name (the on-disk yml patch name -- kept as F's
+            # name by design, see the class docstring's "Keys" section, so
+            # export() still writes the same bytes). Since WP15, `mappings`
+            # is keyed uniformly by interior name in every constructor, so
+            # this is simply itr.name; using F.name here would double-wrap
+            # it (verified: reading back a from_discrete_mapping export
+            # produced "mapping(mapping(Omega))" instead of "mapping(Omega)").
+            # This rebuild is therefore a pure type swap (SymbolicMapping ->
+            # DiscreteMapping), never a rename.
             logical_i = NCube(name=itr.logical_domain.name, dim=ldim,
                               min_coords=itr.min_coords, max_coords=itr.max_coords)
             new_legs.append(F.to_defined_mapping(itr.mapping.name)(logical_i))
@@ -948,16 +1112,47 @@ class Geometry:
             new_domain = Domain.join(new_legs, join_connectivity, domain.name)
 
         # ...
+        # `periodic` is an int-aliased _PatchKeyedDict only for multipatch,
+        # where `geo.periodic[i]` used to work (see class docstring's "Keys"
+        # section); single-patch files never had an integer-key convention.
+        periodic_aliases = {i: itr.name for i, itr in enumerate(interiors)} \
+                            if n_patches > 1 else None
+
         self._domain      = new_domain
         self._ldim        = ldim
         self._pdim        = pdim
-        self._ncells      = ncells
-        self._mappings    = mappings
-        self._periodic    = periodic
+        self._ncells      = _PatchKeyedDict(ncells)
+        self._mappings    = _PatchKeyedDict(mappings, aliases=mapping_aliases)
+        self._periodic    = _PatchKeyedDict(periodic, aliases=periodic_aliases)
         self._comm        = comm
         self._ddm         = ddm
         self._cart        = None
+        self._patch_names = patch_names
         # ...
+
+    def _patches_in_file_order(self):
+        """
+        Per-patch ``(interior key, on-disk name, mapping)``, in the order the
+        patches must be written to file.
+
+        ``mappings`` is keyed and ordered by interior name, but a file read by
+        :meth:`read` may list its patches in a different order -- the two
+        diverge from 11 patches on, because sympde sorts interiors
+        lexicographically while the file keeps its own order.
+        ``_patch_names`` was built in on-disk order, so iterating it
+        reproduces a read file's patch list exactly and keeps the round trip
+        byte identical. For every other constructor it is the identity map
+        over ``interior_names``, so this is just ``mappings`` order.
+
+        Returns
+        -------
+        list[tuple[str, str, BasicCallableMapping]]
+        """
+        names = self._patch_names or {}
+        keys  = [k for k in names if k in self.mappings]
+        # A patch absent from _patch_names keeps its position in `mappings`.
+        keys += [k for k in self.mappings if k not in names]
+        return [(k, names.get(k, k), self.mappings[k]) for k in keys]
 
     def export( self, filename ):
         """
@@ -966,6 +1161,12 @@ class Geometry:
         filename : str
           Name of HDF5 output file.
 
+        Notes
+        -----
+        The written patch names come from `self._patch_names` (identity map
+        unless this instance came from `read()`), not from the `mappings`
+        keys directly -- this is what keeps a `from_file` round trip byte
+        identical even though `mappings` is now keyed by interior name.
         """
 
         # ...
@@ -983,8 +1184,7 @@ class Geometry:
 
         patches_info = []
         i_mapping    = 0
-        for patch_name, mapping in self.mappings.items():
-            name       = '{}'.format( patch_name )
+        for _, name, mapping in self._patches_in_file_order():
             mapping_id = 'mapping_{}'.format( i_mapping  )
             dtype      = mapping.geometry_dtype
 
@@ -1026,7 +1226,7 @@ class Geometry:
         # ...
 
         i_mapping    = 0
-        for patch_name, mapping in self.mappings.items():
+        for _, _, mapping in self._patches_in_file_order():
             space = mapping.space
 
             # Create group for patch 0

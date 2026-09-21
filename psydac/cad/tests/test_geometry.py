@@ -4,7 +4,9 @@
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
 import os
+import pickle
 import tempfile
+import warnings
 
 import pytest
 import numpy as np
@@ -402,9 +404,9 @@ def test_from_file_uses_discrete_mapping():
     for itr in interiors:
         assert isinstance(itr.mapping, DiscreteMapping)
         assert itr.mapping.is_analytical is False
-        # discretize_space looks mappings up by the *logical* domain's name
-        # for this exact reason -- see Geometry.read()
-        assert itr.mapping.get_callable_mapping() is geo_mp.mappings[itr.logical_domain.name]
+        # `mappings` is keyed by interior name (WP15) in every constructor,
+        # including read() -- see Geometry.read()
+        assert itr.mapping.get_callable_mapping() is geo_mp.mappings[itr.name]
     # the interface connectivity survived the rebuild
     assert geo_mp.domain.interfaces is not None
 
@@ -534,7 +536,7 @@ def test_export_nurbs_to_hdf5(ncells, degree):
     assert abs(max_coords[0] - pipe.breaks(0)[-1])<1e-15
     assert abs(max_coords[1] - pipe.breaks(1)[-1])<1e-15
 
-    mapping = geo.mappings[domain.logical_domain.name]
+    mapping = geo.mappings[domain.name]
 
     assert isinstance(mapping, NurbsCallableMapping)
 
@@ -583,7 +585,7 @@ def test_import_geopdes_to_nurbs(ncells, degree):
     assert abs(max_coords[0] - L_shaped.breaks(0)[-1])<1e-15
     assert abs(max_coords[1] - L_shaped.breaks(1)[-1])<1e-15
 
-    mapping = geo.mappings[domain.logical_domain.name]
+    mapping = geo.mappings[domain.name]
 
     space  = mapping.space
     knots  = space.knots
@@ -766,16 +768,260 @@ def test_geometry_mappings_order_matches_interiors():
 #==============================================================================
 @pytest.mark.xdist_group('h5py')
 def test_geometry_legacy_patch_key_access():
-    # Pinned current behaviour of Geometry.read() on a multipatch fixture:
-    # `mappings` is keyed by the legacy on-disk patch name, and `periodic`
-    # is a plain list (not a dict) once n_patches > 1. This pin is
-    # deliberately flipped in WP15-1 step 10.
+    # WP15-1: `mappings`/`periodic` are now keyed canonically by interior
+    # name; the legacy on-disk patch name / integer index still resolve,
+    # but each access warns (this is the one pin deliberately flipped by
+    # WP15-1 step 10 -- see test_geometry_legacy_keys_deprecated for the
+    # full behaviour of the alias mechanism).
     filename = os.path.join(base_dir, '..', 'mesh', 'multipatch', 'square.h5')
     geo = Geometry.from_file(filename)
 
-    assert geo.mappings['patch_0'] is list(geo.mappings.values())[0]
-    assert isinstance(geo.periodic, list)
-    assert geo.periodic[1] == [False, False]
+    with pytest.warns(DeprecationWarning, match='patch_0'):
+        assert geo.mappings['patch_0'] is list(geo.mappings.values())[0]
+
+    assert isinstance(geo.periodic, dict)
+    with pytest.warns(DeprecationWarning, match='1'):
+        assert geo.periodic[1] == [False, False]
+
+#==============================================================================
+@pytest.mark.xdist_group('h5py')
+def test_geometry_dict_keys_are_interior_names():
+    # WP15-1: `mappings`/`ncells`/`periodic` are keyed by `domain.
+    # interior_names`, in interior order, regardless of constructor.
+    geometries = []
+
+    # case 0: Geometry(domain=F(Square('Omega')), ...)
+    mapping = discrete_mapping('identity', ncells=[2, 2], degree=[2, 2])
+    F = SymbolicMapping('F', dim=2)
+    domain0 = F(Square(name='Omega'))
+    geometries.append(Geometry(domain=domain0, pdim=2,
+                               ncells={domain0.name: [2, 2]},
+                               mappings={domain0.name: mapping}))
+
+    # from_topological_domain: single and 2 patches
+    geometries.append(Geometry.from_topological_domain(F(Square('Sq')), [4, 4]))
+    F1 = SymbolicMapping('F1', dim=2)
+    F2 = SymbolicMapping('F2', dim=2)
+    A_top = F1(Square('A_top'))
+    B_top = F2(Square('B_top', bounds1=(1., 2.), bounds2=(0., 1.)))
+    Omega_top = Domain.join([A_top, B_top], [((0, 0, 1), (1, 0, -1), 1)], 'top2')
+    geometries.append(Geometry.from_topological_domain(Omega_top, [4, 4]))
+
+    # from_discrete_mapping
+    geo_dm = Geometry.from_discrete_mapping(mapping)
+    geometries.append(geo_dm)
+
+    # from_discrete_domain: single (reuse geo_dm's DiscreteMapping-carried
+    # domain) and 2 patches
+    geometries.append(Geometry.from_discrete_domain(geo_dm.domain))
+    Omega_dd, _, _ = _two_patch_spline_annulus()
+    geometries.append(Geometry.from_discrete_domain(Omega_dd))
+
+    # from_file
+    for fixture in ('collela_2d', 'bent_pipe'):
+        geometries.append(Geometry.from_file(os.path.join(base_dir, '..', 'mesh', fixture + '.h5')))
+    for fixture in ('square', 'magnet'):
+        geometries.append(Geometry.from_file(os.path.join(base_dir, '..', 'mesh', 'multipatch', fixture + '.h5')))
+    with tempfile.TemporaryDirectory() as d:
+        f = os.path.join(d, 'g.h5')
+        geo_dm.export(f)
+        geometries.append(Geometry.from_file(f))
+
+    # from_file with an explicit (serial) comm
+    geometries.append(Geometry.from_file(
+        os.path.join(base_dir, '..', 'mesh', 'multipatch', 'square.h5'), comm=MPI.COMM_SELF))
+
+    for geo in geometries:
+        names = geo.domain.interior_names
+        for d in (geo.mappings, geo.ncells, geo.periodic):
+            assert isinstance(d, dict)
+            assert list(d) == names
+
+#==============================================================================
+@pytest.mark.xdist_group('h5py')
+def test_geometry_legacy_keys_deprecated():
+    # WP15-1: legacy keys on `mappings`/`periodic` still resolve, with a
+    # DeprecationWarning, and without corrupting the dict's canonical view.
+    filename = os.path.join(base_dir, '..', 'mesh', 'multipatch', 'square.h5')
+    geo = Geometry.from_file(filename)
+    mappings = geo.mappings
+    canonical = list(mappings)[0]
+
+    with pytest.warns(DeprecationWarning, match='patch_0'):
+        assert mappings['patch_0'] is mappings[canonical]
+    with pytest.warns(DeprecationWarning, match='patch_0'):
+        assert mappings.get('patch_0') is mappings[canonical]
+    with pytest.warns(DeprecationWarning, match='patch_0'):
+        assert 'patch_0' in mappings
+
+    periodic_canonical = list(geo.periodic)[1]
+    with pytest.warns(DeprecationWarning, match='1'):
+        assert geo.periodic[1] == geo.periodic[periodic_canonical]
+
+    # no legacy key leaks into iteration / len / equality
+    assert 'patch_0' not in list(mappings)
+    assert len(mappings) == len(geo.domain.interior_names)
+    assert mappings == dict(mappings.items())
+
+    # an unknown key raises KeyError, with no warning at all
+    with warnings.catch_warnings():
+        warnings.simplefilter('error')
+        with pytest.raises(KeyError):
+            mappings['does_not_exist']
+
+    # pickle round trip, including the aliases -- use `periodic` (plain
+    # lists of bool), since `mappings`' values (spline FEM objects) are not
+    # picklable for reasons unrelated to `_PatchKeyedDict`.
+    periodic2 = pickle.loads(pickle.dumps(geo.periodic))
+    assert dict(periodic2) == dict(geo.periodic)
+    assert periodic2.aliases == geo.periodic.aliases
+    with pytest.warns(DeprecationWarning, match='1'):
+        assert periodic2[1] == periodic2[periodic_canonical]
+
+#==============================================================================
+@pytest.mark.xdist_group('h5py')
+def test_geometry_internal_paths_do_not_use_legacy_keys():
+    # WP15-1: every in-tree Geometry consumer migrated to canonical keys in
+    # the same diff, so psydac's own internal calls never trip the
+    # DeprecationWarning -- on either on-disk naming convention.
+    from sympde.topology import ScalarFunctionSpace
+    from psydac.api.discretization import discretize
+
+    filenames = [os.path.join(base_dir, '..', 'mesh', 'multipatch', 'square.h5')]
+    with tempfile.TemporaryDirectory() as d:
+        f = os.path.join(d, 'g.h5')
+        mapping = discrete_mapping('identity', ncells=[4, 4], degree=[2, 2])
+        Geometry.from_discrete_mapping(mapping).export(f)
+        filenames.append(f)
+
+        for filename in filenames:
+            with warnings.catch_warnings(record=True) as record:
+                warnings.simplefilter('always')
+                discretize(Domain.from_file(filename), filename=filename)
+                geo = Geometry.from_file(filename)
+                V = ScalarFunctionSpace('V', geo.domain)
+                discretize(V, geo, degree=[2, 2])
+
+            legacy_warnings = [w for w in record
+                                if issubclass(w.category, DeprecationWarning)
+                                and 'Geometry legacy key' in str(w.message)]
+            assert not legacy_warnings
+
+#==============================================================================
+def _eleven_patch_geometry_file(directory):
+    """
+    Write an 11-patch geometry file whose on-disk patch order and interior
+    order deliberately disagree, and return its path.
+
+    sympde's `Union` sorts interiors lexicographically, so `patch_10` sorts
+    between `patch_1` and `patch_2` while the file lists patches in numeric
+    order. Ten patches or fewer would not expose this.
+
+    Every patch is made individually identifiable in two independent ways, so
+    that a mis-pairing cannot hide behind uniform data:
+
+    - geometrically -- patch `i` is the unit square translated by `i` along
+      x, so evaluating it says which patch it really is (this catches a
+      mis-bound *mapping*);
+    - by discretization -- patch `i` carries `i + 1` elements along x, so its
+      `ncells` is `[i + 1, 1]` (this catches a mis-bound *ncells*/*periodic*,
+      which uniform `[1, 1]` patches would not).
+    """
+    from igakit.cad import bilinear
+    from psydac.cad.multipatch import export_multipatch_nurbs_to_hdf5
+
+    nurbs = []
+    for i in range(11):
+        nrb = bilinear(np.array([[[i, 0.], [i, 1.]], [[i + 1., 0.], [i + 1., 1.]]]))
+        if i:
+            nrb.refine(0, [j / (i + 1) for j in range(1, i + 1)])
+        nurbs.append(nrb)
+    filename = os.path.join(directory, 'eleven_patches.h5')
+    export_multipatch_nurbs_to_hdf5(filename, nurbs, {})
+    return filename
+
+@pytest.mark.xdist_group('h5py')
+def test_geometry_read_pairs_patches_by_name_not_position():
+    # Regression: read() used to pair the i-th on-disk patch with the i-th
+    # interior positionally. From 11 patches on the two orders diverge, which
+    # bound 9 of 11 splines (and their ncells/periodic/on-disk names) to the
+    # wrong patch. Pairing is by name now.
+    with tempfile.TemporaryDirectory() as d:
+        filename = _eleven_patch_geometry_file(d)
+        geo = Geometry.from_file(filename)
+
+        # the orders really do disagree, else this test proves nothing
+        yml_names = [p['name'] for p in
+                     yaml.safe_load(h5py.File(filename, 'r')['geometry.yml'][()])['patches']]
+        assert yml_names != [itr.logical_domain.name for itr in geo.domain.interior.args]
+
+        for key, mapping in geo.mappings.items():
+            i = int(key.split('patch_')[1].rstrip(')'))
+            assert np.isclose(mapping(0.5, 0.5)[0], i + 0.5), \
+                f'{key} is bound to the wrong patch'
+
+        # ncells/periodic follow the same pairing. This is the half that a
+        # uniform fixture cannot test: pre-WP15 `ncells`/`periodic` were
+        # already keyed by interiors[i].name while taking their values from
+        # on-disk patch i, so from 11 patches on they were mis-bound too.
+        # (checked in its own loop, so that this -- the substantive pin --
+        # is what fails on a regression, rather than the `periodic` lookup
+        # below tripping first on unrelated grounds.)
+        for itr in geo.domain.interior.args:
+            i = int(itr.name.split('patch_')[1].rstrip(')'))
+            assert geo.ncells[itr.name] == [i + 1, 1], \
+                f'{itr.name} carries another patch\'s ncells'
+
+        for itr in geo.domain.interior.args:
+            assert geo.periodic[itr.name] == [False, False]
+
+        # ... and all three dicts are in canonical interior order, not
+        # on-disk order, so zipping their .values() pairwise stays correct.
+        names = geo.domain.interior_names
+        assert list(geo.mappings) == names
+        assert list(geo.ncells)   == names
+        assert list(geo.periodic) == names
+
+def test_patch_keyed_dict_contains_agrees_with_getitem():
+    # An alias may point at a canonical key the dict has no entry for:
+    # read() builds `mappings`' aliases from every on-disk patch name, but
+    # only spline/NURBS patches get a mapping. `k in d` must not claim a key
+    # that `d[k]` would raise on.
+    from psydac.cad.geometry import _PatchKeyedDict
+
+    d = _PatchKeyedDict({'Omega': 1}, aliases={'patch_0': 'Omega',
+                                               'patch_9': 'missing'})
+    with pytest.warns(DeprecationWarning):
+        assert 'patch_0' in d
+    with pytest.warns(DeprecationWarning):
+        assert d['patch_0'] == 1
+
+    with pytest.warns(DeprecationWarning):
+        present = 'patch_9' in d
+    assert not present
+    with pytest.warns(DeprecationWarning):
+        with pytest.raises(KeyError):
+            d['patch_9']
+
+    # canonical and unknown keys are unaffected and never warn
+    with warnings.catch_warnings():
+        warnings.simplefilter('error')
+        assert 'Omega' in d
+        assert 'nope' not in d
+
+#==============================================================================
+@pytest.mark.xdist_group('h5py')
+def test_geometry_eleven_patch_export_is_byte_identical():
+    # export() must reproduce the on-disk patch order, not the (different)
+    # interior order that `mappings` is keyed in.
+    with tempfile.TemporaryDirectory() as d:
+        filename = _eleven_patch_geometry_file(d)
+        geo = Geometry.from_file(filename)
+        out = os.path.join(d, 'out.h5')
+        geo.export(out)
+        with h5py.File(filename, 'r') as h5_orig, h5py.File(out, 'r') as h5_new:
+            assert h5_orig['geometry.yml'][()] == h5_new['geometry.yml'][()]
+            assert h5_orig['topology.yml'][()] == h5_new['topology.yml'][()]
 
 #==============================================================================
 @pytest.mark.xfail
