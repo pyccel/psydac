@@ -75,7 +75,7 @@ def main(*, mapping, degree, ncells, name='F'):
     tensor_space = TensorFemSpace(domain_decomposition, V1, V2)
 
     # Create spline mapping by interpolating analytical one
-    map_discrete = SplineCallableMapping.from_mapping(tensor_space, map_analytic)
+    map_discrete = SplineCallableMapping.from_mapping(map_analytic, tensor_space)
 
     # Display analytical and spline mapping on refined grid, then plot error
     N = 20

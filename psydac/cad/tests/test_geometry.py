@@ -317,7 +317,7 @@ def _two_patch_spline_annulus(degree=(2, 2), ncells=(6, 6)):
         V = TensorFemSpace(DomainDecomposition(list(ncells), [False, False]),
                            *[SplineSpace(degree[d], grid=grids[d], periodic=False)
                              for d in range(2)])
-        return SplineCallableMapping.from_mapping(V, pm.get_callable_mapping())
+        return SplineCallableMapping.from_mapping(pm, V)
 
     spl_A = approx(PolarMapping('MA', 2, c1=0., c2=0., rmin=0., rmax=1.), A)
     spl_B = approx(PolarMapping('MB', 2, c1=0., c2=0., rmin=0., rmax=1.), B)
@@ -338,8 +338,8 @@ def _detached_spline_domain(A, name='M', ncells=(4, 4), degree=(2, 2)):
     grids = [np.linspace(A.min_coords[d], A.max_coords[d], ncells[d] + 1) for d in range(2)]
     V = TensorFemSpace(DomainDecomposition(list(ncells), [False, False]),
                        *[SplineSpace(degree[d], grid=grids[d], periodic=False) for d in range(2)])
-    spl = SplineCallableMapping.from_mapping(V, PolarMapping(name, 2, c1=0., c2=0., rmin=0., rmax=1.)
-                                    .get_callable_mapping())
+    spl = SplineCallableMapping.from_mapping(
+        PolarMapping(name, 2, c1=0., c2=0., rmin=0., rmax=1.), V)
     M = spl.to_defined_mapping(name)
     Omega = M(A)
     Omega.interior.mapping._callable_map = None       # simulate a detached carrier

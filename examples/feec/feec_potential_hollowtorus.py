@@ -110,7 +110,7 @@ def compute_and_save_fields(cavRad, minRad, majRad, vtu_file, params_name, mappi
         # Create spline mapping by interpolation of analytical mapping
         # pre_mapping = HollowTorus('HT', r=r)
         # map_analytic = pre_mapping.get_callable_mapping()
-        # map_discrete = SplineCallableMapping.from_mapping(V, map_analytic)
+        # map_discrete = SplineCallableMapping.from_mapping(map_analytic, V)
         # Create symbolic mapping with callable mapping as spline
         
         # A fresh DefinedMapping whose callable IS the spline -- no need to

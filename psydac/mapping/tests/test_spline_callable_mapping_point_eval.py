@@ -38,7 +38,7 @@ def spline_mapping():
     A = Square('A', bounds1=(0., 1.), bounds2=(0., 0.5 * np.pi))
     F = PolarMapping('F', dim=2, c1=0., c2=0., rmin=0.3, rmax=1.0)
     return SplineCallableMapping.from_mapping(
-        None, F.get_callable_mapping(), ncells=(8, 8), degree=(3, 3),
+        F, ncells=(8, 8), degree=(3, 3),
         bounds=zip(A.min_coords, A.max_coords))
 
 
@@ -57,7 +57,7 @@ def nurbs_mapping():
 def surface_mapping():
     """ A spline interpolation of `_SurfaceMapping` (pdim=3, ldim=2). """
     F = _SurfaceMapping('Surf', ldim=2, pdim=3)
-    return SplineCallableMapping.from_mapping(None, F, ncells=(6, 6), degree=(3, 3))
+    return SplineCallableMapping.from_mapping(F, ncells=(6, 6), degree=(3, 3))
 
 
 #==============================================================================
@@ -431,7 +431,7 @@ class _LineMapping(AnalyticMapping):
 def line_mapping():
     """ A 1-D spline (ldim = pdim = 1). """
     return SplineCallableMapping.from_mapping(
-        None, _LineMapping('L', ldim=1, pdim=1), ncells=[6], degree=[3])
+        _LineMapping('L', ldim=1, pdim=1), ncells=[6], degree=[3])
 
 
 def test_tensor_grid_detection():

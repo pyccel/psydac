@@ -204,7 +204,7 @@ def discrete_mapping(mapping, ncells, degree, *,
 
     # Create spline mapping by interpolating analytical one
     map_analytic = map_symbolic.get_callable_mapping()
-    map_discrete = SplineCallableMapping.from_mapping(space, map_analytic)
+    map_discrete = SplineCallableMapping.from_mapping(map_analytic, space)
 
     if return_space:
         return map_discrete, space

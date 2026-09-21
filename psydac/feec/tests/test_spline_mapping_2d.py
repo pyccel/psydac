@@ -55,10 +55,10 @@ def _solve_poisson_mapping(spline_mapping):
 
     if spline_mapping:
         F_1s = SplineCallableMapping.from_mapping(
-            None, F_1.get_callable_mapping(), ncells=F_ncells, degree=F_degree,
+            F_1, ncells=F_ncells, degree=F_degree,
             bounds=zip(domain_log_1.min_coords, domain_log_1.max_coords))
         F_2s = SplineCallableMapping.from_mapping(
-            None, F_2.get_callable_mapping(), ncells=F_ncells, degree=F_degree,
+            F_2, ncells=F_ncells, degree=F_degree,
             bounds=zip(domain_log_2.min_coords, domain_log_2.max_coords))
         # A fresh DefinedMapping per patch whose callable IS the spline.
         M_1, M_2 = F_1s.to_defined_mapping('F_1'), F_2s.to_defined_mapping('F_2')
@@ -146,7 +146,7 @@ def _solve_poisson_2d_single_patch_discrete_mapping():
     # spline approximation of the geometry (degree 3, coarse grid)
     geo_ncells, geo_degree = (8, 8), (3, 3)
     F_h = SplineCallableMapping.from_mapping(
-        None, F.get_callable_mapping(), ncells=geo_ncells, degree=geo_degree,
+        F, ncells=geo_ncells, degree=geo_degree,
         bounds=zip(A.min_coords, A.max_coords))
 
     F_disc = F_h.to_defined_mapping('F')            # DiscreteMapping, is_analytical=False
@@ -215,7 +215,7 @@ def _solve_poisson_2d_two_patch_discrete_mapping():
 
     def approx(pm, sq):
         return SplineCallableMapping.from_mapping(
-            None, pm.get_callable_mapping(), ncells=geo_ncells, degree=geo_degree,
+            pm, ncells=geo_ncells, degree=geo_degree,
             bounds=zip(sq.min_coords, sq.max_coords))
 
     M_A = approx(PolarMapping('MA', dim=2, c1=0., c2=0., rmin=0., rmax=1.), A).to_defined_mapping('MA')

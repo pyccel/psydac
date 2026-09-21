@@ -13,7 +13,7 @@ import numpy as np
 import h5py
 
 from sympde.topology.callable_mapping import BasicCallableMapping
-from sympde.topology.mapping import DiscreteMapping
+from sympde.topology.mapping import DefinedMapping, DiscreteMapping
 
 from psydac.fem.basic    import FemField
 from psydac.fem.splines  import SplineSpace
@@ -285,7 +285,7 @@ class SplineCallableMapping(BasicCallableMapping):
     # Option [1]: initialize from TensorFemSpace and pre-existing mapping
     #--------------------------------------------------------------------------
     @classmethod
-    def from_mapping(cls, tensor_space, mapping, *,
+    def from_mapping(cls, mapping, space=None, *,
                      ncells=None, degree=None, periodic=None, bounds=None, comm=None):
         """
         Interpolate a `BasicCallableMapping` (typically an `AnalyticMapping`'s
@@ -293,36 +293,41 @@ class SplineCallableMapping(BasicCallableMapping):
 
         Parameters
         ----------
-        tensor_space : TensorFemSpace or None
-            The discrete space to interpolate onto. If `None`, one is built
-            from `ncells` and `degree` (see below) -- a convenience so callers
-            don't need to hand-assemble a `SplineSpace`/`DomainDecomposition`/
-            `TensorFemSpace` just to interpolate a mapping.
-
-        mapping : BasicCallableMapping
+        mapping : BasicCallableMapping or DefinedMapping
             The mapping to interpolate. Must have the same `ldim` as
-            `tensor_space` (or as `ncells`/`degree`, when building one).
+            `space` (or as `ncells`/`degree`, when building one).
+
+            A sympde `DefinedMapping` -- the point-evaluable symbolic kind,
+            i.e. an `AnalyticMapping` or a `DiscreteMapping` -- is accepted
+            directly and unwrapped with `get_callable_mapping()` here, so
+            callers don't have to do it themselves.
+
+        space : TensorFemSpace, optional
+            The discrete space to interpolate onto. When omitted, one is
+            built from `ncells` and `degree` (see below) -- a convenience so
+            callers don't need to hand-assemble a `SplineSpace`/
+            `DomainDecomposition`/`TensorFemSpace` just to interpolate a
+            mapping.
 
         ncells : Iterable[int], optional
             Number of cells along each logical dimension. Required (together
-            with `degree`) when `tensor_space` is `None`; ignored otherwise.
+            with `degree`) when `space` is omitted; ignored otherwise.
 
         degree : Iterable[int], optional
             Spline degree along each logical dimension. Required (together
-            with `ncells`) when `tensor_space` is `None`; ignored otherwise.
+            with `ncells`) when `space` is omitted; ignored otherwise.
 
         periodic : Iterable[bool], optional
             Periodicity along each logical dimension, used only when building
-            a `tensor_space`. Defaults to non-periodic in every direction.
+            a `space`. Defaults to non-periodic in every direction.
 
         bounds : Iterable[tuple[float, float]], optional
             Per-direction `(min, max)` of the logical domain, used only when
-            building a `tensor_space`. Defaults to `(0, 1)` in every
-            direction.
+            building a `space`. Defaults to `(0, 1)` in every direction.
 
         comm : MPI.Intracomm, optional
             MPI communicator for the domain decomposition, used only when
-            building a `tensor_space`. Defaults to serial (`None`).
+            building a `space`. Defaults to serial (`None`).
 
         Returns
         -------
@@ -330,18 +335,49 @@ class SplineCallableMapping(BasicCallableMapping):
 
         Raises
         ------
+        TypeError
+            If called with the pre-2026-09 argument order
+            (`from_mapping(space, mapping)`).
+
         ValueError
-            If `tensor_space` is `None` and `ncells`/`degree` are not both
-            given, or disagree in length.
+            If `space` is omitted and `ncells`/`degree` are not both given,
+            or disagree in length.
 
         Examples
         --------
-        >>> F_h = SplineCallableMapping.from_mapping(
-        ...     None, F, ncells=[8, 8], degree=[3, 3])
+        >>> F_h = SplineCallableMapping.from_mapping(F, ncells=[8, 8], degree=[3, 3])
+
+        Or onto a space you already have:
+
+        >>> F_h = SplineCallableMapping.from_mapping(F, V)
+
+        `F` may be the symbolic mapping itself -- these are equivalent:
+
+        >>> F_h = SplineCallableMapping.from_mapping(F, V)
+        >>> F_h = SplineCallableMapping.from_mapping(F.get_callable_mapping(), V)
         """
-        if tensor_space is None:
+        # `mapping` used to come second, after a `tensor_space` that had to be
+        # passed as an explicit `None` when unused. Catch that call shape
+        # loudly: it would otherwise bind a space (or `None`) to `mapping` and
+        # fail further in with a much less obvious message.
+        if mapping is None or isinstance(mapping, TensorFemSpace):
+            raise TypeError(
+                "from_mapping's arguments were reordered: the mapping comes "
+                "first now and the space is optional. Replace "
+                "`from_mapping(V, F)` with `from_mapping(F, V)`, and "
+                "`from_mapping(None, F, ncells=..., degree=...)` with "
+                "`from_mapping(F, ncells=..., degree=...)`.")
+
+        # Unwrap a point-evaluable symbolic mapping to the callable it
+        # delegates to. For an `AnalyticMapping` this is a no-op
+        # (`get_callable_mapping()` returns `self` since WP06c); for a
+        # `DiscreteMapping` it reaches the spline underneath instead of
+        # evaluating every Greville point through the symbolic wrapper.
+        if isinstance(mapping, DefinedMapping):
+            mapping = mapping.get_callable_mapping()
+        if space is None:
             if ncells is None or degree is None:
-                raise ValueError("Provide 'tensor_space', or both 'ncells' "
+                raise ValueError("Provide 'space', or both 'ncells' "
                                  "and 'degree' to build one.")
             ldim = len(ncells)
             if len(degree) != ldim:
@@ -354,20 +390,20 @@ class SplineCallableMapping(BasicCallableMapping):
             domain_decomposition = DomainDecomposition(ncells=ncells, periods=periodic, comm=comm)
             spaces_1d = [SplineSpace(degree=p, grid=np.linspace(*b, num=n + 1), periodic=per)
                         for b, n, p, per in zip(bounds, ncells, degree, periodic)]
-            tensor_space = TensorFemSpace(domain_decomposition, *spaces_1d)
+            space = TensorFemSpace(domain_decomposition, *spaces_1d)
 
-        assert isinstance(tensor_space, TensorFemSpace)
+        assert isinstance(space, TensorFemSpace)
         assert isinstance(mapping, BasicCallableMapping)
-        assert tensor_space.ldim == mapping.ldim
+        assert space.ldim == mapping.ldim
 
         # Create one separate scalar field for each physical dimension
         # TODO: use one unique field belonging to VectorFemSpace
-        fields = [FemField(tensor_space) for d in range(mapping.pdim)]
+        fields = [FemField(space) for d in range(mapping.pdim)]
 
-        V = tensor_space.coeff_space
+        V = space.coeff_space
         values = [V.zeros() for d in range(mapping.pdim)]
         ranges = [range(s, e+1) for s, e in zip(V.starts, V.ends)]
-        grids  = [space.greville for space in tensor_space.spaces]
+        grids  = [sp.greville for sp in space.spaces]
 
         # Evaluate analytical mapping at Greville points (tensor-product grid)
         # and store vector values in one separate scalar field for each
@@ -381,7 +417,7 @@ class SplineCallableMapping(BasicCallableMapping):
 
         # Compute spline coefficients for each coordinate X_i
         for pvals, field in zip(values, fields):
-            tensor_space.compute_interpolant(pvals, field)
+            space.compute_interpolant(pvals, field)
 
         # Create SplineCallableMapping object
         return cls(*fields)

@@ -85,7 +85,7 @@ def test_plot_field_spline_discrete_mapping(tmp_path):
 
     geo_ncells, geo_degree = (8, 8), (3, 3)
     F_h = SplineCallableMapping.from_mapping(
-        None, F.get_callable_mapping(), ncells=geo_ncells, degree=geo_degree,
+        F, ncells=geo_ncells, degree=geo_degree,
         bounds=zip(A.min_coords, A.max_coords))
 
     domain = F_h.to_defined_mapping('F')(A)

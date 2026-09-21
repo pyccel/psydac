@@ -660,7 +660,7 @@ def main(*, test_case, ncells, degree, nquads,
     map_analytic = model.mapping
 
     if use_spline_mapping:
-        map_discrete = SplineCallableMapping.from_mapping(V, map_analytic)
+        map_discrete = SplineCallableMapping.from_mapping(map_analytic, V)
         # Write discrete geometry to HDF5 file
         t0 = time()
         geometry = Geometry.from_discrete_mapping(map_discrete, comm=mpi_comm)

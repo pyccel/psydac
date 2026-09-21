@@ -39,7 +39,7 @@ def test_build_derham_spline_mapping_id_1d(degree, ncells, periodic):
     # Create the mapping
     map_symbolic = IdentityMapping(name = 'Id', dim = 1)
     map_analytic = map_symbolic.get_callable_mapping()
-    map_discrete = SplineCallableMapping.from_mapping(tensor_space, map_analytic)
+    map_discrete = SplineCallableMapping.from_mapping(map_analytic, tensor_space)
     map_discrete.set_name("map")
 
     # Create the de Rham sequence
@@ -98,7 +98,7 @@ def test_build_derham_spline_mapping_id_2d(degree, ncells, periodic):
     # Create the mapping
     map_symbolic = IdentityMapping(name = 'Id', dim = 2)
     map_analytic = map_symbolic.get_callable_mapping()
-    map_discrete = SplineCallableMapping.from_mapping(tensor_space, map_analytic)
+    map_discrete = SplineCallableMapping.from_mapping(map_analytic, tensor_space)
 
     # Create the de Rham sequence
     name = '_' + str(nc1) + '_' + str(nc2) + '_' + str(p1) + '_' + str(p2)
@@ -161,7 +161,7 @@ def test_build_derham_spline_mapping_id_3d(degree, ncells, periodic):
     # Create the mapping
     map_symbolic = IdentityMapping(name = 'Id', dim = 3)
     map_analytic = map_symbolic.get_callable_mapping()
-    map_discrete = SplineCallableMapping.from_mapping(tensor_space, map_analytic)
+    map_discrete = SplineCallableMapping.from_mapping(map_analytic, tensor_space)
     map_discrete.set_name("map")
 
     # Create the de Rham sequence
