@@ -103,7 +103,7 @@ def compute_and_save_fields(cavRad, minRad, majRad, vtu_file, params_name, mappi
         # from_mapping builds the 3D tensor-product finite element space
         # itself from ncells/degree/periodic/bounds (comm=mpi_comm, if needed).
         map_discrete = SplineCallableMapping.from_mapping(
-            None, struphy_callable_map, ncells=ncells, degree=degree,
+            struphy_callable_map, ncells=ncells, degree=degree,
             periodic=periodic, bounds=(log_bounds1, log_bounds2, log_bounds3))
 
         # Alternative:

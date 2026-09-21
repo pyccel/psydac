@@ -411,6 +411,38 @@ def test_from_file_uses_discrete_mapping():
     assert geo_mp.domain.interfaces is not None
 
 # ==============================================================================
+@pytest.mark.xdist_group('h5py')
+def test_from_file_does_not_mutate_parsed_symbolic_mappings():
+    # D3: WP10 left a compat shim in Geometry.read() -- set_callable_mapping on
+    # the bare SymbolicMapping legs Domain.from_file parses. sympy interns
+    # those, so discretize(domain, filename=...) silently made *every* holder
+    # of the same symbolic mapping point-evaluable. The spline is now reached
+    # only through the Geometry.
+    from sympde.topology.mapping import DiscreteMapping
+    from psydac.api.discretization import discretize
+
+    Geometry.from_discrete_mapping(
+        discrete_mapping('identity', ncells=[4, 4], degree=[2, 2])
+    ).export('geo_d3_shim.h5')
+
+    domain = Domain.from_file('geo_d3_shim.h5')
+    leg    = domain.mapping                       # bare SymbolicMapping
+    assert not isinstance(leg, DiscreteMapping)
+
+    domain_h = discretize(domain, filename='geo_d3_shim.h5')
+
+    # same interned object -- so the assertion below is about the shim, not
+    # about having grabbed a different instance
+    assert Domain.from_file('geo_d3_shim.h5').mapping is leg
+    with pytest.raises(ValueError):
+        leg.get_callable_mapping()
+
+    # ... and the spline is reachable from the Geometry, as the same object
+    spl = domain_h.mappings[domain_h.domain.interior_names[0]]
+    assert isinstance(spl, SplineCallableMapping)
+    assert domain_h.domain.mapping.get_callable_mapping() is spl
+
+# ==============================================================================
 def test_discretize_domain_dispatches_to_from_discrete_domain():
     # WP07c-1: discretize(Omega) with no filename/ncells dispatches to
     # from_discrete_domain when the domain carries spline DiscreteMappings, and
@@ -1054,6 +1086,7 @@ def teardown_module():
         'geo_wp10_single.h5',
         'geo_wp11_tag.h5',
         'geo_wp11_tag_nurbs.h5',
+        'geo_d3_shim.h5',
     ]
     for fname in filenames:
         if os.path.exists(fname):

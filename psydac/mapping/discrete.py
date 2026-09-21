@@ -563,7 +563,7 @@ class SplineCallableMapping(BasicCallableMapping):
 
         Examples
         --------
-        >>> F_h = SplineCallableMapping.from_mapping(V, F)
+        >>> F_h = SplineCallableMapping.from_mapping(F, V)
         >>> G   = F_h.to_defined_mapping('F')
         >>> G.get_callable_mapping() is F_h
         True

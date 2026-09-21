@@ -229,7 +229,9 @@ bspline_domain = Domain.from_file(filename)
 bspline_derham = Derham(bspline_domain)
 
 bspline_domain_h = discretize(bspline_domain, filename=filename, comm=comm)
-bspline_derham_h = discretize(bspline_derham, bspline_domain_h, degree=bspline_domain.mapping.get_callable_mapping().space.degree)
+# D3: the spline lives on the Geometry, not on the parsed bare mapping.
+bspline_degree   = list(bspline_domain_h.mappings.values())[0].space.degree
+bspline_derham_h = discretize(bspline_derham, bspline_domain_h, degree=bspline_degree)
 
 mapping = SquareTorus('S')
 
@@ -356,7 +358,9 @@ bspline_domain = Domain.from_file(filename)
 bspline_derham = Derham(bspline_domain)
 
 bspline_domain_h = discretize(bspline_domain, filename=filename, comm=comm)
-bspline_derham_h = discretize(bspline_derham, bspline_domain_h, degree=bspline_domain.mapping.get_callable_mapping().space.degree)
+# D3: the spline lives on the Geometry, not on the parsed bare mapping.
+bspline_degree   = list(bspline_domain_h.mappings.values())[0].space.degree
+bspline_derham_h = discretize(bspline_derham, bspline_domain_h, degree=bspline_degree)
 
 mapping = SquareTorus('S')
 

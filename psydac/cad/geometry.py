@@ -1059,8 +1059,9 @@ class Geometry:
         # Build the domain from spline-backed DiscreteMappings -- consistent
         # with Geometry.from_discrete_domain (WP07c-1) -- instead of mutating
         # the bare SymbolicMapping legs Domain.from_file built via
-        # set_callable_mapping (WP10). NOTE: we assume that interiors and
-        # mappings.values() use the same ordering.
+        # set_callable_mapping (WP10). NOTE: interiors and mappings.values()
+        # are guaranteed to share ordering -- the three dicts are rebuilt in
+        # interior order above (WP15-1).
         new_legs = []
         for itr, F in zip(interiors, mappings.values()):
             # Reuse itr's own mapping name and logical-domain name verbatim,
@@ -1076,22 +1077,6 @@ class Geometry:
             logical_i = NCube(name=itr.logical_domain.name, dim=ldim,
                               min_coords=itr.min_coords, max_coords=itr.max_coords)
             new_legs.append(F.to_defined_mapping(itr.mapping.name)(logical_i))
-
-            # Compat shim: also attach F to the *original* bare
-            # SymbolicMapping (itr.mapping), mirroring the pre-WP10 side
-            # effect this rebuild otherwise drops. sympy interns
-            # SymbolicMapping instances, so Domain.from_file(filename) always
-            # returns the *same* object for a given file/session; a caller
-            # that parsed the file itself (e.g. to grab `domain.mapping`
-            # before calling `discretize(domain, filename=...)`) holds that
-            # exact instance and may still expect
-            # `mapping.get_callable_mapping()` to work afterwards (see
-            # test_maxwell_2d_dirichlet_spline_mapping). itr.mapping is a
-            # plain SymbolicMapping here, not a DiscreteMapping, so WP07d's
-            # raising guard does not apply.
-            # TODO: drop once callers read the spline off the Geometry
-            # instead (`domain_h.mappings[...]`) -- tracked in WP10's doc.
-            itr.mapping.set_callable_mapping(F)
 
         if n_patches == 1:
             new_domain = new_legs[0]

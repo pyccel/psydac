@@ -250,7 +250,6 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
 
         filename = Path(mesh_mod.__file__).parent / 'collela_2d.h5'
         domain   = Domain.from_file(filename)
-        mapping  = domain.mapping
 
     else:
         # Logical domain is unit square [0, 1] x [0, 1]
@@ -290,6 +289,14 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
     if use_spline_mapping:
         domain_h = discretize(domain, filename=filename, comm=MPI.COMM_WORLD)
         derham_h = discretize(derham, domain_h, multiplicity = [mult, mult])
+
+        # D3: read the spline off the discrete geometry. `domain.mapping` is
+        # the bare SymbolicMapping `Domain.from_file` parsed from the file's
+        # topology metadata; `Geometry.read()` no longer mutates it into a
+        # point-evaluable object behind our back. `domain_h.domain.mapping` is
+        # the spline-backed DiscreteMapping (WP10), and its callable is the
+        # very same SplineCallableMapping as `domain_h.mappings[...]`.
+        mapping = domain_h.domain.mapping
 
         periodic_list = mapping.get_callable_mapping().space.periodic
         degree_list   = mapping.get_callable_mapping().space.degree

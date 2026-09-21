@@ -79,8 +79,10 @@ def test_assembly(): # mapping):
         derham = Derham(domain)
 
         domain_h = discretize(domain, filename=filename)
-        derham_h = discretize(derham, domain_h, degree=domain.mapping.get_callable_mapping().space.degree, multiplicity=trial_multiplicity)
-        derham_test_h = discretize(derham, domain_h, degree=domain.mapping.get_callable_mapping().space.degree, multiplicity=test_multiplicity)
+        # D3: the spline lives on the Geometry, not on the parsed bare mapping.
+        bspline_degree = list(domain_h.mappings.values())[0].space.degree
+        derham_h       = discretize(derham, domain_h, degree=bspline_degree, multiplicity=trial_multiplicity)
+        derham_test_h  = discretize(derham, domain_h, degree=bspline_degree, multiplicity=test_multiplicity)
 
     elif mapping == 'Analytical':
 
