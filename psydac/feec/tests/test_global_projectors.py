@@ -39,13 +39,13 @@ def test_H1_projector_1d(domain, ncells, degree, periodic, multiplicity, verbose
 
     # H1 space (0-forms)
     N  = SplineSpace(degree=degree, knots=knots, periodic=periodic, basis='B')
-    V0 = TensorFemSpace(domain_decomposition, N)
+    V0 = TensorFemSpace(domain_decomposition, N, dtype=complex)
 
     # Projector onto H1 space (1D interpolation)
     P0 = GlobalGeometricProjectorH1(V0)
 
     # Function to project
-    f  = lambda xi1 : np.sin( xi1 + 0.5 )
+    f  = lambda xi1 : np.sin( xi1 + 0.5 -1j )
 
     # Compute the projection
     u0 = P0(f)
@@ -86,7 +86,7 @@ def test_L2_projector_1d(domain, ncells, degree, periodic, nquads, multiplicity,
     multiplicity = min(multiplicity, degree)
     # H1 space (0-forms)
     N  = SplineSpace(degree=degree, knots=knots, periodic=periodic, basis='B')
-    V0 = TensorFemSpace(domain_decomposition, N)
+    V0 = TensorFemSpace(domain_decomposition, N, dtype=complex)
 
     # L2 space (1-forms)
     V1 = V0.reduce_degree(axes=[0], basis='M')
@@ -95,7 +95,7 @@ def test_L2_projector_1d(domain, ncells, degree, periodic, nquads, multiplicity,
     P1 = GlobalGeometricProjectorL2(V1, nquads=[nquads])
 
     # Function to project
-    f  = lambda xi1 : np.sin( xi1 + 0.5 )
+    f  = lambda xi1 : np.sin( xi1 + 0.5j )
 
     # Compute the projection
     u1 = P1(f)
@@ -129,12 +129,13 @@ def test_derham_projector_2d_hdiv(ncells, degree, periodic, multiplicity, verbos
     multiplicity = [min(m, p) for p, m in zip(degree, multiplicity)]
 
     derham   = Derham(domain, ["H1", "Hdiv", "L2"])
+
     derham_h   = discretize(derham, domain_h, degree=degree, get_H1vec_space = True, multiplicity=multiplicity)
     P0, P1, P2, PX = derham_h.projectors(nquads=[2*p+1 for p in degree])
 
     # Function to project
     f1  = lambda xi1, xi2 : np.sin( xi1 + 0.5 ) * np.cos( xi2 + 0.3 )
-    f2  = lambda xi1, xi2 : np.cos( xi1 + 0.5 ) * np.sin( xi2 - 0.2 )
+    f2  = lambda xi1, xi2 : np.cos( xi1 + 0.5 ) * np.sin( xi2 - 0.2j )
 
     # Compute the projection
     u0 = P0(f1)
@@ -193,11 +194,14 @@ def test_derham_projector_2d_hdiv_2(ncells, degree, periodic, multiplicity, verb
     multiplicity = [min(m, p) for p, m in zip(degree, multiplicity)]
     
     derham   = Derham(domain, ["H1", "Hdiv", "L2"])
+    derham.V0.codomain_type='complex'
+    derham.V1.codomain_type='complex' 
+    derham.V2.codomain_type='complex'
     derham_h   = discretize(derham, domain_h, degree=degree, get_H1vec_space = True, multiplicity=multiplicity)
     P0, P1, P2, PX = derham_h.projectors()
 
     # Function to project
-    f1  = lambda xi1, xi2 : 20 * xi1**2*(xi1-1.)**2 
+    f1  = lambda xi1, xi2 : (20+2j) * xi1**2*(xi1-1.)**2 
     f2  = lambda xi1, xi2 : 10 * xi2**2*(xi2-1.)**2
 
     # Compute the projection
@@ -265,12 +269,15 @@ def test_derham_projector_2d_hcurl(ncells, degree, periodic, multiplicity, verbo
     multiplicity = [min(m, p) for p, m in zip (degree, multiplicity)]
     
     derham   = Derham(domain, ["H1", "Hcurl", "L2"])
+    derham.V0.codomain_type='complex'
+    derham.V1.codomain_type='complex' 
+    derham.V2.codomain_type='complex'
     derham_h   = discretize(derham, domain_h, degree=degree, get_H1vec_space = True, multiplicity=multiplicity)
     P0, P1, P2, PX = derham_h.projectors()
 
     # Function to project
-    f1  = lambda xi1, xi2 : np.sin( xi1 + 0.5 ) * np.cos( xi2 + 0.3 )
-    f2  = lambda xi1, xi2 : np.cos( xi1 + 0.5 ) * np.sin( xi2 - 0.2 )
+    f1  = lambda xi1, xi2 : np.sin( xi1 + 0.5 ) * np.cos( xi2 + 0.3j )
+    f2  = lambda xi1, xi2 : 1j * np.cos( xi1 + 0.5 ) * np.sin( xi2 - 0.2 )
 
     # Compute the projection
     u0 = P0(f1)
@@ -324,6 +331,10 @@ def test_derham_projector_3d(ncells, degree, periodic, multiplicity, verbose=Fal
     domain_h = discretize(domain, ncells=ncells, periodic=periodic)
     
     derham   = Derham(domain)
+    derham.V0.codomain_type='complex'
+    derham.V1.codomain_type='complex' 
+    derham.V2.codomain_type='complex'
+    derham.V3.codomain_type='complex'
     #change multiplicity if higher than degree to avoid problems (case p<m doesn't work)
     multiplicity = [min(m, p) for p, m in zip(degree, multiplicity)]
 
@@ -333,7 +344,7 @@ def test_derham_projector_3d(ncells, degree, periodic, multiplicity, verbose=Fal
     # Function to project
     f1 = lambda xi1, xi2, xi3 : np.sin( xi1 + 0.51 ) * np.cos( xi2 + 0.32 ) * np.sin( xi3 - 0.43)
     f2 = lambda xi1, xi2, xi3 : np.cos( xi1 + 0.27 ) * np.sin( xi2 - 0.29 ) * np.cos( xi3 + 0.67)
-    f3 = lambda xi1, xi2, xi3 : np.cos( xi1 + 0.72 ) * np.sin( xi2 - 0.73 ) * np.cos( xi3 - 0.14)
+    f3 = lambda xi1, xi2, xi3 : 1j * np.cos( xi1 + 0.72 ) * np.sin( xi2 - 0.73 ) * np.cos( xi3 - 0.14)
 
     # Compute the projection
     u0 = P0(f1)
@@ -395,7 +406,7 @@ def test_derham_projector_3d(ncells, degree, periodic, multiplicity, verbose=Fal
     if verbose:
         print(ncells, maxnorm_error / error_estim)
     assert maxnorm_error <= max(15 * error_estim, 1e-13)
-
+test_derham_projector_3d([10,9,12], [2,2,2], [True, True, True], [2,2,2], verbose=True)
 #==============================================================================
 def manual_convergence_tests(dim):
     """

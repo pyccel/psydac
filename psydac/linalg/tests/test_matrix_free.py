@@ -128,6 +128,31 @@ def test_solvers_matrix_free(solver, use_jacobi_pc):
     error = np.linalg.norm( (b - y).toarray())
     assert np.linalg.norm( (b - y).toarray() ) < tol
 
+@pytest.mark.parametrize('n1', [3, 5])
+@pytest.mark.parametrize('n2', [4, 7])
+@pytest.mark.parametrize('p1', [2, 6])
+@pytest.mark.parametrize('p2', [3, 9])
+@pytest.mark.petsc
+def test_ZeroOperator_topetsc(n1, n2, p1, p2):
+    P1 = False
+    P2 = False
+    m1 = (n2+n1)//2
+    m2 = n1+1
+    q1 = p1
+    q2 = p2 
+    V1 = get_StencilVectorSpace([n1, n2], [p1, p2], [P1, P2])
+    V2 = get_StencilVectorSpace([m1, m2], [q1, q2], [P1, P2])
+    O = ZeroOperator(codomain=V2, domain=V1)
+    Op = O.topetsc()
+
+    v1 = get_random_StencilVector(V1)
+    v1p = v1.topetsc()
+    v2p = Op.createVecLeft()
+
+    Op.mult(v1p, v2p)
+
+    assert np.linalg.norm( v2p.array ) == 0.
+
 #===============================================================================
 # SCRIPT FUNCTIONALITY
 #===============================================================================
