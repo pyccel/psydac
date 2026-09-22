@@ -43,7 +43,7 @@ from psydac.fem.splines      import SplineSpace
 from psydac.fem.tensor       import TensorFemSpace
 from psydac.fem.partitioning import create_cart, construct_connectivity, construct_interface_spaces, construct_reduced_interface_spaces
 from psydac.fem.vector       import MultipatchFemSpace, VectorFemSpace
-from psydac.cad.geometry     import Geometry, is_spline_discrete_domain
+from psydac.cad.geometry     import Geometry, is_spline_discrete_domain, explain_not_spline_discrete
 from psydac.linalg.stencil   import StencilVectorSpace
 from psydac.linalg.block     import BlockVectorSpace
 
@@ -588,8 +588,17 @@ def discretize_domain(domain, *, filename=None, ncells=None, periodic=None, comm
             return Geometry.from_discrete_domain(domain, comm=comm, mpi_dims_mask=mpi_dims_mask)
 
         else:
-            raise ValueError("Must provide 'filename' or 'ncells', or a Domain whose "
-                             "patches are all mapped by a spline DiscreteMapping")
+            # Say *why* the domain was not recognised as carrying its own
+            # discrete geometry (D4): a DiscreteMapping accepts any
+            # BasicCallableMapping, but only a spline one can be assembled,
+            # so "wrapped the wrong callable" is an easy mistake to make and
+            # an opaque one to diagnose from the generic message alone.
+            msg = ("Must provide 'filename' or 'ncells', or a Domain whose "
+                   "patches are all mapped by a spline DiscreteMapping")
+            problems = explain_not_spline_discrete(domain)
+            if problems:
+                msg = '\n  - '.join([msg + '. Found:'] + problems)
+            raise ValueError(msg)
     except Exception:
         if comm is not None:
             comm.Free()

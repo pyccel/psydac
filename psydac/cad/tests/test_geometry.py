@@ -15,8 +15,11 @@ import yaml
 from mpi4py import MPI
 
 from sympde.topology import Domain, Line, Square, Cube, SymbolicMapping
+from sympde.topology import PolarMapping
+from sympde.topology.mapping import BasicCallableMapping, DiscreteMapping
 
 from psydac.cad.geometry             import Geometry, export_nurbs_to_hdf5, refine_nurbs
+from psydac.cad.geometry             import is_spline_discrete_domain
 from psydac.cad.geometry             import import_geopdes_to_nurbs
 from psydac.cad.cad                  import elevate, refine
 from psydac.cad.gallery              import quart_circle, circle
@@ -460,6 +463,58 @@ def test_discretize_domain_dispatches_to_from_discrete_domain():
     plain = Square('P', bounds1=(0., 1.), bounds2=(0., 1.))
     with pytest.raises(ValueError):
         discretize(plain)
+
+# ==============================================================================
+class _NonSplineCallable(BasicCallableMapping):
+    """A point-evaluable callable that is NOT a spline -- e.g. struphy's own."""
+    ldim = pdim = 2
+    def __call__(self, *eta):     return tuple(eta)
+    def jacobian(self, *eta):     return np.eye(2)
+    def jacobian_inv(self, *eta): return np.eye(2)
+    def metric(self, *eta):       return np.eye(2)
+    def metric_det(self, *eta):   return 1.0
+
+def test_discretize_explains_why_a_domain_is_not_spline_discrete():
+    # D4: a DiscreteMapping accepts any BasicCallableMapping, but only a spline
+    # one can be assembled. Wrapping the wrong callable used to produce the bare
+    # "must provide filename or ncells" message, which says nothing about the
+    # actual mistake. The error now names the patch, the wrapped type, and the
+    # fix.
+    from psydac.api.discretization import discretize
+
+    A = Square('A', bounds1=(0., 1.), bounds2=(0., 1.))
+    G = DiscreteMapping(_NonSplineCallable(), 'G')
+
+    with pytest.raises(ValueError) as exc:
+        discretize(G(A))
+    msg = str(exc.value)
+    assert '_NonSplineCallable' in msg          # what was wrapped
+    assert 'SplineCallableMapping' in msg       # what was needed
+    assert 'from_mapping' in msg                # how to fix it
+    assert "'G'" in msg                         # the mapping's own name, not 'G(A)'
+
+    # a non-DiscreteMapping patch gets its own, different reason
+    with pytest.raises(ValueError) as exc:
+        discretize(PolarMapping('P', dim=2, c1=0., c2=0., rmin=.3, rmax=1.)(A))
+    assert 'PolarMapping' in str(exc.value)
+    assert 'not a DiscreteMapping' in str(exc.value)
+
+def test_explain_not_spline_discrete_is_empty_for_a_spline_domain():
+    # The diagnostic must agree with is_spline_discrete_domain: no complaints
+    # when the domain really is spline-discrete.
+    from psydac.cad.geometry import explain_not_spline_discrete
+
+    Omega, _, _ = _two_patch_spline_annulus()
+    assert is_spline_discrete_domain(Omega)
+    assert explain_not_spline_discrete(Omega) == []
+
+    # ... and one line per offending patch on a multipatch domain
+    A = Square('A', bounds1=(0., 1.), bounds2=(0., 1.))
+    B = Square('B', bounds1=(1., 2.), bounds2=(0., 1.))
+    bad = Domain.join([DiscreteMapping(_NonSplineCallable(), 'MA')(A),
+                       DiscreteMapping(_NonSplineCallable(), 'MB')(B)],
+                      [((0, 0, 1), (1, 0, -1), 1)], 'two')
+    assert len(explain_not_spline_discrete(bad)) == 2
 
 # ==============================================================================
 def test_is_spline_discrete_domain_is_public():

@@ -32,6 +32,7 @@ from psydac.ddm.cart           import DomainDecomposition, MultiPatchDomainDecom
 __all__ = (
     'Geometry',
     'is_spline_discrete_domain',
+    'explain_not_spline_discrete',
     'export_nurbs_to_hdf5',
     'import_geopdes_to_nurbs',
     'refine_knots',
@@ -163,6 +164,63 @@ def is_spline_discrete_domain(domain):
     interior  = domain.interior
     interiors = list(interior.args) if isinstance(interior, Union) else [interior]
     return all(_patch_spline(itr) is not None for itr in interiors)
+
+
+def explain_not_spline_discrete(domain):
+    """
+    Why :func:`is_spline_discrete_domain` rejected ``domain``, patch by patch.
+
+    ``discretize(domain)`` with no ``filename``/``ncells`` only works when every
+    patch is mapped by a `DiscreteMapping` wrapping a `SplineCallableMapping`.
+    A `DiscreteMapping` accepts *any* `BasicCallableMapping`, though, so it is
+    easy to build a domain that looks discrete but cannot be assembled -- and
+    the bare "must provide filename or ncells" error gives no hint why. This
+    turns that into a per-patch explanation.
+
+    Parameters
+    ----------
+    domain : sympde.topology.Domain
+        The domain that was rejected.
+
+    Returns
+    -------
+    list[str]
+        One line per offending patch, most specific reason first. Empty if
+        every patch *is* spline-mapped (i.e. `is_spline_discrete_domain` is
+        `True`).
+
+    Examples
+    --------
+    >>> explain_not_spline_discrete(Omega)
+    ["patch 'A': its DiscreteMapping wraps StruphyCallableMapping, ..."]
+    """
+    interior  = domain.interior
+    interiors = list(interior.args) if isinstance(interior, Union) else [interior]
+
+    problems = []
+    for itr in interiors:
+        if _patch_spline(itr) is not None:
+            continue
+        M = getattr(itr, 'mapping', None)
+        if M is None:
+            problems.append(f"patch {itr.name!r}: has no mapping")
+        elif not isinstance(M, DiscreteMapping):
+            problems.append(
+                f"patch {itr.name!r}: mapped by {type(M).__name__}, which is not a "
+                f"DiscreteMapping (only a discrete geometry can be assembled "
+                f"without a filename or ncells)")
+        elif not M.has_callable_mapping():
+            problems.append(
+                f"patch {itr.name!r}: its DiscreteMapping carries no callable")
+        else:
+            wrapped = type(M.get_callable_mapping()).__name__
+            problems.append(
+                f"patch {itr.name!r}: its DiscreteMapping wraps {wrapped}, not a "
+                f"SplineCallableMapping. Assembly evaluates the geometry on the "
+                f"spline grid, so interpolate it first: "
+                f"SplineCallableMapping.from_mapping(callable, ncells=..., degree=...)"
+                f".to_defined_mapping({M.name!r})")
+    return problems
 
 
 def _interior_index(coeff_space):
