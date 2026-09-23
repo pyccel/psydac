@@ -38,7 +38,6 @@ class Poisson2D(PolarModel2D):
     Exact solution to the 2D Poisson equation with Dirichlet boundary
     conditions, to be employed for the method of manufactured solutions.
 
-    :code
     $(\partial^2_{xx} + \partial^2_{yy}) \phi(x,y) = -\rho(x,y)$
 
     Parameters
@@ -75,7 +74,6 @@ class Poisson2D(PolarModel2D):
         - The radial coordinate s belongs to the interval [0, R];
         - The angular coordinate theta belongs to the interval [0, 2 * pi).
 
-        : code
         $\phi(x,y) = (1 - ((x^2 + y^2) / R^2) ** 4) * sin(kx * x) * cos(ky * y)$.
 
         Parameters
@@ -130,7 +128,6 @@ class Poisson2D(PolarModel2D):
 
         The parameter c1, c2 are just shifts on the plane of the domain.
 
-        : code
         $\phi(x,y) = (1 - s^8)\sin(k_x(x - 0.5))\cos(k_y y)$.
 
         """
@@ -164,7 +161,6 @@ class Poisson2D(PolarModel2D):
         - The radial coordinate s belongs to the interval [0, 1];
         - The angular coordinate theta belongs to the interval [0, 2 * pi).
 
-        : code
         $\phi(x,y) = (1 - s^8)\sin(\pi x)\cos(\pi y)$.
 
         """
