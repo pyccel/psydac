@@ -221,10 +221,6 @@ class C0PolarProjection_V1_00(LinearOperator):
     def transpose(self, conjugate=False):
         return self
 
-    @property
-    def T(self):
-        return self.transpose()
-
     def tosparse(self):
 
         [n01, n02] = self.domain.npts
@@ -320,10 +316,6 @@ class C0PolarProjection_V1_10(LinearOperator):
 
     def transpose(self, conjugate=False):
         return C0PolarProjection_V1_10(self.W1, transposed=not self.transposed)
-
-    @property
-    def T(self):
-        return self.transpose()
 
     def tosparse(self):
 
@@ -437,10 +429,6 @@ class C0PolarProjection_V1_11(LinearOperator):
             self.W1, transposed=not self.transposed, hbc=self.hbc
         )
 
-    @property
-    def T(self):
-        return self.transpose()
-
     def tosparse(self):
 
         [s1, s2] = self.codomain.starts
@@ -509,10 +497,6 @@ class C0PolarProjection_V1(BlockLinearOperator):
         self.W1 = W1
         self.transposed = transposed
         self.hbc = hbc
-
-    @property
-    def T(self):
-        return self.transpose()
 
 
 # ---------------- 2-FORMS CONGA PROJECTOR P2 ----------------#
@@ -592,10 +576,6 @@ class C0PolarProjection_V2(LinearOperator):
 
     def transpose(self, conjugate=False):
         return C0PolarProjection_V2(self.W2, transposed=not self.transposed)
-
-    @property
-    def T(self):
-        return self.transpose()
 
     def tosparse(self):
 
@@ -786,10 +766,6 @@ class C1PolarProjection_U0(LinearOperator):
             self.W0, gamma=self.gamma, transposed=not self.transposed, hbc=self.hbc
         )
 
-    @property
-    def T(self):
-        return self.transpose()
-
     def tosparse(self):
 
         [n1, n2] = self.W0.coeff_space.npts
@@ -953,10 +929,6 @@ class C1PolarProjection_U1_00(LinearOperator):
     def transpose(self, conjugate=False):
         return C1PolarProjection_U1_00(self.W1, transposed=not self.transposed)
 
-    @property
-    def T(self):
-        return self.transpose()
-
     def tosparse(self):
 
         [n01, n02] = self.domain.npts
@@ -1119,10 +1091,6 @@ class C1PolarProjection_U1_10(LinearOperator):
 
     def transpose(self, conjugate=False):
         return C1PolarProjection_U1_10(self.W1, transposed=not self.transposed)
-
-    @property
-    def T(self):
-        return self.transpose()
 
     def tosparse(self):
 
