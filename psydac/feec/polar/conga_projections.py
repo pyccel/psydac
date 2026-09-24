@@ -658,9 +658,8 @@ class C1PolarProjection_U0(LinearOperator):
 
     Parameters:
     -----------
-
     W0 : TensorFemSpace
-         The full tensor product spline space S^{p1,p2}
+         The full tensor product spline space S^{p1,p2}.
 
     gamma : float
          free parameter in the entries of P0. Any values provides a valid CONGA
@@ -851,12 +850,11 @@ class C1PolarProjection_U1_00(LinearOperator):
 
     Parameters:
     ----------
+    W1 : VectorFemSpace
+         Full tensor product spline space of 1-forms S^{p1-1, p2} x S^{p1, p2-1}.
 
-    W1 : VectorFemSpace (former ProductFemSpace)
-         Full tensor product spline space of the 1-forms S^{p1-1, p2} x S^{p1, p2-1}
-
-    transposed : Boolean
-         Switch between P1 and P1 transposed (default is False)
+    transposed : bool, default=False
+         Switch between P1 and P1 transposed.
     """
 
     def __init__(self, W1, transposed=False):
@@ -987,12 +985,11 @@ class C1PolarProjection_U1_10(LinearOperator):
 
     Parameters:
     -----------
+    W1 : VectorFemSpace
+         Full tensor product spline space of 1-forms S^{p1-1, p2} x S^{p1, p2-1}.
 
-    W1 : VectorFemSpace (former ProductFemSpace)
-         Full tensor product spline space of the 1-forms S^{p1-1, p2} x S^{p1, p2-1}
-
-    transposed : Boolean
-         Switch between P1 and P1 transposed (default is False)
+    transposed : bool, default=False
+         Switch between P1 and P1 transposed.
     """
 
     def __init__(self, W1, transposed=False):
@@ -1147,18 +1144,16 @@ class C1PolarProjection_U1(BlockLinearOperator):
 
     Parameters:
     -----------
+    W1 : VectorFemSpace
+         Full tensor product spline space of 1-forms S^{p1-1, p2} x S^{p1, p2-1}.
 
-    W1 : VectorFemSpace (ProductFemSpace)
-         Full tensor product spline space of the 1-forms S^{p1-1, p2} x S^{p1, p2-1}
+    transposed : bool, default=False
+         Switch between P1 and P1 transposed.
 
-    transposed : Boolean
-         Switch between P1 and P1 transposed (default is False)
-
-    hbc : Boolean
-         Switch on and off the imposition of homogeneous Dirichlet boundary
-         conditions on the tangential (angular) direction (default is False)
+    hbc :  bool, default=False
+         If True, impose homogeneous Dirichlet boundary conditions on the
+         tangential (angular) component of the field.
     """
-
     def __init__(self, W1, transposed=False, hbc=False):
         assert isinstance(W1, VectorFemSpace)
         assert W1.symbolic_space.kind.name == "hcurl"
@@ -1189,13 +1184,11 @@ class C1PolarProjection_U2(C0PolarProjection_V2):
 
     Parameters:
     -----------
-
     W2 : TensorFemSpace
-         Full tensor product spline space of the 2-forms S^{p1-1, p2-1}
+         Full tensor product spline space of 2-forms S^{p1-1, p2-1}.
 
-    transposed : Boolean
-         Switch between P2 and P2 transposed (default is False)
+    transposed : bool, default=False
+         Switch between P2 and P2 transposed.
     """
-
     def transpose(self, conjugate=False):
         return C1PolarProjection_U2(self.W2, transposed=not self.transposed)
