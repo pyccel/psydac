@@ -7,7 +7,7 @@
 Solve the Transverse Electric Time dependent Maxwell Problem on an analytical disk domain.
 
 Example of run:
-python maxwell_2d.py -S -n 16 32 -d 3 3 -T 1 -D 0.2 -s 1
+mpirun -n 6 python maxwell_2d.py -S -n 16 32 -d 3 3 -T 1 -D 0.2 -s 1
 """
 
 import os
