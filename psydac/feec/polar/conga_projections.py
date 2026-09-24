@@ -510,12 +510,11 @@ class C0PolarProjection_V2(LinearOperator):
 
     Parameters:
     -----------
-
     W2 : TensorFemSpace
-         Full tensor product spline space of the 2-forms S^{p1-1, p2-1}
+         Full tensor product spline space of the 2-forms S^{p1-1, p2-1}.
 
-    transposed : Boolean
-         Switch between P2 and P2 transposed (default is False)
+    transposed : bool, default=False
+         Switch between P2 and P2 transposed.
     """
 
     def __init__(self, W2, transposed=False):
