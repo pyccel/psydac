@@ -261,7 +261,7 @@ def run_maxwell_2d_TE(
     cfl=0.9,
     show_figs=True,
     study="maxwell_bessel",
-    use_scipy=True,
+    use_scipy=False,
     verbose=False,
     save_figs=False,
     mpi_comm,
@@ -326,6 +326,9 @@ def run_maxwell_2d_TE(
     assert isinstance(mpi_comm, MPI.Comm)
     mpi_size = mpi_comm.size  # size of MPI communicator
     mpi_rank = mpi_comm.rank  # process rank within MPI communicator
+
+    if use_scipy and mpi_comm.size != 1:
+        raise RuntimeError("The --scipy option can only be used in serial")
 
     model = Maxwell2D.disk(R=R, shift_D=shift_D, study=study)
 
