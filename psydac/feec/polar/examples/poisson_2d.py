@@ -215,6 +215,19 @@ class CongaLaplacian(LinearOperator):
         CONGA projection onto the conforming polar spline space.
     alpha : float
         Penalization parameter for CONGA methods.
+
+    Attributes
+    ----------
+    S : StencilMatrix
+        Stiffness matrix.
+    M : StencilMatrix
+        Mass matrix.
+    P : {C0PolarProjection_V0, C1PolarProjection_U0}
+        CONGA projection onto the conforming polar spline space.
+    alpha : float
+        Penalization parameter for CONGA methods.
+    W0 : StencilVectorSpace
+        Coefficient space on which the operator acts.
     """
 
 
