@@ -655,27 +655,24 @@ class C1PolarProjection_U0(LinearOperator):
     to U0 the pre-polar 0-forms splines. The associate matrix is square as in
     the CONGA approach we keep using the tensor B-spline basis, instead of the
     polar basis of Toshniwal. P0 enforces coefficient relations to be in U0.
-
     Parameters:
     -----------
     W0 : TensorFemSpace
          The full tensor product spline space S^{p1,p2}.
 
-    gamma : float
-         free parameter in the entries of P0. Any values provides a valid CONGA
-         prjector in U0. However, in order to have the commuting property
+    gamma : float, default=1
+         Free parameter in the entries of P0. Any value provides a valid CONGA
+         projector in U0. However, in order to have the commuting property
                              grad P0 u = P1 grad u
          for u in Im(Pi0) and Pi0 the geometric projector on W0, we should set
          gamma = 1 (default)
 
-    transposed : Boolean
-         switch between P0 and P0 transposed (defalut is False)
+    transposed : bool, default=False
+         Switch between P0 and P0 transposed.
 
-    hbc : Boolean
-         switch on and off the imposition of homogeneous Dirichlet boundary
-         conditions (default is False)
+    hbc : bool, default=False
+         If True, impose homogeneous Dirichlet boundary conditions.
     """
-
     def __init__(self, W0, *, gamma=1, transposed=False, hbc=False):
         assert isinstance(W0, TensorFemSpace)
 
