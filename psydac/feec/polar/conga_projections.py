@@ -257,8 +257,8 @@ class C0PolarProjection_V1_10(LinearOperator):
     W1 : VectorFemSpace (former ProductFemSpace)
          Full tensor product spline space of the 1-forms S^{p1-1, p2} x S^{p1, p2-1}
 
-    transposed : Boolean
-         Switch between P1 and P1 transposed (default is False)
+    transposed : bool, default=False
+         Switch between P1 and P1 transposed.
     """
 
     def __init__(self, W1, transposed=False):
