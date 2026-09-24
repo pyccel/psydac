@@ -23,7 +23,7 @@ class PolarModel2D:
 
     mapping : sympde.topology.mapping.Mapping
         Mapping used by the solver. It is either the analytical mapping or
-        its spline approximation. Initialized by calling `build_geometry`.
+        its spline approximation. Initialized by calling ``build_geometry``.
 
     analytical_mapping : sympde.topology.mapping.Mapping
         Original analytical mapping from the logical to the physical domain.
