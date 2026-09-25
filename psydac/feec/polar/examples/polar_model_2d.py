@@ -5,7 +5,7 @@
 #---------------------------------------------------------------------------#
 
 class PolarModel2D:
-    """
+    r"""
     Base class for analytical models on mapped 2D polar domains.
 
     Parameters
