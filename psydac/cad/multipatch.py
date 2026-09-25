@@ -7,10 +7,12 @@ import h5py
 import yaml
 import numpy as np
 
-from sympde.topology       import Domain, Line, Square, Cube, SymbolicMapping
+from sympde.topology       import Domain, SymbolicMapping
 from sympde.topology.basic import Union
 
-from psydac.mapping.discrete import SplineCallableMapping, NurbsCallableMapping
+from psydac.mapping.discrete   import SplineCallableMapping, NurbsCallableMapping
+from psydac.cad.geometry       import logical_ncube
+from psydac.fem.partitioning   import connectivity_to_join_tuples
 
 
 def export_multipatch_nurbs_to_hdf5(filename:str, nurbs:list, connectivity:dict, comm=None ):
@@ -75,37 +77,18 @@ def export_multipatch_nurbs_to_hdf5(filename:str, nurbs:list, connectivity:dict,
     h5['geometry.yml'] = np.array( geom, dtype='S' )
     # ...
 
+    if nurbs[0].dim > 3:
+        raise NotImplementedError('> nurbs.dim > 3 not implemented')
+
     patches = []
     # ... topology
-    if nurbs[0].dim == 1:
-        for i,(nurbsi,patch_name) in enumerate(zip(nurbs, patch_names)):
-            bounds1 = (float(nurbsi.breaks(0)[0]), float(nurbsi.breaks(0)[-1]))
-            domain  = Line(patch_name, bounds1=bounds1)
-            mapping = SymbolicMapping(mapping_ids[i], dim=nurbs[0].dim)
-            patches.append(mapping(domain))
+    for i,(nurbsi,patch_name) in enumerate(zip(nurbs, patch_names)):
+        bounds = [(float(nurbsi.breaks(d)[0]), float(nurbsi.breaks(d)[-1])) for d in range(nurbsi.dim)]
+        domain  = logical_ncube(patch_name, [b[0] for b in bounds], [b[1] for b in bounds])
+        mapping = SymbolicMapping(mapping_ids[i], dim=nurbs[0].dim)
+        patches.append(mapping(domain))
 
-    elif nurbs[0].dim == 2:
-        for i,(nurbsi,patch_name) in enumerate(zip(nurbs, patch_names)):
-            bounds1 = (float(nurbsi.breaks(0)[0]), float(nurbsi.breaks(0)[-1]))
-            bounds2 = (float(nurbsi.breaks(1)[0]), float(nurbsi.breaks(1)[-1]))
-            domain  = Square(patch_name, bounds1=bounds1, bounds2=bounds2)
-            mapping = SymbolicMapping(mapping_ids[i], dim=nurbs[0].dim)
-            patches.append(mapping(domain))
-
-    elif nurbs[0].dim == 3:
-        for i,(nurbsi,patch_name) in enumerate(zip(nurbs, patch_names)):
-            bounds1 = (float(nurbsi.breaks(0)[0]), float(nurbsi.breaks(0)[-1]))
-            bounds2 = (float(nurbsi.breaks(1)[0]), float(nurbsi.breaks(1)[-1]))
-            bounds3 = (float(nurbsi.breaks(2)[0]), float(nurbsi.breaks(2)[-1]))
-            mapping = SymbolicMapping(mapping_ids[i], dim=nurbs[0].dim)
-            domain  = Cube(patch_name, bounds1=bounds1, bounds2=bounds2, bounds3=bounds3)
-            patches.append(mapping(domain))
-
-    interfaces = []
-    for edge in connectivity:
-        minus,plus = connectivity[edge]
-        interface = ((edge[0], minus[0], minus[1]), (edge[1], plus[0], plus[1]),1)
-        interfaces.append(interface)
+    interfaces = connectivity_to_join_tuples(connectivity)
 
     domain = Domain.join(patches, interfaces, filename[:-3])
     topo_yml = domain.todict()

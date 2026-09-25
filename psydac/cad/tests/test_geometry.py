@@ -1111,6 +1111,87 @@ def test_geometry_eleven_patch_export_is_byte_identical():
             assert h5_orig['topology.yml'][()] == h5_new['topology.yml'][()]
 
 #==============================================================================
+@pytest.mark.xdist_group('h5py')
+def test_read_preserves_patch_names():
+    # R2/WP10: pin the *full* name tuple that read()'s rebuild loop produces,
+    # so a naming-rule regression (using the spline's own `.name` instead of
+    # the symbolic side, see `_spline_patch`'s docstring) fails here rather
+    # than three reviewer rounds later.
+    mapping = discrete_mapping('identity', ncells=[4, 4], degree=[2, 2])
+    geo0 = Geometry.from_discrete_mapping(mapping)
+    geo0.export('geo_wp18_naming.h5')
+    geo0_from_file = Geometry.from_file('geo_wp18_naming.h5')
+    d = geo0_from_file.domain
+    assert d.name == 'mapping(Omega)'
+    assert d.interior.name == 'mapping(Omega)'                # not 'mapping(mapping(Omega))'
+    assert d.interior.mapping.name == 'mapping'
+    assert d.interior.logical_domain.name == 'Omega'
+
+    filename = os.path.join(base_dir, '..', 'mesh', 'multipatch', 'square.h5')
+    geo_mp = Geometry.from_file(filename)
+    dm = geo_mp.domain
+    assert dm.name == 'square'
+    expected = {
+        'patch_0': ('mapping_0(patch_0)', 'mapping_0', 'patch_0', (0., 0.), (0.5, 1.)),
+        'patch_1': ('mapping_1(patch_1)', 'mapping_1', 'patch_1', (0.5, 0.), (1., 1.)),
+    }
+    for itr in dm.interior.args:
+        name, mapping_name, logical_name, min_coords, max_coords = expected[itr.logical_domain.name]
+        assert itr.name == name
+        assert itr.mapping.name == mapping_name
+        assert itr.logical_domain.name == logical_name
+        assert np.allclose(itr.min_coords, min_coords)
+        assert np.allclose(itr.max_coords, max_coords)
+
+
+def test_spline_patch_rejects_wrong_expected_name():
+    from psydac.cad.geometry import _spline_patch, logical_ncube
+
+    mapping = discrete_mapping('identity', ncells=[2, 2], degree=[2, 2])
+    logical = logical_ncube('Omega', [0., 0.], [1., 1.])
+    with pytest.raises(ValueError):
+        _spline_patch(mapping, 'M', logical, expect_name='something_else')
+
+
+def test_logical_ncube_matches_explicit_constructors():
+    from psydac.cad.geometry import logical_ncube
+
+    a, c = 0.2, 0.7    # axis-1 bounds
+    b, d = -1., 3.     # axis-2 bounds
+    line = logical_ncube('P', [a], [c])
+    assert type(line) is Line
+    assert line == Line('P', bounds=(a, c))
+
+    square = logical_ncube('P', [a, b], [c, d])
+    assert type(square) is Square
+    assert square == Square('P', bounds1=(a, c), bounds2=(b, d))
+
+    cube = logical_ncube('P', [a, b, 0.], [c, d, 1.])
+    assert type(cube) is Cube
+    assert cube == Cube('P', bounds1=(a, c), bounds2=(b, d), bounds3=(0., 1.))
+
+
+@pytest.mark.xdist_group('h5py')
+def test_export_nurbs_to_hdf5_1d():
+    # Finding 2's regression test: before D9, `export_nurbs_to_hdf5` crashed
+    # on any 1-D igakit NURBS with
+    # "TypeError: Line.__new__() got an unexpected keyword argument 'bounds1'"
+    # -- the collapse onto `logical_ncube` fixes this for free.
+    from igakit.cad import line
+
+    nrb = line(p0=(0., 0.), p1=(1., 0.))
+    filename = 'geo_wp18_1d.h5'
+    export_nurbs_to_hdf5(filename, nrb)
+
+    geo = Geometry.from_file(filename)
+    domain = geo.domain
+    min_coords = domain.logical_domain.min_coords
+    max_coords = domain.logical_domain.max_coords
+    assert np.allclose(min_coords, [nrb.breaks(0)[0]])
+    assert np.allclose(max_coords, [nrb.breaks(0)[-1]])
+
+
+#==============================================================================
 @pytest.mark.xfail
 def test_geometry_1():
 
@@ -1142,6 +1223,8 @@ def teardown_module():
         'geo_wp11_tag.h5',
         'geo_wp11_tag_nurbs.h5',
         'geo_d3_shim.h5',
+        'geo_wp18_naming.h5',
+        'geo_wp18_1d.h5',
     ]
     for fname in filenames:
         if os.path.exists(fname):

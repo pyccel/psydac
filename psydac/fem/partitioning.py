@@ -6,6 +6,7 @@
 import numpy as np
 
 from sympde.topology import Interface
+from sympde.topology.basic import Union
 
 from psydac.ddm.cart   import CartDecomposition, InterfaceCartDecomposition, create_interfaces_cart
 from psydac.fem.vector import VectorFemSpace
@@ -14,12 +15,47 @@ from psydac.fem.vector import VectorFemSpace
 __all__ = (
     'partition_coefficients',
     'construct_connectivity',
+    'construct_join_connectivity',
+    'connectivity_to_join_tuples',
     'get_minus_starts_ends',
     'get_plus_starts_ends',
     'create_cart',
     'construct_interface_spaces',
     'construct_reduced_interface_spaces'
 )
+
+
+def _interfaces_of(domain):
+    """
+    Normalise ``domain.interfaces`` to a plain list of ``Interface`` objects.
+
+    ``Domain.interfaces`` returns ``None`` for a single-patch domain, a bare
+    ``Interface`` for a two-patch domain, and a ``Union`` of ``Interface``
+    otherwise. This helper is a strict superset of the two ad hoc
+    normalisations it replaces (in ``partitioning.py`` and ``cad/geometry.py``),
+    agreeing with both on every reachable input.
+
+    Parameters
+    ----------
+    domain : sympde.topology.Domain
+        The multipatch domain.
+
+    Returns
+    -------
+    list of sympde.topology.Interface
+        The interfaces of the domain, possibly empty.
+    """
+    interfaces = domain.interfaces
+    if not interfaces:
+        return []
+    if isinstance(interfaces, Interface):
+        return [interfaces]
+    if isinstance(interfaces, Union):
+        return list(interfaces.args)
+    # Not reached by any domain built through sympde today; kept as the
+    # union of both incumbent normalisations rather than raising, because
+    # it can only widen, not narrow, accepted input.
+    return list(interfaces)
 
 
 def partition_coefficients(domain_decomposition, spaces, min_blocks=None):
@@ -76,8 +112,43 @@ def partition_coefficients(domain_decomposition, spaces, min_blocks=None):
     return global_starts, global_ends
 
 
+def construct_join_connectivity(domain):
+    """
+    Compute the faithful connectivity of the multipatch domain, in the shape
+    consumed by ``Domain.join``.
+
+    This is the faithful form of the domain's interfaces: unlike
+    :func:`construct_connectivity`, it keeps the orientation of each
+    interface. ``construct_connectivity`` is a lossy projection of this
+    function's output (see its docstring).
+
+    Parameters
+    ----------
+    domain : sympde.topology.Domain
+        The multipatch domain.
+
+    Returns
+    -------
+    list of ((int, int, int), (int, int, int), int)
+        One ``((i, axis_i, ext_i), (j, axis_j, ext_j), ornt)`` tuple per
+        interface, where ``i``/``j`` are indices into the domain's interiors
+        (in the same order used throughout this module).
+    """
+    if len(domain) == 1:
+        interiors = [domain.interior]
+    else:
+        interiors = list(domain.interior.args)
+
+    interfaces = _interfaces_of(domain)
+
+    return [((interiors.index(e.minus.domain), e.minus.axis, e.minus.ext),
+             (interiors.index(e.plus.domain), e.plus.axis, e.plus.ext),
+             e.ornt)
+            for e in interfaces]
+
+
 def construct_connectivity(domain):
-    """ 
+    """
     Compute the connectivity of the multipatch domain.
 
     Parameters
@@ -92,22 +163,42 @@ def construct_connectivity(domain):
         It takes the form of {(i, j):((axis_i, ext_i),(axis_j, ext_j))} for each item of the dictionary,
         where i,j represent the patch indices
 
+    Notes
+    -----
+    This is a lossy projection of :func:`construct_join_connectivity`: the
+    interface orientation is dropped. Use ``construct_join_connectivity`` for
+    the faithful form.
+
     """
-    interfaces = domain.interfaces if domain.interfaces else []
-    if len(domain)==1:
-        interiors  = [domain.interior]
-    else:
-        interiors  = list(domain.interior.args)
-        if interfaces:
-            interfaces = [interfaces] if isinstance(interfaces, Interface) else list(interfaces.args)
+    return {(i, j): ((ai, ei), (aj, ej))
+            for (i, ai, ei), (j, aj, ej), _ornt in construct_join_connectivity(domain)}
 
-    connectivity = {}
-    for e in interfaces:
-        i = interiors.index(e.minus.domain)
-        j = interiors.index(e.plus.domain)
-        connectivity[i, j] = ((e.minus.axis, e.minus.ext),(e.plus.axis, e.plus.ext))
 
-    return connectivity
+def connectivity_to_join_tuples(connectivity, *, ornt=1):
+    """
+    Lossy inverse of :func:`construct_connectivity`'s projection: turn a
+    ``{(i, j): ((axis_i, ext_i), (axis_j, ext_j))}`` connectivity dict back
+    into the ``Domain.join`` tuple shape.
+
+    Orientation is not recoverable from the dict shape, so every interface
+    is given the same ``ornt``.
+
+    Parameters
+    ----------
+    connectivity : dict
+        Connectivity between the patches, as returned by
+        :func:`construct_connectivity`.
+    ornt : int, optional
+        Orientation assigned to every interface (default 1).
+
+    Returns
+    -------
+    list of ((int, int, int), (int, int, int), int)
+        One ``((i, axis_i, ext_i), (j, axis_j, ext_j), ornt)`` tuple per
+        connectivity entry.
+    """
+    return [((i, axis_i, ext_i), (j, axis_j, ext_j), ornt)
+            for (i, j), ((axis_i, ext_i), (axis_j, ext_j)) in connectivity.items()]
 
 #------------------------------------------------------------------------------
 def get_minus_starts_ends(plus_starts, plus_ends, minus_npts, plus_npts, minus_axis, plus_axis,

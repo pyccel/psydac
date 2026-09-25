@@ -18,13 +18,13 @@ import h5py
 import yaml
 from mpi4py import MPI
 
-from sympde.topology       import Domain, Interface, Line, Square, Cube, NCubeInterior, SymbolicMapping, DiscreteMapping, NCube
+from sympde.topology       import Domain, NCubeInterior, SymbolicMapping, DiscreteMapping, NCube
 from sympde.topology.basic import Union
 from sympde.topology.callable_mapping import BasicCallableMapping
 
 from psydac.fem.splines        import SplineSpace
 from psydac.fem.tensor         import TensorFemSpace
-from psydac.fem.partitioning   import create_cart, construct_connectivity, construct_interface_spaces
+from psydac.fem.partitioning   import create_cart, construct_connectivity, construct_interface_spaces, construct_join_connectivity
 from psydac.mapping.discrete   import SplineCallableMapping, NurbsCallableMapping
 from psydac.linalg.block       import BlockVectorSpace, BlockVector
 from psydac.ddm.cart           import DomainDecomposition, MultiPatchDomainDecomposition
@@ -37,6 +37,7 @@ __all__ = (
     'import_geopdes_to_nurbs',
     'refine_knots',
     'refine_nurbs',
+    'logical_ncube',
 )
 
 NoneType = type(None)
@@ -82,6 +83,85 @@ def _check_logical_box(min_coords, max_coords, spline_space, *, what):
                 what,
                 list(zip([float(c) for c in min_coords], [float(c) for c in max_coords])),
                 list(zip(par_min, par_max))))
+
+
+def logical_ncube(name, min_coords, max_coords):
+    """
+    The one place a psydac logical (parametric) box is constructed: an
+    ``NCube`` -- ``Line``/``Square``/``Cube`` for ``dim`` 1/2/3, plain
+    ``NCube`` beyond -- with ``dim`` inferred from ``min_coords``, never
+    passed explicitly.
+
+    Parameters
+    ----------
+    name : str
+        Name of the logical domain.
+    min_coords, max_coords : sequence of float
+        Per-axis lower/upper bound of the parametric box. Coerced with
+        ``float()`` so numpy scalars/arrays are accepted (``NCube.__new__``
+        requires a plain ``iterable_types`` instance).
+
+    Returns
+    -------
+    sympde.topology.NCube
+        (An instance of ``Line``/``Square``/``Cube`` for ``dim`` <= 3.)
+
+    Raises
+    ------
+    ValueError
+        If ``min_coords`` and ``max_coords`` have different lengths.
+    """
+    if len(min_coords) != len(max_coords):
+        raise ValueError("min_coords and max_coords must have the same length;"
+                          " got {} and {}".format(len(min_coords), len(max_coords)))
+    return NCube(name=name, dim=len(min_coords),
+                 min_coords=tuple(float(c) for c in min_coords),
+                 max_coords=tuple(float(c) for c in max_coords))
+
+
+def _spline_patch(spline, mapping_name, logical, *, expect_name=None):
+    """
+    Wrap ``logical`` with a spline-backed ``DiscreteMapping``, producing one
+    patch of a rebuilt domain.
+
+    The logical `NCube`'s name and the `DiscreteMapping`'s name must both
+    come from the *symbolic* side -- the interior being rebuilt, or the
+    caller's explicit ``name=`` -- never from the spline callable's
+    ``.name``. A spline loaded by ``read()`` is named after the on-disk
+    patch name, which in a file exported from an in-memory ``Geometry`` is
+    already the composite ``mapping(Omega)``; using it here re-wraps it to
+    ``mapping(mapping(Omega))``. See `refactor/07-create-discrete-mappings.md`
+    § WP10 and `refactor/15-geometry-patch-keys.md`. This function enforces
+    the rule structurally: it never sees the spline's own name, only the two
+    names passed in.
+
+    Parameters
+    ----------
+    spline : SplineCallableMapping or NurbsCallableMapping
+        The callable to wrap.
+    mapping_name : str
+        Name of the ``DiscreteMapping``.
+    logical : sympde.topology.NCube
+        The logical patch to wrap (from `logical_ncube`, or the caller's own).
+    expect_name : str, optional
+        If given, the resulting patch's name is checked against it.
+
+    Returns
+    -------
+    sympde.topology.NCubeInterior
+        The rebuilt patch, i.e. ``mapping(logical)``.
+
+    Raises
+    ------
+    ValueError
+        If ``expect_name`` is given and does not match the resulting patch's
+        name.
+    """
+    patch = spline.to_defined_mapping(mapping_name)(logical)
+    if expect_name is not None and patch.name != expect_name:
+        raise ValueError("rebuilt patch name {!r} does not match expected"
+                          " name {!r}".format(patch.name, expect_name))
+    return patch
 
 
 #==============================================================================
@@ -589,10 +669,9 @@ class Geometry:
             par_min, par_max = _spline_parametric_box(spline_space)
             if par_min is None:
                 par_min, par_max = [0.] * dim, [1.] * dim
-            domain_log = NCube(name = 'Omega',
-                               dim  = dim,
-                               min_coords = par_min,
-                               max_coords = par_max)
+            # The literal 'Omega' default is this constructor's own rule, not
+            # a universal one -- it stays here, not in `logical_ncube`.
+            logical = logical_ncube('Omega', par_min, par_max)
         else:
             if not isinstance(domain_log, NCube):
                 raise TypeError("domain_log must be an NCube (Line/Square/Cube);"
@@ -602,12 +681,14 @@ class Geometry:
                                  " ({})".format(domain_log.dim, dim))
             _check_logical_box(domain_log.min_coords, domain_log.max_coords,
                                spline_space, what='domain_log')
+            # Use the caller's NCube verbatim: rebuilding it through
+            # `logical_ncube` would discard a caller's NCube subclass identity.
+            logical = domain_log
 
         # A DiscreteMapping: a symbolic carrier whose get_callable_mapping() is
         # `mapping` and whose is_analytical is False, so a domain built from it
         # assembles via grid evaluation of the spline (like Domain.from_file).
-        M        = DiscreteMapping(mapping, mapping_name)
-        domain   = M(domain_log)
+        domain   = _spline_patch(mapping, mapping_name, logical)
         pdim     = mapping.pdim
         mappings = {domain.name: mapping}
         ncells   = {domain.name: mapping.space.domain_decomposition.ncells}
@@ -1123,36 +1204,20 @@ class Geometry:
         new_legs = []
         for itr, F in zip(interiors, mappings.values()):
             # Reuse itr's own mapping name and logical-domain name verbatim,
-            # rather than F.name (the on-disk yml patch name -- kept as F's
-            # name by design, see the class docstring's "Keys" section, so
-            # export() still writes the same bytes). Since WP15, `mappings`
-            # is keyed uniformly by interior name in every constructor, so
-            # this is simply itr.name; using F.name here would double-wrap
-            # it (verified: reading back a from_discrete_mapping export
-            # produced "mapping(mapping(Omega))" instead of "mapping(Omega)").
-            # This rebuild is therefore a pure type swap (SymbolicMapping ->
-            # DiscreteMapping), never a rename.
-            logical_i = NCube(name=itr.logical_domain.name, dim=ldim,
-                              min_coords=itr.min_coords, max_coords=itr.max_coords)
-            new_legs.append(F.to_defined_mapping(itr.mapping.name)(logical_i))
+            # rather than F.name (the on-disk yml patch name). See
+            # `_spline_patch`'s docstring for the naming rule and the two
+            # regressions it guards against.
+            logical_i = logical_ncube(itr.logical_domain.name, itr.min_coords, itr.max_coords)
+            new_legs.append(_spline_patch(F, itr.mapping.name, logical_i, expect_name=itr.name))
 
         if n_patches == 1:
             new_domain = new_legs[0]
         else:
-            patch_interfaces = domain.interfaces
-            if isinstance(patch_interfaces, Interface):
-                patch_interfaces = [patch_interfaces]
-            elif isinstance(patch_interfaces, Union):
-                patch_interfaces = list(patch_interfaces.args)
-            else:
-                patch_interfaces = list(patch_interfaces) if patch_interfaces else []
-            patch_index = {itr: i for i, itr in enumerate(interiors)}
-            join_connectivity = [
-                ((patch_index[e.minus.domain], e.minus.axis, e.minus.ext),
-                 (patch_index[e.plus.domain],  e.plus.axis,  e.plus.ext),
-                 e.ornt)
-                for e in patch_interfaces]
-            new_domain = Domain.join(new_legs, join_connectivity, domain.name)
+            # `new_legs` is built by zip(interiors, mappings.values()) above,
+            # and both `interiors` and `mappings` were re-keyed into interior
+            # order (WP15-1), so `construct_join_connectivity(domain)`'s
+            # indices into `interiors` line up with `new_legs` by construction.
+            new_domain = Domain.join(new_legs, construct_join_connectivity(domain), domain.name)
 
         # ...
         # `periodic` is an int-aliased _PatchKeyedDict only for multipatch,
@@ -1375,23 +1440,11 @@ def export_nurbs_to_hdf5(filename, nurbs, periodic=None, comm=None ):
     # ...
 
     # ... topology
-    if nurbs.dim == 1:
-        bounds1 = (float(nurbs.breaks(0)[0]), float(nurbs.breaks(0)[-1]))
-        domain  = Line(patch_name, bounds1=bounds1)
-
-    elif nurbs.dim == 2:
-        bounds1 = (float(nurbs.breaks(0)[0]), float(nurbs.breaks(0)[-1]))
-        bounds2 = (float(nurbs.breaks(1)[0]), float(nurbs.breaks(1)[-1]))
-        domain  = Square(patch_name, bounds1=bounds1, bounds2=bounds2)
-
-    elif nurbs.dim == 3:
-        bounds1 = (float(nurbs.breaks(0)[0]), float(nurbs.breaks(0)[-1]))
-        bounds2 = (float(nurbs.breaks(1)[0]), float(nurbs.breaks(1)[-1]))
-        bounds3 = (float(nurbs.breaks(2)[0]), float(nurbs.breaks(2)[-1]))
-        domain  = Cube(patch_name, bounds1=bounds1, bounds2=bounds2, bounds3=bounds3)
-
-    else:
+    if nurbs.dim > 3:
         raise NotImplementedError('> nurbs.dim > 3 not implemented')
+
+    bounds = [(float(nurbs.breaks(d)[0]), float(nurbs.breaks(d)[-1])) for d in range(nurbs.dim)]
+    domain = logical_ncube(patch_name, [b[0] for b in bounds], [b[1] for b in bounds])
 
     mapping = SymbolicMapping(mapping_id, dim=nurbs.dim)
     domain  = mapping(domain)
