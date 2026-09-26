@@ -632,13 +632,12 @@ def run_maxwell_2d_TE(
     M1 = (htheta * hs) * (I1 - P1.T) @ (I1 - P1) + P1.T @ M1_raw @ P1
     M2 = (htheta * hs) * (I2 - P2.T) @ (I2 - P2) + P2.T @ M2_raw @ P2
 
-    Pi0, Pi1, Pi2 = derham_h.projectors(nquads=[degree[0] + 1, degree[1] + 1])
+    # Geometric Projectors
+    Pi0, Pi1, Pi2 = derham_h.projectors()
 
     if study_L2_proj:
         run_study_L2_proj()
         return locals()
-
-    # Geometric Projectors
 
     # Plot domain decomposition
     N = 10
