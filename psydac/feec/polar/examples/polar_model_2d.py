@@ -29,8 +29,8 @@ class PolarModel2D:
         Original analytical mapping from the logical to the physical domain.
 
     domain : sympde.topology.Domain
-        Physical domain associated with ``mapping``. Initialized by
-        calling ``build_geometry``.
+        Physical domain associated with `mapping`. Initialized by
+        calling `build_geometry`.
 
     domain_log : sympde.topology.Domain
         Logical domain.

@@ -26,14 +26,14 @@ class C0PolarProjection_V0(LinearOperator):
     -----------
 
     W0 : TensorFemSpace
-         The full tensor product spline space S^{p1,p2}
+         The full tensor product spline space S^{p1,p2}.
 
-    transposed : Boolean
-         switch between P0 and P0 transposed (defalut is False)
+    transposed : bool, default=False
+         switch between P0 and P0 transposed.
 
-    hbc : Boolean
+    hbc : bool, default=False
          switch on and off the imposition of homogeneous Dirichlet boundary
-         conditions (default is False)
+         conditions.
     """
 
     def __init__(self, W0, *, transposed=False, hbc=False):
@@ -171,14 +171,13 @@ class C0PolarProjection_V1_00(LinearOperator):
     ----------
 
     W1 : VectorFemSpace
-         Full tensor product spline space of the 1-forms S^{p1-1, p2} x S^{p1, p2-1}
+         Full tensor product spline space of the 1-forms S^{p1-1, p2} x S^{p1, p2-1}.
 
-    transposed : Boolean
-         Switch between P1 and P1 transposed (default is False)
+    transposed : bool, default=False
+         Switch between P1 and P1 transposed.
     """
 
     def __init__(self, W1):
-        # assert isinstance(W1, ProductFemSpace)
         assert isinstance(W1, VectorFemSpace)
 
         self.W1 = W1
@@ -254,15 +253,14 @@ class C0PolarProjection_V1_10(LinearOperator):
     Parameters:
     -----------
 
-    W1 : VectorFemSpace (former ProductFemSpace)
-         Full tensor product spline space of the 1-forms S^{p1-1, p2} x S^{p1, p2-1}
+    W1 : VectorFemSpace
+         Full tensor product spline space of the 1-forms S^{p1-1, p2} x S^{p1, p2-1}.
 
     transposed : bool, default=False
          Switch between P1 and P1 transposed.
     """
 
     def __init__(self, W1, transposed=False):
-        # assert isinstance(W1, ProductFemSpace)
         assert isinstance(W1, VectorFemSpace)
 
         self.W1 = W1
@@ -360,19 +358,18 @@ class C0PolarProjection_V1_11(LinearOperator):
     Parameters:
     -----------
 
-    W1 : VectorFemSpace (former ProductFemSpace)
+    W1 : VectorFemSpace
          Full tensor product spline space of the 1-forms S^{p1-1, p2} x S^{p1, p2-1}
 
-    transposed : Boolean
-         Switch between P1 and P1 transposed (default is False)
+    transposed : bool, default=False
+         Switch between P1 and P1 transposed.
 
-    hbc : Boolean
-         Switch on and off the imposition of homogeneous Dirichlet boundary
-         conditions on the tangential (angular) direction (default is False)
+    hbc : bool, default=False
+         If True, impose homogeneous Dirichlet boundary conditions on the
+         tangential (angular) component of the field.
     """
 
     def __init__(self, W1, transposed=False, hbc=False):
-        # assert isinstance(W1, ProductFemSpace)
         assert isinstance(W1, VectorFemSpace)
 
         self.W1 = W1
@@ -470,15 +467,15 @@ class C0PolarProjection_V1(BlockLinearOperator):
     Parameters:
     -----------
 
-    W1 : VectorFemSpace (former ProductFemSpace)
-         Full tensor product spline space of the 1-forms S^{p1-1, p2} x S^{p1, p2-1}
+    W1 : VectorFemSpace
+         Full tensor product spline space of the 1-forms S^{p1-1, p2} x S^{p1, p2-1}.
 
-    transposed : Boolean
-         Switch between P1 and P1 transposed (default is False)
+    transposed : bool, default=False
+         Switch between P1 and P1 transposed.
 
     hbc : Boolean
-         Switch on and off the imposition of homogeneous Dirichlet boundary
-         conditions on the tangential (angular) direction (default is False)
+         If True, impose homogeneous Dirichlet boundary conditions on the
+         tangential (angular) component of the field.
     """
 
     def __init__(self, W1, transposed=False, hbc=False):
