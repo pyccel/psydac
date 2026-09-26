@@ -1165,7 +1165,8 @@ def parse_input_arguments():
         type=int,
         default=0,
         dest="smooth",
-        help="Smoothness at the pole. Only C0 and C1 possible. C0 as default.",
+        choices=[0, 1],
+        help="Smoothness at the pole: select 0 for C^0, and 1 for C^1.",
     )
 
     parser.add_argument(
