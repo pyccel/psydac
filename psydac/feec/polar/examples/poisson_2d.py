@@ -339,16 +339,16 @@ def compute_errors(phi, phi_ref, M, S):
 
 
     # L2 and H1 norms
-    ref_l2_2 = phi_ref.coeffs.inner(M.dot(phi_ref.coeffs))
-    ref_h1_semi2 = phi_ref.coeffs.inner(S.dot(phi_ref.coeffs))
+    ref_l2_2 = M.dot_inner(phi_ref.coeffs, phi_ref.coeffs)
+    ref_h1_semi2 = S.dot_inner(phi_ref.coeffs, phi_ref.coeffs)
     ref_l2 = np.sqrt(ref_l2_2)  # L2 norm of ref solution
     ref_h1 = np.sqrt(ref_h1_semi2 + ref_l2_2)  # H1 norm of ref solution
 
     # L2 and H1 errors
     phi_diff = phi_ref.coeffs - phi.coeffs
 
-    err_l2_2 = phi_diff.inner(M.dot(phi_diff))
-    err_h1_semi2 = phi_diff.inner(S.dot(phi_diff))
+    err_l2_2 = M.dot_inner(phi_diff, phi_diff)
+    err_h1_semi2 = S.dot_inner(phi_diff, phi_diff)
     err_l2 = np.sqrt(err_l2_2)
     err_h1 = np.sqrt(err_h1_semi2 + err_l2_2)
 
