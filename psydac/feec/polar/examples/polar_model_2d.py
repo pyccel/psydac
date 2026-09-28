@@ -21,7 +21,7 @@ class PolarModel2D:
     logical_bounds : tuple[tuple[float, ...], ...]
         Bounds of the logical domain.
 
-    mapping : sympde.topology.mapping.Mapping
+    mapping : Mapping or BasicCallableMapping (from `sympde.topology.mapping`)
         Mapping used by the solver. It is either the analytical mapping or
         its spline approximation. Initialized by calling `build_geometry`.
 
