@@ -494,8 +494,8 @@ class C0PolarProjection_V2(LinearOperator):
     instead of the polar basis of Toshniwal. $P^2$ enforces coefficient relations
     to be in $V^2$.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     W2 : TensorFemSpace
          Full tensor product spline space of the 2-forms $S^{p1-1, p2-1}$.
 
