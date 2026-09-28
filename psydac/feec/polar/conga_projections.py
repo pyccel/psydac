@@ -16,26 +16,23 @@ from psydac.linalg.stencil import StencilVector
 
 
 class C0PolarProjection_V0(LinearOperator):
-    """
-    CONGA Projector P0 from the full spline space S^{p1, p2} on logical domain
-    to V0 the pre-polar 0-forms splines. The associate matrix is square as in
+    r"""
+    CONGA Projector $P^0$ from the full spline space $S^{p1, p2}$ on logical domain
+    to $V^0$ the pre-polar 0-forms splines. The associate matrix is square as in
     the CONGA approach we keep using the tensor B-spline basis, instead of the
-    polar basis of Toshniwal. P0 enforces coefficient relations to be in V0.
+    polar basis of Toshniwal. $P^0$ enforces coefficient relations to be in $V^0$.
 
-    Parameters:
-    -----------
-
+    Parameters
+    ----------
     W0 : TensorFemSpace
-         The full tensor product spline space S^{p1,p2}.
+         The full tensor product spline space $S^{p1,p2}$.
 
     transposed : bool, default=False
-         switch between P0 and P0 transposed.
+         If `True`, create the transposed projector $(P^0)^T$.
 
     hbc : bool, default=False
-         switch on and off the imposition of homogeneous Dirichlet boundary
-         conditions.
+         If `True`, impose homogeneous Dirichlet boundary conditions.
     """
-
     def __init__(self, W0, *, transposed=False, hbc=False):
         assert isinstance(W0, TensorFemSpace)
 
@@ -164,19 +161,17 @@ class C0PolarProjection_V0(LinearOperator):
 
 
 class C0PolarProjection_V1_00(LinearOperator):
-    """
-    Upper Left block of P1.
+    r"""
+    Upper left block of $P^1$.
 
-    Parameters:
+    Parameters
     ----------
-
     W1 : VectorFemSpace
-         Full tensor product spline space of the 1-forms S^{p1-1, p2} x S^{p1, p2-1}.
+         Full tensor product spline space of the 1-forms $S^{p1-1, p2} \times S^{p1, p2-1}$.
 
     transposed : bool, default=False
-         Switch between P1 and P1 transposed.
+         If `True`, create block of transposed projector $(P^1)^T$.
     """
-
     def __init__(self, W1):
         assert isinstance(W1, VectorFemSpace)
 
@@ -247,19 +242,17 @@ class C0PolarProjection_V1_00(LinearOperator):
 
 
 class C0PolarProjection_V1_10(LinearOperator):
-    """
-    Lower left block of P1.
+    r"""
+    Lower left block of $P^1$.
 
-    Parameters:
-    -----------
-
+    Parameters
+    ----------
     W1 : VectorFemSpace
-         Full tensor product spline space of the 1-forms S^{p1-1, p2} x S^{p1, p2-1}.
+         Full tensor product spline space of the 1-forms $S^{p1-1, p2} \times S^{p1, p2-1}$.
 
     transposed : bool, default=False
-         Switch between P1 and P1 transposed.
+         If `True`, create block of transposed projector $(P^1)^T$.
     """
-
     def __init__(self, W1, transposed=False):
         assert isinstance(W1, VectorFemSpace)
 
@@ -352,23 +345,21 @@ class C0PolarProjection_V1_10(LinearOperator):
 
 
 class C0PolarProjection_V1_11(LinearOperator):
-    """
-    Lower right block of P1.
+    r"""
+    Lower right block of $P^1$.
 
-    Parameters:
-    -----------
-
+    Parameters
+    ----------
     W1 : VectorFemSpace
-         Full tensor product spline space of the 1-forms S^{p1-1, p2} x S^{p1, p2-1}
+         Full tensor product spline space of the 1-forms $S^{p1-1, p2} \times S^{p1, p2-1}$
 
     transposed : bool, default=False
-         Switch between P1 and P1 transposed.
+         If `True`, create block of transposed projector $(P^1)^T$.
 
     hbc : bool, default=False
-         If True, impose homogeneous Dirichlet boundary conditions on the
+         If `True`, impose homogeneous Dirichlet boundary conditions on the
          tangential (angular) component of the field.
     """
-
     def __init__(self, W1, transposed=False, hbc=False):
         assert isinstance(W1, VectorFemSpace)
 
@@ -457,27 +448,25 @@ class C0PolarProjection_V1_11(LinearOperator):
 
 
 class C0PolarProjection_V1(BlockLinearOperator):
-    """
-    CONGA Projector P1 from the full spline space S^{p1-1, p2} x S^{p1, p2-1}
-    on logical domain to V1 the pre-polar 1-forms splines. The associate matrix
+    r"""
+    CONGA Projector $P^1$ from the full spline space $S^{p1-1, p2} \times S^{p1, p2-1}$
+    on logical domain to $V^1$ the pre-polar 1-forms splines. The associate matrix
     is square as in the CONGA approach we keep using the tensor B-spline basis,
-    instead of the polar basis of Toshniwal. P1 enforces coefficient relations
-    to be in V1.
+    instead of the polar basis of Toshniwal. $P^1$ enforces coefficient relations
+    to be in $V^1$.
 
-    Parameters:
-    -----------
-
+    Parameters
+    ----------
     W1 : VectorFemSpace
-         Full tensor product spline space of the 1-forms S^{p1-1, p2} x S^{p1, p2-1}.
+         Full tensor product spline space of the 1-forms $S^{p1-1, p2} \times S^{p1, p2-1}$.
 
     transposed : bool, default=False
-         Switch between P1 and P1 transposed.
+         If `True`, create the transposed projector $(P^1)^T$.
 
     hbc : Boolean
-         If True, impose homogeneous Dirichlet boundary conditions on the
+         If `True`, impose homogeneous Dirichlet boundary conditions on the
          tangential (angular) component of the field.
     """
-
     def __init__(self, W1, transposed=False, hbc=False):
         assert isinstance(W1, VectorFemSpace)
         assert W1.symbolic_space.kind.name == "hcurl"
@@ -498,22 +487,21 @@ class C0PolarProjection_V1(BlockLinearOperator):
 
 # ---------------- 2-FORMS CONGA PROJECTOR P2 ----------------#
 class C0PolarProjection_V2(LinearOperator):
-    """
-    CONGA Projector P2 from the full spline space S^{p1-1, p2-1} on logical
-    domain to V2, the pre-polar 2-forms splines. The associate matrix
+    r"""
+    CONGA Projector $P^2$ from the full spline space $S^{p1-1, p2-1}$ on logical
+    domain to $V^2$, the pre-polar 2-forms splines. The associate matrix
     is square, as in the CONGA approach we keep using the tensor B-spline basis,
-    instead of the polar basis of Toshniwal. P2 enforces coefficient relations
-    to be in V2.
+    instead of the polar basis of Toshniwal. $P^2$ enforces coefficient relations
+    to be in $V^2$.
 
     Parameters:
     -----------
     W2 : TensorFemSpace
-         Full tensor product spline space of the 2-forms S^{p1-1, p2-1}.
+         Full tensor product spline space of the 2-forms $S^{p1-1, p2-1}$.
 
     transposed : bool, default=False
-         Switch between P2 and P2 transposed.
+         If `True`, create the transposed projector $(P^2)^T$.
     """
-
     def __init__(self, W2, transposed=False):
         assert isinstance(W2, TensorFemSpace)
 
@@ -647,28 +635,29 @@ def toeplitz_columns_sym(t, s2, e2, n2):
 
 
 class C1PolarProjection_U0(LinearOperator):
-    """
-    CONGA Projector P0 from the full spline space S^{p1, p2} on logical domain
-    to U0 the pre-polar 0-forms splines. The associate matrix is square as in
+    r"""
+    CONGA Projector $P^0$ from the full spline space $S^{p1, p2}$ on logical domain
+    to $U^0$ the pre-polar 0-forms splines. The associate matrix is square as in
     the CONGA approach we keep using the tensor B-spline basis, instead of the
-    polar basis of Toshniwal. P0 enforces coefficient relations to be in U0.
-    Parameters:
-    -----------
+    polar basis of Toshniwal. $P^0$ enforces coefficient relations to be in $U^0$.
+
+    Parameters
+    ----------
     W0 : TensorFemSpace
-         The full tensor product spline space S^{p1,p2}.
+         The full tensor product spline space $S^{p1,p2}$.
 
     gamma : float, default=1
-         Free parameter in the entries of P0. Any value provides a valid CONGA
-         projector in U0. However, in order to have the commuting property
-                             grad P0 u = P1 grad u
-         for u in Im(Pi0) and Pi0 the geometric projector on W0, we should set
-         gamma = 1 (default)
+         Free parameter in the entries of $P^0$. Any value provides a valid CONGA
+         projector in $U^0$. However, in order to have the commuting property
+                             $grad P^0 u = P^1 grad u$
+         for $u$ in $Im(\Pi^0)$ and $\Pi^0$ the geometric projector on $W^0$, we should set
+         $\gamma = 1$ (default)
 
     transposed : bool, default=False
-         Switch between P0 and P0 transposed.
+         If `True`, create the transposed projector $(P^0)^T$.
 
     hbc : bool, default=False
-         If True, impose homogeneous Dirichlet boundary conditions.
+         If `True`, impose homogeneous Dirichlet boundary conditions.
     """
     def __init__(self, W0, *, gamma=1, transposed=False, hbc=False):
         assert isinstance(W0, TensorFemSpace)
@@ -839,18 +828,17 @@ class C1PolarProjection_U0(LinearOperator):
 
 
 class C1PolarProjection_U1_00(LinearOperator):
-    """
-    Upper Left block of P1.
+    r"""
+    Upper left block of $P^1$.
 
-    Parameters:
+    Parameters
     ----------
     W1 : VectorFemSpace
-         Full tensor product spline space of 1-forms S^{p1-1, p2} x S^{p1, p2-1}.
+         Full tensor product spline space of 1-forms $S^{p1-1, p2} \times S^{p1, p2-1}$.
 
     transposed : bool, default=False
-         Switch between P1 and P1 transposed.
+         If `True`, create block of transposed projector $(P^1)^T$.
     """
-
     def __init__(self, W1, transposed=False):
         assert isinstance(W1, VectorFemSpace)
 
@@ -974,18 +962,17 @@ class C1PolarProjection_U1_00(LinearOperator):
 
 
 class C1PolarProjection_U1_10(LinearOperator):
-    """
-    Lower left block of P1.
+    r"""
+    Lower left block of $P^1$.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     W1 : VectorFemSpace
-         Full tensor product spline space of 1-forms S^{p1-1, p2} x S^{p1, p2-1}.
+         Full tensor product spline space of 1-forms $S^{p1-1, p2} \times S^{p1, p2-1}$.
 
     transposed : bool, default=False
-         Switch between P1 and P1 transposed.
+         If `True`, create block of transposed projector $(P^1)^T$.
     """
-
     def __init__(self, W1, transposed=False):
         assert isinstance(W1, VectorFemSpace)
 
@@ -1129,23 +1116,23 @@ class C1PolarProjection_U1_10(LinearOperator):
 
 
 class C1PolarProjection_U1(BlockLinearOperator):
-    """
-    CONGA Projector P1 from the full spline space S^{p1-1, p2} x S^{p1, p2-1}
-    on logical domain to U1 the pre-polar 1-forms splines. The associate matrix
+    r"""
+    CONGA Projector $P^1$ from the full spline space $S^{p1-1, p2} \times S^{p1, p2-1}$
+    on logical domain to $U^1$ the pre-polar 1-forms splines. The associate matrix
     is square as in the CONGA approach we keep using the tensor B-spline basis,
-    instead of the polar basis of Toshniwal. P1 enforces coefficient relations
-    to be in U1.
+    instead of the polar basis of Toshniwal. $P^1$ enforces coefficient relations
+    to be in $U^1$.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     W1 : VectorFemSpace
-         Full tensor product spline space of 1-forms S^{p1-1, p2} x S^{p1, p2-1}.
+         Full tensor product spline space of 1-forms $S^{p1-1, p2} \times S^{p1, p2-1}$.
 
     transposed : bool, default=False
-         Switch between P1 and P1 transposed.
+         If `True`, create the transposed projector $(P^1)^T$.
 
     hbc :  bool, default=False
-         If True, impose homogeneous Dirichlet boundary conditions on the
+         If `True`, impose homogeneous Dirichlet boundary conditions on the
          tangential (angular) component of the field.
     """
     def __init__(self, W1, transposed=False, hbc=False):
@@ -1169,20 +1156,20 @@ class C1PolarProjection_U1(BlockLinearOperator):
 
 # -------------- 2-FORMS CONGA PROJECTOR P2 ----------------#
 class C1PolarProjection_U2(C0PolarProjection_V2):
-    """
-    CONGA Projector P2 from the full spline space S^{p1-1, p2-1} on logical
-    domain to U2, the pre-polar 2-forms splines. The associate matrix
+    r"""
+    CONGA Projector $P^2$ from the full spline space $S^{p1-1, p2-1}$ on logical
+    domain to $U^2$, the pre-polar 2-forms splines. The associate matrix
     is square, as in the CONGA approach we keep using the tensor B-spline basis,
-    instead of the polar basis of Toshniwal. P2 enforces coefficient relations
-    to be in U2.
+    instead of the polar basis of Toshniwal. $P^2$ enforces coefficient relations
+    to be in $U^2$.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     W2 : TensorFemSpace
-         Full tensor product spline space of 2-forms S^{p1-1, p2-1}.
+         Full tensor product spline space of 2-forms $S^{p1-1, p2-1}$.
 
     transposed : bool, default=False
-         Switch between P2 and P2 transposed.
+         If `True`, create the transposed projector $(P^2)^T$.
     """
     def transpose(self, conjugate=False):
         return C1PolarProjection_U2(self.W2, transposed=not self.transposed)
