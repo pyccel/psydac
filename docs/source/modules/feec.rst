@@ -1,4 +1,4 @@
-feec
+FEEC
 ====
 
 .. currentmodule:: psydac
@@ -15,7 +15,7 @@ feec
     feec.pull_push
     feec.pushforward
 
-feec submodules
+FEEC submodules
 ---------------
 .. toctree::
     :maxdepth: 1
