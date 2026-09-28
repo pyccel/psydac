@@ -16,7 +16,7 @@ feec
     feec.pushforward
 
 feec submodules
---------------
+---------------
 .. toctree::
     :maxdepth: 1
 
