@@ -168,7 +168,7 @@ def create_tensor_spline_space(ncells, spline_degrees, periodic, bounds, mpi_com
     logical domain (e.g. with bounds ``[[0, R], [0, 2*pi]]``).
 
     Parameters
-    -------
+    ----------
     ncells : sequence of int
         Number of cells in 2D spline space in each direction.
     spline_degrees: sequence of int
