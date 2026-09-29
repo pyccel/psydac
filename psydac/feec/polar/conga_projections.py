@@ -12,7 +12,7 @@ Usually, the pole is at $s = 0$, while the boundary is at $s = R$. The $t$
 coordinate is always periodic, typically with period $2\pi$. Currently, we
 assume that the logical (a.k.a. parametric) domain is the rectangle
 
-$$\hat{\Omega} := [0, R] \times [0, 2\pi)$$,
+$$\hat{\Omega} := (0, R) \times [0, 2\pi)$$
 
 where tensor-product B-splines are defined. The physical (a.k.a. computational)
 domain is $\Omega = F(\hat{\Omega})$, where $F: (s, t) \mapsto (x_1, x_2)$ is
