@@ -218,33 +218,34 @@ if __name__ == '__main__':
     f     = Tuple(alpha*sin(pi*y) - pi**2*sin(pi*y)*cos(pi*x) + pi**2*sin(pi*y),
                   alpha*sin(pi*x)*cos(pi*y) + pi**2*sin(pi*x)*cos(pi*y))
 
-    l2_error, Eh = run_maxwell_2d(Eex, f, alpha, domain, ncells=[2**2, 2**2], degree=[2,2])
+    l2_error, Eh = run_maxwell_2d(Eex, f, alpha, domain, ncells=[2**3, 2**4], degree=[2,2])
 
-    mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
-    mappings_list = list(mappings.values())
-    mappings_list = [mapping.get_callable_mapping() for mapping in mappings_list]
+    # ---------- Old mapping utilities ----------
+
+    mappings               = domain.mappings
+    mappings_list          = list(mappings.values())
+    callable_mappings_list = [mapping.get_callable_mapping() for mapping in mappings_list]
 
     Eex_x   = lambdify(domain.coordinates, Eex[0])
     Eex_y   = lambdify(domain.coordinates, Eex[1])
-    Eex_log = [pull_2d_hcurl([Eex_x,Eex_y], f) for f in mappings_list]
+    Eex_log = [pull_2d_hcurl([Eex_x,Eex_y], f) for f in callable_mappings_list]
 
-    etas, xx, yy         = get_plotting_grid(mappings, N=20)
-    grid_vals_hcurl      = lambda v: get_grid_vals(v, etas, mappings_list, space_kind='hcurl')
+    N = 100
+    etas, xx, yy         = get_plotting_grid(mappings, N=N)
 
-    Eh_x_vals, Eh_y_vals = grid_vals_hcurl(Eh)
-    E_x_vals, E_y_vals   = grid_vals_hcurl(Eex_log)
+    Eh_x_vals, Eh_y_vals = get_grid_vals(Eh,      etas, mappings_list=mappings_list, space_kind='hcurl')
+    E_x_vals, E_y_vals   = get_grid_vals(Eex_log, etas, mappings_list=mappings_list, space_kind='hcurl')
 
     E_x_err              = [(u1 - u2) for u1, u2 in zip(E_x_vals, Eh_x_vals)]
     E_y_err              = [(u1 - u2) for u1, u2 in zip(E_y_vals, Eh_y_vals)]
 
+    # Old plotting utilities
     my_small_plot(
         title=r'approximation of solution $u$, $x$ component',
         vals=[E_x_vals, Eh_x_vals, E_x_err],
         titles=[r'$u^{ex}_x(x,y)$', r'$u^h_x(x,y)$', r'$|(u^{ex}-u^h)_x(x,y)|$'],
         xx=xx,
         yy=yy,
-        gridlines_x1=None,
-        gridlines_x2=None,
     )
 
     my_small_plot(
@@ -253,6 +254,35 @@ if __name__ == '__main__':
         titles=[r'$u^{ex}_y(x,y)$', r'$u^h_y(x,y)$', r'$|(u^{ex}-u^h)_y(x,y)|$'],
         xx=xx,
         yy=yy,
-        gridlines_x1=None,
-        gridlines_x2=None,
+    )
+
+    # New plotting utilities
+    from psydac.fem.plotting_utilities2 import plot_2d
+    #plot_2d(
+    #    suptitle=r'approximation of solution $u$, $x$ component',
+    #    funs=(E_x_vals, Eh_x_vals, E_x_err),
+    #    titles=[r'$u^{ex}_x(x,y)$', r'$u^h_x(x,y)$', r'$|(u^{ex}-u^h)_x(x,y)|$'],
+    #    xx=xx,
+    #    yy=yy,
+    #)
+#
+    #plot_2d(
+    #    suptitle=r'approximation of solution $u$, $y$ component',
+    #    funs=(E_y_vals, {'fem_field':Eh, 'components':'y'}, {'vals':E_y_err, 'cmap':'magma'}),
+    #    titles=[r'$u^{ex}_y(x,y)$', r'$u^h_y(x,y)$', r'$|(u^{ex}-u^h)_y(x,y)|$'],
+    #    xx=xx,
+    #    yy=yy,
+    #    plot_spline_grid=True,
+    #    plot_patch_boundaries=True
+    #)
+
+    plot_2d(
+        suptitle=r'Approximation of solution $u$',
+        funs=(E_x_vals, Eh_x_vals,                          {'vals':E_x_err, 'cmap':'magma'},
+              E_y_vals, {'fem_field':Eh, 'components':'y'}, {'vals':E_y_err, 'cmap':'magma'}),
+        titles=(r'$u^{ex}_x(x,y)$', r'$u^h_x(x,y)$', r'$|(u^{ex}-u^h)_x(x,y)|$',
+                r'$u^{ex}_y(x,y)$', r'$u^h_y(x,y)$', r'$|(u^{ex}-u^h)_y(x,y)|$'),
+        xx=xx, yy=yy,
+        plot_spline_grid=True,
+        plot_patch_boundaries=True
     )

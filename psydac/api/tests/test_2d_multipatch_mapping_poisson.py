@@ -27,6 +27,7 @@ from psydac.api.discretization     import discretize
 from psydac.api.tests.build_domain import build_11_patch_pretzel, build_2_patch_annulus
 from psydac.api.settings           import PSYDAC_BACKEND_GPYCCEL
 from psydac.fem.plotting_utilities import plot_field_2d as plot_field
+from psydac.fem.plotting_utilities2 import plot_2d
 
 # Get the mesh directory
 import psydac.cad.mesh as mesh_mod
@@ -155,13 +156,18 @@ def test_poisson_2d_3_patches_dirichlet_2():
 
     l2_error, h1_error, uh = run_poisson_2d(solution, f, domain, ncells=[2**2,2**2], degree=[2,2])
 
-    plot_fn=f'uh_multipatch_poisson.pdf'
+    # Old plotting utilities
+    plot_fn = f'uh_multipatch_poisson.pdf'
     plot_field(fem_field=uh, Vh=uh.space, domain=domain, title='uh', filename=plot_fn, hide_plot=True)
+
+    # New plotting utilities
+    plot_fn2 = f'uh_multipatch_poisson_new.pdf'
+    plot_2d(uh, titles='uh', show_plot=False, filename=plot_fn2, cmap='hsv')
 
     expected_l2_error = 0.0019402242901236006
     expected_h1_error = 0.024759527393621895
 
-    assert ( abs(l2_error - expected_l2_error) < 1e-7)
+    assert ( abs(l2_error - expected_l2_error) < 1e-7 )
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
 
 #------------------------------------------------------------------------------
@@ -177,7 +183,7 @@ def test_poisson_2d_2_patches_dirichlet_3():
     expected_l2_error = 0.0014599905413109973 
     expected_h1_error = 0.035873834713380987
 
-    assert ( abs(l2_error - expected_l2_error) < 1e-7)
+    assert ( abs(l2_error - expected_l2_error) < 1e-7 )
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
 
 #------------------------------------------------------------------------------
@@ -366,9 +372,7 @@ def teardown_function():
 
 if __name__ == '__main__':
 
-    from psydac.fem.plotting_utilities import get_plotting_grid, get_grid_vals
-    from psydac.fem.plotting_utilities import get_patch_knots_gridlines, my_small_plot
-    from collections                               import OrderedDict
+    from sympy import lambdify
 
     domain    = build_11_patch_pretzel()
     x,y       = domain.coordinates
@@ -377,36 +381,99 @@ if __name__ == '__main__':
 
     l2_error, h1_error, u_h = run_poisson_2d(solution, f, domain, ncells=[2**2,2**2], degree=[2,2])
 
-    mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
+    # ---------- Old plotting utilities ----------
 
+    from psydac.fem.plotting_utilities import get_plotting_grid, get_grid_vals
+    from psydac.fem.plotting_utilities import get_patch_knots_gridlines, my_small_plot
+
+    # Get mappings (dict) and mappings_list
+    mappings      = domain.mappings
     mappings_list = list(mappings.values())
-    mappings_list = [mapping.get_callable_mapping() for mapping in mappings_list]
 
-    from sympy import lambdify
-    u_ex = lambdify(domain.coordinates, solution)
-    f_ex = lambdify(domain.coordinates, f)
-    F    = [f.get_callable_mapping() for f in mappings_list]
-
+    # Get callable pullback of u_ex
+    u_ex     = lambdify(domain.coordinates, solution)
+    F        = [f.get_callable_mapping() for f in mappings_list]
     u_ex_log = [lambda xi1, xi2,ff=f : u_ex(*ff(xi1,xi2)) for f in F]
 
-    N=20
+    # Get logical grid & physical grid (N specifies grid resolution in both directions)
+    N = 100
     etas, xx, yy = get_plotting_grid(mappings, N)
+
+    # Get spline grid
+    N = 20
+    # Originally only on patch 1
     gridlines_x1, gridlines_x2 = get_patch_knots_gridlines(u_h.space, N, mappings, plotted_patch=1)
+    # All patches are possible as well
+    #gridlines = [get_patch_knots_gridlines(u_h.space, N, mappings, plotted_patch=k) for k in range(len(mappings_list))]
+    #gridlines_x1 = [gl for gls in gridlines for gl in gls[0]]
+    #gridlines_x2 = [gl for gls in gridlines for gl in gls[1]]
 
-    grid_vals_h1 = lambda v: get_grid_vals(v, etas, mappings_list, space_kind='h1')
+    # Get grid vals
+    u_ex_vals  = get_grid_vals(u_ex_log, etas, mappings_list=mappings_list, space_kind='h1')
+    u_h_vals   = get_grid_vals(u_h, etas, mappings_list=mappings_list)
+    u_err_vals = [abs(uir - uih) for uir, uih in zip(u_ex_vals, u_h_vals)]
 
-    u_ref_vals = grid_vals_h1(u_ex_log)
-    u_h_vals   = grid_vals_h1(u_h)
-    u_err      = [abs(uir - uih) for uir, uih in zip(u_ref_vals, u_h_vals)]
+    # Gather arguments
+    vals   = [u_ex_vals, u_h_vals, u_err_vals]
+    titles = [r'$\phi^{ex}(x,y)$', r'$\phi^h(x,y)$', r'$|(\phi-\phi^h)(x,y)|$']
+    title  = r'Solution of Poisson problem $\Delta \phi = f$'
 
+    # Plot
     my_small_plot(
-        title=r'Solution of Poisson problem $\Delta \phi = f$',
-        vals=[u_ref_vals, u_h_vals, u_err],
-        titles=[r'$\phi^{ex}(x,y)$', r'$\phi^h(x,y)$', r'$|(\phi-\phi^h)(x,y)|$'],
-        xx=xx, yy=yy,
-        gridlines_x1=gridlines_x1,
-        gridlines_x2=gridlines_x2,
-        surface_plot=True,
-        cmap='jet',
+        title=title,                # Figure suptitle
+        vals=vals,                  # Function values on the grid xx, yy. One domain per function call.
+        titles=titles,              # Plot titles
+        xx=xx, yy=yy,               # Physical domain grid. Domain for all function values.
+        gridlines_x1=gridlines_x1,  # x1-parallel spline grid lines
+        gridlines_x2=gridlines_x2,  # x2-parallel spline grid lines
+        surface_plot=True,          # Additional surface plot (surface plot only is not possible)
+        cmap='jet',                 # Colormap
     )
 
+    # ---------- New plotting utilities ----------
+
+    from psydac.fem.plotting_utilities2 import get_plotting_grid, get_grid_vals
+    from psydac.fem.plotting_utilities2 import get_patch_knots_gridlines, plot_2d
+
+    # Get mappings (dict) and mappings_list
+    mappings      = domain.mappings
+    mappings_list = list(mappings.values())
+
+    # Get callable pullback of u_ex
+    u_ex     = lambdify(domain.coordinates, solution)
+    F        = [f.get_callable_mapping() for f in mappings_list]
+    u_ex_log = [lambda xi1, xi2,ff=f : u_ex(*ff(xi1,xi2)) for f in F]
+
+    # Get logical grid & physical grid (specify grid resolution for each direction individually)
+    N = 100
+    etas, xx, yy = get_plotting_grid(mappings, (N, N))
+
+    # Get spline grid (only on patch 1)
+    N = 20
+    spline_grid = [get_patch_knots_gridlines(u_h.space, N, plotted_patch=k) for k in range(len(xx))]
+    spline_grid_on_patches = (1, )
+
+    #Get grid vals
+    u_ex_vals  = get_grid_vals(u_ex_log, etas, mappings_list=mappings_list, space_kind='h1')
+    u_h_vals   = get_grid_vals(u_h, etas)
+    u_err_vals = [abs(uir - uih) for uir, uih in zip(u_ex_vals, u_h_vals)]
+
+    # Gather arguments
+    funs = (u_ex_vals, 
+            u_h, 
+            {'vals':u_err_vals, 'cmap':'magma'},
+            {'vals':u_ex_vals,                  'plot_type':'surface_plot', 'cbar':False, 'aspect':'auto'}, 
+            {'fem_field':u_h,                   'plot_type':'surface_plot', 'cbar':False, 'aspect':'auto'},
+            {'vals':u_err_vals, 'cmap':'magma', 'plot_type':'surface_plot', 'cbar':False, 'aspect':'auto'})
+    titles = [r'$\phi^{ex}(x,y)$', r'$\phi^h(x,y)$', r'$|(\phi-\phi^h)(x,y)|$', None, None, None]
+    suptitle = r'Solution of Poisson problem $\Delta \phi = f$'
+
+    # Plot
+    plot_2d(
+        funs=funs,                                      # Functions to plot (Fem_field or grid & grid-values) with individual settings
+        titles=titles,                                  # Plot titles
+        suptitle=suptitle,                              # Figure suptitle
+        spline_grid=spline_grid,                        # spline grid lines
+        spline_grid_on_patches=spline_grid_on_patches,  # limitation to patch 1
+        xx=xx, yy=yy
+    )
