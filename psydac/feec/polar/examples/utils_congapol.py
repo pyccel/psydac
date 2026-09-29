@@ -3,6 +3,9 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
+r"""
+Utility functions for 2D examples of broken-FEEC discretization on polar domains.
+"""
 
 import numpy as np
 
@@ -10,6 +13,12 @@ from psydac.ddm.cart import DomainDecomposition
 from psydac.fem.splines import SplineSpace
 from psydac.fem.tensor import TensorFemSpace
 
+__all__ = (
+    "add_colorbar",
+    "check_regular_ring_map",
+    "create_tensor_spline_space",
+    "print_map_polar_coeffs",
+)
 
 def print_map_polar_coeffs(map_discrete):
     """
@@ -65,7 +74,7 @@ def print_map_polar_coeffs(map_discrete):
 
 
 def check_regular_ring_map(map_discrete, verbose=False):
-    """
+    r"""
     Check the first two radial rings of a 2D spline mapping
 
     Performs 3 checks:
@@ -80,7 +89,7 @@ def check_regular_ring_map(map_discrete, verbose=False):
         Discrete spline mapping whose coefficients are inspected.
 
     verbose : bool, default False
-        Print diagnostic information if True.
+        Print diagnostic information if `True`.
     """
     n_s = map_discrete._fields[0]._space._spaces[0]._nbasis
     n_theta = map_discrete._fields[0]._space._spaces[1]._nbasis
@@ -147,7 +156,7 @@ def add_colorbar(im, ax, **kwargs):
     ax : matplotlib.axes.Axes
         Axes to which the colorbar is attached.
     **kwargs
-        Additional keyword arguments passed to ``Figure.colorbar``.
+        Additional keyword arguments passed to `Figure.colorbar`.
 
     Returns
     -------
@@ -163,9 +172,9 @@ def add_colorbar(im, ax, **kwargs):
 
 
 def create_tensor_spline_space(ncells, spline_degrees, periodic, bounds, mpi_comm=None):
-    """
+    r"""
     Create a 2D tensor-product spline finite element space on a rectangular
-    logical domain (e.g. with bounds ``[[0, R], [0, 2*pi]]``).
+    logical domain (e.g. with bounds `[[0, R], [0, 2*pi]]`).
 
     Parameters
     ----------
