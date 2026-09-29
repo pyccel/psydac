@@ -3,16 +3,20 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 # ------------------------------------------------------------------------- #
-"""
+r"""
 Solve manufactured 2D Poisson problems on polar mapped domains.
 
-The script builds analytical or spline-approximated polar domains (disk, target or Czarny),
-assembles and solves the scalar Poisson system, applies optional treatments of the polar singularity
-(C0/C1 CONGA or C1 polar projectors), solves the resulting linear system,
-computes L2/H1 errors against the exact solution, and plots the result.
+This file is not meant to be imported as a standard module, but rather run as
+a script, either serially or in parallel. The script builds analytical or
+spline-approximated polar domains (disk, target, or Czarny), assembles and
+solves the scalar Poisson system, applies optional treatments of the polar
+singularity (C0/C1 CONGA or C1 polar projectors), solves the resulting linear
+system, computes L2/H1 errors against the exact solution, and plots the result.
 
-Example of run:
-mpirun -n 6 python poisson_2d.py -S -d 3 3 -t disk -D 0.2 -m 'C0conga'
+Typing `python poisson_2d.py -h` shows all the available command-line options.
+As an example, a parallel simulation with 6 MPI processes may be run with:
+
+`mpirun -n 6 python poisson_2d.py -S -d 3 3 -t disk -D 0.2 -m 'C0conga'`
 """
 
 from dataclasses import dataclass
@@ -30,9 +34,8 @@ from psydac.utilities.operators import Laplacian
 
 
 # ==============================================================================
-# EXACT SOLUTION
+# MANUFACTURED SOLUTION
 # ==============================================================================
-
 class Poisson2D(PolarModel2D):
     r"""
     Exact solution to the 2D Poisson equation with Dirichlet boundary
