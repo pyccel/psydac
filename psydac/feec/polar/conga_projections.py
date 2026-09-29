@@ -3,6 +3,40 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
+r"""
+CONGA projectors (as matrix-free `LinearOperator` objects) which allow using
+standard tensor-product B-splines in 2D mapped domains with a polar singularity.
+
+The domain is disk-like and parametrized by polar-like coordinates $(s, t)$.
+Usually, the pole is at $s = 0$, while the boundary is at $s = R$. The $t$
+coordinate is always periodic, typically with period $2\pi$. Currently, we
+assume that the logical (a.k.a. parametric) domain is the rectangle
+
+$$\hat{\Omega} := [0, R] \times [0, 2\pi)$$,
+
+where tensor-product B-splines are defined. The physical (a.k.a. computational)
+domain is $\Omega = F(\hat{\Omega})$, where $F: (s, t) \mapsto (x_1, x_2)$ is
+the singular mapping which collapses the side $s = 0$ to a single point which
+we call the "pole".
+
+The application of these projectors to a vector of B-spline coefficients
+forces the corresponding spline function to belong to the proper continuous
+space in the de Rham complex, after the push-forward. Two different families
+of projectors are available: `C0PolarProjection_V[0|1|2]` enforce $C^0$
+continuity at the pole, while `C1PolarProjection_U[0|1|2]` enforce $C^1$.
+
+Additionally, these operator can enforce homogeneous Dirichlet boundary
+conditions at $s = R$. The exact meaning of these boundary conditions depends
+on the space in the de Rham complex.
+
+References
+----------
+The CONGA projectors are part of the "broken-FEEC" approach detailed here:
+
+.. [1] Y. Güçlü, F. Patrizi, M. Campos Pinto, "A broken-FEEC framework for
+   structure-preserving discretizations of polar domains with tensor-product
+   splines", https://doi.org/10.48550/arXiv.2505.15996.
+"""
 
 import numpy as np
 from numpy import pi
@@ -14,6 +48,14 @@ from psydac.linalg.basic import LinearOperator, Vector
 from psydac.linalg.block import BlockLinearOperator
 from psydac.linalg.stencil import StencilVector
 
+__all__ = (
+    "C0PolarProjection_V0",
+    "C0PolarProjection_V1",
+    "C0PolarProjection_V2",
+    "C1PolarProjection_U0",
+    "C1PolarProjection_U1",
+    "C1PolarProjection_U2",
+)
 
 class C0PolarProjection_V0(LinearOperator):
     r"""
