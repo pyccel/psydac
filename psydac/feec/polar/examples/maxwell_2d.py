@@ -3,11 +3,15 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 # ------------------------------------------------------------------------- #
-"""
-Solve the Transverse Electric Time dependent Maxwell Problem on an analytical disk domain.
+r"""
+Solve the 2D transverse-electric time-dependent Maxwell problem on a disk.
 
-Example of run:
-mpirun -n 6 python maxwell_2d.py -S -n 16 32 -d 3 3 -T 1 -D 0.2 -s 1
+This file is not meant to be imported as a standard module, but rather run as
+a script, either serially or in parallel. Typing `python maxwell_2d.py -h`
+shows all the available command-line options. Here is an example command for
+running a parallel simulation with 6 MPI processes:
+
+`mpirun -n 6 python maxwell_2d.py -S -n 16 32 -d 3 3 -T 1 -D 0.2 -s 1`
 """
 
 import os
@@ -22,6 +26,9 @@ from psydac.feec.polar.examples.analytical_solutions import (
 from psydac.feec.polar.examples.polar_model_2d import PolarModel2D
 
 
+# ==============================================================================
+# MANUFACTURED SOLUTION
+# ==============================================================================
 class Maxwell2D(PolarModel2D):
     """Analytical TE Maxwell model on a mapped polar disk."""
 
