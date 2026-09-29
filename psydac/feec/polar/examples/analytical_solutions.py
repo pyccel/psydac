@@ -11,6 +11,10 @@ electric (TE) means that the electric field is a 1-form with two components
 $(E_x, E_y)$, while the magnetic field is a 2-form with a single component
 $B_z$. We assume that a perfect electric conductor (PEC) is placed at the
 boundary of the domain.
+
+This module can be run as a script to visualize the analytical solution of
+interest. The command line argument "--solution" allows to switch between
+"cavity" and "gaussian".
 """
 
 from abc import ABC, abstractmethod
