@@ -3,6 +3,15 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 # ------------------------------------------------------------------------- #
+r"""
+Analytical solutions for the 2D transverse-electric Maxwell problem in a disk.
+
+We collect both time-harmonic solutions and initial conditions. Transverse-
+electric (TE) means that the electric field is a 1-form with two components
+$(E_x, E_y)$, while the magnetic field is a 2-form with a single component
+$B_z$. We assume that a perfect electric conductor (PEC) is placed at the
+boundary of the domain.
+"""
 
 from abc import ABC, abstractmethod
 
