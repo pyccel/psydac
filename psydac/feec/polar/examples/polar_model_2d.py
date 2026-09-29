@@ -3,6 +3,15 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
+r"""
+Module providing a base class for analytical models on mapped 2D polar domains.
+
+This is subclassed in the 2D Poisson and Maxwell examples.
+"""
+
+__all__ = (
+    "PolarModel2D",
+)
 
 class PolarModel2D:
     r"""
@@ -38,7 +47,6 @@ class PolarModel2D:
     geometry_export_time : float
         Time spent exporting the discrete geometry, in seconds.
         It is zero when the analytical mapping is used directly.
-
     """
 
     def __init__(self, domain_log, analytical_mapping):
@@ -63,7 +71,7 @@ class PolarModel2D:
         filename="geo.h5",
         verbose=False,
     ):
-        """
+        r"""
         Build the physical domain and the mapping used by the solver.
 
         Parameters
@@ -82,16 +90,15 @@ class PolarModel2D:
             MPI communicator used to construct and export the discrete geometry.
 
         use_spline_mapping : bool
-            If ``True``, approximate the analytical mapping by a spline mapping.
-            If ``False``, use the analytical mapping directly.
+            If `True`, approximate the analytical mapping by a spline mapping.
+            If `False`, use the analytical mapping directly.
 
         filename : str, default="geo.h5"
             Name of the HDF5 file used to export the spline geometry.
 
         verbose : bool, default=False
-            If ``True``, print additional information when checking the regularity
+            If `True`, print additional information when checking the regularity
             of the spline mapping in serial.
-
         """
 
         if not use_spline_mapping:
