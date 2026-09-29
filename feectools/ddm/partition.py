@@ -2,10 +2,49 @@ import cunumpy as xp
 import numpy as np
 import numpy.ma as ma
 
-from sympy.ntheory import factorint
-
-
 __all__ = ('compute_dims', 'partition_procs_per_patch')
+
+#==============================================================================
+def factorint(n, multiple=False):
+    """
+    Prime factorization of an integer by trial division.
+
+    Drop-in replacement for the subset of ``sympy.ntheory.factorint`` used here.
+    Importing sympy takes ~1 s and is not needed for the small integers
+    (process counts, number of grid points) that are factorized in this module.
+
+    Parameters
+    ----------
+    n : int
+        Integer to factorize.
+
+    multiple : bool
+        If False (default), return a dict {prime: multiplicity}.
+        If True, return the list of primes in ascending order, repeated
+        according to their multiplicity.
+    """
+    n = int(n)
+    factors = {}
+
+    # same conventions as sympy for non-positive input
+    if n == 0:
+        factors[0] = 1
+    else:
+        if n < 0:
+            factors[-1] = 1
+            n = -n
+        p = 2
+        while p * p <= n:
+            while n % p == 0:
+                factors[p] = factors.get(p, 0) + 1
+                n //= p
+            p += 1 if p == 2 else 2
+        if n > 1:
+            factors[n] = factors.get(n, 0) + 1
+
+    if multiple:
+        return [p for p in sorted(factors) for _ in range(factors[p])]
+    return factors
 
 #==============================================================================
 def partition_procs_per_patch(npts, size):

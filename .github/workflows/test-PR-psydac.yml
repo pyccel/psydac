@@ -14,6 +14,7 @@ defaults:
 
 permissions:
   contents: read
+  packages: read
 
 jobs:
   test_psydac:
@@ -22,8 +23,8 @@ jobs:
     container:
       image: ghcr.io/struphy-hub/struphy/ubuntu-with-reqs:latest
       credentials:
-        username: spossann
-        password: ${{ secrets.GHCR_PROJECT_TOKEN }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
 
     strategy:
       fail-fast: false
@@ -84,4 +85,3 @@ jobs:
         if: always()
         run: |
           rm -rf pytest
-  

@@ -132,7 +132,9 @@ runs:
           # accepts, so its build fails under normal (isolated) pip builds
           # which always fetch the latest setuptools. Pin setuptools<81 and
           # build without isolation so this pinned version is actually used.
-          python -m pip install wheel Cython numpy "setuptools<81"
+          # Cython 3.3 rejects pointer indexing in petsc4py 3.23.3's PC.pyx
+          # with "Invalid index type 'int'"; keep its build on Cython 3.2.
+          python -m pip install wheel "Cython>=3.2,<3.3" numpy "setuptools<81"
           python -m pip install --no-build-isolation src/binding/petsc4py
 
     # - name: Check parallel h5py installation

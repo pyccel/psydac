@@ -6,9 +6,7 @@
 from abc                 import abstractmethod
 import cunumpy as xp
 from cunumpy.xp import array_backend
-from scipy.linalg.lapack import dgbtrf, dgbtrs, sgbtrf, sgbtrs, cgbtrf, cgbtrs, zgbtrf, zgbtrs
 from scipy.sparse        import spmatrix, dia_matrix
-from scipy.sparse.linalg import splu
 
 from feectools.linalg.basic    import LinearSolver
 
@@ -52,6 +50,9 @@ class BandedSolver(LinearSolver):
         self._u    = u
         self._l    = l
         self._transposed = transposed
+
+        # imported here: scipy.linalg costs ~0.3 s to import and is only needed once a solver is built
+        from scipy.linalg.lapack import dgbtrf, dgbtrs, sgbtrf, sgbtrs, cgbtrf, cgbtrs, zgbtrf, zgbtrs
 
         # ... LU factorization
         if bmat.dtype == xp.float32:
@@ -185,6 +186,8 @@ class SparseSolver (LinearSolver):
     def __init__(self, spmat, transposed=False):
 
         assert isinstance(spmat, spmatrix)
+
+        from scipy.sparse.linalg import splu  # deferred, see BandedSolver
 
         self._space = xp.ndarray
         self._splu  = splu(spmat.tocsc())

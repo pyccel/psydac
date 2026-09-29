@@ -43,13 +43,16 @@ PSYDAC_BACKEND_NVPYCCEL = {'name': 'pyccel',
                        'openmp'  : False}
 # ...
 
-# Get gfortran version
-gfortran_version_output = subprocess.check_output(['gfortran', '--version']).decode('utf-8') # nosec B603, B607
-gfortran_version_string = re.search(r"(\d+\.\d+\.\d+)", gfortran_version_output).group()
-gfortran_version = Version(gfortran_version_string)
+def _get_gfortran_version():
+    """Version of the installed gfortran. Only queried where it is needed (see below), since it spawns a subprocess."""
+    gfortran_version_output = subprocess.check_output(['gfortran', '--version']).decode('utf-8') # nosec B603, B607
+    gfortran_version_string = re.search(r"(\d+\.\d+\.\d+)", gfortran_version_output).group()
+    return Version(gfortran_version_string)
 
 # Platform-dependent flags
-if platform.system() == "Darwin" and platform.machine() == 'arm64' and gfortran_version >= Version("14"):
+# (the gfortran version is only relevant on Apple silicon; evaluating it lazily avoids running
+#  a subprocess on every import and lets feectools be imported without gfortran on other platforms)
+if platform.system() == "Darwin" and platform.machine() == 'arm64' and _get_gfortran_version() >= Version("14"):
 
     # Apple silicon requires architecture-specific flags (see https://github.com/pyccel/psydac/pull/411)
     # which are only available on GCC version >= 14
