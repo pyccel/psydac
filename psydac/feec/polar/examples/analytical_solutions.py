@@ -13,8 +13,8 @@ $B_z$. We assume that a perfect electric conductor (PEC) is placed at the
 boundary of the domain.
 
 This module can be run as a script to visualize the analytical solution of
-interest. The command line argument "--solution" allows to switch between
-"cavity" and "gaussian".
+interest. The command line argument `--solution` allows switching between
+`"cavity"` and `"gaussian"`.
 """
 
 from abc import ABC, abstractmethod
