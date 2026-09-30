@@ -26,7 +26,7 @@ of projectors are available: `C0PolarProjection_V[0|1|2]` enforce $C^0$
 continuity at the pole, while `C1PolarProjection_U[0|1|2]` enforce $C^1$.
 
 Additionally, these operator can enforce homogeneous Dirichlet boundary
-conditions at $s = R$. The exact meaning of these boundary conditions depends
+conditions at $s = L$. The exact meaning of these boundary conditions depends
 on the space in the de Rham complex.
 
 References
