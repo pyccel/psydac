@@ -62,23 +62,20 @@ class C0PolarProjection_V0(LinearOperator):
     Matrix-free representation of the CONGA projection matrix $\mathbb{P}_V^0$.
 
     This matrix acts on coefficient vectors in the full tensor-product spline
-    basis of $S^{p1, p2}$ on the logical domain. It enforces the coefficient
+    basis of $\mathbb{S}_{p_1, p_2}(\hat{\Omega})$. It enforces the coefficient
     relations required for the corresponding spline, after push-forward, to
     be in the conforming spline space $V_h^0$.
-
-    The matrix is square as in the CONGA approach we keep using the tensor
-    B-spline basis, instead of the polar basis of Toshniwal.
 
     Parameters
     ----------
     W0 : TensorFemSpace
-         The full tensor product spline space $S^{p1,p2}$.
+        The full tensor product spline space $\mathbb{S}_{p_1, p_2}(\hat{\Omega})$.
 
     transposed : bool, default=False
-         If `True`, create the transposed projector $(P^0)^T$.
+        If `True`, create the transposed projection matrix $(\mathbb{P}_V^0)^T$.
 
     hbc : bool, default=False
-         If `True`, impose homogeneous Dirichlet boundary conditions.
+        If `True`, impose homogeneous Dirichlet boundary conditions.
     """
     def __init__(self, W0, *, transposed=False, hbc=False):
         assert isinstance(W0, TensorFemSpace)
@@ -215,10 +212,9 @@ class C0PolarProjection_V1_00(LinearOperator):
     Parameters
     ----------
     W1 : VectorFemSpace
-         Full tensor product spline space of the 1-forms $S^{p1-1, p2} \times S^{p1, p2-1}$.
-
-    transposed : bool, default=False
-         If `True`, create block of transposed projector $(P^1)^T$.
+        The full tensor product spline space of 1-forms
+        $\mathbb{S}_{p_1-1, p_2}(\hat{\Omega})
+        \times \mathbb{S}_{p_1, p_2-1}(\hat{\Omega})$.
     """
     def __init__(self, W1):
         assert isinstance(W1, VectorFemSpace)
@@ -297,10 +293,13 @@ class C0PolarProjection_V1_10(LinearOperator):
     Parameters
     ----------
     W1 : VectorFemSpace
-         Full tensor product spline space of the 1-forms $S^{p1-1, p2} \times S^{p1, p2-1}$.
+        The full tensor product spline space of 1-forms
+        $\mathbb{S}_{p_1-1, p_2}(\hat{\Omega})
+        \times \mathbb{S}_{p_1, p_2-1}(\hat{\Omega})$.
 
     transposed : bool, default=False
-         If `True`, create block of transposed projector $(P^1)^T$.
+        If `True`, create block of transposed projection matrix
+        $(\mathbb{P}_V^1)^T$.
     """
     def __init__(self, W1, transposed=False):
         assert isinstance(W1, VectorFemSpace)
@@ -401,14 +400,17 @@ class C0PolarProjection_V1_11(LinearOperator):
     Parameters
     ----------
     W1 : VectorFemSpace
-         Full tensor product spline space of the 1-forms $S^{p1-1, p2} \times S^{p1, p2-1}$
+        The full tensor product spline space of 1-forms
+        $\mathbb{S}_{p_1-1, p_2}(\hat{\Omega})
+        \times \mathbb{S}_{p_1, p_2-1}(\hat{\Omega})$.
 
     transposed : bool, default=False
-         If `True`, create block of transposed projector $(P^1)^T$.
+        If `True`, create block of transposed projection matrix
+        $(\mathbb{P}_V^1)^T$.
 
     hbc : bool, default=False
-         If `True`, impose homogeneous Dirichlet boundary conditions on the
-         tangential (angular) component of the field.
+        If `True`, impose homogeneous Dirichlet boundary conditions on the
+        tangential (angular) component of the field.
     """
     def __init__(self, W1, transposed=False, hbc=False):
         assert isinstance(W1, VectorFemSpace)
@@ -502,24 +504,24 @@ class C0PolarProjection_V1(BlockLinearOperator):
     Matrix-free representation of the CONGA projection matrix $\mathbb{P}_V^1$.
 
     This matrix acts on coefficient vectors in the full tensor-product spline
-    basis of $S^{p1-1, p2} \times S^{p1, p2-1}$ on the logical domain. It enforces
-    the coefficient relations required for the corresponding spline, after
-    push-forward, to be in the conforming spline space $V_h^1$.
-
-    The matrix is square as in the CONGA approach we keep using the tensor
-    B-spline basis, instead of the polar basis of Toshniwal.
+    basis of $\mathbb{S}_{p_1-1, p_2}(\hat{\Omega})
+    \times \mathbb{S}_{p_1, p_2-1}(\hat{\Omega})$. It enforces the coefficient
+    relations required for the corresponding spline, after push-forward, to
+    be in the conforming spline space $V_h^1$.
 
     Parameters
     ----------
     W1 : VectorFemSpace
-         Full tensor product spline space of the 1-forms $S^{p1-1, p2} \times S^{p1, p2-1}$.
+        The full tensor product spline space of 1-forms
+        $\mathbb{S}_{p_1-1, p_2}(\hat{\Omega})
+        \times \mathbb{S}_{p_1, p_2-1}(\hat{\Omega})$.
 
     transposed : bool, default=False
-         If `True`, create the transposed projector $(P^1)^T$.
+        If `True`, create the transposed projection matrix $(\mathbb{P}_V^1)^T$.
 
     hbc : Boolean
-         If `True`, impose homogeneous Dirichlet boundary conditions on the
-         tangential (angular) component of the field.
+        If `True`, impose homogeneous Dirichlet boundary conditions on the
+        tangential (angular) component of the field.
     """
     def __init__(self, W1, transposed=False, hbc=False):
         assert isinstance(W1, VectorFemSpace)
@@ -545,20 +547,18 @@ class C0PolarProjection_V2(LinearOperator):
     Matrix-free representation of the CONGA projection matrix $\mathbb{P}_V^2$.
 
     This matrix acts on coefficient vectors in the full tensor-product spline
-    basis of $S^{p1-1, p2-1}$ on the logical domain. It enforces the coefficient
+    basis of $\mathbb{S}_{p_1-1, p_2-1}(\hat{\Omega})$. It enforces the coefficient
     relations required for the corresponding spline, after push-forward, to
     be in the conforming spline space $V_h^2$.
-
-    The matrix is square as in the CONGA approach we keep using the tensor
-    B-spline basis, instead of the polar basis of Toshniwal.
 
     Parameters
     ----------
     W2 : TensorFemSpace
-         Full tensor product spline space of the 2-forms $S^{p1-1, p2-1}$.
+        The full tensor product spline space of 2-forms
+        $\mathbb{S}_{p_1-1, p_2-1}(\hat{\Omega})$.
 
     transposed : bool, default=False
-         If `True`, create the transposed projector $(P^2)^T$.
+        If `True`, create the transposed projection matrix $(\mathbb{P}_V^2)^T$.
     """
     def __init__(self, W2, transposed=False):
         assert isinstance(W2, TensorFemSpace)
@@ -697,30 +697,29 @@ class C1PolarProjection_U0(LinearOperator):
     Matrix-free representation of the CONGA projection matrix $\mathbb{P}_U^0$.
 
     This matrix acts on coefficient vectors in the full tensor-product spline
-    basis of $S^{p1, p2}$ on the logical domain. It enforces the coefficient
+    basis of $\mathbb{S}_{p_1, p_2}(\hat{\Omega})$. It enforces the coefficient
     relations required for the corresponding spline, after push-forward, to
     be in the conforming spline space $U_h^0$.
-
-    The matrix is square as in the CONGA approach we keep using the tensor
-    B-spline basis, instead of the polar basis of Toshniwal.
 
     Parameters
     ----------
     W0 : TensorFemSpace
-         The full tensor product spline space $S^{p1,p2}$.
+        The full tensor product spline space $\mathbb{S}_{p_1, p_2}(\hat{\Omega})$.
 
     gamma : float, default=1
-         Free parameter in the entries of $P^0$. Any value provides a valid CONGA
-         projector in $U^0$. However, in order to have the commuting property
-                             $grad P^0 u = P^1 grad u$
-         for $u$ in $Im(\Pi^0)$ and $\Pi^0$ the geometric projector on $W^0$, we should set
-         $\gamma = 1$ (default)
+        Free parameter in the entries of $\mathbb{P}_U^0$. Any value yields
+        a matrix representing a projection onto $U_h^0$. The default $\gamma = 1$
+        gives the projection defined in the reference and satisfies the
+        commuting property
+            $\operatorname{grad} P_U^0 u = P_U^1 \operatorname{grad} u$
+        for $u \in \operatorname{Im}(\Pi_W^0)$, where $\Pi_W^0$ is the
+        geometric projector onto $W_h^0$.
 
     transposed : bool, default=False
-         If `True`, create the transposed projector $(P^0)^T$.
+        If `True`, create the transposed projection matrix $(\mathbb{P}_U^0)^T$.
 
     hbc : bool, default=False
-         If `True`, impose homogeneous Dirichlet boundary conditions.
+        If `True`, impose homogeneous Dirichlet boundary conditions.
     """
     def __init__(self, W0, *, gamma=1, transposed=False, hbc=False):
         assert isinstance(W0, TensorFemSpace)
@@ -898,10 +897,13 @@ class C1PolarProjection_U1_00(LinearOperator):
     Parameters
     ----------
     W1 : VectorFemSpace
-         Full tensor product spline space of 1-forms $S^{p1-1, p2} \times S^{p1, p2-1}$.
+        The full tensor product spline space of 1-forms
+        $\mathbb{S}_{p_1-1, p_2}(\hat{\Omega})
+        \times \mathbb{S}_{p_1, p_2-1}(\hat{\Omega})$.
 
     transposed : bool, default=False
-         If `True`, create block of transposed projector $(P^1)^T$.
+        If `True`, create block of transposed projection matrix
+        $(\mathbb{P}_U^1)^T$.
     """
     def __init__(self, W1, transposed=False):
         assert isinstance(W1, VectorFemSpace)
@@ -1033,10 +1035,13 @@ class C1PolarProjection_U1_10(LinearOperator):
     Parameters
     ----------
     W1 : VectorFemSpace
-         Full tensor product spline space of 1-forms $S^{p1-1, p2} \times S^{p1, p2-1}$.
+        The full tensor product spline space of 1-forms
+        $\mathbb{S}_{p_1-1, p_2}(\hat{\Omega})
+        \times \mathbb{S}_{p_1, p_2-1}(\hat{\Omega})$.
 
     transposed : bool, default=False
-         If `True`, create block of transposed projector $(P^1)^T$.
+        If `True`, create block of transposed projection matrix
+        $(\mathbb{P}_U^1)^T$.
     """
     def __init__(self, W1, transposed=False):
         assert isinstance(W1, VectorFemSpace)
@@ -1185,24 +1190,24 @@ class C1PolarProjection_U1(BlockLinearOperator):
     Matrix-free representation of the CONGA projection matrix $\mathbb{P}_U^1$.
 
     This matrix acts on coefficient vectors in the full tensor-product spline
-    basis of $S^{p1-1, p2} \times S^{p1, p2-1}$ on the logical domain. It enforces
-    the coefficient relations required for the corresponding spline, after
-    push-forward, to be in the conforming spline space $U_h^1$.
-
-    The matrix is square as in the CONGA approach we keep using the tensor
-    B-spline basis, instead of the polar basis of Toshniwal.
+    basis of $\mathbb{S}_{p_1-1, p_2}(\hat{\Omega})
+    \times \mathbb{S}_{p_1, p_2-1}(\hat{\Omega})$. It enforces the coefficient
+    relations required for the corresponding spline, after push-forward, to
+    be in the conforming spline space $U_h^1$.
 
     Parameters
     ----------
     W1 : VectorFemSpace
-         Full tensor product spline space of 1-forms $S^{p1-1, p2} \times S^{p1, p2-1}$.
+        The full tensor product spline space of 1-forms
+        $\mathbb{S}_{p_1-1, p_2}(\hat{\Omega})
+        \times \mathbb{S}_{p_1, p_2-1}(\hat{\Omega})$.
 
     transposed : bool, default=False
-         If `True`, create the transposed projector $(P^1)^T$.
+        If `True`, create the transposed projection matrix $(\mathbb{P}_U^1)^T$.
 
-    hbc :  bool, default=False
-         If `True`, impose homogeneous Dirichlet boundary conditions on the
-         tangential (angular) component of the field.
+    hbc : bool, default=False
+        If `True`, impose homogeneous Dirichlet boundary conditions on the
+        tangential (angular) component of the field.
     """
     def __init__(self, W1, transposed=False, hbc=False):
         assert isinstance(W1, VectorFemSpace)
@@ -1229,20 +1234,18 @@ class C1PolarProjection_U2(C0PolarProjection_V2):
     Matrix-free representation of the CONGA projection matrix $\mathbb{P}_U^2$.
 
     This matrix acts on coefficient vectors in the full tensor-product spline
-    basis of $S^{p1-1, p2-1}$ on the logical domain. It enforces the coefficient
+    basis of $\mathbb{S}_{p_1-1, p_2-1}(\hat{\Omega})$. It enforces the coefficient
     relations required for the corresponding spline, after push-forward, to
     be in the conforming spline space $U_h^2$.
-
-    The matrix is square as in the CONGA approach we keep using the tensor
-    B-spline basis, instead of the polar basis of Toshniwal.
 
     Parameters
     ----------
     W2 : TensorFemSpace
-         Full tensor product spline space of 2-forms $S^{p1-1, p2-1}$.
+        The full tensor product spline space of 2-forms
+        $\mathbb{S}_{p_1-1, p_2-1}(\hat{\Omega})$.
 
     transposed : bool, default=False
-         If `True`, create the transposed projector $(P^2)^T$.
+        If `True`, create the transposed projection matrix $(\mathbb{P}_U^2)^T$.
     """
     def transpose(self, conjugate=False):
         return C1PolarProjection_U2(self.W2, transposed=not self.transposed)
