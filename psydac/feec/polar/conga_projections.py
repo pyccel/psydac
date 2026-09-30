@@ -7,12 +7,12 @@ r"""
 CONGA projectors (as matrix-free `LinearOperator` objects) which allow using
 standard tensor-product B-splines in 2D mapped domains with a polar singularity.
 
-The domain is disk-like and parametrized by polar-like coordinates $(s, t)$.
-Usually, the pole is at $s = 0$, while the boundary is at $s = R$. The $t$
-coordinate is always periodic, typically with period $2\pi$. Currently, we
-assume that the logical (a.k.a. parametric) domain is the rectangle
+The domain is disk-like and parametrized by polar-like coordinates $(s, \theta)$.
+Usually, the pole is at $s = 0$, while the boundary is at $s = L$. The $\theta$
+coordinate is $2\pi$-periodic. We assume that the logical (a.k.a. parametric)
+domain is the strip
 
-$$\hat{\Omega} := (0, R) \times [0, 2\pi)$$
+$$\hat{\Omega} := [0, L] \times (\mathbb{R}/2\pi\mathbb{Z})$$
 
 where tensor-product B-splines are defined. The physical (a.k.a. computational)
 domain is $\Omega = F(\hat{\Omega})$, where $F: (s, t) \mapsto (x_1, x_2)$ is
