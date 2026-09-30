@@ -59,10 +59,15 @@ __all__ = (
 
 class C0PolarProjection_V0(LinearOperator):
     r"""
-    CONGA Projector $P^0$ from the full spline space $S^{p1, p2}$ on logical domain
-    to $V^0$ the pre-polar 0-forms splines. The associate matrix is square as in
-    the CONGA approach we keep using the tensor B-spline basis, instead of the
-    polar basis of Toshniwal. $P^0$ enforces coefficient relations to be in $V^0$.
+    Matrix-free representation of the CONGA projection matrix $\mathbb{P}_V^0$.
+
+    This matrix acts on coefficient vectors in the full tensor-product spline
+    basis of $S^{p1, p2}$ on the logical domain. It enforces the coefficient
+    relations required for the corresponding spline, after push-forward, to
+    be in the conforming spline space $V_h^0$.
+
+    The matrix is square as in the CONGA approach we keep using the tensor
+    B-spline basis, instead of the polar basis of Toshniwal.
 
     Parameters
     ----------
@@ -204,7 +209,8 @@ class C0PolarProjection_V0(LinearOperator):
 
 class C0PolarProjection_V1_00(LinearOperator):
     r"""
-    Upper left block of $P^1$.
+    Matrix-free representation of the upper left block of the CONGA
+    projection matrix $\mathbb{P}_V^1$.
 
     Parameters
     ----------
@@ -285,7 +291,8 @@ class C0PolarProjection_V1_00(LinearOperator):
 
 class C0PolarProjection_V1_10(LinearOperator):
     r"""
-    Lower left block of $P^1$.
+    Matrix-free representation of the lower left block of the CONGA
+    projection matrix $\mathbb{P}_V^1$.
 
     Parameters
     ----------
@@ -388,7 +395,8 @@ class C0PolarProjection_V1_10(LinearOperator):
 
 class C0PolarProjection_V1_11(LinearOperator):
     r"""
-    Lower right block of $P^1$.
+    Matrix-free representation of the lower right block of the CONGA
+    projection matrix $\mathbb{P}_V^1$.
 
     Parameters
     ----------
@@ -491,11 +499,15 @@ class C0PolarProjection_V1_11(LinearOperator):
 
 class C0PolarProjection_V1(BlockLinearOperator):
     r"""
-    CONGA Projector $P^1$ from the full spline space $S^{p1-1, p2} \times S^{p1, p2-1}$
-    on logical domain to $V^1$ the pre-polar 1-forms splines. The associate matrix
-    is square as in the CONGA approach we keep using the tensor B-spline basis,
-    instead of the polar basis of Toshniwal. $P^1$ enforces coefficient relations
-    to be in $V^1$.
+    Matrix-free representation of the CONGA projection matrix $\mathbb{P}_V^1$.
+
+    This matrix acts on coefficient vectors in the full tensor-product spline
+    basis of $S^{p1-1, p2} \times S^{p1, p2-1}$ on the logical domain. It enforces
+    the coefficient relations required for the corresponding spline, after
+    push-forward, to be in the conforming spline space $V_h^1$.
+
+    The matrix is square as in the CONGA approach we keep using the tensor
+    B-spline basis, instead of the polar basis of Toshniwal.
 
     Parameters
     ----------
@@ -530,11 +542,15 @@ class C0PolarProjection_V1(BlockLinearOperator):
 # ---------------- 2-FORMS CONGA PROJECTOR P2 ----------------#
 class C0PolarProjection_V2(LinearOperator):
     r"""
-    CONGA Projector $P^2$ from the full spline space $S^{p1-1, p2-1}$ on logical
-    domain to $V^2$, the pre-polar 2-forms splines. The associate matrix
-    is square, as in the CONGA approach we keep using the tensor B-spline basis,
-    instead of the polar basis of Toshniwal. $P^2$ enforces coefficient relations
-    to be in $V^2$.
+    Matrix-free representation of the CONGA projection matrix $\mathbb{P}_V^2$.
+
+    This matrix acts on coefficient vectors in the full tensor-product spline
+    basis of $S^{p1-1, p2-1}$ on the logical domain. It enforces the coefficient
+    relations required for the corresponding spline, after push-forward, to
+    be in the conforming spline space $V_h^2$.
+
+    The matrix is square as in the CONGA approach we keep using the tensor
+    B-spline basis, instead of the polar basis of Toshniwal.
 
     Parameters
     ----------
@@ -678,10 +694,15 @@ def toeplitz_columns_sym(t, s2, e2, n2):
 
 class C1PolarProjection_U0(LinearOperator):
     r"""
-    CONGA Projector $P^0$ from the full spline space $S^{p1, p2}$ on logical domain
-    to $U^0$ the pre-polar 0-forms splines. The associate matrix is square as in
-    the CONGA approach we keep using the tensor B-spline basis, instead of the
-    polar basis of Toshniwal. $P^0$ enforces coefficient relations to be in $U^0$.
+    Matrix-free representation of the CONGA projection matrix $\mathbb{P}_U^0$.
+
+    This matrix acts on coefficient vectors in the full tensor-product spline
+    basis of $S^{p1, p2}$ on the logical domain. It enforces the coefficient
+    relations required for the corresponding spline, after push-forward, to
+    be in the conforming spline space $U_h^0$.
+
+    The matrix is square as in the CONGA approach we keep using the tensor
+    B-spline basis, instead of the polar basis of Toshniwal.
 
     Parameters
     ----------
@@ -871,7 +892,8 @@ class C1PolarProjection_U0(LinearOperator):
 
 class C1PolarProjection_U1_00(LinearOperator):
     r"""
-    Upper left block of $P^1$.
+    Matrix-free representation of the upper left block of the CONGA
+    projection matrix $\mathbb{P}_U^1$.
 
     Parameters
     ----------
@@ -1005,7 +1027,8 @@ class C1PolarProjection_U1_00(LinearOperator):
 
 class C1PolarProjection_U1_10(LinearOperator):
     r"""
-    Lower left block of $P^1$.
+    Matrix-free representation of the lower left block of the CONGA
+    projection matrix $\mathbb{P}_U^1$.
 
     Parameters
     ----------
@@ -1159,11 +1182,15 @@ class C1PolarProjection_U1_10(LinearOperator):
 
 class C1PolarProjection_U1(BlockLinearOperator):
     r"""
-    CONGA Projector $P^1$ from the full spline space $S^{p1-1, p2} \times S^{p1, p2-1}$
-    on logical domain to $U^1$ the pre-polar 1-forms splines. The associate matrix
-    is square as in the CONGA approach we keep using the tensor B-spline basis,
-    instead of the polar basis of Toshniwal. $P^1$ enforces coefficient relations
-    to be in $U^1$.
+    Matrix-free representation of the CONGA projection matrix $\mathbb{P}_U^1$.
+
+    This matrix acts on coefficient vectors in the full tensor-product spline
+    basis of $S^{p1-1, p2} \times S^{p1, p2-1}$ on the logical domain. It enforces
+    the coefficient relations required for the corresponding spline, after
+    push-forward, to be in the conforming spline space $U_h^1$.
+
+    The matrix is square as in the CONGA approach we keep using the tensor
+    B-spline basis, instead of the polar basis of Toshniwal.
 
     Parameters
     ----------
@@ -1199,11 +1226,15 @@ class C1PolarProjection_U1(BlockLinearOperator):
 # -------------- 2-FORMS CONGA PROJECTOR P2 ----------------#
 class C1PolarProjection_U2(C0PolarProjection_V2):
     r"""
-    CONGA Projector $P^2$ from the full spline space $S^{p1-1, p2-1}$ on logical
-    domain to $U^2$, the pre-polar 2-forms splines. The associate matrix
-    is square, as in the CONGA approach we keep using the tensor B-spline basis,
-    instead of the polar basis of Toshniwal. $P^2$ enforces coefficient relations
-    to be in $U^2$.
+    Matrix-free representation of the CONGA projection matrix $\mathbb{P}_U^2$.
+
+    This matrix acts on coefficient vectors in the full tensor-product spline
+    basis of $S^{p1-1, p2-1}$ on the logical domain. It enforces the coefficient
+    relations required for the corresponding spline, after push-forward, to
+    be in the conforming spline space $U_h^2$.
+
+    The matrix is square as in the CONGA approach we keep using the tensor
+    B-spline basis, instead of the polar basis of Toshniwal.
 
     Parameters
     ----------
