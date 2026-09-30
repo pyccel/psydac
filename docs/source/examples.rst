@@ -27,6 +27,7 @@ but are also generated as part of the documentation and can be accessed here:
    examples/petsc_eigenvalues_regularized_curlcurl
    examples/feec_curlcurl_eigenvalue
    examples/feec_time_harmonic_Maxwell
+   examples/feec_timedomain_maxwell_scattering
    examples/feec_vector_potential_torus
 
 FEEC Examples
