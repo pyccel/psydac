@@ -16,7 +16,7 @@ from psydac.fem.plotting_utilities import plot_field_2d as plot_field, get_patch
 from psydac.mapping.discrete       import SplineCallableMapping
 
 #==============================================================================
-def plot_some_field(Vh):
+def plot_some_field(Vh, outdir):
     uh = FemField(Vh)
 
     domain  = Vh.symbolic_space.domain
@@ -31,13 +31,14 @@ def plot_some_field(Vh):
     else:
         values_type = 'scalar'
     for plot_type in plot_types:
-        plot_fn=f'uh_{domain_type}_{values_type}_{plot_type}_test.pdf'
-        plot_field(fem_field=uh, Vh=Vh, domain=domain, plot_type=plot_type, title='uh', filename=plot_fn, hide_plot=True)
+        plot_fn = outdir / f'uh_{domain_type}_{values_type}_{plot_type}_test.pdf'
+        plot_field(fem_field=uh, Vh=Vh, domain=domain, plot_type=plot_type, title='uh', filename=str(plot_fn), hide_plot=True)
+        assert plot_fn.exists()
 
 #==============================================================================
 @pytest.mark.parametrize('use_scalar_field', [True, False])
 @pytest.mark.parametrize('use_multipatch', [True, False])
-def test_plot_field(use_scalar_field, use_multipatch):
+def test_plot_field(use_scalar_field, use_multipatch, tmp_path):
     """
     tests that plot_field_2d runs for various types of Fem fields
     (the proper content of the plots is not tested here)
@@ -69,7 +70,7 @@ def test_plot_field(use_scalar_field, use_multipatch):
     domain_h = discretize(domain, ncells=ncells)
     Vh       = discretize(V, domain_h, degree=degree)
 
-    plot_some_field(Vh)
+    plot_some_field(Vh, tmp_path)
 
 #==============================================================================
 def test_plot_field_spline_discrete_mapping(tmp_path):
@@ -118,6 +119,7 @@ def test_plot_field_spline_discrete_mapping(tmp_path):
     assert (tmp_path / 'uh.png').exists()
 
 if __name__ == '__main__':
+    from pathlib import Path
     for use_scalar_field in [True, False]:
         for use_multipatch in [True, False]:
-            test_plot_field(use_scalar_field, use_multipatch)
+            test_plot_field(use_scalar_field, use_multipatch, Path('.'))
