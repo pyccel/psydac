@@ -32,7 +32,7 @@ dependencies = [
 
     # Our packages from PyPi
 #    'sympde == 0.19.2',
-    'sympde @ https://github.com/pyccel/sympde/archive/refs/heads/clean-multipatch-domain.zip',
+    'sympde @ https://github.com/pyccel/sympde/archive/refs/heads/new_mappings_09.zip',
     'pyccel >= 2.2.3',
     'gelato == 0.12',
 
