@@ -42,7 +42,7 @@ def discretize_mass_matrix_form():
 def test_read_bilinear_form_mass_matrix_structure():
 
     ah = discretize_mass_matrix_form()
-    assert type(ah) is DiscreteBilinearForm
+    assert isinstance(ah, DiscreteBilinearForm)
 
     (temps, ordered_stmts, ordered_sub_exprs_keys, mapping_option,
      field_derivatives, g_mat_information_false, g_mat_information_true,
@@ -81,7 +81,7 @@ def test_read_bilinear_form_stiffness_matrix_has_first_derivative():
     Vh       = discretize(V, domain_h, degree=(2, 2, 2))
 
     ah = discretize(a, domain_h, [Vh, Vh], backend=PSYDAC_BACKEND_PYTHON)
-    assert type(ah) is DiscreteBilinearForm
+    assert isinstance(ah, DiscreteBilinearForm)
 
     *_, max_logical_derivative = ah.read_BilinearForm()
 

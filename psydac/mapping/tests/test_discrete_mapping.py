@@ -422,7 +422,7 @@ def test_legacy_spline_mapping_names_are_deprecated_aliases():
     assert isinstance(mapping, NurbsMapping)
 
     with pytest.raises(AttributeError):
-        psydac.mapping.discrete.NoSuchMapping
+        _ = psydac.mapping.discrete.NoSuchMapping
 
     assert 'SplineCallableMapping' in psydac.mapping.discrete.__all__
     assert 'SplineMapping' not in psydac.mapping.discrete.__all__

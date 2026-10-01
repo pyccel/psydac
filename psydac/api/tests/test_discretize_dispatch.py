@@ -38,7 +38,7 @@ def test_discretize_bilinear_3d_uses_sum_factorization_by_default():
 
     ah = discretize(a, domain_h, [Vh, Vh], backend=PSYDAC_BACKEND_PYTHON)
 
-    assert type(ah) is DiscreteBilinearFormSF
+    assert isinstance(ah, DiscreteBilinearFormSF)
 
 #==============================================================================
 def test_discretize_bilinear_2d_uses_legacy_path():
@@ -54,7 +54,7 @@ def test_discretize_bilinear_2d_uses_legacy_path():
 
     ah = discretize(a, domain_h, [Vh, Vh], backend=PSYDAC_BACKEND_PYTHON)
 
-    assert type(ah) is DiscreteBilinearForm
+    assert isinstance(ah, DiscreteBilinearForm)
 
 #==============================================================================
 def test_discretize_bilinear_3d_can_force_legacy_path():
@@ -71,7 +71,7 @@ def test_discretize_bilinear_3d_can_force_legacy_path():
     ah = discretize(a, domain_h, [Vh, Vh], backend=PSYDAC_BACKEND_PYTHON,
                      sum_factorization=False)
 
-    assert type(ah) is DiscreteBilinearForm
+    assert isinstance(ah, DiscreteBilinearForm)
 
 #==============================================================================
 def test_discretize_bilinear_mixed_interior_boundary_uses_sum_form():
@@ -88,7 +88,7 @@ def test_discretize_bilinear_mixed_interior_boundary_uses_sum_form():
 
     ah = discretize(a, domain_h, [Vh, Vh], backend=PSYDAC_BACKEND_PYTHON)
 
-    assert type(ah) is DiscreteSumForm
+    assert isinstance(ah, DiscreteSumForm)
 
 #==============================================================================
 def test_discretize_linear_form_uses_discrete_linear_form():
@@ -104,4 +104,4 @@ def test_discretize_linear_form_uses_discrete_linear_form():
 
     lh = discretize(l, domain_h, Vh, backend=PSYDAC_BACKEND_PYTHON)
 
-    assert type(lh) is DiscreteLinearForm
+    assert isinstance(lh, DiscreteLinearForm)

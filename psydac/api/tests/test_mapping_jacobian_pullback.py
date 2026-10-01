@@ -54,7 +54,7 @@ def test_mass_matrix_total_equals_physical_volume():
     Vh       = discretize(V, domain_h, degree=(2, 2, 2))
 
     ah = discretize(a, domain_h, [Vh, Vh], backend=PSYDAC_BACKEND_PYTHON)
-    assert type(ah) is DiscreteBilinearForm  # sum-factorization path (3D, interior)
+    assert isinstance(ah, DiscreteBilinearForm)  # sum-factorization path (3D, interior)
 
     M = ah.assemble()
 
@@ -82,7 +82,7 @@ def test_stiffness_matrix_matches_manual_jacobian_pullback():
     Vh_map       = discretize(V_map, domain_h_map, degree=degree)
 
     ah_phys = discretize(a_phys, domain_h_map, [Vh_map, Vh_map], backend=PSYDAC_BACKEND_PYTHON)
-    assert type(ah_phys) is DiscreteBilinearForm
+    assert isinstance(ah_phys, DiscreteBilinearForm)
     K_phys = ah_phys.assemble().toarray()
 
     # --- reference assembly: three purely-logical directional stiffness

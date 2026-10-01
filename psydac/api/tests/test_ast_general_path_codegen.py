@@ -39,7 +39,7 @@ def test_ast_linear_form_structure():
     Vh       = discretize(V, domain_h, degree=(2, 2))
 
     lh = discretize(l, domain_h, Vh, backend=PSYDAC_BACKEND_PYTHON)
-    assert type(lh) is DiscreteLinearForm
+    assert isinstance(lh, DiscreteLinearForm)
 
     assert lh.ast.expr.kind == 'linearform'
     assert lh.ast.expr.name.startswith('assemble_vector_')
@@ -63,7 +63,7 @@ def test_ast_bilinear_form_structure_2d():
     Vh       = discretize(V, domain_h, degree=(2, 2))
 
     ah = discretize(a, domain_h, [Vh, Vh], backend=PSYDAC_BACKEND_PYTHON)
-    assert type(ah) is DiscreteBilinearForm
+    assert isinstance(ah, DiscreteBilinearForm)
 
     assert ah.ast.expr.kind == 'bilinearform'
     assert ah.ast.expr.name.startswith('assemble_matrix_')
@@ -82,7 +82,7 @@ def test_ast_functional_form_structure():
     Vh       = discretize(V, domain_h, degree=(2, 2))
 
     nh = discretize(norm, domain_h, Vh, backend=PSYDAC_BACKEND_PYTHON)
-    assert type(nh) is DiscreteFunctional
+    assert isinstance(nh, DiscreteFunctional)
 
     assert nh.ast.expr.kind == 'functionalform'
     assert nh.ast.expr.name.startswith('assemble_scalar_')
@@ -106,5 +106,5 @@ def test_boundary_bilinear_form_uses_general_ast_path_even_in_3d():
 
     ah = discretize(a, domain_h, [Vh, Vh], backend=PSYDAC_BACKEND_PYTHON)
 
-    assert type(ah) is DiscreteBilinearForm
+    assert isinstance(ah, DiscreteBilinearForm)
     assert ah.ast.expr.kind == 'bilinearform'

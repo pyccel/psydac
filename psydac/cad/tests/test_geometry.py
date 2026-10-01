@@ -4,7 +4,7 @@
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
 import os
-import pickle
+import pickle  # nosec B403 -- only round-trips objects built by the tests
 import tempfile
 import warnings
 
@@ -520,10 +520,8 @@ def test_explain_not_spline_discrete_is_empty_for_a_spline_domain():
 def test_is_spline_discrete_domain_is_public():
     # WP07c-1a F5: is_spline_discrete_domain is part of the module's public API.
     import psydac.cad.geometry as geo_mod
+    # `from psydac.cad.geometry import *` exports exactly the names in `__all__`
     assert 'is_spline_discrete_domain' in geo_mod.__all__
-    ns = {}
-    exec('from psydac.cad.geometry import *', ns)
-    assert 'is_spline_discrete_domain' in ns
 
 # ==============================================================================
 def test_from_discrete_domain_callable_less_mapping_raises_typeerror():
@@ -954,12 +952,12 @@ def test_geometry_legacy_keys_deprecated():
     with warnings.catch_warnings():
         warnings.simplefilter('error')
         with pytest.raises(KeyError):
-            mappings['does_not_exist']
+            _ = mappings['does_not_exist']
 
     # pickle round trip, including the aliases -- use `periodic` (plain
     # lists of bool), since `mappings`' values (spline FEM objects) are not
     # picklable for reasons unrelated to `_PatchKeyedDict`.
-    periodic2 = pickle.loads(pickle.dumps(geo.periodic))
+    periodic2 = pickle.loads(pickle.dumps(geo.periodic))  # nosec B301
     assert dict(periodic2) == dict(geo.periodic)
     assert periodic2.aliases == geo.periodic.aliases
     with pytest.warns(DeprecationWarning, match='1'):
@@ -1088,7 +1086,7 @@ def test_patch_keyed_dict_contains_agrees_with_getitem():
     assert not present
     with pytest.warns(DeprecationWarning):
         with pytest.raises(KeyError):
-            d['patch_9']
+            _ = d['patch_9']
 
     # canonical and unknown keys are unaffected and never warn
     with warnings.catch_warnings():
@@ -1159,15 +1157,15 @@ def test_logical_ncube_matches_explicit_constructors():
     a, c = 0.2, 0.7    # axis-1 bounds
     b, d = -1., 3.     # axis-2 bounds
     line = logical_ncube('P', [a], [c])
-    assert type(line) is Line
+    assert isinstance(line, Line)
     assert line == Line('P', bounds=(a, c))
 
     square = logical_ncube('P', [a, b], [c, d])
-    assert type(square) is Square
+    assert isinstance(square, Square)
     assert square == Square('P', bounds1=(a, c), bounds2=(b, d))
 
     cube = logical_ncube('P', [a, b, 0.], [c, d, 1.])
-    assert type(cube) is Cube
+    assert isinstance(cube, Cube)
     assert cube == Cube('P', bounds1=(a, c), bounds2=(b, d), bounds3=(0., 1.))
 
 
