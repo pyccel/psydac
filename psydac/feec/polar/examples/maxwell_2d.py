@@ -1121,6 +1121,25 @@ def run_maxwell_2d_TE(
             # save fields and errors at final time
             fig1.savefig(f"{visdir}/fields_and_errors_T{rp_str}.png", dpi=300)
 
+    # --------------------------------------------------------------------------
+    # Final cleanup
+    # --------------------------------------------------------------------------
+    h5_files = [
+        "B.h5",
+        "Ex.h5",
+        "Ey.h5",
+        "B_final.h5",
+        "Ex_final.h5",
+        "Ey_final.h5",
+    ]
+
+    if use_spline_mapping:
+        h5_files.append("geo.h5")
+
+    if mpi_comm.rank == 0:
+        for f in h5_files:
+            os.remove(f)
+
     return locals()
 
 
