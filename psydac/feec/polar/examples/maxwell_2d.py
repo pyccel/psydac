@@ -314,8 +314,9 @@ def run_maxwell_2d_TE(
     assert study in ["L2_proj", "maxwell_bessel", "maxwell_wave"]
     study_L2_proj = study == "L2_proj"
 
-    visdir = f"plots_{study}"
-    os.makedirs(visdir, exist_ok=True)
+    if save_figs:
+        visdir = f"plots_{study}"
+        os.makedirs(visdir, exist_ok=True)
 
     # Logical domain: [0, R] x [0, 2pi]
     logical_bounds = [[0, R], [0, 2 * np.pi]]
