@@ -426,7 +426,7 @@ def main(solution_name):
     ) - (Ex_values[1:-1, 2:] - Ex_values[1:-1, 0:-2]) / (2 * dy)
 
     # Maximum consistency error on grid
-    valerr = abs(Bt_values + curlE_values).max()
+    valerr = abs((Bt_values + curlE_values)[1:-1, 1:-1]).max()
     print(f"|curl E + d_t B| <= {valerr}")
 
     # Data slicing for quiver plots
