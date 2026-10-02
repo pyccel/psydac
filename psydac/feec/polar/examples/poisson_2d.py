@@ -475,17 +475,17 @@ def plot_solution(use_spline_mapping, model, ncells, periodic, V0_h, refine=10):
 def run_poisson_2d(
     *,
     test_case,
-    ncells,
-    degree,
     shift_D,
     R,
+    ncells,
+    degree,
     use_spline_mapping,
     smooth_method,
+    alphaCONGA,
     tol,
     maxiter,
-    alphaCONGA,
-    verbose=False,
-    mpi_comm,
+    verbose,
+    mpi_comm, # given by function 'parallel_run_from_cli'
 ):
 
     from sympde.calculus import dot, grad
@@ -864,7 +864,7 @@ def parse_input_arguments():
     parser.add_argument(
         "--maxiter",
         type=int,
-        default=100000,
+        default=1000,
         help="Max number of linear solver iterations",
     )
 
