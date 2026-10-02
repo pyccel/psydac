@@ -266,6 +266,7 @@ def run_maxwell_2d_TE(
     nsteps,
     tend,
     tol,
+    maxiter,
     verbose,
     use_scipy,
     save_figs,
@@ -484,7 +485,7 @@ def run_maxwell_2d_TE(
         fh = Pi1((fx_call, fy_call))
         fh_filter = Pi1((fx_call, fy_call))
 
-        M1_inv = inverse(M1, "cg", verbose=verbose, tol=tol)
+        M1_inv = inverse(M1, "cg", verbose=verbose, tol=tol, maxiter=maxiter)
         print("using standard L2 projection")
         fh_c = M1_inv @ tilde_f
         fh_c = P1 @ fh_c
@@ -728,7 +729,7 @@ def run_maxwell_2d_TE(
         )
 
     else:
-        M1_inv = inverse(M1, "cg", verbose=verbose, tol=tol)
+        M1_inv = inverse(M1, "cg", verbose=verbose, tol=tol, maxiter=maxiter)
         step_ampere_2d = M1_inv @ P1_T @ D1_T @ M2
         step_faraday_2d = D1 @ P1
 
@@ -1224,10 +1225,10 @@ def parse_input_arguments():
     )
 
     parser.add_argument(
-        "--scipy",
-        action="store_true",
-        dest="use_scipy",
-        help="Use scipy matrices and direct inverses",
+        "--maxiter",
+        type=int,
+        default=1000,
+        help="Max number of linear solver iterations",
     )
 
     parser.add_argument(
@@ -1235,6 +1236,13 @@ def parse_input_arguments():
         "--verbose",
         action="store_true",
         help="Print L2-norm of residual at each linear solver iteration",
+    )
+
+    parser.add_argument(
+        "--scipy",
+        action="store_true",
+        dest="use_scipy",
+        help="Use SciPy matrices and direct inverses",
     )
 
     parser.add_argument(
