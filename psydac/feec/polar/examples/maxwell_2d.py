@@ -256,22 +256,22 @@ def plot_curve_along_s(
 # ==============================================================================
 def run_maxwell_2d_TE(
     *,
+    study,
+    use_spline_mapping,
+    shift_D,
     ncells,
-    smooth,
     degree,
+    smooth,
+    splitting_order,
     nsteps,
     tend,
-    splitting_order,
-    shift_D,
-    use_spline_mapping,
     tol,
-    cfl=0.9,
-    show_figs=True,
-    study="maxwell_bessel",
-    use_scipy=False,
-    verbose=False,
-    save_figs=False,
-    mpi_comm,
+    verbose,
+    use_scipy,
+    save_figs,
+    cfl=0.9,         # not read from CLI
+    show_figs=True,  # not read from CLI
+    mpi_comm,        # given by function 'parallel_run_from_cli'
 ):
     import matplotlib.pyplot as plt
     from sympde.calculus import dot
@@ -1130,7 +1130,7 @@ def parse_input_arguments():
 
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        description="Solve Transverse Time Harmonic Maxwell system on analytical disk with CONGA polar spline method.",
+        description="Solve time-harmonic 2D transverse-electric (TE) Maxwell system in circular domain with CONGA polar spline method.",
     )
 
     parser.add_argument(
@@ -1153,7 +1153,7 @@ def parse_input_arguments():
         type=float,
         default=0,
         dest="shift_D",
-        help="Shafranov shift for parametrization of Disk",
+        help="Shafranov shift for parametrization of disk",
     )
 
     parser.add_argument(
@@ -1162,8 +1162,20 @@ def parse_input_arguments():
         nargs=2,
         type=int,
         default=[10, 20],
+        metavar=("N1", "N2"),
         dest="ncells",
         help="Number of grid cells (elements) along each dimension",
+    )
+
+    parser.add_argument(
+        "-d",
+        "--degree",
+        nargs=2,
+        type=int,
+        default=[3, 3],
+        metavar=("P1", "P2"),
+        dest="degree",
+        help="Spline degree along each dimension",
     )
 
     parser.add_argument(
@@ -1174,16 +1186,6 @@ def parse_input_arguments():
         dest="smooth",
         choices=[0, 1],
         help="Smoothness at the pole: select 0 for C^0, and 1 for C^1.",
-    )
-
-    parser.add_argument(
-        "-d",
-        "--degree",
-        nargs=2,
-        type=int,
-        default=[3, 3],
-        dest="degree",
-        help="Polynomial spline degrees",
     )
 
     parser.add_argument(
@@ -1212,12 +1214,13 @@ def parse_input_arguments():
         metavar="END_TIME",
         help="Run simulation until given final time",
     )
+    # ...
 
     parser.add_argument(
         "--tol",
         type=float,
         default=1e-7,
-        help="Tolerance for iterative solver (L2-norm of residual)",
+        help="Convergence tolerance for iterative linear solver (L2-norm of residual)",
     )
 
     parser.add_argument(
@@ -1231,7 +1234,7 @@ def parse_input_arguments():
         "-v",
         "--verbose",
         action="store_true",
-        help="Print convergence information of iterative solver",
+        help="Print L2-norm of residual at each linear solver iteration",
     )
 
     parser.add_argument(
