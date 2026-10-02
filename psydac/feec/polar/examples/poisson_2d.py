@@ -487,6 +487,7 @@ def run_poisson_2d(
     verbose,
     mpi_comm, # given by function 'parallel_run_from_cli'
 ):
+    import os
 
     from sympde.calculus import dot, grad
     from sympde.expr import BilinearForm, LinearForm, integral
@@ -769,6 +770,20 @@ def run_poisson_2d(
     # Root process: load numerical solution from hdf5 file and plot it
     if mpi_rank == 0:
         plot_solution(use_spline_mapping, model, ncells, periodic, V0_h, refine=N)
+
+    # --------------------------------------------------------------------------
+    # Final cleanup
+    # --------------------------------------------------------------------------
+    h5_files = [
+        "fields.h5",
+    ]
+
+    if use_spline_mapping:
+        h5_files.append("geo.h5")
+
+    if mpi_rank == 0:
+        for f in h5_files:
+            os.remove(f)
 
     return locals()
 
