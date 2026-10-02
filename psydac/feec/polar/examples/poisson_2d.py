@@ -8,7 +8,7 @@ Solve manufactured 2D Poisson problems on polar mapped domains.
 
 This file is not meant to be imported as a standard module, but rather run as
 a script, either serially or in parallel. The script builds analytical or
-spline-approximated polar domains (disk, target, or Czarny), assembles and
+spline-approximated disk-like domains (disk, target, or Czarny), assembles and
 solves the scalar Poisson system, applies optional treatments of the polar
 singularity (C0/C1 CONGA or C1 polar projectors), solves the resulting linear
 system, computes L2/H1 errors against the exact solution, and plots the result.
@@ -481,8 +481,8 @@ def run_poisson_2d(
     R,
     use_spline_mapping,
     smooth_method,
-    cgtol,
-    cgiter,
+    tol,
+    maxiter,
     alphaCONGA,
     verbose=False,
     mpi_comm,
@@ -681,21 +681,21 @@ def run_poisson_2d(
     # Solve linear system
     t0 = time()
     if smooth_method in ("polar-std", "polar-spec"):
-        Sp_inv = inverse(Sp, "cg", tol=cgtol, maxiter=cgiter, verbose=verbose)
+        Sp_inv = inverse(Sp, "cg", tol=tol, maxiter=maxiter, verbose=verbose)
         xp = Sp_inv.dot(bp)
         xsol = proj.convert_to_tensor_basis(xp)
         info = Sp_inv.get_info()
     elif smooth_method == "C1conga":
-        Sc_inv = inverse(Sc, "cg", tol=cgtol, maxiter=cgiter, verbose=verbose)
+        Sc_inv = inverse(Sc, "cg", tol=tol, maxiter=maxiter, verbose=verbose)
         xsol = Sc_inv.dot(bc)
         info = Sc_inv.get_info()
     elif smooth_method == "C0conga":
-        Sc_inv = inverse(Sc, "cg", tol=cgtol, maxiter=cgiter, verbose=verbose)
+        Sc_inv = inverse(Sc, "cg", tol=tol, maxiter=maxiter, verbose=verbose)
         xsol = Sc_inv.dot(bc)
         info = Sc_inv.get_info()
     elif smooth_method == "None":
         pc = S.diagonal(inverse=True)
-        S_inv = inverse(S, "cg", pc=pc, tol=cgtol, maxiter=cgiter, verbose=verbose)
+        S_inv = inverse(S, "cg", pc=pc, tol=tol, maxiter=maxiter, verbose=verbose)
         xsol = S_inv.dot(b)
         info = S_inv.get_info()
     t1 = time()
@@ -781,7 +781,7 @@ def parse_input_arguments():
 
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        description="Solve Poisson's equation on a 2D polar domain.",
+        description="Solve Poisson's equation on a 2D disk-like domain with a singular mapping.",
     )
 
     parser.add_argument(
@@ -790,7 +790,7 @@ def parse_input_arguments():
         choices=("disk", "target", "czarny"),
         default="disk",
         dest="test_case",
-        help="Test case",
+        help="Test case defining geometry and parametrization",
     )
 
     parser.add_argument(
@@ -798,21 +798,15 @@ def parse_input_arguments():
         type=float,
         default=0,
         dest="shift_D",
-        help="Shafranov shift for parametrization of Disk",
+        help="[disk only] Shafranov shift for parametrization",
     )
 
     parser.add_argument(
-        "-R", type=float, default=1.0, dest="R", help="Radius of the disk"
-    )
-
-    parser.add_argument(
-        "-d",
-        type=int,
-        nargs=2,
-        default=[2, 2],
-        metavar=("P1", "P2"),
-        dest="degree",
-        help="Spline degree along each dimension",
+        "-R",
+        type=float,
+        default=1.0,
+        dest="R",
+        help="[disk only] Radius of the disk",
     )
 
     parser.add_argument(
@@ -827,6 +821,16 @@ def parse_input_arguments():
     )
 
     parser.add_argument(
+        "-d",
+        "--degree",
+        type=int,
+        nargs=2,
+        default=[2, 2],
+        metavar=("P1", "P2"),
+        help="Spline degree along each dimension",
+    )
+
+    parser.add_argument(
         "-S",
         action="store_true",
         dest="use_spline_mapping",
@@ -838,14 +842,7 @@ def parse_input_arguments():
         choices=("polar-spec", "polar-std", "C0conga", "C1conga", "None"),
         default="C1conga",
         dest="smooth_method",
-        help="Apply smoothing method at pole either C1-conforming geometry specific / C1-conforming standardized / C1-CONGA / C0-CONGA",
-    )
-
-    parser.add_argument(
-        "-v",
-        action="store_true",
-        dest="verbose",
-        help="See CG iterations and L2 norm of the residuals",
+        help="Choose smoothing method at pole: C1-conforming geometry specific / C1-conforming standardized / C0-CONGA / C1-CONGA / None",
     )
 
     parser.add_argument(
@@ -857,19 +854,25 @@ def parse_input_arguments():
     )
 
     parser.add_argument(
-        "--cgtol",
+        "--tol",
         type=float,
         default=1e-10,
-        dest="cgtol",
-        help="absolute tol for the residual error to stop CG",
+        dest="tol",
+        help="Convergence tolerance for iterative linear solver (L2-norm of residual)",
     )
 
     parser.add_argument(
         "--maxiter",
         type=int,
         default=100000,
-        dest="cgiter",
-        help="max number of iterations for CG",
+        help="Max number of linear solver iterations",
+    )
+
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Print L2-norm of residual at each linear solver iteration",
     )
 
     # Read and return input arguments
