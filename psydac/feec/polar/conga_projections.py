@@ -706,25 +706,15 @@ class C1PolarProjection_U0(LinearOperator):
     W0 : TensorFemSpace
         The full tensor product spline space $\mathbb{S}_{p_1, p_2}(\hat{\Omega})$.
 
-    gamma : float, default=1
-        Free parameter in the entries of $\mathbb{P}_U^0$. Any value yields
-        a matrix representing a projection onto $U_h^0$. The default $\gamma = 1$
-        gives the projection defined in the reference and satisfies the
-        commuting property
-            $\operatorname{grad} P_U^0 u = P_U^1 \operatorname{grad} u$
-        for $u \in \operatorname{Im}(\Pi_W^0)$, where $\Pi_W^0$ is the
-        geometric projector onto $W_h^0$.
-
     transposed : bool, default=False
         If `True`, create the transposed projection matrix $(\mathbb{P}_U^0)^T$.
 
     hbc : bool, default=False
         If `True`, impose homogeneous Dirichlet boundary conditions.
     """
-    def __init__(self, W0, *, gamma=1, transposed=False, hbc=False):
+    def __init__(self, W0, *, transposed=False, hbc=False):
         assert isinstance(W0, TensorFemSpace)
 
-        self.gamma = gamma
         self.W0 = W0
         self.transposed = transposed
         self.hbc = hbc
@@ -779,19 +769,15 @@ class C1PolarProjection_U0(LinearOperator):
                 x1 = angle_comm.allreduce(x1, op=MPI.SUM)
 
             if self.transposed:
-                y[0, s2 : e2 + 1] = self.gamma * x0 + self.gamma * x1
+                y[0, s2 : e2 + 1] = x0 + x1
                 y[1, s2 : e2 + 1] = (
-                    (1 - self.gamma) * x0
-                    + (1 - self.gamma) * x1
                     + np.cos(theta_local) * sum_cos
                     + np.sin(theta_local) * sum_sin
                 )
             else:
-                y[0, s2 : e2 + 1] = self.gamma * x0 + (1 - self.gamma) * x1
+                y[0, s2 : e2 + 1] = x0
                 y[1, s2 : e2 + 1] = (
-                    self.gamma * x0
-                    + (1 - self.gamma) * x1
-                    + np.cos(theta_local) * sum_cos
+                    x0 + np.cos(theta_local) * sum_cos
                     + np.sin(theta_local) * sum_sin
                 )
             y[2 : e1 + 1, s2 : e2 + 1] = x[2 : e1 + 1, s2 : e2 + 1]
@@ -806,7 +792,7 @@ class C1PolarProjection_U0(LinearOperator):
 
     def transpose(self, conjugate=False):
         return C1PolarProjection_U0(
-            self.W0, gamma=self.gamma, transposed=not self.transposed, hbc=self.hbc
+            self.W0, transposed=not self.transposed, hbc=self.hbc
         )
 
     def tosparse(self):
@@ -821,18 +807,13 @@ class C1PolarProjection_U0(LinearOperator):
         data, cols, rows = [], [], []
 
         if rank_at_polar_edge:
-            # matrix of size n2*n2 with all entries equal to gamma / n2
-            data = (self.gamma / n2) * np.ones(n2 * (e2 - s2 + 1))
-            # matrix of size n2*n2 with all entries equal to (1 - gamma) / n2
-            data = np.concatenate(
-                (data, (1 - self.gamma) / n2 * np.ones((e2 - s2 + 1) * n2))
-            )
-            rows = np.tile(np.repeat(np.arange(s2, e2 + 1), n2), 2)
+            # matrix of size n2*n2 with all entries equal to 1 / n2
+            data = (1 / n2) * np.ones(n2 * (e2 - s2 + 1))
+            rows = np.tile(np.repeat(np.arange(s2, e2 + 1), n2), 1)
             cols = np.tile(np.arange(n2), e2 - s2 + 1)
-            cols = np.concatenate((cols, np.tile(np.arange(n2, 2 * n2), e2 - s2 + 1)))
         if e1 > 1 > s1:
-            # matrix of size n2*n2 with all entries equal to gamma / n2
-            d_block2 = (self.gamma / n2) * np.ones((e2 - s2 + 1) * n2)
+            # matrix of size n2*n2 with all entries equal to 1 / n2
+            d_block2 = (1 / n2) * np.ones((e2 - s2 + 1) * n2)
             data = np.concatenate((data, d_block2))
             rows = np.concatenate(
                 (rows, np.repeat(np.arange(n2 + s2, n2 + e2 + 1), n2))
@@ -840,9 +821,7 @@ class C1PolarProjection_U0(LinearOperator):
             cols = np.concatenate((cols, np.tile(np.arange(n2), e2 - s2 + 1)))
 
             # matrix p
-            d_block2 = (1 - self.gamma) / n2 * np.ones(
-                (e2 - s2 + 1) * n2
-            ) + 2 / n2 * toeplitz_columns_sym(theta, s2, e2, n2)
+            d_block2 = 2 / n2 * toeplitz_columns_sym(theta, s2, e2, n2)
             data = np.concatenate((data, d_block2))
             rows = np.concatenate(
                 (rows, np.repeat(np.arange(n2 + s2, n2 + e2 + 1), n2))

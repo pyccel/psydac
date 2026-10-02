@@ -640,11 +640,8 @@ def run_poisson_2d(
         bp = proj.change_rhs_basis(b)
         alpha = "None"
     elif smooth_method == "C1conga":
-        gamma = 1.0  # any value would be ok.
         alpha = alphaCONGA
-        P0 = C1PolarProjection_U0(
-            V0_h, gamma=gamma, hbc=True
-        )  # hbc imposes the boundary conditions
+        P0 = C1PolarProjection_U0(V0_h, hbc=True)  # hbc imposes the boundary conditions
         Sc = CongaLaplacian(S, M, P0, alpha)
         bc = P0.T.dot(b)
     elif smooth_method == "C0conga":
