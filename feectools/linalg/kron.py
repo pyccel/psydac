@@ -528,12 +528,6 @@ class KroneckerLinearSolver(LinearOperator):
     @property
     def dtype(self):
         return None
-    
-    def toarray(self):
-        raise NotImplementedError('toarray() is not defined for KroneckerLinearSolvers.')
-    
-    def tosparse(self):
-        raise NotImplementedError('tosparse() is not defined for KroneckerLinearSolvers.')
 
     def transpose(self, conjugate=False):
         new_domain = self._codomain
