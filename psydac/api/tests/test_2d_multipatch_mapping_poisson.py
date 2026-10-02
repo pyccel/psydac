@@ -448,10 +448,9 @@ if __name__ == '__main__':
     N = 100
     etas, xx, yy = get_plotting_grid(mappings, (N, N))
 
-    # Get spline grid (only on patch 1)
-    N = 20
-    spline_grid = [get_patch_knots_gridlines(u_h.space, N, plotted_patch=k) for k in range(len(xx))]
-    spline_grid_on_patches = (1, )
+    # Gather spline grid options
+    spline_grid      = u_h.space
+    plot_spline_grid = (1, )
 
     #Get grid vals
     u_ex_vals  = get_grid_vals(u_ex_log, etas, mappings_list=mappings_list, space_kind='h1')
@@ -462,18 +461,18 @@ if __name__ == '__main__':
     funs = (u_ex_vals, 
             u_h, 
             {'vals':u_err_vals, 'cmap':'magma'},
-            {'vals':u_ex_vals,                  'plot_type':'surface_plot', 'cbar':False, 'aspect':'auto'}, 
-            {'fem_field':u_h,                   'plot_type':'surface_plot', 'cbar':False, 'aspect':'auto'},
-            {'vals':u_err_vals, 'cmap':'magma', 'plot_type':'surface_plot', 'cbar':False, 'aspect':'auto'})
+            {'vals':u_ex_vals,                  'plot_type':'surface_plot'},
+            {'fem_field':u_h,                   'plot_type':'surface_plot'},
+            {'vals':u_err_vals, 'cmap':'magma', 'plot_type':'surface_plot'})
     titles = [r'$\phi^{ex}(x,y)$', r'$\phi^h(x,y)$', r'$|(\phi-\phi^h)(x,y)|$', None, None, None]
     suptitle = r'Solution of Poisson problem $\Delta \phi = f$'
 
     # Plot
     plot_2d(
-        funs=funs,                                      # Functions to plot (Fem_field or grid & grid-values) with individual settings
-        titles=titles,                                  # Plot titles
-        suptitle=suptitle,                              # Figure suptitle
-        spline_grid=spline_grid,                        # spline grid lines
-        spline_grid_on_patches=spline_grid_on_patches,  # limitation to patch 1
-        xx=xx, yy=yy
+        funs=funs,                            # Functions to plot (Fem_field or grid values) with individual settings
+        titles=titles,                        # Plot titles
+        suptitle=suptitle,                    # Figure suptitle
+        plot_spline_grid=plot_spline_grid,    # plot spline grid only on patch 1
+        spline_grid=spline_grid,              # spline grid corresponding to u_h.space (required for the 4 out of 6 grid value plots)
+        xx=xx, yy=yy                          # mesh grid, required for the 4 out of 6 grid value plots
     )

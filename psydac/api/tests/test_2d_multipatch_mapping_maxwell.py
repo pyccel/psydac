@@ -258,31 +258,19 @@ if __name__ == '__main__':
 
     # New plotting utilities
     from psydac.fem.plotting_utilities2 import plot_2d
-    #plot_2d(
-    #    suptitle=r'approximation of solution $u$, $x$ component',
-    #    funs=(E_x_vals, Eh_x_vals, E_x_err),
-    #    titles=[r'$u^{ex}_x(x,y)$', r'$u^h_x(x,y)$', r'$|(u^{ex}-u^h)_x(x,y)|$'],
-    #    xx=xx,
-    #    yy=yy,
-    #)
-#
-    #plot_2d(
-    #    suptitle=r'approximation of solution $u$, $y$ component',
-    #    funs=(E_y_vals, {'fem_field':Eh, 'components':'y'}, {'vals':E_y_err, 'cmap':'magma'}),
-    #    titles=[r'$u^{ex}_y(x,y)$', r'$u^h_y(x,y)$', r'$|(u^{ex}-u^h)_y(x,y)|$'],
-    #    xx=xx,
-    #    yy=yy,
-    #    plot_spline_grid=True,
-    #    plot_patch_boundaries=True
-    #)
 
     plot_2d(
         suptitle=r'Approximation of solution $u$',
+                            # *
         funs=(E_x_vals, Eh_x_vals,                          {'vals':E_x_err, 'cmap':'magma'},
               E_y_vals, {'fem_field':Eh, 'components':'y'}, {'vals':E_y_err, 'cmap':'magma'}),
         titles=(r'$u^{ex}_x(x,y)$', r'$u^h_x(x,y)$', r'$|(u^{ex}-u^h)_x(x,y)|$',
                 r'$u^{ex}_y(x,y)$', r'$u^h_y(x,y)$', r'$|(u^{ex}-u^h)_y(x,y)|$'),
         xx=xx, yy=yy,
-        plot_spline_grid=True,
-        plot_patch_boundaries=True
+        plot_spline_grid=True,      # on all patches - enough only for the 1 FemField plot
+        spline_grid=Eh.space,       # relevant for the 5 grid value plots
+        plot_patch_boundaries=True, # on all patches - enough only for the 1 FemField plot
+        patch_boundaries=Eh.space   # relevant for the 5 grid value plots
     )
+    # * highlighting that individual components of vector-valued FemFields can be plotted without having to obtain the grid values manually
+    # i.e., {'fem_field':Eh, 'components':'y'} instead of Eh_y_vals is possible
