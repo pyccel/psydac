@@ -15,7 +15,7 @@ domain is the strip
 $$\hat{\Omega} := [0, L] \times (\mathbb{R}/2\pi\mathbb{Z})$$
 
 where tensor-product B-splines are defined. The physical (a.k.a. computational)
-domain is $\Omega = F(\hat{\Omega})$, where $F: (s, t) \mapsto (x_1, x_2)$ is
+domain is $\Omega = F(\hat{\Omega})$, where $F: (s, \theta) \mapsto (x_1, x_2)$ is
 the singular mapping which collapses the side $s = 0$ to a single point which
 we call the "pole".
 
