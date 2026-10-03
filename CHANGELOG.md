@@ -6,6 +6,10 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+-   #576 : Add module `psydac.feec.polar.conga_projections` with broken FEEC polar projections in 2D
+-   #576 : Add 2D Poisson and TE Maxwell examples on polar mapped domains in `psydac/feec/polar/examples`
+-   #576 : Add module `psydac.utilities.parallel_utils` for parallel execution and gathering variable-length arrays
+-   #576 : Add module `psydac.utilities.operators` with class `Laplacian` used in some old examples
 -   #577 : Add an installation configuration option to choose the backend language
 -   #567 : Improve `psydac test` command (with several new features)
 -   #565 : Expand editable install info in `README.md`
@@ -13,6 +17,8 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+-   #576 : Fix bug in `TensorFemSpace.eval_field` caused by round-off at MPI subdomain boundaries
+-   #576 : Require `sympde==0.19.3` which fixes a bug in the linearity checks
 -   #579 : Require `h5py>=3.16` which installs correctly with `setuptools>=81.0`
 -   #579 : Don't run postprocessing unit tests with `pytest-xdist` because `h5py` is not thread-safe
 -   #579 : Return error code on failure of the `psydac test` and `psydac compile` commands
@@ -28,6 +34,7 @@ All notable changes to this project will be documented in this file.
 ### Changed
 
 -   #527 : Improve `Geometry` class in module `psydac.cad.geometry`
+-   #576 : Use latest version of Igakit (commit dalcinl/igakit@92ee097 of 2026/07/24) which supports NumPy >= 2.4
 -   #595 : Use PETSc 3.25.5 whose Python bindings `petsc4py` are built correctly with `cython>=3`
 -   #580 : Use PETSc 3.25.0 whose Python bindings `petsc4py` install correctly with `setuptools>=81.0`
 -   #579 : Require `pyccel>=2.2.3` which can compile all kernels with C
@@ -35,6 +42,7 @@ All notable changes to this project will be documented in this file.
 -   #579 : Require `pytest>=9.0` and use `pytest.toml` instead of `pytest.ini` for Pytest configuration
 -   #579 : Move coverage configuration from `pyproject.toml` to `psydac/pytest.toml`
 -   #570 : Optimize PSYDAC logo
+-   [DEVELOPER] Update GitHub Actions for repository checkout and Python setup
 -   [DEVELOPER] Rename actions: `macos/ubuntu_install` -> `macos/ubuntu_installations`
 -   [DEVELOPER] Do not check file changes to trigger testing workflow on PRs
 -   [DEVELOPER] Run documentation workflow on pushes to `devel` whenever `README.md` is modified

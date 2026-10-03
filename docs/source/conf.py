@@ -70,6 +70,8 @@ extensions = [
 'myst_parser',
 ]
 
+default_role = "py:obj"
+
 from docutils.nodes import FixedTextElement, literal,math
 from docutils.nodes import  comment, doctest_block, image, literal_block, math_block, paragraph, pending, raw, rubric, substitution_definition, target
 math_dollar_node_blacklist = (literal,math,doctest_block, image, literal_block,  math_block,  pending,  raw,rubric, substitution_definition,target)
