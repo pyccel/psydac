@@ -15,7 +15,7 @@ from sympde.calculus      import grad, dot
 from sympde.calculus      import minus, plus
 from sympde.topology      import ScalarFunctionSpace
 from sympde.topology      import elements_of
-from sympde.topology      import NormalVector, Union
+from sympde.topology      import NormalVector
 from sympde.topology      import Square, Domain
 from sympde.topology      import IdentityMapping, PolarMapping, AffineMapping
 from sympde.expr.expr     import LinearForm, BilinearForm
@@ -141,12 +141,12 @@ def test_poisson_2d_3_patches_dirichlet_2():
     B = Square('B',bounds1=(0.5, 1.), bounds2=(0, np.pi))
     C = Square('C',bounds1=(0.5, 1.), bounds2=(np.pi-0.5, np.pi + 1))
 
-    D1     = mapping_1(A)
-    D2     = mapping_2(B)
-    D3     = mapping_3(C)
+    D1 = mapping_1(A)
+    D2 = mapping_2(B)
+    D3 = mapping_3(C)
 
-    connectivity = [((0,1,1),(1,1,-1)), ((1,1,1),(2,1,-1))]
     patches = [D1, D2, D3]
+    connectivity = [((0, 1, 1), (1, 1,-1), 1), ((1, 1, 1), (2, 1,-1), 1)]
     domain = Domain.join(patches, connectivity, 'domain')
 
     x,y       = domain.coordinates
@@ -252,8 +252,11 @@ def test_poisson_2d_4_patch_dirichlet_0():
     D3     = mapping_3(C)
     D4     = mapping_4(D)
 
-    connectivity = [((0,1,1),(1,1,-1)), ((2,1,1),(3,1,-1)), ((0,0,1),(2,0,-1)),((1,0,1),(3,0,-1))]
     patches = [D1, D2, D3, D4]
+    connectivity = [((0, 1, 1), (1, 1,-1), 1),
+                    ((2, 1, 1), (3, 1,-1), 1),
+                    ((0, 0, 1), (2, 0,-1), 1),
+                    ((1, 0, 1), (3, 0,-1), 1)]
     domain = Domain.join(patches, connectivity, 'domain')
 
     x,y       = domain.coordinates

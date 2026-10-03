@@ -11,6 +11,8 @@ All notable changes to this project will be documented in this file.
 -   #576 : Add module `psydac.utilities.parallel_utils` for parallel execution and gathering variable-length arrays
 -   #576 : Add module `psydac.utilities.operators` with class `Laplacian` used in some old examples
 -   #577 : Add an installation configuration option to choose the backend language
+-   #567 : Improve `psydac test` command (with several new features)
+-   #565 : Expand editable install info in `README.md`
 -   [DEVELOPER] Create action `install_petsc4py` to install PETSc & `petsc4py` w/ complex support
 
 ### Fixed
@@ -22,8 +24,7 @@ All notable changes to this project will be documented in this file.
 -   #579 : Return error code on failure of the `psydac test` and `psydac compile` commands
 -   #577 : Fix installation following release of Pyccel 2.2
 -   #571 : Fix correct application of the sum factorization algorithm
--   #570 : Optimize PSYDAC logo
--   #565 : Expand editable install info in `README.md`
+-   #567 : Fix parallel creation of folder `__psydac__` in `psydac.api.fem_bilinear_form`
 -   #566 : Fix command `psydac test --mpi` on Ubuntu machines
 -   [DEVELOPER] Add missing 'description' properties (required!) to our GitHub actions
 -   [DEVELOPER] Update CI installation of `petsc4py` after release of `setuptools` 81.0
@@ -32,6 +33,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+-   #527 : Improve `Geometry` class in module `psydac.cad.geometry`
 -   #576 : Use latest version of Igakit (commit dalcinl/igakit@92ee097 of 2026/07/24) which supports NumPy >= 2.4
 -   #595 : Use PETSc 3.25.5 whose Python bindings `petsc4py` are built correctly with `cython>=3`
 -   #580 : Use PETSc 3.25.0 whose Python bindings `petsc4py` install correctly with `setuptools>=81.0`
@@ -39,6 +41,7 @@ All notable changes to this project will be documented in this file.
 -   #579 : Require `numpy>=2.1` to support Python >= 3.10
 -   #579 : Require `pytest>=9.0` and use `pytest.toml` instead of `pytest.ini` for Pytest configuration
 -   #579 : Move coverage configuration from `pyproject.toml` to `psydac/pytest.toml`
+-   #570 : Optimize PSYDAC logo
 -   [DEVELOPER] Update GitHub Actions for repository checkout and Python setup
 -   [DEVELOPER] Rename actions: `macos/ubuntu_install` -> `macos/ubuntu_installations`
 -   [DEVELOPER] Do not check file changes to trigger testing workflow on PRs

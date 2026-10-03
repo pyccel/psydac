@@ -46,16 +46,16 @@ def test_plot_field(use_scalar_field, use_multipatch):
     degree = [2, 2]
 
     A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi/2))
-    mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
+    mapping_1 = PolarMapping('M1', 2, c1= 0., c2= 0., rmin = 0., rmax=1.)
     D1     = mapping_1(A)
     
     if use_multipatch:
         B = Square('B',bounds1=(0.5, 1.), bounds2=(np.pi/2, np.pi))
-        mapping_2 = PolarMapping('M2',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
-        D2     = mapping_2(B)
+        mapping_2 = PolarMapping('M2', 2, c1= 0., c2= 0., rmin = 0., rmax=1.)
+        D2 = mapping_2(B)
         
-        connectivity = [((0,1,1),(1,1,-1))]
-        patches = [D1,D2]
+        patches = [D1, D2]
+        connectivity = [((0, 1, 1), (1, 1,-1), 1)]
         domain = Domain.join(patches, connectivity, 'domain')
     else:
         domain = D1

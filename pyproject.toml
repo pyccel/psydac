@@ -31,7 +31,7 @@ dependencies = [
     'termcolor',
 
     # Our packages from PyPi
-    'sympde == 0.19.3',
+    'sympde == 0.20.0',
     'pyccel >= 2.2.3',
     'gelato == 0.12',
 
