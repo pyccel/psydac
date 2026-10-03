@@ -1,5 +1,6 @@
 # coding: utf-8
 
+import copy
 import os
 import numpy as np
 import cunumpy as xp
@@ -409,42 +410,100 @@ class DomainDecomposition:
     def refine(self, ncells, global_element_starts, global_element_ends):
         """ Create the new Cartesian decomposition of the refined domain.
 
+        The process topology (and its communicators) is shared with ``self``.
+
         Parameters
         ----------
         ncells : list or tuple of int
             Number of cells of refined space.
 
-        global_starts: list of list of int
-            The starts of the coefficients for every process along each direction.
+        global_element_starts : list of list of int
+            The element starts for every process along each direction.
 
-        global_ends: list of list of int
-            The ends of the coefficients for every process along each direction.
+        global_element_ends : list of list of int
+            The element ends for every process along each direction.
 
         Returns
         -------
-        domain : CartDecomposition
-            Cartesian decomposition of the refined domain.
+        domain : DomainDecomposition
+            Domain decomposition of the refined domain.
         """
 
         # Check input arguments
         assert len( ncells ) == len( self.ncells )
         assert all(nc>=snc for nc, snc in zip(ncells, self.ncells))
 
-        domain         = DomainDecomposition(self.ncells, self.periods, comm=self.comm,
-                                            global_comm=self.global_comm, num_threads=self.num_threads,
-                                            size=self.size)
-        domain._ncells = tuple ( ncells )
+        return self._with_element_partition(ncells, global_element_starts, global_element_ends)
+
+    def coarsen(self, factors):
+        """ Create the Cartesian decomposition of a coarsened domain, aligned with ``self``.
+
+        Along axis ``i`` every ``factors[i]`` consecutive cells are merged into one coarse cell.
+        Each process owns the coarse cells covering exactly its fine cells, so the process
+        topology (and its communicators) is shared with ``self``. This requires that the
+        element starts and ends+1 of every process are divisible by ``factors[i]``.
+
+        Parameters
+        ----------
+        factors : list or tuple of int
+            Coarsening factor (>= 1) along each direction.
+
+        Returns
+        -------
+        domain : DomainDecomposition
+            Domain decomposition of the coarse domain.
+        """
+
+        assert len( factors ) == self.ndim
+        assert all( isinstance(f, (int, np.integer)) and f >= 1 for f in factors )
+
+        ncells = []
+        global_element_starts = []
+        global_element_ends   = []
+        for axis, f in enumerate(factors):
+            gs = xp.asarray(self._global_element_starts[axis])
+            ge = xp.asarray(self._global_element_ends  [axis])
+            if self._ncells[axis] % f != 0 or xp.any(gs % f != 0) or xp.any((ge + 1) % f != 0):
+                raise ValueError(
+                    f"Cannot coarsen axis {axis} by a factor {f}: ncells={self._ncells[axis]}, "
+                    f"element starts={gs.tolist()}, ends={ge.tolist()} are not all aligned."
+                )
+            ncells.append(self._ncells[axis] // f)
+            global_element_starts.append(xp.array(gs // f))
+            global_element_ends  .append(xp.array((ge + 1) // f - 1))
+
+        return self._with_element_partition(ncells, global_element_starts, global_element_ends)
+
+    def _with_element_partition(self, ncells, global_element_starts, global_element_ends):
+        """ Return a copy of ``self`` with the same process topology but a new element partition.
+
+        Communicators are shared (not duplicated), hence this method is not collective.
+        """
+
+        assert len( ncells ) == self.ndim
+        for axis in range(self.ndim):
+            gs = xp.asarray(global_element_starts[axis])
+            ge = xp.asarray(global_element_ends  [axis])
+            assert len(gs) == len(ge) == self._nprocs[axis], \
+                f"Axis {axis}: need one block per process ({self._nprocs[axis]}), got {len(gs)}."
+            assert gs[0] == 0 and ge[-1] == ncells[axis] - 1, \
+                f"Axis {axis}: blocks must cover [0, {ncells[axis] - 1}]."
+            assert xp.all(ge >= gs), f"Axis {axis}: empty blocks are not allowed."
+            assert xp.all(gs[1:] == ge[:-1] + 1), f"Axis {axis}: blocks must be contiguous."
+
+        domain = copy.copy(self)
+        domain._ncells = tuple( int(n) for n in ncells )
 
         # Store arrays with all the starts and ends along each direction for every process
-        domain._global_element_starts = tuple(global_element_starts)
-        domain._global_element_ends   = tuple(global_element_ends)
+        domain._global_element_starts = list(global_element_starts)
+        domain._global_element_ends   = list(global_element_ends)
         if self.is_comm_null:return domain
 
         # Start/end values of global indices (without ghost regions)
         domain._starts = tuple( domain._global_element_starts[axis][c] for axis,c in zip(range(self._ndims), self._coords) )
         domain._ends   = tuple( domain._global_element_ends  [axis][c] for axis,c in zip(range(self._ndims), self._coords) )
 
-        domain._local_ncells = tuple(e-s+1 for s,e in zip(self._starts, self._ends))
+        domain._local_ncells = tuple(e-s+1 for s,e in zip(domain._starts, domain._ends))
         return domain
 
 #==================================================================================

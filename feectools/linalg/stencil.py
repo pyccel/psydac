@@ -332,7 +332,7 @@ class StencilVectorSpace(VectorSpace):
                 import cupy as cp
                 y._interface_data[axis, ext][:] = cp.asarray(y_int_np)
 
-        x._sync = x._sync and y._sync
+        y._sync = x._sync and y._sync
 
     #--------------------------------------
     # Other properties/methods

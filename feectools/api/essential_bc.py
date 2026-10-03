@@ -72,6 +72,9 @@ def apply_essential_bc_stencil(a, *, axis, ext, order, identity=False):
     if isinstance(a, StencilVector):
         V = a.space
         n = V.ndim
+        # Boundary entries may be ghost entries of neighbouring processes, which
+        # all call this function: their ghost regions are no longer up to date.
+        a.ghost_regions_in_sync = False
     elif isinstance(a, StencilMatrix):
         V = a.codomain
         n = V.ndim * 2
