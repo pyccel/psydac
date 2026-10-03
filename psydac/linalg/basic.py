@@ -13,7 +13,10 @@ from types import LambdaType
 from inspect import signature
 
 import numpy as np
-from scipy.sparse import coo_matrix
+import itertools
+from scipy import sparse
+from psydac.linalg.kernels.toarray_kernels import write_out_stencil_dense_3D, write_out_stencil_dense_2D, write_out_stencil_dense_1D, write_out_block_dense_3D, write_out_block_dense_2D, write_out_block_dense_1D
+
 
 from psydac.utilities.utils import is_real
 
@@ -36,7 +39,6 @@ __all__ = (
 class VectorSpace(ABC):
     """
     Finite-dimensional vector space V with a scalar (inner) product.
-
     """
     @property
     @abstractmethod
@@ -44,7 +46,6 @@ class VectorSpace(ABC):
         """
         The dimension of a vector space V is the cardinality
         (i.e. the number of vectors) of a basis of V over its base field.
-
         """
 
     @property
@@ -52,7 +53,6 @@ class VectorSpace(ABC):
     def dtype(self):
         """
         The data type of the field over which the space is built.
-
         """
 
     @abstractmethod
@@ -64,7 +64,6 @@ class VectorSpace(ABC):
         -------
         null : Vector
             A new vector object with all components equal to zero.
-
         """
 
     @abstractmethod
@@ -96,7 +95,6 @@ class VectorSpace(ABC):
         float | complex
             The scalar product of the two vectors. Note that inner(x, x) is
             a non-negative real number which is zero if and only if x = 0.
-
         """
 
     @abstractmethod
@@ -122,7 +120,6 @@ class VectorSpace(ABC):
 class Vector(ABC):
     """
     Element of a vector space V.
-
     """
     @property
     def shape(self):
@@ -142,7 +139,6 @@ class Vector(ABC):
         ----------
         v : Vector
             Vector belonging to the same space as self.
-
         """
         assert isinstance(v, Vector)
         assert self.space is v.space
@@ -254,7 +250,6 @@ class LinearOperator(ABC):
     """
     Abstract base class for all linear operators acting between two vector spaces V (domain)
     and W (codomain).
-
     """
     @property
     def shape(self):
@@ -277,17 +272,9 @@ class LinearOperator(ABC):
     @property
     @abstractmethod
     def dtype(self):
-        """ The data type of the coefficients of the linear operator,
-        upon convertion to matrix.
         """
-
-    @abstractmethod
-    def tosparse(self):
-        """ Convert to a sparse matrix in any of the formats supported by scipy.sparse."""
-
-    @abstractmethod
-    def toarray(self):
-        """ Convert to Numpy 2D array. """
+        The data type of the field over which the space is built.
+        """
 
     @abstractmethod
     def dot(self, v, out=None):
@@ -329,9 +316,8 @@ class LinearOperator(ABC):
     #-------------------------------------
     def __neg__(self):
         """
-        Scales itself by -1 and thus returns the addititive inverse as 
+        Scales itself by -1 and thus returns the addititive inverse as
         a new object of the class ScaledLinearOperator.
-        
         """
         return ScaledLinearOperator(self.domain, self.codomain, -1.0, self)
 
@@ -424,6 +410,326 @@ class LinearOperator(ABC):
     #-------------------------------------
     # Methods with default implementation
     #-------------------------------------
+    def _tosparse_array(self, out=None, is_sparse=False):
+        """
+        Transforms the linear operator into a matrix in dense or sparse format.
+
+        Parameters
+        ----------
+        out : numpy.ndarray, optional
+            If given, the output will be written in-place into this array.
+        is_sparse : bool, optional
+            If True the method returns the matrix as a SciPy sparse matrix, if
+            False it returns the full matrix as a numpy.ndarray.
+
+        Returns
+        -------
+        out : numpy.ndarray or scipy.sparse.csr.csr_matrix
+            The matrix form of the linear operator. If ran in parallel each
+            rank gets the full matrix representation of the linear operator.
+        """
+        # v will be the unit vector with which we compute Av = ith column of A.
+        v = self.domain.zeros()
+        # We define a temporary vector
+        tmp2 = self.codomain.zeros()
+
+        #We need to determine if we are a blockvector or a stencilvector but we are not able to use 
+        #the BlockVectorSpace and StencilVectorSpace classes in here. So we check if domain has the spaces
+        #attribute in which case the domain would be a BlockVectorSpace. If that is not the case we check
+        #if the domain has the cart atrribute, in which case it will be a StencilVectorSpace.
+        if  hasattr(self.domain, 'spaces'):
+            BoS = "b"
+            comm = self.domain.spaces[0].cart.comm
+            
+            # we collect all starts and ends in two big lists
+            starts = [vi.starts for vi in v]
+            ends = [vi.ends for vi in v]
+            # We collect the dimension of the BlockVector
+            npts = [sp.npts for sp in self.domain.spaces]
+            # We get the number of space we have
+            nsp = len(self.domain.spaces)
+            # We get the number of dimensions each space has.
+            ndim = [sp.ndim for sp in self.domain.spaces]
+            
+        elif hasattr(self.domain, 'cart'):
+            BoS = "s"
+            comm = self.domain.cart.comm
+            
+            # We get the start and endpoint for each sublist in v
+            starts = [v.starts]
+            ends = [v.ends]
+            # We get the dimensions of the StencilVector
+            npts = [self.domain.npts]
+            # We get the number of space we have
+            nsp = 1
+            # We get the number of dimensions the StencilVectorSpace has.
+            ndim = [self.domain.ndim]
+        else:
+            raise Exception(
+                'The domain of the LinearOperator must be a BlockVectorSpace or a StencilVectorSpace.')
+               
+        #We also need to know if the codomain is a StencilVectorSpace or a BlockVectorSpace
+        if  hasattr(self.codomain, 'spaces'):
+            BoS2 = "b"
+            
+            # Before we begin computing the dot products we need to know which entries of the output vector tmp2 belong to our rank.
+            # we collect all starts and ends in two big lists
+            starts2 = [vi.starts for vi in tmp2]
+            ends2 = [vi.ends for vi in tmp2]
+            # We collect the dimension of the BlockVector
+            npts2 = np.array([sp.npts for sp in self.codomain.spaces])
+            # We get the number of space we have
+            nsp2 = len(self.codomain.spaces)
+            # We get the number of dimensions each space has.
+            ndim2 = [sp.ndim for sp in self.codomain.spaces]
+            #We build the range of iteration
+            itterables2 = []
+            # since the size of npts changes denpending on h we need to compute a starting point for
+            # our row index
+            spoint2 = 0
+            if not is_sparse:
+                #We also get the BlockVector's pads
+                pds = np.array([vi.pads for vi in tmp2])
+                spoint2list = [spoint2]
+                for hh in range(nsp2):
+                    itterables2aux = []
+                    for ii in range(ndim2[hh]):
+                        itterables2aux.append(
+                            [starts2[hh][ii], ends2[hh][ii]+1])
+                    itterables2.append(itterables2aux)
+                    cummulative2 = 1
+                    for ii in range(ndim2[hh]):
+                        cummulative2 *= npts2[hh][ii].item()
+                    spoint2 += cummulative2
+                    spoint2list.append(spoint2) 
+            else:
+                spoint2list = [spoint2]
+                for hh in range(nsp2):
+                    itterables2aux = []
+                    for ii in range(ndim2[hh]):
+                        itterables2aux.append(
+                            range(starts2[hh][ii], ends2[hh][ii]+1))
+                    itterables2.append(itterables2aux)
+                    cummulative2 = 1
+                    for ii in range(ndim2[hh]):
+                        cummulative2 *= npts2[hh][ii].item()
+                    spoint2 += cummulative2
+                    spoint2list.append(spoint2)
+                    
+        elif hasattr(self.codomain, 'cart'):
+            BoS2 = "s"
+            
+            # Before we begin computing the dot products we need to know which entries of the output vector tmp2 belong to our rank.
+            # We get the start and endpoint for each sublist in tmp2
+            starts2 = tmp2.starts
+            ends2 = tmp2.ends
+            # We get the dimensions of the StencilVector
+            npts2 = np.array(self.codomain.npts)
+            # We get the number of space we have
+            nsp2 = 1
+            # We get the number of dimensions the StencilVectorSpace has.
+            ndim2 = self.codomain.ndim
+            #We build our ranges of iteration
+            itterables2 = []
+            if not is_sparse:
+                for ii in range(ndim2):
+                    itterables2.append([starts2[ii], ends2[ii]+1])
+                itterables2 = np.array(itterables2)
+                #We also get the StencilVector's pads
+                pds = np.array(tmp2.pads)
+            else:
+                for ii in range(ndim2):
+                    itterables2.append(
+                        range(starts2[ii], ends2[ii]+1))
+        else:
+            raise Exception(
+                'The codomain of the LinearOperator must be a BlockVectorSpace or a StencilVectorSpace.')
+            
+        rank = comm.Get_rank()
+        size = comm.Get_size()
+
+        if not is_sparse:
+            if out is None:
+                # We declare the matrix form of our linear operator
+                out = np.zeros(
+                    [self.codomain.dimension, self.domain.dimension], dtype=self.dtype)
+            else:
+                assert isinstance(out, np.ndarray)
+                assert out.shape[0] == self.codomain.dimension
+                assert out.shape[1] == self.domain.dimension
+        else:
+            if out is not None:
+                raise Exception(
+                    'If is_sparse is True then out must be set to None.')
+            numrows = self.codomain.dimension
+            numcols = self.domain.dimension
+            # We define a list to store the non-zero data, a list to sotre the row index of said data and a list to store the column index.
+            data = []
+            row = []
+            colarr = []
+   
+        # First each rank is going to need to know the starts and ends of all other ranks
+        startsarr = np.array([starts[i][j] for i in range(nsp)
+                                for j in range(ndim[i])], dtype=int)
+        
+        endsarr = np.array([ends[i][j] for i in range(nsp)
+                            for j in range(ndim[i])], dtype=int) 
+            
+        # Create an array to store gathered data from all ranks
+        allstarts = np.empty(size * len(startsarr), dtype=int)
+
+        # Use Allgather to gather 'starts' from all ranks into 'allstarts'
+        comm.Allgather(startsarr, allstarts)
+
+        # Reshape 'allstarts' to have 9 columns and 'size' rows
+        allstarts = allstarts.reshape((size, len(startsarr)))
+
+        # Create an array to store gathered data from all ranks
+        allends = np.empty(size * len(endsarr), dtype=int)
+
+        # Use Allgather to gather 'ends' from all ranks into 'allends'
+        comm.Allgather(endsarr, allends)
+
+        # Reshape 'allends' to have 9 columns and 'size' rows
+        allends = allends.reshape((size, len(endsarr)))
+
+        currentrank = 0
+        # Each rank will take care of setting to 1 each one of its entries while all other entries remain zero.
+        while currentrank < size:
+            # since the size of npts changes denpending on h we need to compute a starting point for
+            # our column index
+            spoint = 0
+            npredim = 0
+            # We iterate over the stencil vectors inside the BlockVector
+            for h in range(nsp):
+                itterables = []
+                for i in range(ndim[h]):
+                    itterables.append(
+                        range(allstarts[currentrank][i+npredim], allends[currentrank][i+npredim]+1))
+                # We iterate over all the entries that belong to rank number currentrank
+                for i in itertools.product(*itterables):
+                    
+                    #########################################
+                    if BoS == "b":
+                        if (rank == currentrank):
+                            v[h][i] = 1.0
+                        v[h].update_ghost_regions()
+                    elif BoS == "s":
+                        if (rank == currentrank):
+                            v[i] = 1.0
+                        v.update_ghost_regions()
+                    #########################################
+                    
+                    # Compute dot product with the linear operator.
+                    self.dot(v, out=tmp2)
+                    # Compute to which column this iteration belongs
+                    col = spoint
+                    col += int(np.ravel_multi_index(i, npts[h]))
+                    
+                    # Case in which tmp2 is a StencilVector
+                    if BoS2 == "s":
+                        if not is_sparse:
+                            #We iterate over the entries of tmp2 that belong to our rank
+                            #The pyccel kernels are tantamount to this for loop.
+                            #for ii in itertools.product(*itterables2):
+                                #if (tmp2[ii] != 0):
+                                    #out[np.ravel_multi_index(
+                                        #ii, npts2), col] = tmp2[ii]
+                            if (ndim2 == 3):
+                                write_out_stencil_dense_3D(itterables2, tmp2._data, out, npts2, col, pds)
+                            elif (ndim2 == 2):
+                                write_out_stencil_dense_2D(itterables2, tmp2._data, out, npts2, col, pds)
+                            elif (ndim2 == 1):
+                                write_out_stencil_dense_1D(itterables2, tmp2._data, out, npts2, col, pds)
+                            else:
+                                raise Exception("The codomain dimension must be 3, 2 or 1.")
+                            
+                        else:
+                            #We iterate over the entries of tmp2 that belong to our rank
+                            for ii in itertools.product(*itterables2):
+                                if (tmp2[ii] != 0):
+                                    data.append(tmp2[ii])
+                                    colarr.append(col)
+                                    row.append(
+                                        np.ravel_multi_index(ii, npts2))
+                    elif BoS2 =="b":
+                        # We iterate over the stencil vectors inside the BlockVector
+                        for hh in range(nsp2):
+                            if not is_sparse:
+                                itterables2aux = np.array(itterables2[hh])
+                                # We iterate over all the tmp2 entries that belong to rank number currentrank
+                                #The pyccel kernels are tantamount to this for loop.
+                                #for ii in itertools.product(*itterables2aux):
+                                    #if (tmp2[hh][ii] != 0):
+                                        #out[spoint2list[hh]+np.ravel_multi_index(
+                                            #ii, npts2[hh]), col] = tmp2[hh][ii]
+                                if (ndim2[hh] == 3):
+                                    write_out_block_dense_3D(itterables2aux, tmp2[hh]._data, out, npts2[hh], col, pds[hh], spoint2list[hh])
+                                elif (ndim2[hh] == 2):
+                                    write_out_block_dense_2D(itterables2aux, tmp2[hh]._data, out, npts2[hh], col, pds[hh], spoint2list[hh])
+                                elif (ndim2[hh] == 1):
+                                    write_out_block_dense_1D(itterables2aux, tmp2[hh]._data, out, npts2[hh], col, pds[hh], spoint2list[hh])
+                                else:
+                                    raise Exception("The codomain dimension must be 3, 2 or 1.")
+                            else:
+                                itterables2aux = itterables2[hh]
+                                for ii in itertools.product(*itterables2aux):
+                                    if (tmp2[hh][ii] != 0):
+                                        data.append(tmp2[hh][ii])
+                                        colarr.append(col)
+                                        row.append(
+                                            spoint2list[hh]+np.ravel_multi_index(ii, npts2[hh]))        
+                    #################################
+                    if BoS == "b":
+                        if (rank == currentrank):
+                            v[h][i] = 0.0
+                        v[h].update_ghost_regions()
+                    elif BoS == "s":
+                        if (rank == currentrank):
+                            v[i] = 0.0
+                        v.update_ghost_regions()
+                    ##################################
+                cummulative = 1
+                for i in range(ndim[h]):
+                    cummulative *= npts[h][i]
+                spoint += cummulative
+                npredim += ndim[h]
+            currentrank += 1
+
+        if not is_sparse:
+            return out
+        else:
+            return sparse.csr_matrix((data, (row, colarr)), shape=(numrows, numcols))
+
+    def tosparse(self):
+        """
+        Transforms the linear operator into a matrix in sparse CSR format.
+
+        Returns
+        -------
+        out : numpy.ndarray or scipy.sparse.csr.csr_matrix
+            The matrix form of the linear operator. If ran in parallel each
+            rank gets the local matrix representation of the linear operator.
+        """
+        return self._tosparse_array(is_sparse=True)
+
+    def toarray(self, out=None):
+        """
+        Transforms the linear operator into a matrix in dense format.
+
+        Parameters
+        ----------
+        out : numpy.ndarray, optional
+            If given, the output will be written in-place into this array.
+            
+        Returns
+        -------
+        out : numpy.ndarray
+            The matrix form of the linear operator. If ran in parallel each
+            rank gets the local matrix representation of the linear operator.
+        """
+        return self._tosparse_array(out=out, is_sparse=False)
+
     @property
     def T(self):
         """ Calls transpose method to return the transpose of self. """
@@ -453,7 +759,6 @@ class LinearOperator(ABC):
         out : Vector
             The vector to be incremented by `self @ v`. It must belong to the
             codomain of `self`.
-
         """
         assert isinstance(  v, Vector)
         assert isinstance(out, Vector)
@@ -506,9 +811,7 @@ class LinearOperator(ABC):
 class ZeroOperator(LinearOperator):
     """
     Zero operator mapping any vector from its domain V to the zero vector of its codomain W.
-    
     """
-
     def __new__(cls, domain, codomain=None):
 
         assert isinstance(domain, VectorSpace)
@@ -605,9 +908,7 @@ class IdentityOperator(LinearOperator):
     """
     Identity operator acting between a vector space V and itself.
     Useful for example in custom linear operator classes together with the apply_essential_bc method to create projection operators.
-    
     """
-
     def __init__(self, domain, codomain=None):
 
         assert isinstance(domain, VectorSpace)
@@ -669,9 +970,7 @@ class IdentityOperator(LinearOperator):
 class ScaledLinearOperator(LinearOperator):
     """
     A linear operator $A$ scalar multiplied by a constant $c$. 
-    
     """
-
     def __init__(self, domain, codomain, c, A):
 
         assert isinstance(domain, VectorSpace)
@@ -751,7 +1050,6 @@ class ScaledLinearOperator(LinearOperator):
 class SumLinearOperator(LinearOperator):
     r"""
     Sum $\sum_{i=1}^n A_i$ of linear operators $A_1,\dots,A_n$ acting between the same vector spaces V (domain) and W (codomain).
-
     """
     def __new__(cls, domain, codomain, *args):
 
@@ -872,9 +1170,7 @@ class SumLinearOperator(LinearOperator):
 class ComposedLinearOperator(LinearOperator):
     r"""
     Composition $A_n\circ\dots\circ A_1$ of two or more linear operators $A_1,\dots,A_n$.
-    
     """
-
     def __init__(self, domain, codomain, *args):
 
         assert isinstance(domain, VectorSpace)
@@ -916,7 +1212,6 @@ class ComposedLinearOperator(LinearOperator):
         """
         A tuple containing the storage vectors that are repeatedly being used upon calling the `dot` method.
         This avoids the creation of new vectors at each call of the `dot` method.
-        
         """
         return self._tmp_vectors
 
@@ -933,7 +1228,6 @@ class ComposedLinearOperator(LinearOperator):
         r"""
         A tuple $(A_1,\dots,A_n)$ containing the multiplicants of the linear operator 
         $self = A_n\circ\dots\circ A_1$.
-        
         """
         return self._multiplicants
 
@@ -941,15 +1235,12 @@ class ComposedLinearOperator(LinearOperator):
     def dtype(self):
         return None
 
-    def toarray(self):
-        raise NotImplementedError('toarray() is not defined for ComposedLinearOperators.')
-
     def tosparse(self):
         mats = [M.tosparse() for M in self._multiplicants]
         M = mats[0]
         for Mi in mats[1:]:
             M = M @ Mi
-        return coo_matrix(M)
+        return sparse.coo_matrix(M)
 
     def transpose(self, conjugate=False):
         t_multiplicants = ()
@@ -977,7 +1268,6 @@ class ComposedLinearOperator(LinearOperator):
 
         A = self._multiplicants[0]
         if out is not None:
-
             A.dot(x, out=out)
         else:
             out = A.dot(x)
@@ -995,9 +1285,7 @@ class ComposedLinearOperator(LinearOperator):
 class PowerLinearOperator(LinearOperator):
     r"""
     Power $A^n$ of a linear operator $A$ for some integer $n\geq 0$.
-    
     """
-
     def __new__(cls, domain, codomain, A, n):
 
         assert isinstance(n, int)
@@ -1048,12 +1336,6 @@ class PowerLinearOperator(LinearOperator):
         """ Returns the power to which the operator is raised. """
         return self._factorial
 
-    def toarray(self):
-        raise NotImplementedError('toarray() is not defined for PowerLinearOperators.')
-
-    def tosparse(self):
-        raise NotImplementedError('tosparse() is not defined for PowerLinearOperators.')
-
     def transpose(self, conjugate=False):
         return PowerLinearOperator(domain=self.codomain, codomain=self.domain, A=self._operator.transpose(conjugate=conjugate), n=self._factorial)
 
@@ -1102,7 +1384,6 @@ class InverseLinearOperator(LinearOperator):
     verbose : bool
         If True, L2-norm of residual r is printed at each iteration.
     """
-
     def __init__(self, A, **kwargs):
 
         assert isinstance(A, LinearOperator)
@@ -1142,7 +1423,6 @@ class InverseLinearOperator(LinearOperator):
         no other options are viable, as it breaks the one-to-one map between
         the original linear operator $A$ (passed to the constructor) and the
         current `InverseLinearOperator` object $A^{-1}$. Use with extreme care!
-
         """
         return self._A
     
@@ -1171,12 +1451,6 @@ class InverseLinearOperator(LinearOperator):
             elif key == 'verbose':
                 assert isinstance(value, bool), "verbose must be a bool"
 
-    def toarray(self):
-        raise NotImplementedError('toarray() is not defined for InverseLinearOperators.')
-
-    def tosparse(self):
-        raise NotImplementedError('tosparse() is not defined for InverseLinearOperators.')
-
     def get_info(self):
         """ Returns the previous convergence information. """
         return self._info
@@ -1195,7 +1469,6 @@ class InverseLinearOperator(LinearOperator):
             If `key` is given, get the specific option of interest. If there is
             no such option, `None` is returned instead. If `key` is not given,
             get a copy of all the solver options in a dictionary.
-
         """
         if key is None:
             return self._options.copy()
@@ -1217,7 +1490,6 @@ class InverseLinearOperator(LinearOperator):
 class LinearSolver(ABC):
     """
     Solver for the square linear system Ax=b, where x and b belong to the same vector space V.
-
     """
     @property
     def shape(self):
@@ -1275,9 +1547,7 @@ class MatrixFreeLinearOperator(LinearOperator):
 
         # example 2: a truly matrix-free linear operator
         A = MatrixFreeLinearOperator(domain=V, codomain=V, dot=lambda v: 2*v, dot_transpose=lambda v: 2*v)
-
     """
-
     def __init__(self, domain, codomain, dot, dot_transpose=None):
 
         assert isinstance(domain, VectorSpace)
@@ -1329,12 +1599,6 @@ class MatrixFreeLinearOperator(LinearOperator):
             self._dot(v, **kwargs).copy(out=out)
                     
         return out
-        
-    def toarray(self):
-        raise NotImplementedError('toarray() is not defined for MatrixFreeLinearOperator.')
-
-    def tosparse(self):
-        raise NotImplementedError('tosparse() is not defined for MatrixFreeLinearOperator.')
     
     def transpose(self, conjugate=False):
         if self._dot_transpose is None:
