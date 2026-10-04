@@ -17,9 +17,10 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
--   #576 : Fix bug in `TensorFemSpace.eval_field` caused by round-off at MPI subdomain boundaries
+-   #527 : Require `sympde==0.20.0` which changes how multipatch interfaces are defined
 -   #576 : Require `sympde==0.19.3` which fixes a bug in the linearity checks
 -   #579 : Require `h5py>=3.16` which installs correctly with `setuptools>=81.0`
+-   #576 : Fix bug in `TensorFemSpace.eval_field` caused by round-off at MPI subdomain boundaries
 -   #579 : Don't run postprocessing unit tests with `pytest-xdist` because `h5py` is not thread-safe
 -   #579 : Return error code on failure of the `psydac test` and `psydac compile` commands
 -   #577 : Fix installation following release of Pyccel 2.2
