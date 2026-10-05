@@ -239,7 +239,8 @@ class ConjugateGradient(InverseLinearOperator):
             template = "| {:7d} | {:19.2e} |"
             print(template.format(1, sqrt(am)))
 
-        # Iterate to convergence
+        # Iterate to convergence (iteration 1 is the initial residual)
+        m = 1
         for m in range(2, maxiter+1):
             if am < tol_sqr:
                 m -= 1
@@ -339,7 +340,8 @@ class ConjugateGradient(InverseLinearOperator):
             template = "| {:7d} | {:19.2e} |"
             print( template.format(1, sqrt(nrmr_sqr)))
 
-        # Iterate to convergence
+        # Iterate to convergence (iteration 1 is the initial residual)
+        k = 1
         for k in range(2, maxiter+1):
 
             if nrmr_sqr < tol_sqr:

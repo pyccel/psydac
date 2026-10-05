@@ -285,6 +285,22 @@ def test_GMRES_solve(maxiter: int, dtype: type) -> None:
     assert info['success'] == (maxiter == n)
 
 #===============================================================================
+# With maxiter=1, CG only evaluates the residual of the initial guess
+@pytest.mark.parametrize('use_jacobi_pc', [False, True])
+def test_ConjugateGradient_solve_maxiter_1(use_jacobi_pc: bool) -> None:
+
+    V, A, xe = define_data_hermitian(6, 1)
+    pc = A.diagonal(inverse=True) if use_jacobi_pc else None
+
+    solver = inverse(A, 'CG', pc=pc, tol=1e-10, maxiter=1)
+    x = solver @ (A @ xe)
+    info = solver.get_info()
+
+    assert np.array_equal(x.toarray(), V.zeros().toarray())
+    assert info['niter'] == 1
+    assert not info['success']
+
+#===============================================================================
 def test_LST_preconditioner(comm=None):
 
     ncells_3d   = [16, 7, 11]
