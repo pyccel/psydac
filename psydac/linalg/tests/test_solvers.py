@@ -85,9 +85,7 @@ def define_data(n, p, matrix_data, dtype=float):
 def test_solver_tridiagonal(n, p, dtype, solver, use_jacobi_pc, verbose=False):
 
     # Quickly skip tests that are not relevant
-    if solver == 'BiCGSTAB' and use_jacobi_pc and dtype == complex:
-        pytest.skip("Preconditioned BiCGSTAB only works for real matrices")
-    elif solver == 'MINRES' and dtype == complex:
+    if solver == 'MINRES' and dtype == complex:
         pytest.skip("MINRES only works for real matrices")
     
     # Also skip some problematic tests for now -- see Issue #557

@@ -906,10 +906,10 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
 
         while res_sqr > tol_sqr and niter < maxiter:
 
-            # v = A @ pp, vp = PC @ v, alphap = rhop/(vp.rp0)
+            # v = A @ pp, vp = PC @ v, alphap = rhop/(rp0.vp)
             A.dot(pp, out=v)
             pc.dot(v, out=vp)
-            alphap = rhop / vp.inner(rp0)
+            alphap = rhop / rp0.inner(vp)
 
             # s = r - alphap*v, sp = PC @ s
             r.copy(out=s)
@@ -942,8 +942,8 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
             tp *= omegap
             rp -= tp
 
-            # rhop_new = rp.rp0, betap = (alphap*rhop_new)/(omegap*rhop)
-            rhop_new = rp.inner(rp0)
+            # rhop_new = rp0.rp, betap = (alphap*rhop_new)/(omegap*rhop)
+            rhop_new = rp0.inner(rp)
             betap = (alphap*rhop_new) / (omegap*rhop)
             rhop = 1*rhop_new
 
