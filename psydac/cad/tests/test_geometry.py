@@ -366,14 +366,6 @@ def test_import_geopdes_to_nurbs(ncells, degree):
         assert np.allclose(L_shaped.weights.flatten(), mapping._weights_field.coeffs.toarray(), 1e-15, 1e-15)
 
 #==============================================================================
-@pytest.mark.xfail
-def test_geometry_1():
-
-    line   = Geometry.as_line(ncells=[10])
-    square = Geometry.as_square(ncells=[10, 10])
-    cube   = Geometry.as_cube(ncells=[10, 10, 10])
-
-#==============================================================================
 # CLEAN UP SYMPY NAMESPACE
 #==============================================================================
 
