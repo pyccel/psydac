@@ -7,7 +7,7 @@
 This module provides iterative solvers and preconditioners.
 
 """
-from math import sqrt
+from math import inf, sqrt
 import numpy as np
 
 import warnings
@@ -1218,12 +1218,17 @@ class MinimumResidual(InverseLinearOperator):
             ynorm = sqrt(x.inner(x))
 
             rnorm  = phibar
-            if ynorm == 0 or Anorm == 0:test1 = inf
-            #else:test1 = rnorm / (Anorm*ynorm)  # ||r||  / (||A|| ||x||)
-            else:test1 = rnorm                   # ||r||
+            if ynorm == 0 or Anorm == 0:
+                test1 = inf
+            #else:
+            #    test1 = rnorm / (Anorm*ynorm)  # ||r||  / (||A|| ||x||)
+            else:
+                test1 = rnorm                   # ||r||
 
-            if Anorm == 0:test2 = inf
-            else:test2 = root / Anorm           # ||Ar|| / (||A|| ||r||)
+            if Anorm == 0:
+                test2 = inf
+            else:
+                test2 = root / Anorm           # ||Ar|| / (||A|| ||r||)
 
             # Estimate  cond(A).
             # In this version we look at the diagonals of  R  in the
@@ -1596,7 +1601,7 @@ class LSMR(InverseLinearOperator):
 
             test1 = normr / normb
             if (normA * normr) != 0:test2 = normar / (normA * normr)
-            else:test2 = np.infty
+            else:test2 = inf
             test3 = 1 / condA
             t1    = test1 / (1 + normA * normx / normb)
             rtol  = btol + atol * normA * normx / normb

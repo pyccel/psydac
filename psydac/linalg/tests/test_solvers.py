@@ -253,6 +253,21 @@ def test_solver_tridiagonal(n, p, dtype, solver, use_jacobi_pc, verbose=False):
     assert (solver == 'CG' and use_jacobi_pc) or errc_norm < tol
 
 #===============================================================================
+# Diagonal operators make the stopping tests divide by a vanishing norm
+@pytest.mark.parametrize(
+    ('solver', 'diagonal', 'expected'), [('MINRES', 0.0, 0.0), ('LSMR', 2.0, 0.5)]
+)
+def test_solver_diagonal(solver: str, diagonal: float, expected: float) -> None:
+
+    V, A, _ = define_data(6, 1, [0.0, diagonal, 0.0])
+    b = V.zeros()
+    b[:] = 1.0
+
+    x = inverse(A, solver, tol=1e-10) @ b
+
+    assert np.array_equal(x.toarray(), np.full(6, expected))
+
+#===============================================================================
 def test_LST_preconditioner(comm=None):
 
     ncells_3d   = [16, 7, 11]
