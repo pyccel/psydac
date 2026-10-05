@@ -26,7 +26,7 @@ memory supercomputers using MPI and OpenMP.
 - Follow PEP 8 style guide whenever possible
 - Docstrings of public functions and classes follow Numpydoc conventions
 - pylint + black + isort for linting/typing
-- Computational kernels to be accelerated with Pyccel follow `<module>_kernels.py`
+- Computational kernels to be accelerated with Pyccel named as `<module>_kernels.py`
 - Minimize code duplication. Never add code that already exists
 - Strive for concise, clean, and human-readable code. Avoid useless verbosity
 - Self-explanatory names for variables, functions, and classes
