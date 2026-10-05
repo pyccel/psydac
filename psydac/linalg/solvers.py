@@ -1492,6 +1492,15 @@ class LSMR(InverseLinearOperator):
         if conlim > 0:ctol = 1 / conlim
         normr = beta
 
+        # Early exit as in SciPy: the solution of A x = 0 is x = 0, and
+        # A^H (b - A x) = 0 means that x is already a least-squares solution
+        if normb == 0:
+            x *= 0.0
+            normr = 0.0
+            istop = 1
+        elif alpha * beta == 0:
+            istop = 1 if beta == 0 else 2
+
         # Reverse the order here from the original matlab code because
 
         if verbose:
@@ -1502,7 +1511,8 @@ class LSMR(InverseLinearOperator):
             template = "| {:7d} | {:19.2e} |"
 
         # Main iteration loop.
-        for itn in range(1, maxiter + 1):
+        while istop == 0 and itn < maxiter:
+            itn += 1
 
             # Perform the next step of the bidiagonalization to obtain the
             # next  beta, u, alpha, v.  These satisfy the relations

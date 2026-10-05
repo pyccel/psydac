@@ -301,6 +301,24 @@ def test_ConjugateGradient_solve_maxiter_1(use_jacobi_pc: bool) -> None:
     assert not info['success']
 
 #===============================================================================
+# LSMR returns before iterating if b = 0 (x = 0) or if A^H (b - A x0) = 0 (x = x0)
+@pytest.mark.parametrize(('diagonal', 'rhs'), [(2.0, 0.0), (0.0, 1.0)])
+def test_LSMR_solve_early_exit(diagonal: float, rhs: float) -> None:
+
+    V, A, xe = define_data(6, 1, [0.0, diagonal, 0.0])
+    b = V.zeros()
+    b[:] = rhs
+
+    solver = inverse(A, 'LSMR', x0=xe, tol=1e-10)
+    x = solver @ b
+    info = solver.get_info()
+
+    expected = xe if rhs else V.zeros()
+    assert np.array_equal(x.toarray(), expected.toarray())
+    assert info['niter'] == 0
+    assert info['success']
+
+#===============================================================================
 def test_LST_preconditioner(comm=None):
 
     ncells_3d   = [16, 7, 11]
