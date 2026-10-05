@@ -1782,8 +1782,6 @@ class GMRES(InverseLinearOperator):
 
         # Iterate to convergence
         for k in range(maxiter):
-            if am < tol:
-                break
 
             # run Arnoldi
             self.arnoldi(k, p)
@@ -1799,16 +1797,19 @@ class GMRES(InverseLinearOperator):
             if verbose:
                 print( template.format( k+2, am ) )
 
-        if verbose:
-            print( "+---------+---------------------+")        
-        # calculate result
-        y = self.solve_triangular(self._H[:k, :k], beta[:k]) # system of upper triangular matrix
+            if am < tol:
+                break
 
-        for i in range(k):
+        if verbose:
+            print( "+---------+---------------------+")
+        # calculate result from all k+1 Arnoldi vectors
+        y = self.solve_triangular(self._H[:k+1, :k+1], beta[:k+1]) # system of upper triangular matrix
+
+        for i in range(k+1):
             x.mul_iadd(y[i], self._Q[i])
 
         # Convergence information
-        self._info = {'niter': k+1, 'success': bool(am < tol), 'res_norm': am}
+        self._info = {'niter': k+2, 'success': bool(am < tol), 'res_norm': am}
         
         if recycle:
             x.copy(out=self._options["x0"])

@@ -268,6 +268,23 @@ def test_solver_diagonal(solver: str, diagonal: float, expected: float) -> None:
     assert np.array_equal(x.toarray(), np.full(6, expected))
 
 #===============================================================================
+# GMRES converges in at most n iterations, and must report the true residual
+@pytest.mark.parametrize('maxiter', [1, 6, 12])
+def test_GMRES_solve(maxiter: int) -> None:
+
+    n = 12
+    _, A, xe = define_data(n, 1, [-7, -6, -1])
+    b = A @ xe
+
+    solver = inverse(A, 'GMRES', tol=1e-10, maxiter=maxiter)
+    x = solver @ b
+    info = solver.get_info()
+
+    r = b - A @ x
+    assert np.isclose(info['res_norm'], np.sqrt(r.inner(r).real), rtol=1e-8, atol=1e-12)
+    assert info['success'] == (maxiter == n)
+
+#===============================================================================
 def test_LST_preconditioner(comm=None):
 
     ncells_3d   = [16, 7, 11]
