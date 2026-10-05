@@ -23,12 +23,15 @@ memory supercomputers using MPI and OpenMP.
 - petsc4py for direct linear solvers (optional install)
 
 ## Code standards
-- PEP 8 conventions
+- Follow PEP 8 style guide whenever possible
 - Docstrings of public functions and classes follow Numpydoc conventions
 - pylint + black + isort for linting/typing
 - Computational kernels to be accelerated with Pyccel follow `<module>_kernels.py`
 - Minimize code duplication. Never add code that already exists
 - Strive for concise, clean, and human-readable code. Avoid useless verbosity
+- Self-explanatory names for variables, functions, and classes
+- Do not reassign value to an existing variable, especially if the type changes
+- Use short comments (one-liners or inline) to explain "why" rather than "what" or "how"
 
 ## Testing conventions
 - Each library subpackage contains a `tests/` folder with an `__init__.py` file
