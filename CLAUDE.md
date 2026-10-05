@@ -27,6 +27,8 @@ memory supercomputers using MPI and OpenMP.
 - Docstrings of public functions and classes follow Numpydoc conventions
 - pylint + black + isort for linting/typing
 - Computational kernels to be accelerated with Pyccel follow `<module>_kernels.py`
+- Minimize code duplication. Never add code that already exists
+- Strive for concise, clean, and human-readable code. Avoid useless verbosity
 
 ## Testing conventions
 - Each library subpackage contains a `tests/` folder with an `__init__.py` file
@@ -35,7 +37,7 @@ memory supercomputers using MPI and OpenMP.
 - Test file names follow `test_<module>.py`
 - Test function names follow `test_<function>` or `test_<class>_<method>`
 - Parametrize unit tests with `@pytest.parametrize` to minimize code duplication
-- Keep runtime at a minimum
+- Keep run time of tests at a minimum
 - Aim for 100% coverage on newly committed code
 
 ## File structure
