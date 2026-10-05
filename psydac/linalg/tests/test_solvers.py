@@ -270,10 +270,12 @@ def test_solver_diagonal(solver: str, diagonal: float, expected: float) -> None:
 #===============================================================================
 # GMRES converges in at most n iterations, and must report the true residual
 @pytest.mark.parametrize('maxiter', [1, 6, 12])
-def test_GMRES_solve(maxiter: int) -> None:
+@pytest.mark.parametrize('dtype', [float, complex])
+def test_GMRES_solve(maxiter: int, dtype: type) -> None:
 
     n = 12
-    _, A, xe = define_data(n, 1, [-7, -6, -1])
+    diagonals = [-7-2j, -6-2j, -1-10j] if dtype == complex else [-7, -6, -1]
+    _, A, xe = define_data(n, 1, diagonals, dtype=dtype)
     b = A @ xe
 
     solver = inverse(A, 'GMRES', tol=1e-10, maxiter=maxiter)

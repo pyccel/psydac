@@ -1791,7 +1791,7 @@ class GMRES(InverseLinearOperator):
 
             # update the residual vector
             beta.append(- sn[k] * beta[k])
-            beta[k] *= cn[k]
+            beta[k] *= cn[k].conjugate()
 
             am = abs(beta[k+1])
             if verbose:
@@ -1834,7 +1834,7 @@ class GMRES(InverseLinearOperator):
         self._A.dot( self._Q[k] , out=p) # Krylov vector
 
         for i in range(k + 1): # Modified Gram-Schmidt, keeping Hessenberg matrix
-            h[i] = p.inner(self._Q[i])
+            h[i] = self._Q[i].inner(p)
             p.mul_iadd(-h[i], self._Q[i])
         
         h[k+1] = sqrt(p.inner(p).real)
@@ -1847,23 +1847,24 @@ class GMRES(InverseLinearOperator):
 
     def apply_givens_rotation(self, k, sn, cn):
         # Apply Givens rotation to last column of H
+        # Rotation [[conj(c), conj(s)], [-s, c]] is unitary also for complex c, s
         h = self._H[:k+2, k]
 
         for i in range(k):
             h_i_prev = h[i]
 
-            h[i] *= cn[i]
-            h[i] += sn[i] * h[i+1]
+            h[i] *= cn[i].conjugate()
+            h[i] += sn[i].conjugate() * h[i+1]
 
             h[i+1] *= cn[i]
             h[i+1] -= sn[i] * h_i_prev
-        
-        mod = (h[k]**2 + h[k+1]**2)**0.5
+
+        mod = (abs(h[k])**2 + abs(h[k+1])**2)**0.5
         cn.append( h[k] / mod )
         sn.append( h[k+1] / mod )
 
-        h[k] *= cn[k]
-        h[k] += sn[k] * h[k+1]
+        h[k] *= cn[k].conjugate()
+        h[k] += sn[k].conjugate() * h[k+1]
         h[k+1] = 0. # becomes triangular
 
     def dot(self, b, out=None):
