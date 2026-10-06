@@ -203,16 +203,3 @@ def refine(mapping, axis, values):
         return NurbsMapping( *fields )
 
     return SplineMapping( *fields )
-
-
-
-######################################
-if __name__ == '__main__':
-    from psydac.cad.geometry import Geometry
-
-    geo = Geometry('square_0.h5')
-    mapping = geo.patches[0]
-    new = translate(mapping, [1., 0., 0.])
-
-    geo = Geometry(patches=[mapping, new])
-    geo.export('square_mp.h5')
