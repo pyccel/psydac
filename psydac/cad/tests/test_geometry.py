@@ -271,6 +271,24 @@ def test_from_topological_domain():
     assert geo_from_domain.ddm.starts == expected_starts
     assert geo_from_domain.ddm.ends   == expected_ends
 
+# ==============================================================================
+@pytest.mark.parametrize('npatches', [1, 2])
+def test_geometry_init_without_mappings(npatches: int) -> None:
+
+    if npatches == 1:
+        domain = Square(name='A')
+    else:
+        A = Square('A', bounds1=(0, 1), bounds2=(0, 1))
+        B = Square('B', bounds1=(1, 2), bounds2=(0, 1))
+        domain = Domain.join(patches=[A, B],
+                             connectivity=[((0, 0, 1), (1, 0, -1), 1)],
+                             name='Omega')
+
+    ncells = {name: [4, 4] for name in domain.interior_names}
+    geo = Geometry(domain, pdim=2, ncells=ncells)
+
+    assert geo.mappings == {name: None for name in domain.interior_names}
+
 #==============================================================================
 @pytest.mark.parametrize( 'ncells', [[8,8], [12,12], [14,14]] )
 @pytest.mark.parametrize( 'degree', [[2,2], [3,2], [2,3], [3,3], [4,4]] )

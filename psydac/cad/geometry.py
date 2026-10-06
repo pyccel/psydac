@@ -93,7 +93,7 @@ class Geometry:
         assert isinstance(pdim, int)
         assert isinstance(domain, Domain) 
         assert isinstance(ncells, dict)
-        assert isinstance(mappings, dict)
+        assert isinstance(mappings, (NoneType, dict))
         assert isinstance(periodic, (NoneType, dict))
         assert isinstance(comm, (NoneType, MPI.Intracomm))
         assert isinstance(mpi_dims_mask, (NoneType, Iterable))
@@ -126,7 +126,7 @@ class Geometry:
 
         # Check sanity of mappings
         if mappings is None:
-            mappings = {itr.name : None for itr in domain.interior}
+            mappings = {name : None for name in interior_names}
         else:
             assert set(mappings.keys()) == set_interior_names
             assert all(isinstance(m, (BasicCallableMapping, NoneType)) for m in mappings.values())
