@@ -12,7 +12,7 @@ from sympde.calculus import div
 from sympde.topology import VectorFunctionSpace
 from sympde.topology import element_of
 from sympde.topology import Square
-from sympde.topology import Mapping#, IdentityMapping, PolarMapping
+from sympde.topology import Domain, Mapping
 from sympde.expr     import integral
 from sympde.expr     import BilinearForm
 from sympde.expr.evaluation import TerminalExpr
@@ -54,7 +54,9 @@ def test_codegen():
     b = BilinearForm((u,v), int_0(div(v)*div(u)))
 
     # Create computational domain from topological domain
-    domain_h = discretize(domain, filename=filename)
+    # The spaces are defined on the logical domain, but the geometry needs
+    # the mapped domain defined in the file
+    domain_h = discretize(Domain.from_file(filename), filename=filename)
 
     # Discrete spaces
     Vh = discretize(V, domain_h)

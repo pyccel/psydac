@@ -9,11 +9,11 @@ import pytest
 import numpy as np
 from mpi4py import MPI
 
-from sympde.topology import Domain, Line, Square, Cube, Mapping
+from sympde.topology import Domain, Line, Square, Cube, Mapping, IdentityMapping
 
 from psydac.cad.geometry             import Geometry, export_nurbs_to_hdf5, refine_nurbs
 from psydac.cad.geometry             import import_geopdes_to_nurbs
-from psydac.cad.cad                  import elevate, refine
+from psydac.cad.cad                  import elevate, refine, translate
 from psydac.cad.gallery              import quart_circle, circle
 from psydac.mapping.discrete         import SplineMapping, NurbsMapping
 from psydac.mapping.discrete_gallery import discrete_mapping
@@ -288,6 +288,59 @@ def test_geometry_init_without_mappings(npatches: int) -> None:
     geo = Geometry(domain, pdim=2, ncells=ncells)
 
     assert geo.mappings == {name: None for name in domain.interior_names}
+
+#==============================================================================
+def make_domain(npatches: int, *, ornt: int = 1) -> Domain:
+    """Create a domain made of one or two unit squares, with generic mappings."""
+    if npatches == 1:
+        return Mapping('G', dim=2)(Square('P'))
+
+    A = Mapping('GA', dim=2)(Square('PA'))
+    B = Mapping('GB', dim=2)(Square('PB'))
+    return Domain.join([A, B], [((0, 0, 1), (1, 0, -1), ornt)], 'Omega')
+
+def export_geometry(domain: Domain, filename: str) -> None:
+    """Export a spline geometry on the domain, with patches side by side along x."""
+    F = discrete_mapping('identity', ncells=[2, 2], degree=[2, 2])
+    names = domain.interior_names
+    mappings = {name: translate(F, [float(i), 0.0]) for i, name in enumerate(names)}
+    ncells = {name: [2, 2] for name in names}
+    Geometry(domain, pdim=2, ncells=ncells, mappings=mappings).export(filename)
+
+#==============================================================================
+@pytest.mark.parametrize('npatches', [1, 2])
+@pytest.mark.xdist_group('h5py')
+def test_geometry_from_file_with_domain(npatches: int, tmp_path) -> None:
+
+    domain = make_domain(npatches)
+    filename = str(tmp_path / 'geo.h5')
+    export_geometry(domain, filename)
+
+    geo = Geometry.from_file(filename, domain=domain)
+
+    # The given domain is kept, and the spline mappings are attached to it
+    assert geo.domain is domain
+    patches = [domain.interior] if npatches == 1 else domain.interior.args
+    for patch, F in zip(patches, geo.mappings.values()):
+        assert patch.mapping.get_callable_mapping() is F
+
+#==============================================================================
+@pytest.mark.parametrize(('npatches', 'make_wrong_domain', 'message'), [
+    (1, lambda: IdentityMapping('G', dim=2)(Square('P')),      'non-analytical'),
+    (1, lambda: Square('P'),                                     'non-analytical'),
+    (1, lambda: Mapping('G', dim=3)(Cube('P')),                 'dimension'),
+    (1, lambda: Mapping('H', dim=2)(Square('P')),               'Patch names'),
+    (1, lambda: Mapping('G', dim=2)(Square('P', bounds1=(0, 2))), 'Parametric bounds'),
+    (2, lambda: make_domain(2, ornt=-1),                         'Interfaces'),
+], ids=['analytical', 'no-mapping', 'dimension', 'names', 'bounds', 'orientation'])
+@pytest.mark.xdist_group('h5py')
+def test_geometry_from_file_with_wrong_domain(npatches: int, make_wrong_domain, message: str, tmp_path) -> None:
+
+    filename = str(tmp_path / 'geo.h5')
+    export_geometry(make_domain(npatches), filename)
+
+    with pytest.raises(ValueError, match=message):
+        Geometry.from_file(filename, domain=make_wrong_domain())
 
 #==============================================================================
 @pytest.mark.parametrize( 'ncells', [[8,8], [12,12], [14,14]] )

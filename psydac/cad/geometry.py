@@ -172,6 +172,7 @@ class Geometry:
     def from_file(cls,
             filename : str,
             *,
+            domain : Domain = None,
             comm : MPI.Intracomm = None,
             mpi_dims_mask : Iterable[bool] = None):
 
@@ -182,6 +183,14 @@ class Geometry:
         ----------
         filename: str
             The path to the geometry file.
+
+        domain: sympde.topology.Domain, optional
+            The topological domain of the geometry. It must match the domain
+            defined in the file: same dimension, patch names, patches and
+            interfaces. Each patch must have a non-analytical mapping, to which
+            the corresponding spline mapping is attached; hence the same domain
+            should not be used with different geometry files. If not given, the
+            domain is created from the file.
 
         comm: MPI.Intracomm, optional
             The MPI intra-communicator.
@@ -195,9 +204,15 @@ class Geometry:
         -------
         Geometry
             The new instance.
+
+        Raises
+        ------
+        ValueError
+            If the given domain does not match the domain defined in the file,
+            or if one of its patches has no mapping or an analytical mapping.
         """
         geo = super().__new__(cls)
-        geo.read(filename, comm=comm, mpi_dims_mask=mpi_dims_mask)
+        geo.read(filename, comm=comm, mpi_dims_mask=mpi_dims_mask, domain=domain)
         return geo
 
     #--------------------------------------------------------------------------
@@ -331,21 +346,22 @@ class Geometry:
     def __len__(self):
         return len(self.domain)
 
-    def read(self, filename, comm=None, mpi_dims_mask=None):
+    def read(self, filename, comm=None, mpi_dims_mask=None, domain=None):
         # ... check extension of the file
         _, ext = os.path.splitext(filename)
         if ext != '.h5':
             raise ValueError('> Only h5 files are supported')
         # ...
 
-        # read the topological domain
-        domain       = Domain.from_file(filename)
-        connectivity = construct_connectivity(domain)
-
-        if len(domain) == 1:
-            interiors = [domain.interior]
+        # read the topological domain, or check the given one against it
+        file_domain = Domain.from_file(filename)
+        if domain is None:
+            domain = file_domain
         else:
-            interiors = list(domain.interior.args)
+            _check_domain_matches_file(domain, file_domain, filename)
+
+        connectivity = construct_connectivity(domain)
+        interiors    = _get_interiors(domain)
 
         if comm is not None:
             kwargs = dict(driver='mpio', comm=comm) if comm.size > 1 else {}
@@ -972,3 +988,49 @@ def _read_patch(lines, i_patch, n_lines_per_patch, list_begin_line):
 
     nrb = NURBS(knots, control=points, weights=W)
     return nrb
+
+#==============================================================================
+def _get_interiors(domain : Domain) -> list:
+    """Return the list of interior patches of a (multi-patch) domain."""
+    return [domain.interior] if len(domain) == 1 else list(domain.interior.args)
+
+def _get_interface_keys(domain : Domain) -> set:
+    """Return the interfaces of a domain as hashable tuples, with orientation."""
+    interfaces = domain.interfaces
+    if interfaces is None:
+        return set()
+    if not isinstance(interfaces, Union):
+        interfaces = [interfaces]
+    return {(i.minus.domain.name, i.minus.axis, i.minus.ext,
+             i.plus .domain.name, i.plus .axis, i.plus .ext, i.ornt) for i in interfaces}
+
+def _check_domain_matches_file(domain : Domain, file_domain : Domain, filename : str):
+    """Raise a ValueError if the domain cannot be used with the geometry file."""
+
+    # Properties are compared one by one, because domain == file_domain raises
+    # an error for multi-patch domains (see pyccel/sympde#197)
+
+    # Analytical mappings would be used in assembly instead of the spline ones
+    for patch in _get_interiors(domain):
+        if patch.mapping is None or patch.mapping.is_analytical:
+            raise ValueError(f"Patch {patch.name} must have a non-analytical "
+                             f"mapping to be used with geometry file {filename}")
+
+    if domain.dim != file_domain.dim:
+        raise ValueError(f"Domain dimension {domain.dim} does not match "
+                         f"dimension {file_domain.dim} in file {filename}")
+
+    if domain.interior_names != file_domain.interior_names:
+        raise ValueError(f"Patch names {domain.interior_names} do not match "
+                         f"{file_domain.interior_names} in file {filename}")
+
+    # Patch equality ignores the parametric bounds (see pyccel/sympde#198)
+    for patch, file_patch in zip(_get_interiors(domain), _get_interiors(file_domain)):
+        bounds      = (patch     .logical_domain.min_coords, patch     .logical_domain.max_coords)
+        file_bounds = (file_patch.logical_domain.min_coords, file_patch.logical_domain.max_coords)
+        if bounds != file_bounds:
+            raise ValueError(f"Parametric bounds {bounds} of patch {patch.name} "
+                             f"do not match {file_bounds} in file {filename}")
+
+    if _get_interface_keys(domain) != _get_interface_keys(file_domain):
+        raise ValueError(f"Interfaces of the domain do not match those in file {filename}")
