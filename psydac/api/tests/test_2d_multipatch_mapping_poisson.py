@@ -131,7 +131,7 @@ def test_poisson_2d_2_patches_dirichlet_1():
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
 
 #------------------------------------------------------------------------------
-def test_poisson_2d_3_patches_dirichlet_2():
+def test_poisson_2d_3_patches_dirichlet_2(tmp_path):
 
     mapping_1 = IdentityMapping('M1', 2)
     mapping_2 = PolarMapping   ('M2', 2, c1 = 0., c2 = 0.5, rmin = 0., rmax=1.)
@@ -155,7 +155,7 @@ def test_poisson_2d_3_patches_dirichlet_2():
 
     l2_error, h1_error, uh = run_poisson_2d(solution, f, domain, ncells=[2**2,2**2], degree=[2,2])
 
-    plot_fn=f'uh_multipatch_poisson.pdf'
+    plot_fn = str(tmp_path / 'uh_multipatch_poisson.pdf')
     plot_field(fem_field=uh, Vh=uh.space, domain=domain, title='uh', filename=plot_fn, hide_plot=True)
 
     expected_l2_error = 0.0019402242901236006
