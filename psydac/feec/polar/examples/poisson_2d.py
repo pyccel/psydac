@@ -394,7 +394,7 @@ def plot_solution(use_spline_mapping, model, ncells, periodic, V0_h, refine=10):
     from psydac.utilities.utils import refine_array_1d
 
     if use_spline_mapping:
-        geometry = Geometry(filename="geo.h5", comm=MPI.COMM_SELF)
+        geometry = Geometry.from_file("geo.h5", comm=MPI.COMM_SELF)
         map_discrete = [*geometry.mappings.values()].pop()
         Vnew = map_discrete.space
         map_plot = map_discrete
