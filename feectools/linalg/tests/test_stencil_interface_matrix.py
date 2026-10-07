@@ -5,6 +5,7 @@
 #---------------------------------------------------------------------------#
 import pytest
 import cunumpy as xp
+import numpy as np
 from random import random
 
 from feectools.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix, StencilInterfaceMatrix
@@ -22,7 +23,8 @@ def compute_global_starts_ends(domain_decomposition, npts, pads):
 
         global_ends  [axis]     = ee.copy()
         global_ends  [axis][-1] = npts[axis]-1
-        global_starts[axis]     = xp.array([0] + (global_ends[axis][:-1]+1).tolist())
+        # Cartesian partition data is host metadata, including on CuPy.
+        global_starts[axis]     = np.array([0] + (global_ends[axis][:-1]+1).tolist())
 
     for s, e, p in zip(global_starts, global_ends, pads):
         assert all(e - s + 1 >= p)
@@ -94,7 +96,7 @@ def test_stencil_interface_matrix_1d_serial_init(dtype, n1, p1, s1, axis, ext, P
     assert M.domain_start == (0,) * M.dim
     assert M.codomain_start == (0,) * M.dim
     assert M.flip == (1,) * M.dim
-    assert xp.array_equal(M.permutation, [0])
+    assert xp.array_equal(xp.asarray(M.permutation), xp.asarray([0]))
     assert M.pads == (p1,)
     assert M.backend == None
     assert M._data.shape == (p1 + 1 + 2 * p1 * s1, 1 + 2 * p1)
@@ -149,9 +151,9 @@ def test_stencil_interface_matrix_2d_serial_init(dtype, n1, n2, p1, p2, s1, s2, 
     elif axis2 == 1:
         assert M._data.shape == (n1 + 2 * p1 * s1, p2 + 1 + 2 * p2 * s2, 1 + 2 * p1, 1 + 2 * p2)
     if axis1 == axis2:
-        assert xp.array_equal(M.permutation, [0, 1])
+        assert xp.array_equal(xp.asarray(M.permutation), xp.asarray([0, 1]))
     else:
-        assert xp.array_equal(M.permutation, [1, 0])
+        assert xp.array_equal(xp.asarray(M.permutation), xp.asarray([1, 0]))
     assert M.shape == (n1 * n2, n1 * n2)
 
 # ===============================================================================
@@ -211,11 +213,11 @@ def test_stencil_interface_matrix_3d_serial_init(dtype, n1, n2, n3, p1, p2, p3, 
         assert M._data.shape == (
         n1 + 2 * p1 * s1, n2 + 2 * p2 * s2, p3 + 1 + 2 * p3 * s3, 1 + 2 * p1, 1 + 2 * p2, 1 + 2 * p3)
     if axis1 == axis2:
-        assert xp.array_equal(M.permutation, [0, 1, 2])
+        assert xp.array_equal(xp.asarray(M.permutation), xp.asarray([0, 1, 2]))
     else:
         permutation = [0, 1, 2]
         permutation[axis1], permutation[axis2] = permutation[axis2], permutation[axis1]
-        assert xp.array_equal(M.permutation, permutation)
+        assert xp.array_equal(xp.asarray(M.permutation), xp.asarray(permutation))
     assert M.shape == (n1 * n2 * n3, n1 * n2 * n3)
 #===============================================================================
 # Parallel TESTS

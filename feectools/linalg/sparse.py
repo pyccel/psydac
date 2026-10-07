@@ -2,6 +2,7 @@
 
 from scipy.sparse import sparray, csr_array, bsr_array
 from scipy.sparse import spmatrix, csr_matrix, bsr_matrix
+import cunumpy as xp
 
 from feectools.linalg.basic   import LinearOperator
 from feectools.linalg.basic   import VectorSpace, Vector, LinearOperator
@@ -97,7 +98,17 @@ class SparseMatrixLinearOperator(LinearOperator):
             dim_W = W.dimension
             dim_V = V.dimension
 
-            out[index_global_W].flat += self._matrix[ind_W:ind_W+dim_W, ind_V:ind_V+dim_V] @ v[index_global_V].flat
+            matrix = self._matrix[ind_W:ind_W+dim_W, ind_V:ind_V+dim_V]
+            values = v[index_global_V].flat
+            # SciPy sparse matrices are host-only.  Stage just this local
+            # vector slice when the active backend is CuPy, then assign the
+            # result back through the backend-neutral vector interface.
+            if xp.is_gpu(v._data):
+                product = matrix @ xp.to_numpy(v[index_global_V]).ravel()
+                target = out[index_global_W]
+                target[...] += xp.asarray(product).reshape(target.shape)
+            else:
+                out[index_global_W].flat += matrix @ values
 
         elif isinstance(v, BlockVector):
 

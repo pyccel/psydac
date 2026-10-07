@@ -98,9 +98,11 @@ def run_cart_3d( data_exchanger_type, verbose=False ):
     #---------------------------------------------------------------------------
 
     # Fill in true domain with u[i1_loc,i2_loc,i3_loc,:]=[i1_glob,i2_glob,i3_glob]
-    u[p1:-p1,p2:-p2,p3:-p3,:] = [[[(i1,i2,i3) for i3 in range(s3,e3+1)] \
-                                              for i2 in range(s2,e2+1)] \
-                                              for i1 in range(s1,e1+1)]
+    u[p1:-p1,p2:-p2,p3:-p3,:] = xp.asarray(
+        [[[(i1, i2, i3) for i3 in range(s3, e3 + 1)]
+          for i2 in range(s2, e2 + 1)]
+         for i1 in range(s1, e1 + 1)]
+    )
 
     request = synchronizer.prepare_communications(u)
     # Update ghost regions
@@ -118,7 +120,7 @@ def run_cart_3d( data_exchanger_type, verbose=False ):
                            for i2 in range(s2-p2,e2+p2+1)] \
                            for i1 in range(s1-p1,e1+p1+1)]
 
-    success = (u == uex).all()
+    success = (u == xp.asarray(uex)).all()
 
     # MASTER only: collect information from all processes
     success_global = comm.reduce( success, op=MPI.LAND, root=0 )

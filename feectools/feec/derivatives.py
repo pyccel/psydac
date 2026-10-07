@@ -290,8 +290,13 @@ class DirectionalDerivativeOperator(LinearOperator):
 
         with_pads = kwargs.pop('with_pads', False)
 
-        # avoid this case (no pads, but parallel)
-        assert not (self.domain.parallel and not with_pads)
+        # avoid this case (no pads, but genuinely decomposed across more than one rank):
+        # `.parallel` only means "an MPI communicator is attached", true even at 1 rank
+        # (e.g. under `srun -n 1`), where the no-pads local range already *is* the full
+        # global range and this restriction does not apply -- so check the rank count
+        # (`cart.nprocs`) directly rather than `.parallel`.
+        if self.domain.parallel:
+            assert with_pads or all(n == 1 for n in self._spaceV.cart.nprocs)
 
         # begin with a 1×1 matrix
         matrix = spa.identity(1, format='coo')
@@ -315,13 +320,20 @@ class DirectionalDerivativeOperator(LinearOperator):
                     directional_matrix = spa.coo_array((codomain_local, domain_local))
 
                 else:
-                    maindiag = xp.ones(domain_local) * (-sign)
-                    adddiag = xp.ones(domain_local) * sign
+                    # Plain NumPy, not xp: scipy.sparse.diags is host-only and rejects a
+                    # CuPy array outright (unlike an implicit numpy->cupy conversion,
+                    # cupy->numpy needs an explicit .get()/xp.to_numpy()) -- these
+                    # diagonals are tiny and only ever feed this one-time host-side
+                    # sparse assembly, never a device computation.
+                    import numpy as np
+
+                    maindiag = np.ones(domain_local) * (-sign)
+                    adddiag = np.ones(domain_local) * sign
 
                     # handle special case with not self.domain.parallel and not with_pads and periodic
                     if self.domain.periods[d] and not self.domain.parallel and not with_pads:
                         # then: add element to other side of the array
-                        adddiagcirc = xp.array([sign])
+                        adddiagcirc = np.array([sign])
                         offsets = (-codomain_local+1, 0, 1)
                         diags = (adddiagcirc, maindiag, adddiag)
                     else:

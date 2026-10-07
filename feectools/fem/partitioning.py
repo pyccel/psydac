@@ -1,8 +1,10 @@
 # -*- coding: UTF-8 -*-
 import os
 
+import cunumpy  # only for its backend-agnostic to_numpy(), see below -- not aliased to
+                 # xp here, since that alias is reserved for plain NumPy in this module.
 import numpy as np
-import cunumpy as xp
+import numpy as xp  # this module is host-only MPI/index bookkeeping, never device data
 
 from feectools.ddm.cart       import CartDecomposition, InterfaceCartDecomposition, create_interfaces_cart
 from feectools.core.bsplines  import elements_spans
@@ -58,9 +60,8 @@ def partition_coefficients(domain_decomposition, spaces, min_blocks=None):
         m  = multiplicity[axis]
 
         # Convert to numpy if CuPy (needed for MPI operations later)
-        if hasattr(ee, 'get'):
-            ee = ee.get()
-        
+        ee = cunumpy.to_numpy(ee)
+
         global_ends  [axis]     = m*(ee+1)-1
         global_ends  [axis][-1] = npts[axis]-1
         global_starts[axis]     = xp.array([0] + (global_ends[axis][:-1]+1).tolist())
@@ -69,8 +70,8 @@ def partition_coefficients(domain_decomposition, spaces, min_blocks=None):
         min_blocks = [None] * ndims
 
     for s, e, V, mb in zip(global_starts, global_ends, spaces, min_blocks):
-        s_host = s.get() if hasattr(s, 'get') else np.asarray(s)
-        e_host = e.get() if hasattr(e, 'get') else np.asarray(e)
+        s_host = cunumpy.to_numpy(s)
+        e_host = cunumpy.to_numpy(e)
         local_sizes = e_host - s_host + 1
 
         if V.periodic or mb is None:

@@ -1897,7 +1897,9 @@ class GMRES(InverseLinearOperator):
         h = self._H[:k+2, k]
 
         for i in range(k):
-            h_i_prev = h[i]
+            # On CuPy, scalar indexing can retain a view into ``h``.  Keep a
+            # genuine scalar before modifying that entry in-place.
+            h_i_prev = h[i].item() if xp.is_gpu(h) else h[i]
 
             h[i] *= cn[i]
             h[i] += sn[i] * h[i+1]
@@ -1905,9 +1907,11 @@ class GMRES(InverseLinearOperator):
             h[i+1] *= cn[i]
             h[i+1] -= sn[i] * h_i_prev
         
-        mod = (h[k]**2 + h[k+1]**2)**0.5
-        cn.append( h[k] / mod )
-        sn.append( h[k+1] / mod )
+        h_k = h[k].item() if xp.is_gpu(h) else h[k]
+        h_k1 = h[k+1].item() if xp.is_gpu(h) else h[k+1]
+        mod = (h_k**2 + h_k1**2)**0.5
+        cn.append(h_k / mod)
+        sn.append(h_k1 / mod)
 
         h[k] *= cn[k]
         h[k] += sn[k] * h[k+1]

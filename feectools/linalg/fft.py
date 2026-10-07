@@ -53,7 +53,14 @@ class DistributedFFTBase(LinearOperator):
             if out is not rhs:
                 out[:] = rhs
             
-            self._function(out)
+            # SciPy FFT routines are host-only.  Preserve the vector backend
+            # by staging only the local work array when called with CuPy.
+            if xp.is_gpu(out):
+                out_cpu = xp.to_numpy(out)
+                self._function(out_cpu)
+                out[...] = xp.asarray(out_cpu)
+            else:
+                self._function(out)
 
             return out
 

@@ -187,8 +187,9 @@ def basis_funs_all_ders_true(knots, degree, x, span, n, normalization='B'):
 
     # Normalization to get M-Splines
     if normalization == 'M':
-        ders *= [(degree + 1) / (knots[i + degree + 1] - knots[i]) \
-                 for i in range(span - degree, span + 1)]
+        scaling = xp.asarray([(degree + 1) / (knots[i + degree + 1] - knots[i])
+                              for i in range(span - degree, span + 1)])
+        ders *= scaling
     return ders
 
 #==============================================================================
@@ -221,7 +222,15 @@ def collocation_matrix_true(knots, degree, periodic, normalization, xgrid):
     for i,x in enumerate( xgrid ):
         span  =  find_span_true( knots, degree, x )
         basis = basis_funs_true( knots, degree, x, span )
-        mat[i,js(span)] = normalize(basis, span)
+        values = normalize(basis, span)
+        if periodic:
+            # NumPy and CuPy differ for indexed assignment with repeated
+            # indices (which occurs when nb <= degree).  The production
+            # kernel assigns in loop order, so make the reference explicit.
+            for j, value in zip(js(span), values):
+                mat[i, j] = value
+        else:
+            mat[i, js(span)] = values
 
     # Mitigate round-off errors
     mat[abs(mat) < 1e-14] = 0.0
@@ -293,7 +302,7 @@ def histopolation_matrix_true(knots, degree, periodic, normalization, xgrid):
     # Compute span for each row (index of last non-zero basis function)
     # TODO: would be better to have this ready beforehand
     # TODO: use tolerance instead of comparing against zero
-    spans = [(row != 0).argmax() + (degree+1) for row in C]
+    spans = [int((row != 0).argmax()) + (degree+1) for row in C]
 
     # Compute histopolation matrix from collocation matrix of higher degree
     m = C.shape[0] - 1

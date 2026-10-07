@@ -1,5 +1,6 @@
 import pytest
 import cunumpy as xp
+import numpy as np
 
 from feectools.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 from feectools.linalg.basic import LinearOperator, ZeroOperator, IdentityOperator, ComposedLinearOperator, SumLinearOperator, PowerLinearOperator, ScaledLinearOperator
@@ -24,7 +25,9 @@ def sparse_equal(a, b):
 def assert_pos_def(A):
     assert isinstance(A, LinearOperator)
     A_array = A.toarray()
-    assert xp.all(xp.linalg.eigvals(A_array) > 0)
+    # array-api-compat's CuPy linalg namespace does not expose eigvals.
+    eigvals = np.linalg.eigvals(xp.to_numpy(A_array))
+    assert np.all(eigvals > 0)
 
 def compute_global_starts_ends(domain_decomposition, npts):
     ndims         = len(npts)
@@ -126,7 +129,7 @@ def test_square_stencil_basic(n1, n2, p1, p2, P1=False, P2=False):
         for k2 in range(-p2,p2+1):
             S[:,:,k1,k2] = nonzero_values[k1,k2]
     S.remove_spurious_entries()
-    Sa = S.toarray()
+    Sa = xp.asarray(S.toarray())
 
     nonzero_values1 = dict()
     for k1 in range(-p1,p1+1):
@@ -142,7 +145,7 @@ def test_square_stencil_basic(n1, n2, p1, p2, P1=False, P2=False):
         for k2 in range(-p2,p2+1):
             S1[:,:,k1,k2] = nonzero_values1[k1,k2]
     S1.remove_spurious_entries()
-    S1a = S1.toarray()
+    S1a = xp.asarray(S1.toarray())
 
     nonzero_values2 = dict()
     for k1 in range(-p1,p1+1):
@@ -159,7 +162,7 @@ def test_square_stencil_basic(n1, n2, p1, p2, P1=False, P2=False):
         for k2 in range(-p2,p2+1):
             S2[:,:,k1,k2] = nonzero_values2[k1,k2]
     S2.remove_spurious_entries()
-    S2a = S2.toarray()
+    S2a = xp.asarray(S2.toarray())
 
     # Construct exact matrices by hand
     A1 = xp.zeros( S.shape )
@@ -232,8 +235,8 @@ def test_square_stencil_basic(n1, n2, p1, p2, P1=False, P2=False):
     
     assert not xp.array_equal(S2a, S2a.T) # using a nonsymmetric matrix throughout
     assert isinstance(S2.T, StencilMatrix)
-    assert xp.array_equal(S2.T.toarray(), S2a.T)
-    assert xp.array_equal(S2.T.T.toarray(), S2a)
+    assert xp.array_equal(xp.asarray(S2.T.toarray()), xp.asarray(S2a.T))
+    assert xp.array_equal(xp.asarray(S2.T.T.toarray()), xp.asarray(S2a))
 
     ###
     ### 3. Test special cases
@@ -478,9 +481,9 @@ def test_in_place_operations(n1, n2, p1, p2, P1=False, P2=False):
     assert isinstance(I1, ZeroOperator)
     assert isinstance(I2, IdentityOperator)
     assert isinstance(I3, ScaledLinearOperator)
-    assert xp.array_equal(v3.toarray(), xp.dot(v_array, 3))
+    assert xp.array_equal(v3.toarray(), v_array * 3)
     assert isinstance(I4, ScaledLinearOperator)
-    assert xp.array_equal(v4.toarray(), xp.dot(v_array, 3j))
+    assert xp.array_equal(v4.toarray(), v_array * 3j)
 
     # testing __iadd__ and __isub__ although not explicitly implemented (in the LinearOperator class)
 
@@ -506,7 +509,7 @@ def test_in_place_operations(n1, n2, p1, p2, P1=False, P2=False):
             S[:,:,k1,k2] = nonzero_values1[k1,k2]
     S.remove_spurious_entries()
     T = S.copy()
-    Sa = S.toarray()
+    Sa = xp.asarray(S.toarray())
 
     Z1 += S
     S += Z2
@@ -519,7 +522,7 @@ def test_in_place_operations(n1, n2, p1, p2, P1=False, P2=False):
     w = S.dot(v)
 
     assert isinstance(S, StencilMatrix)
-    assert xp.array_equal(w.toarray(), xp.dot(xp.dot(2, Sa), v_array))
+    assert xp.array_equal(w.toarray(), 2 * Sa @ v_array)
 
     Z3 -= T
     T -= Z2
@@ -529,7 +532,7 @@ def test_in_place_operations(n1, n2, p1, p2, P1=False, P2=False):
 
     assert isinstance(Z3, StencilMatrix)
     assert isinstance(T, StencilMatrix)
-    assert xp.array_equal(w2.toarray(), xp.dot(xp.dot(2, Sa), v_array))
+    assert xp.array_equal(w2.toarray(), 2 * Sa @ v_array)
  
 #===============================================================================
 @pytest.mark.parametrize('n1', n1array)
@@ -630,7 +633,7 @@ def test_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
     scaled_matrix = B * xp.random.random() # Ensure the diagonal elements != 1
     diagonal_values = scaled_matrix.diagonal(sqrt=False).toarray()
     sqrt_diagonal_values = scaled_matrix.diagonal(sqrt=True).toarray()
-    assert xp.array_equal(sqrt_diagonal_values, xp.sqrt(diagonal_values))
+    assert xp.array_equal(xp.asarray(sqrt_diagonal_values), xp.sqrt(xp.asarray(diagonal_values)))
 
     tol = 1e-5
     C = inverse(B, 'cg', tol=tol)
@@ -786,20 +789,22 @@ def test_operator_evaluation(n1, n2, p1, p2):
     b1 = ( B**1 @ u ).toarray()
     b2 = ( B**2 @ u ).toarray()
     assert xp.array_equal(uarr, b0)
-    assert xp.linalg.norm( xp.dot(Bmat, uarr) - b1 ) < 1e-10
-    assert xp.linalg.norm( xp.dot(Bmat, xp.dot(Bmat, uarr)) - b2 ) < 1e-10
+    assert xp.linalg.norm(xp.asarray(Bmat) @ uarr - b1) < 1e-10
+    Bmat_xp = xp.asarray(Bmat)
+    assert xp.linalg.norm(Bmat_xp @ (Bmat_xp @ uarr) - b2) < 1e-10
 
     bi0 = ( B_ILO**0 @ u ).toarray()
     bi1 = ( B_ILO**1 @ u ).toarray()
     bi2 = ( B_ILO**2 @ u ).toarray()
-    B_inv_mat = xp.linalg.inv(Bmat)
-    b_inv_arr = xp.matrix.flatten(B_inv_mat)
-    error_est = 2 + n1 * n2 * xp.max( [ xp.abs(b_inv_arr[i]) for i in range(len(b_inv_arr)) ] )
+    Bmat_xp = xp.asarray(Bmat)
+    B_inv_mat = xp.linalg.inv(Bmat_xp)
+    b_inv_arr = xp.reshape(B_inv_mat, (-1,))
+    error_est = 2 + n1 * n2 * xp.max(xp.abs(b_inv_arr))
     assert xp.array_equal(uarr, bi0)
-    bi12 = xp.linalg.solve(Bmat, uarr)
-    bi22 = xp.linalg.solve(Bmat, bi12)
-    assert xp.linalg.norm( (Bmat @ bi12) - uarr ) < tol
-    assert xp.linalg.norm( (Bmat @ bi22) - bi12 ) < error_est * tol
+    bi12 = xp.linalg.solve(Bmat_xp, uarr)
+    bi22 = xp.linalg.solve(Bmat_xp, bi12)
+    assert xp.linalg.norm( (Bmat_xp @ bi12) - uarr ) < tol
+    assert xp.linalg.norm( (Bmat_xp @ bi22) - bi12 ) < error_est * tol
 
     zeros = U.zeros().toarray()
     z0 = ( Z**0 @ u ).toarray()
@@ -809,22 +814,22 @@ def test_operator_evaluation(n1, n2, p1, p2):
     assert xp.array_equal(zeros, z1)
     assert xp.array_equal(zeros, z2)
 
-    Smat = S.toarray()
+    Smat = xp.asarray(S.toarray())
     assert_pos_def(S)
     varr = v.toarray()
     s0 = ( S**0 @ v ).toarray()
     s1 = ( S**1 @ v ).toarray()
     s2 = ( S**2 @ v ).toarray()
     assert xp.array_equal(varr, s0)
-    assert xp.linalg.norm( xp.dot(Smat, varr) - s1 ) < 1e-10
-    assert xp.linalg.norm( xp.dot(Smat, xp.dot(Smat, varr)) - s2 ) < 1e-10
+    assert xp.linalg.norm(Smat @ varr - s1) < 1e-10
+    assert xp.linalg.norm(Smat @ (Smat @ varr) - s2) < 1e-10
 
     si0 = ( S_ILO**0 @ v ).toarray()
     si1 = ( S_ILO**1 @ v ).toarray()
     si2 = ( S_ILO**2 @ v ).toarray()
     S_inv_mat = xp.linalg.inv(Smat)
-    s_inv_arr = xp.matrix.flatten(S_inv_mat)
-    error_est = 2 + n1 * n2 * xp.max( [ xp.abs(s_inv_arr[i]) for i in range(len(s_inv_arr)) ] )
+    s_inv_arr = xp.reshape(S_inv_mat, (-1,))
+    error_est = 2 + n1 * n2 * xp.max(xp.abs(s_inv_arr))
     assert xp.array_equal(varr, si0)
     si12 = xp.linalg.solve(Smat, varr)
     si22 = xp.linalg.solve(Smat, si12)

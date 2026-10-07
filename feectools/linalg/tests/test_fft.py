@@ -84,7 +84,8 @@ def method_test(seed, comm, config, dtype, classtype, comparison, verbose=False)
     if verbose:
         print(f'[{rank}] Vector built', flush=True)
 
-    X_glob = comparison(Y_glob)
+    X_glob = comparison(xp.to_numpy(Y_glob)) if xp.is_gpu(Y_glob) else comparison(Y_glob)
+    X_glob = xp.asarray(X_glob)
 
     compare = classtype(V)
     X = compare.dot(Y)

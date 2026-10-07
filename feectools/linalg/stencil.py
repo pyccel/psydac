@@ -3,11 +3,14 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
+
+import math
 import os
 import warnings
 from types import MappingProxyType
 
 import cunumpy as xp
+from cunumpy.kernels import PyccelKernel
 from cunumpy.xp import array_backend
 from scipy.sparse import coo_matrix, diags as sp_diags
 
@@ -38,17 +41,11 @@ __all__ = (
 def _to_numpy_int64(val):
     """Convert CuPy or NumPy scalar/array to numpy int64."""
     import numpy as _np
-    if hasattr(val, 'get'):
-        # CuPy array - convert to NumPy first
-        val = val.get()
-    return _np.int64(val)
+    return _np.int64(val.get() if xp.is_gpu(val) else val)
 
 def _to_numpy_array(val):
     """Convert CuPy array to NumPy array, preserving dtype. Return as-is if already NumPy."""
-    if hasattr(val, 'get'):
-        # CuPy array - convert to NumPy
-        return val.get()
-    return val
+    return val.get() if xp.is_gpu(val) else val
 
 #========================================================================# Dictionary used to select correct kernel functions based on dimensionality
 kernels = {
@@ -60,6 +57,24 @@ kernels = {
     'stencil2coo': {'F': (None, stencil2coo_1d_F, stencil2coo_2d_F, stencil2coo_3d_F),
                     'C': (None, stencil2coo_1d_C, stencil2coo_2d_C, stencil2coo_3d_C)}
 }
+
+#========================================================================
+
+def _wrap_kernel_table(table):
+    """Wrap every Pyccel kernel in `table` with PyccelKernel, recursively,
+    so StencilMatrix/StencilVector operations also work with CuPy arrays
+    (Pyccel kernels only understand NumPy arrays, see cunumpy.kernels).
+    """
+    if table is None:
+        return None
+    if isinstance(table, dict):
+        return {k: _wrap_kernel_table(v) for k, v in table.items()}
+    if isinstance(table, tuple):
+        return tuple(_wrap_kernel_table(v) for v in table)
+    return PyccelKernel(table)
+
+
+kernels = _wrap_kernel_table(kernels)
 
 #========================================================================
 def compute_diag_len(pads, shifts_domain, shifts_codomain, return_padding=False):
@@ -89,13 +104,15 @@ def compute_diag_len(pads, shifts_domain, shifts_codomain, return_padding=False)
     ep : (int)
         Padding that constitutes the starting index of the non zero elements.
     """
-    n  = ((xp.ceil((pads+1)/shifts_codomain)-1)*shifts_domain).astype('int')
-    ep = -xp.minimum(0, n-pads)
+    # pads/shifts are plain Python ints (per-direction metadata), not device
+    # arrays, so this is computed with builtins rather than the array backend.
+    n  = int((math.ceil((pads+1)/shifts_codomain)-1)*shifts_domain)
+    ep = -min(0, n-pads)
     n  = n + ep + pads + 1
     if return_padding:
-        return n.astype('int'), ep.astype('int')
+        return int(n), int(ep)
     else:
-        return n.astype('int')
+        return int(n)
 
 #========================================================================
 class StencilVectorSpace(VectorSpace):
@@ -214,7 +231,7 @@ class StencilVectorSpace(VectorSpace):
         """ The dimension of a vector space V is the cardinality
             (i.e. the number of vectors) of a basis of V over its base field.
         """
-        return xp.prod(self._npts)
+        return math.prod(self._npts)
 
     # ...
     @property
@@ -1116,7 +1133,7 @@ class StencilMatrix(LinearOperator):
         self._func(self_data_np, v_data_np, out_data_np, **args_np)
         
         # Copy result back to CuPy array if needed
-        if hasattr(out._data, 'get'):
+        if xp.is_gpu(out._data):
             import cupy as cp
             out._data[:] = cp.asarray(out_data_np)
         else:
@@ -1175,7 +1192,7 @@ class StencilMatrix(LinearOperator):
         self._func(self_data_np, v_data_conj_np, out_data_np, **args_np)
         
         # Copy result back to CuPy array if needed
-        if hasattr(out._data, 'get'):
+        if xp.is_gpu(out._data):
             import cupy as cp
             out_data_conj = cp.conjugate(cp.asarray(out_data_np))
             out._data[:] = out_data_conj
@@ -1223,8 +1240,9 @@ class StencilMatrix(LinearOperator):
         out_data_np = _to_numpy_array(out._data)
         
         if conjugate:
-            self._transpose_func(_to_numpy_array(xp.conjugate(M_data_np)), out_data_np, **self._transpose_args)
-            self._transpose_func(xp.conjugate(M._data), out._data, **self._transpose_args)
+            # This kernel is host-backed.  Conjugate the staged host array,
+            # rather than passing it through CuPy's ufunc dispatcher.
+            self._transpose_func(M_data_np.conj(), out_data_np, **self._transpose_args)
         else:
             self._transpose_func(M_data_np, out_data_np, **self._transpose_args)
         
@@ -1687,7 +1705,7 @@ class StencilMatrix(LinearOperator):
 
         M = coo_matrix(
                 (data,(rows,cols)),
-                shape = [xp.prod(nr),xp.prod(nc)],
+                shape = [math.prod(nr),math.prod(nc)],
                 dtype = self._domain.dtype
         )
 
@@ -1749,23 +1767,12 @@ class StencilMatrix(LinearOperator):
             data[:ind] = cp.asarray(data_np[:ind])
             rows[:ind] = cp.asarray(rows_np[:ind])
             cols[:ind] = cp.asarray(cols_np[:ind])
-        nrl = [_np.int64(e-s+1) for s,e in zip(self.codomain.starts, self.codomain.ends)]
-        ncl = [_np.int64(i) for i in self._data.shape[nd:]]
-        ss = [_np.int64(i) for i in ss]
-        nr = [_np.int64(i) for i in nr]
-        nc = [_np.int64(i) for i in nc]
-        dm = [_np.int64(i) for i in dm]
-        cm = [_np.int64(i) for i in cm]
-        cpads = [_np.int64(i) for i in cpads]
-        pp = [_np.int64(i) for i in pp]
 
-        stencil2coo = kernels['stencil2coo'][order][nd]
-        ind = stencil2coo(self._data, data, rows, cols, *nrl, *ncl, *ss, *nr, *nc, *dm, *cm, *cpads, *pp)
-        
-        
         if array_backend.backend == "cupy":
+            def _host(a):
+                return xp.to_numpy(a)
             M = coo_matrix(
-                (data[:ind].get(), (rows[:ind].get(), cols[:ind].get())),
+                (_host(data[:ind]), (_host(rows[:ind]), _host(cols[:ind]))),
                 shape=[int(_np.prod(nr)), int(_np.prod(nc))],
                 dtype=self.dtype
             )
@@ -1854,7 +1861,7 @@ class StencilMatrix(LinearOperator):
         # Create Scipy COO matrix
         M = coo_matrix(
                 (data,(rows,cols)),
-                shape = [xp.prod(nr), xp.prod(nc)],
+                shape = [math.prod(nr), math.prod(nc)],
                 dtype = self._domain.dtype
         )
 
@@ -1881,7 +1888,10 @@ class StencilMatrix(LinearOperator):
         for direction in range(self._codomain.ndim):
 
             periodic = self._codomain.periods[direction]
-            p        = self._codomain.pads   [direction]
+            # The ghost region is `shifts` copies of `pads` wide, exactly as
+            # in StencilVector._update_ghost_regions_serial; using `pads`
+            # alone silently mismatched the MPI exchange whenever shifts > 1.
+            p        = self._codomain.pads[direction] * self._codomain.shifts[direction]
 
             if p == 0:
                 continue
@@ -2008,7 +2018,7 @@ class StencilMatrix(LinearOperator):
 
             # matvec kernel
             dot_func_name = 'matvec_' + str(self._ndim) + 'd_kernel'
-            self._func = getattr(stencil_dot_kernels, dot_func_name)
+            self._func = PyccelKernel(getattr(stencil_dot_kernels, dot_func_name))
 
             # parameter for rectangular matrices
             add = [int(end_in >= end_out) for end_in, end_out in zip(self.domain.ends, self.codomain.ends)]
@@ -2032,7 +2042,7 @@ class StencilMatrix(LinearOperator):
             # transpose kernel
             transp_func_name = 'transpose_' + str(self._ndim) + 'd_kernel'
 
-            self._transpose_func = getattr(stencil_transpose_kernels, transp_func_name)
+            self._transpose_func = PyccelKernel(getattr(stencil_transpose_kernels, transp_func_name))
 
             # parameter for rectangular matrices
             add = [int(end_out >= end_in) for end_in, end_out in zip(self.domain.ends, self.codomain.ends)]
@@ -2167,7 +2177,7 @@ class StencilMatrix(LinearOperator):
             nrows = [e - s + 1 for s, e in zip(self.codomain.starts, self.codomain.ends)]
             ndim  = self.domain.ndim
 
-            indices = [xp.zeros(xp.prod(nrows), dtype=int) for _ in range(2 * ndim)]
+            indices = [xp.zeros(math.prod(nrows), dtype=int) for _ in range(2 * ndim)]
 
             for l, xx in enumerate(xp.ndindex(*nrows)):
                 ii = [m * p + x for m, p, x in zip(dm, dp, xx)]
@@ -2239,7 +2249,8 @@ class StencilDiagonalMatrix(LinearOperator):
         return int(self._data.nbytes)
 
     def tosparse(self):
-        return sp_diags(self._data.ravel())
+        # scipy.sparse.diags expects a host sequence of diagonal arrays.
+        return sp_diags([xp.to_numpy(self._data).ravel()], [0])
 
     def toarray(self):
         return self._data.copy()
@@ -2927,7 +2938,7 @@ class StencilInterfaceMatrix(LinearOperator):
 
         M = coo_matrix(
                     (data,(rows,cols)),
-                    shape = [xp.prod(nr),xp.prod(nc)],
+                    shape = [math.prod(nr),math.prod(nc)],
                     dtype = self.domain.dtype)
 
         return M

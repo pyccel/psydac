@@ -189,19 +189,13 @@ class SplineSpace( FemSpace ):
             # Convert to CSC format and compute sparse LU decomposition
             
             # Convert to LAPACK banded format (see DGBTRF function)
-            if hasattr(imat, 'get'):
-                imat = imat.get()
-            else:
-                imat = _np.asanyarray(imat)
+            imat = xp.to_numpy(imat)
 
             self._interpolator = SparseSolver( csc_matrix( imat ) )
         else:
 
             # Convert to LAPACK banded format (see DGBTRF function)
-            if array_backend.backend == "cupy":
-                imat = imat.get()
-            else:
-                imat = _np.asanyarray(imat)
+            imat = xp.to_numpy(imat)
             dmat = dia_matrix( imat )
             l = abs( dmat.offsets.min() )
             u =      dmat.offsets.max()
@@ -231,10 +225,7 @@ class SplineSpace( FemSpace ):
             xgrid    = self.ext_greville,
             multiplicity = self._multiplicity
         )
-        if hasattr(imat, 'get'):
-            imat = imat.get()
-        else:
-            imat = _np.asanyarray(imat)
+        imat = xp.to_numpy(imat)
         
         self.hmat= imat
         if self.periodic:

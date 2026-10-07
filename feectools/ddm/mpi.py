@@ -188,8 +188,9 @@ def _mpi_disabled():
 if launched_under_mpi():
     try:
         # Disable MPI when using CuPy due to known segfault issues with OpenMPI + CUDA
+        # (the backend variable is cunumpy's, read the same way as cunumpy does)
         import os
-        if os.environ.get('ARRAY_BACKEND') == 'cupy':
+        if os.environ.get('CUNUMPY_BACKEND', 'numpy').lower() == 'cupy':
             raise ImportError("MPI disabled when using CuPy backend")
 
         if _mpi_disabled():

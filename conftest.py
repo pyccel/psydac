@@ -1,6 +1,7 @@
 """Root-level pytest configuration."""
 import pytest
 import sys
+import importlib.util
 from pathlib import Path
 
 
@@ -32,12 +33,16 @@ def pytest_collection_modifyitems(config, items):
 
     items_to_remove = []
     skip = pytest.mark.skip(reason="Requires optional dependency (sympde)")
+    petsc_available = importlib.util.find_spec("petsc4py") is not None
 
     for item in items:
         # Skip if module is in skip list
         if item.fspath.basename in skip_modules:
             items_to_remove.append(item)
             continue
+
+        if item.get_closest_marker("petsc") and not petsc_available:
+            item.add_marker(pytest.mark.skip(reason="petsc4py is not installed"))
 
         # If running with xdist, automatically skip mpi and petsc tests
         if config.pluginmanager.has_plugin("xdist"):

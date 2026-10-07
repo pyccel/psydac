@@ -92,7 +92,9 @@ def run_cart_2d( data_exchanger_type, verbose=False , nprocs=None, reverse_axis=
     #---------------------------------------------------------------------------
 
     # Fill in true domain with u[i1_loc,i2_loc,:]=[i1_glob,i2_glob]
-    u[p1:-p1,p2:-p2,:] = [[(i1,i2) for i2 in range(s2,e2+1)] for i1 in range(s1,e1+1)]
+    u[p1:-p1,p2:-p2,:] = xp.asarray(
+        [[(i1, i2) for i2 in range(s2, e2 + 1)] for i1 in range(s1, e1 + 1)]
+    )
 
 
     request = synchronizer.prepare_communications(u)
@@ -109,7 +111,7 @@ def run_cart_2d( data_exchanger_type, verbose=False , nprocs=None, reverse_axis=
     val = lambda i1,i2: (i1%n1,i2) if 0<=i2<n2 else (0,0)
     uex = [[val(i1,i2) for i2 in range(s2-p2,e2+p2+1)] for i1 in range(s1-p1,e1+p1+1)]
 
-    success = (u == uex).all()
+    success = (u == xp.asarray(uex)).all()
 
     # MASTER only: collect information from all processes
     success_global = comm.reduce( success, op=MPI.LAND, root=0 )
@@ -161,4 +163,3 @@ if __name__=='__main__':
             print( "PASSED", end='\n\n', flush=True )
         else:
             print( "FAILED", end='\n\n', flush=True )
-

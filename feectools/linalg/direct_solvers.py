@@ -70,11 +70,8 @@ class BandedSolver(LinearSolver):
         else:
             msg = f'Cannot create a BandedSolver for bmat.dtype = {bmat.dtype}'
             raise NotImplementedError(msg)
-        # print(f"{bmat = } {type(bmat) = }")
-        if hasattr(bmat, "get"):  # CuPy array
-            bmat = bmat.get()
-        else:
-            bmat = xp.asanyarray(bmat)
+        # LAPACK is host-only: the factorization always lives on the host.
+        bmat = xp.to_numpy(bmat)
         self._bmat, self._ipiv, self._finfo = self._factor_function(bmat, l, u)
 
         self._sinfo = None
@@ -144,9 +141,10 @@ class BandedSolver(LinearSolver):
         transposed = self._transposed
 
         if out is None:
-            preout, self._sinfo = self._solver_function(self._bmat, self._l, self._u, rhs.T, self._ipiv,
-                                                        trans=transposed)
-            out = preout.T
+            # LAPACK is host-only: solve on the host, return on the caller's backend.
+            preout, self._sinfo = self._solver_function(self._bmat, self._l, self._u, xp.to_numpy(rhs).T,
+                                                        self._ipiv, trans=transposed)
+            out = xp.asarray(preout.T) if xp.is_gpu(rhs) else preout.T
 
         else:
             assert out.shape == rhs.shape
@@ -158,17 +156,18 @@ class BandedSolver(LinearSolver):
 
             # TODO: handle non-contiguous views?
 
-            # we want FORTRAN-contiguous data (default is assumed to be C contiguous)
-            from cunumpy.xp import array_backend
-            if array_backend.backend == "numpy":
-                _, self._sinfo = self._solver_function(self._bmat, self._l, self._u, out.T, self._ipiv, overwrite_b=True,
-                                                   trans=transposed)
-            else:
-                # GPU
-                out_cpu = out.get()
+            # we want FORTRAN-contiguous data (default is assumed to be C contiguous).
+            # LAPACK is host-only: a device array is solved in a host copy. Decided by
+            # the array itself, not the global backend, since host arrays may be passed
+            # on the CuPy backend too.
+            if xp.is_gpu(out):
+                out_cpu = xp.to_numpy(out)
                 _, self._sinfo = self._solver_function(self._bmat, self._l, self._u, out_cpu.T, self._ipiv, overwrite_b=True,
                                                    trans=transposed)
-                out.set(out_cpu)
+                out[...] = xp.asarray(out_cpu)
+            else:
+                _, self._sinfo = self._solver_function(self._bmat, self._l, self._u, out.T, self._ipiv, overwrite_b=True,
+                                                   trans=transposed)
 
         return out
 
@@ -231,18 +230,18 @@ class SparseSolver (LinearSolver):
         transposed = self._transposed
 
         if out is None:
-            out = self._splu.solve(rhs.T, trans='T' if transposed else 'N').T
+            # SuperLU is host-only: solve on the host, return on the caller's backend.
+            out = self._splu.solve(xp.to_numpy(rhs).T, trans='T' if transposed else 'N').T
+            if xp.is_gpu(rhs):
+                out = xp.asarray(out)
 
         else:
             assert out.shape == rhs.shape
             assert out.dtype == rhs.dtype
 
-            # currently no in-place solve exposed
-            if array_backend.backend == "numpy":
-                out[:] = self._splu.solve(rhs.T, trans='T' if transposed else 'N').T
-            else:
-                rhs_cpu = rhs.get()
-                result_cpu = self._splu.solve(rhs_cpu.T, trans='T' if transposed else 'N').T
-                out[:] = xp.asarray(result_cpu)
+            # currently no in-place solve exposed. SuperLU is host-only; decided by
+            # the arrays themselves, not the global backend.
+            result = self._splu.solve(xp.to_numpy(rhs).T, trans='T' if transposed else 'N').T
+            out[:] = xp.asarray(result) if xp.is_gpu(out) else result
 
         return out

@@ -111,4 +111,5 @@ def test_KroneckerStencilMatrix(dtype, npts, pads, periodic):
     assert (M_sp.T - M.T.tosparse().tocsr()).count_nonzero() == 0
 
     # Test dot product
-    assert xp.array_equal(M_sp.dot(w.toarray()), M.dot(w).toarray())
+    expected = M_sp.dot(xp.to_numpy(w.toarray()))
+    assert xp.array_equal(xp.asarray(expected), M.dot(w).toarray())

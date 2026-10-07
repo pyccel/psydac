@@ -73,9 +73,7 @@ def unroll_edges(domain, xgrid):
     xA, xB = domain
 
     # Convert to numpy if needed (grid arrays should be on CPU)
-    if hasattr(xgrid, 'get'):
-        xgrid = xgrid.get()
-    xgrid = np.asarray(xgrid)
+    xgrid = xp.to_numpy(xgrid)
 
     # Convert to numpy for comparison
     assert all(np.diff(xgrid) >= 0)
@@ -105,19 +103,15 @@ def roll_edges(domain, points):
     assert xA < xB
     
     # Convert domain bounds to same backend as points to ensure compatibility
-    # First, normalize xA and xB to Python float or correct backend
-    if hasattr(xA, 'get'):
-        xA = float(xA.get())
-    elif hasattr(xA, '__array__'):
-        xA = float(xA)
-    
-    if hasattr(xB, 'get'):
-        xB = float(xB.get())
-    elif hasattr(xB, '__array__'):
-        xB = float(xB)
-    
+    # First, normalize xA and xB to Python float or correct backend. xp.to_numpy
+    # handles a CuPy array, a NumPy array/scalar, or a plain Python float uniformly
+    # (all become something float() accepts), replacing the previous hasattr-based
+    # get()/__array__ branching.
+    xA = float(xp.to_numpy(xA))
+    xB = float(xp.to_numpy(xB))
+
     # Now convert to backend of points if needed
-    if hasattr(points, 'get'):  # CuPy array
+    if xp.is_gpu(points):
         xA = xp.asarray(xA)
         xB = xp.asarray(xB)
     

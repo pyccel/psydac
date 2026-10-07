@@ -8,6 +8,10 @@ def horner( x, *poly_coeffs ):
     """ Use Horner's Scheme to evaluate a polynomial
         of coefficients *poly_coeffs at location x.
     """
+    # Spline metadata (notably Greville abscissas) is intentionally host-side.
+    # Convert it at the numerical API boundary so CuPy coefficients and NumPy
+    # coordinates can be combined just as they can under NumPy.
+    x = xp.asarray(x)
     p = 0
     for c in poly_coeffs[::-1]:
         p = p*x + c

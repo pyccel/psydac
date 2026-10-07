@@ -32,6 +32,7 @@ class AnalyticalProfile1D_Cos( AnalyticalProfile ):
         return -1
 
     def eval( self, x, diff=0 ):
+        x = xp.asarray(x)
         return self._k**diff * xp.cos( 0.5*math.pi*diff + self._k*x + self._phi )
 
     def max_norm( self, diff=0 ):
@@ -58,6 +59,7 @@ class AnalyticalProfile1D_Sin( AnalyticalProfile ):
         return -1
 
     def eval( self, x, diff=0 ):
+        x = xp.asarray(x)
         return self._k**diff * xp.sin( 0.5*math.pi*diff + self._k*x + self._phi )
 
     def max_norm( self, diff=0 ):

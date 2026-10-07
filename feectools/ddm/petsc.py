@@ -1,6 +1,6 @@
 # coding: utf-8
 
-import cunumpy as xp
+import numpy as xp  # this module is host-only MPI/index bookkeeping, never device data
 from itertools import product
 
 import cunumpy as xp
