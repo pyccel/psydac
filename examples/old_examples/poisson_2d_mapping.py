@@ -21,43 +21,12 @@ from psydac.fem.splines          import SplineSpace
 from psydac.fem.tensor           import TensorFemSpace
 from psydac.fem.basic            import FemField
 from psydac.mapping.discrete     import SplineMapping
+from psydac.utilities.operators  import Laplacian
 from psydac.utilities.utils      import refine_array_1d
 from psydac.cad.geometry         import Geometry
 from psydac.ddm.cart             import DomainDecomposition
 from psydac.polar.c1_projections import C1Projector
 
-#==============================================================================
-class Laplacian:
-
-    def __init__(self, mapping):
-
-        assert isinstance(mapping, CallableMapping)
-
-        sym = mapping.symbolic_mapping
-
-        self._eta        = sym.logical_coordinates
-        self._metric     = sym.metric_expr
-        self._metric_det = sym.metric_det_expr
-
-    # ...
-    def __call__(self, phi):
-
-        from sympy import sqrt, Matrix
-
-        u      = self._eta
-        G      = self._metric
-        sqrt_g = sqrt(self._metric_det)
-
-        # Store column vector of partial derivatives of phi w.r.t. uj
-        dphi_du = Matrix([phi.diff(uj) for uj in u])
-
-        # Compute gradient of phi in tangent basis: A = G^(-1) dphi_du
-        A = G.LUsolve(dphi_du)
-
-        # Compute Laplacian of phi using formula for divergence of vector A
-        lapl = sum((sqrt_g * Ai).diff(ui) for ui, Ai in zip(u, A)) / sqrt_g
-
-        return lapl
 
 #==============================================================================
 class Poisson2D:

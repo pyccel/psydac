@@ -1,4 +1,4 @@
-feec
+FEEC
 ====
 
 .. currentmodule:: psydac
@@ -14,3 +14,10 @@ feec
     feec.multipatch_domain_utilities
     feec.pull_push
     feec.pushforward
+
+FEEC submodules
+---------------
+.. toctree::
+    :maxdepth: 1
+
+    feec.polar

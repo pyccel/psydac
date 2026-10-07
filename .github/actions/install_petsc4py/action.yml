@@ -6,7 +6,7 @@ runs:
   steps:
 
     - name: Cache PETSc
-      uses: actions/cache@v4
+      uses: actions/cache@v6
       id: cache-petsc
       env:
         cache-name: cache-PETSc
