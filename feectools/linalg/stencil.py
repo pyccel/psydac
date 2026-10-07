@@ -22,13 +22,26 @@ from feectools.ddm.cart      import find_mpi_type, CartDecomposition, InterfaceC
 from feectools.ddm.utilities import get_data_exchanger
 from feectools.api.settings  import PSYDAC_BACKENDS
 
-from feectools.linalg.kernels.axpy_kernels        import axpy_1d, axpy_2d, axpy_3d
-from feectools.linalg.kernels.inner_kernels       import inner_1d, inner_2d, inner_3d
 from feectools.linalg.kernels.matvec_kernels      import matvec_1d, matvec_2d, matvec_3d
 from feectools.linalg.kernels.transpose_kernels   import transpose_1d, transpose_2d, transpose_3d
 from feectools.linalg.kernels.transpose_kernels   import interface_transpose_1d, interface_transpose_2d, interface_transpose_3d
 from feectools.linalg.kernels.stencil2coo_kernels import stencil2coo_1d_F, stencil2coo_2d_F, stencil2coo_3d_F
 from feectools.linalg.kernels.stencil2coo_kernels import stencil2coo_1d_C, stencil2coo_2d_C, stencil2coo_3d_C
+
+# The stencil kernels of solver loops: one folder per kernel, with the pyccel kernel and its CUDA version
+# side by side. Each is a cunumpy Kernel, which runs the version of the active backend (see CUDA_STRATEGY.md).
+from feectools.linalg.kernels.stencil_axpy_1d      import stencil_axpy_1d
+from feectools.linalg.kernels.stencil_axpy_2d      import stencil_axpy_2d
+from feectools.linalg.kernels.stencil_axpy_3d      import stencil_axpy_3d
+from feectools.linalg.kernels.stencil_inner_1d     import stencil_inner_1d
+from feectools.linalg.kernels.stencil_inner_2d     import stencil_inner_2d
+from feectools.linalg.kernels.stencil_inner_3d     import stencil_inner_3d
+from feectools.linalg.kernels.stencil_dot_1d       import stencil_dot_1d
+from feectools.linalg.kernels.stencil_dot_2d       import stencil_dot_2d
+from feectools.linalg.kernels.stencil_dot_3d       import stencil_dot_3d
+from feectools.linalg.kernels.stencil_transpose_1d import stencil_transpose_1d
+from feectools.linalg.kernels.stencil_transpose_2d import stencil_transpose_2d
+from feectools.linalg.kernels.stencil_transpose_3d import stencil_transpose_3d
 
 
 __all__ = (
@@ -50,8 +63,6 @@ def _to_numpy_array(val):
 
 #========================================================================# Dictionary used to select correct kernel functions based on dimensionality
 kernels = {
-    'axpy'  : (None,   axpy_1d,   axpy_2d,   axpy_3d),
-    'inner' : (None,  inner_1d,  inner_2d,  inner_3d),
     'matvec': (None, matvec_1d, matvec_2d, matvec_3d),
     'transpose': (None, transpose_1d, transpose_2d, transpose_3d),
     'interface_transpose': (None, interface_transpose_1d, interface_transpose_2d, interface_transpose_3d),
@@ -76,6 +87,14 @@ def _wrap_kernel_table(table):
 
 
 kernels = _wrap_kernel_table(kernels)
+
+# The folder kernels by dimensionality (cunumpy Kernels, not wrapped)
+stencil_kernels = {
+    'axpy'     : (None, stencil_axpy_1d,      stencil_axpy_2d,      stencil_axpy_3d),
+    'inner'    : (None, stencil_inner_1d,     stencil_inner_2d,     stencil_inner_3d),
+    'dot'      : (None, stencil_dot_1d,       stencil_dot_2d,       stencil_dot_3d),
+    'transpose': (None, stencil_transpose_1d, stencil_transpose_2d, stencil_transpose_3d),
+}
 
 #========================================================================
 def compute_diag_len(pads, shifts_domain, shifts_codomain, return_padding=False):
@@ -191,14 +210,14 @@ class StencilVectorSpace(VectorSpace):
 
         # Select kernel for AXPY operation
         if self._ndim in [1, 2, 3]:
-            self._axpy_func = kernels['axpy'][self._ndim]
+            self._axpy_func = stencil_kernels['axpy'][self._ndim]
         else:
             self._axpy_func = self._axpy_python
             self._axpy_work = self.zeros()  # work array
 
         # Select kernel for inner product
         if self._ndim in [1, 2, 3]:
-            self._inner_func = kernels['inner'][self._ndim]
+            self._inner_func = stencil_kernels['inner'][self._ndim]
         else:
             self._inner_func = self._inner_python
 
@@ -220,10 +239,12 @@ class StencilVectorSpace(VectorSpace):
         y += w         # y <- a * x + y
 
     @staticmethod
-    def _inner_python(v1, v2, nghost):
+    def _inner_python(v1, v2, *args):
+        # same arguments as the inner kernels: the ghost widths, then `res`
+        *nghost, res = args
         index = tuple(slice(ng, -ng) for ng in nghost)
         # ravel, not flat: CuPy's flatiter cannot be used as an array
-        return xp.vdot(v1[index].ravel(), v2[index].ravel())
+        res[0] += xp.vdot(v1[index].ravel(), v2[index].ravel())
 
     #--------------------------------------
     # Abstract interface
@@ -290,20 +311,23 @@ class StencilVectorSpace(VectorSpace):
         assert x.space is self
         assert y.space is self
 
-        inner_func = self._inner_func
-        inner_args = (x._data, y._data, *self._inner_consts)
+        # The kernel adds the process-local inner product to res[0]
+        res = x._dot_send_data
+        res[0] = 0
+        # Sometimes in the parallel case, we can get an empty vector that breaks our kernel
+        if x._data.shape[0] != 0:
+            self._inner_func(x._data, y._data, *self._inner_consts, res)
 
         if self.parallel:
-            # Sometimes in the parallel case, we can get an empty vector that breaks our kernel
-            x._dot_send_data[0] = 0 if x._data.shape[0] == 0 else inner_func(*inner_args)
-            # The send buffer was just written on the device; MPI reads it directly.
+            # The send buffer may have just been written on the device; MPI reads it directly.
             synchronize_for_mpi(x._dot_send_data, x._dot_recv_data)
             self.cart.global_comm.Allreduce((x._dot_send_data, self.mpi_type),
                                             (x._dot_recv_data, self.mpi_type),
                                              op=MPI.SUM )
             return x._dot_recv_data[0]
         else:
-            return inner_func(*inner_args)
+            # a NumPy scalar on both backends
+            return xp.to_numpy(res)[0]
 
     # ...
     def axpy(self, a, x, y):
@@ -336,22 +360,9 @@ class StencilVectorSpace(VectorSpace):
             else:
                 a = float(a)
 
-        x_data_np = _to_numpy_array(x._data)
-        y_data_np = _to_numpy_array(y._data)
-        self._axpy_func(a, x_data_np, y_data_np)
-        # Copy result back if CuPy
-        if hasattr(y._data, 'get'):
-            import cupy as cp
-            y._data[:] = cp.asarray(y_data_np)
-
+        self._axpy_func(a, x._data, y._data)
         for axis, ext in self.interfaces:
-            x_int_np = _to_numpy_array(x._interface_data[axis, ext])
-            y_int_np = _to_numpy_array(y._interface_data[axis, ext])
-            self._axpy_func(a, x_int_np, y_int_np)
-            # Copy result back if CuPy
-            if hasattr(y._interface_data[axis, ext], 'get'):
-                import cupy as cp
-                y._interface_data[axis, ext][:] = cp.asarray(y_int_np)
+            self._axpy_func(a, x._interface_data[axis, ext], y._interface_data[axis, ext])
 
         y._sync = x._sync and y._sync
 
@@ -1120,32 +1131,32 @@ class StencilMatrix(LinearOperator):
         if not v.ghost_regions_in_sync:
             v.update_ghost_regions()
 
-        # Convert arrays for compiled kernel - create NumPy output
-        import numpy as _np
-        self_data_np = _to_numpy_array(self._data)
-        v_data_np = _to_numpy_array(v._data)
-        # zeros, not empty: the compiled kernel only writes the interior
-        # (non-padding) region, so padding must be pre-initialized to avoid
-        # leaking uninitialized memory into ghost regions of the output.
-        out_data_np = _np.zeros(out._data.shape, dtype=out._data.dtype)
+        self._check_kernel_shapes()
 
-        # Convert args that might be CuPy arrays
-        args_np = {}
-        for key, val in self._args.items():
-            args_np[key] = _to_numpy_array(val)
-
-        self._func(self_data_np, v_data_np, out_data_np, **args_np)
-        
-        # Copy result back to CuPy array if needed
-        if xp.is_gpu(out._data):
-            import cupy as cp
-            out._data[:] = cp.asarray(out_data_np)
-        else:
-            out._data[:] = out_data_np
+        # zeros, not empty: the kernel only writes the interior (non-padding)
+        # region, so the padding must be initialized to avoid leaking stale
+        # values into the ghost regions of the output.
+        out._data[...] = 0
+        # the kernel of the active backend (a cunumpy Kernel, see set_backend)
+        self._func(self._data, v._data, out._data, *self._args.values())
 
         # IMPORTANT: flag that ghost regions are not up-to-date
         out.ghost_regions_in_sync = False
         return out
+
+    # ...
+    def _check_kernel_shapes(self, *others):
+        """
+        Raise if the precompiled dot/transpose kernels cannot be used with the
+        data of this matrix (or of `others`), see `set_backend`.
+        """
+        for M in (self, *others):
+            if not M._kernel_shapes_ok:
+                raise NotImplementedError(
+                    'The precompiled stencil kernels need a matrix without shifts and with '
+                    '2 * p + 1 diagonals per direction (p: the pads of the domain), '
+                    f'got data of shape {M._data_shape} for the pads {M.domain.pads}, '
+                    f'domain shifts {M.domain.shifts} and codomain shifts {M.codomain.shifts}.')
 
     # ...
     def vdot( self, v, out=None):
@@ -1180,29 +1191,12 @@ class StencilMatrix(LinearOperator):
         if not v.ghost_regions_in_sync:
             v.update_ghost_regions()
 
-        # Convert arrays for compiled kernel - create NumPy output
-        import numpy as _np
-        self_data_np = _to_numpy_array(self._data)
-        v_data_conj_np = _to_numpy_array(xp.conjugate(v._data))
-        # zeros, not empty: see comment in dot() above.
-        out_data_np = _np.zeros(out._data.shape, dtype=out._data.dtype)
-        
-        # Convert args that might be CuPy arrays
-        args_np = {}
-        for key, val in self._args.items():
-            args_np[key] = _to_numpy_array(val)
-        
+        self._check_kernel_shapes()
+
         # Instead of computing A_*x, this function computes (A*x_)_
-        self._func(self_data_np, v_data_conj_np, out_data_np, **args_np)
-        
-        # Copy result back to CuPy array if needed
-        if xp.is_gpu(out._data):
-            import cupy as cp
-            out_data_conj = cp.conjugate(cp.asarray(out_data_np))
-            out._data[:] = out_data_conj
-        else:
-            out._data[:] = _np.conjugate(out_data_np)
-        self._func(self._data, xp.conjugate(v._data), out._data, **self._args)
+        # zeros, not empty: see comment in dot() above.
+        out._data[...] = 0
+        self._func(self._data, xp.conjugate(v._data), out._data, *self._args.values())
         xp.conjugate(out._data, out=out._data)
 
         # IMPORTANT: flag that ghost regions are not up-to-date
@@ -1238,23 +1232,13 @@ class StencilMatrix(LinearOperator):
         else :
             out = StencilMatrix(M.codomain, M.domain, pads=self._pads, backend=self._backend, precompiled=self._precompiled)
 
-        # Call low-level '_transpose' function (works on Numpy arrays directly)
-        # Convert CuPy arrays to NumPy for compiled kernels
-        M_data_np = _to_numpy_array(M._data)
-        out_data_np = _to_numpy_array(out._data)
-        
-        if conjugate:
-            # This kernel is host-backed.  Conjugate the staged host array,
-            # rather than passing it through CuPy's ufunc dispatcher.
-            self._transpose_func(M_data_np.conj(), out_data_np, **self._transpose_args)
-        else:
-            self._transpose_func(M_data_np, out_data_np, **self._transpose_args)
-        
-        # Copy results back to CuPy if needed
-        if array_backend.backend == "cupy":
-            import cupy as cp
-            out._data[:] = cp.asarray(out_data_np)
-        
+        M._check_kernel_shapes(out)
+
+        # Call low-level '_transpose' function: the kernel of the active backend
+        # (a cunumpy Kernel, see set_backend)
+        M_data = xp.conjugate(M._data) if conjugate else M._data
+        self._transpose_func(M_data, out._data, *self._transpose_args.values())
+
         return out
 
     # ...
@@ -2007,22 +1991,30 @@ class StencilMatrix(LinearOperator):
         '''
         self._backend = backend
         self._args    = self._dotargs_null.copy()
+        # The kernels are called with the values of self._args (and of
+        # self._transpose_args) as positional arguments, in this order.
+        self._kernel_shapes_ok = True
 
         if self._backend is None:
             for key, arg in self._args.items():
                 self._args[key] = xp.int64(arg)
             self._func = self._dot
             self._args.pop('pads')
+            # in the order of the parameters of matvec_<n>d
+            self._args = {key: self._args[key] for key in
+                          ('starts', 'nrows', 'nrows_extra', 'dm', 'cm', 'pad_imp', 'ndiags', 'gpads')}
         elif precompiled:
 
-            # print('Using precompiled matvec and transpose kernels ...')
-            
-            from feectools.linalg import stencil_dot_kernels
-            from feectools.linalg import stencil_transpose_kernels
+            # The precompiled kernels read the diagonals 0 <= d < 2 * p + 1 of the
+            # matrix data and its rows at p + i_loc (no shifts); the CUDA versions
+            # take the shape of 3D matrix data (6 axes, a raw pointer) from that.
+            shifts = (*self.domain.shifts, *self.codomain.shifts)
+            diags  = tuple(2 * int(p) + 1 for p in self.domain.pads)
+            self._kernel_shapes_ok = (all(int(m) == 1 for m in shifts)
+                                      and tuple(self._data_shape[self._ndim:]) == diags)
 
-            # matvec kernel
-            dot_func_name = 'matvec_' + str(self._ndim) + 'd_kernel'
-            self._func = PyccelKernel(getattr(stencil_dot_kernels, dot_func_name))
+            # matvec kernel: stencil_dot_<n>d, pyccel or CUDA by backend
+            self._func = stencil_kernels['dot'][self._ndim]
 
             # parameter for rectangular matrices
             add = [int(end_in >= end_out) for end_in, end_out in zip(self.domain.ends, self.codomain.ends)]
@@ -2043,10 +2035,8 @@ class StencilMatrix(LinearOperator):
                 self._args['e_out'] = xp.array(self.codomain.ends)
                 self._args['p_out'] = xp.array(self.codomain.pads)
 
-            # transpose kernel
-            transp_func_name = 'transpose_' + str(self._ndim) + 'd_kernel'
-
-            self._transpose_func = PyccelKernel(getattr(stencil_transpose_kernels, transp_func_name))
+            # transpose kernel: stencil_transpose_<n>d, pyccel or CUDA by backend
+            self._transpose_func = stencil_kernels['transpose'][self._ndim]
 
             # parameter for rectangular matrices
             add = [int(end_out >= end_in) for end_in, end_out in zip(self.domain.ends, self.codomain.ends)]
@@ -2054,6 +2044,7 @@ class StencilMatrix(LinearOperator):
             self._transpose_args = {}
             if self._ndim == 1:
                 self._transpose_args['s_in'] = int(self.codomain.starts[0])
+                self._transpose_args['e_in'] = int(self.codomain.ends[0])
                 self._transpose_args['p_in'] = int(self.codomain.pads[0])
                 self._transpose_args['add'] = int(add[0])
                 self._transpose_args['s_out'] = int(self.domain.starts[0])
@@ -2061,6 +2052,7 @@ class StencilMatrix(LinearOperator):
                 self._transpose_args['p_out'] = int(self.domain.pads[0])
             else:
                 self._transpose_args['s_in'] = xp.array(self.codomain.starts)
+                self._transpose_args['e_in'] = xp.array(self.codomain.ends)
                 self._transpose_args['p_in'] = xp.array(self.codomain.pads)
                 self._transpose_args['add'] = xp.array(add)
                 self._transpose_args['s_out'] = xp.array(self.domain.starts)

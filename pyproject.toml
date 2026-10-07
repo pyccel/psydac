@@ -68,7 +68,7 @@ exclude = ["*__psydac__*"]
 namespaces = false
 
 [tool.setuptools.package-data]
-"*" = ["*.txt"]
+"*" = ["*.txt", "*.cu", "*.cuh"]
 feectools = ['accelerate/compile_psydac.mk']
 
 [tool.coverage.run]
