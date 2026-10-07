@@ -1095,7 +1095,7 @@ def cell_index_p(breaks: 'float[:]', i_grid: 'float[:]', tol: float, out: 'int[:
         i_cell = (low + high)//2
         it = 0
         max_it = 2*(high-low) # this number of iterations should not be reached
-        while it < max_it and (x < breaks[i_cell] - tol or x >= breaks[i_cell + 1] + tol):
+        while it < max_it and (x < breaks[i_cell] - tol or x > breaks[i_cell + 1] + tol):
             if x < breaks[i_cell]:
                 high = i_cell
             else:

@@ -553,11 +553,15 @@ class ZeroOperator(LinearOperator):
         return ZeroOperator(self.domain, self.codomain)
 
     def toarray(self):
-        return np.zeros(self.shape, dtype=self.dtype) 
+        return np.zeros(self.shape, dtype=self.dtype)
 
     def tosparse(self):
         from scipy.sparse import csr_matrix
         return csr_matrix(self.shape, dtype=self.dtype)
+
+    def topetsc(self):
+        from psydac.linalg.topetsc import mat_topetsc
+        return mat_topetsc(self)
 
     def transpose(self, conjugate=False):
         return ZeroOperator(domain=self.codomain, codomain=self.domain)

@@ -7,7 +7,7 @@ from itertools import product as cartesian_prod
 
 import numpy as np
 
-from psydac.linalg.basic   import VectorSpace
+from psydac.linalg.basic   import VectorSpace, ZeroOperator
 from psydac.linalg.block   import BlockVectorSpace, BlockVector, BlockLinearOperator
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
 from psydac.linalg.kernels.stencil2IJV_kernels import stencil2IJV_1d_C, stencil2IJV_2d_C, stencil2IJV_3d_C
@@ -336,7 +336,7 @@ def get_npts_per_block(V : VectorSpace) -> list:
     return npts_local_per_block
 
 
-def vec_topetsc(vec):
+def vec_topetsc(vec, out=None):
     """ Convert vector from PSYDAC format to a PETSc.Vec object.
 
     Parameters
@@ -374,13 +374,19 @@ def vec_topetsc(vec):
     # Sum over the blocks to get the total local size
     localsize = np.sum(np.prod(npts_local, axis=1))
 
-    gvec  = PETSc.Vec().create(comm=carts[0].global_comm)    
+    if out is not None:
+        assert isinstance(out, PETSc.Vec)
+        assert out.getSizes() == (localsize, globalsize)
+        out.zeroEntries()
+        gvec = out
+    else:
+        gvec  = PETSc.Vec().create(comm=carts[0].global_comm)    
 
-    # Set global and local size:
-    gvec.setSizes(size=(localsize, globalsize))
+        # Set global and local size:
+        gvec.setSizes(size=(localsize, globalsize))
 
-    gvec.setFromOptions()
-    gvec.setUp()
+        gvec.setFromOptions()
+        gvec.setUp()
 
     petsc_indices = []
     petsc_data = []
@@ -452,7 +458,7 @@ def mat_topetsc(mat):
 
     from petsc4py import PETSc
 
-    assert isinstance(mat, StencilMatrix) or isinstance(mat, BlockLinearOperator), 'Conversion only implemented for StencilMatrix and BlockLinearOperator.'
+    assert isinstance(mat, StencilMatrix) or isinstance(mat, BlockLinearOperator) or isinstance(mat, ZeroOperator), 'Conversion only implemented for StencilMatrix, BlockLinearOperator and ZeroOperator.'
 
     if (isinstance(mat.domain, BlockVectorSpace) and any([isinstance(mat.domain.spaces[b], BlockVectorSpace) for b in range(len(mat.domain.spaces))]))\
         or (isinstance(mat.codomain, BlockVectorSpace) and any([isinstance(mat.codomain.spaces[b], BlockVectorSpace) for b in range(len(mat.codomain.spaces))])):
@@ -463,22 +469,10 @@ def mat_topetsc(mat):
     elif isinstance(mat.domain, BlockVectorSpace):
         comm = mat.domain.spaces[0].cart.global_comm
 
-    nonzero_block_indices = ((0,0),) if isinstance(mat, StencilMatrix) else mat.nonzero_block_indices
-
-    mat.update_ghost_regions()
-    mat.remove_spurious_entries()
 
     # Get the number of points local to the current process:
     dnpts_local = get_npts_local(mat.domain) # indexed [block, dimension]. Different for each process.
     cnpts_local = get_npts_local(mat.codomain) # indexed [block, dimension]. Different for each process. 
-
-    # Get the number of points per block, per process and per dimension:
-    dnpts_per_block_per_process = np.array(get_npts_per_block(mat.domain)) # global variable, indexed as [block, process, dimension]
-    cnpts_per_block_per_process = np.array(get_npts_per_block(mat.codomain)) # global variable, indexed as [block, process, dimension]
-
-    # Get the index shift for each block and each process:
-    dindex_shift = get_index_shift_per_block_per_process(mat.domain) # global variable, indexed as [block, process, dimension]
-    cindex_shift = get_index_shift_per_block_per_process(mat.codomain) # global variable, indexed as [block, process, dimension]
 
     globalsize = mat.shape
 
@@ -500,6 +494,23 @@ def mat_topetsc(mat):
     gmat.setFromOptions()
     gmat.setUp()
 
+    if isinstance(mat, ZeroOperator):
+        gmat.assemble()
+        return gmat
+
+    nonzero_block_indices = ((0,0),) if isinstance(mat, StencilMatrix) else mat.nonzero_block_indices
+
+    mat.update_ghost_regions()
+    mat.remove_spurious_entries()
+
+    # Get the number of points per block, per process and per dimension:
+    dnpts_per_block_per_process = np.array(get_npts_per_block(mat.domain)) # global variable, indexed as [block, process, dimension]
+    cnpts_per_block_per_process = np.array(get_npts_per_block(mat.codomain)) # global variable, indexed as [block, process, dimension]
+
+    # Get the index shift for each block and each process:
+    dindex_shift = get_index_shift_per_block_per_process(mat.domain) # global variable, indexed as [block, process, dimension]
+    cindex_shift = get_index_shift_per_block_per_process(mat.codomain) # global variable, indexed as [block, process, dimension]
+
     I = [0] # Row pointers
     J = [] # Column indices
     V = [] # Values
@@ -510,12 +521,14 @@ def mat_topetsc(mat):
     for bc, bd in nonzero_block_indices:
         if isinstance(mat, BlockLinearOperator):
             mat_block = mat.blocks[bc][bd]
-        dnpts_block = dnpts_per_block_per_process[bd]
-        cnpts_block = cnpts_per_block_per_process[bc]
-        dshift_block = dindex_shift[bd]
-        cshift_block = cindex_shift[bc]
+        
+        if not isinstance(mat_block, ZeroOperator):
+            dnpts_block = dnpts_per_block_per_process[bd]
+            cnpts_block = cnpts_per_block_per_process[bc]
+            dshift_block = dindex_shift[bd]
+            cshift_block = cindex_shift[bc]
 
-        I,J,V,rowmap = toIJVrowmap(mat_block, bd, bc, I, J, V, rowmap, mat.domain, mat.codomain, dnpts_block, cnpts_block, dshift_block, cshift_block)
+            I,J,V,rowmap = toIJVrowmap(mat_block, bd, bc, I, J, V, rowmap, mat.domain, mat.codomain, dnpts_block, cnpts_block, dshift_block, cshift_block)
 
     # Set the values using IJV&rowmap format. The values are stored in a cache memory.
     gmat.setValuesIJV(I, J, V, rowmap=rowmap, addv=PETSc.InsertMode.ADD_VALUES) # The addition mode is necessary when periodic BC
