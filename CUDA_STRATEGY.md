@@ -79,6 +79,18 @@ guarded against).
   compared with another distributed run hides stale ghost regions, since every rank agrees on the wrong answer)
   and checks that the exchangers synchronize before calling MPI.
 
+## CUDA 3 implementation notes (#87)
+
+Each MPI rank uses its own GPU instead of always GPU 0.
+
+- `feectools.ddm.cart` calls `cunumpy.cuda.bind_local_device()` when it is imported: the process uses GPU
+  `local_rank % device_count`, from the node-local rank the MPI launcher exports (`cunumpy.mpi.local_rank`).
+  No-op on the NumPy backend.
+- The CUDA context must exist before MPI is initialized (CUDA-aware MPI requires it). `ddm/__init__.py` imports
+  `cart` first, and `cart` binds the device before it imports `feectools.ddm.mpi` (which starts MPI), so the order
+  holds whatever the user imports first.
+- `ddm/tests/test_device_binding.py` checks the current device on a GPU (`requires_cupy`).
+
 ## Testing
 
 - Every PR runs the serial tests (`pytest feectools -m "not mpi and not petsc"`) and the MPI tests
