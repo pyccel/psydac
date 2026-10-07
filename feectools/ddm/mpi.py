@@ -187,12 +187,9 @@ def _mpi_disabled():
 
 if launched_under_mpi():
     try:
-        # Disable MPI when using CuPy due to known segfault issues with OpenMPI + CUDA
-        # (the backend variable is cunumpy's, read the same way as cunumpy does)
-        import os
-        if os.environ.get('CUNUMPY_BACKEND', 'numpy').lower() == 'cupy':
-            raise ImportError("MPI disabled when using CuPy backend")
-
+        # MPI with the CuPy backend needs a CUDA-aware MPI library: device
+        # buffers are passed to MPI directly (after synchronize_for_mpi, see
+        # the data exchangers). A non-CUDA-aware MPI segfaults on them.
         if _mpi_disabled():
             raise ImportError("MPI disabled (feectools.use_mpi = False or FEECTOOLS_MPI=0)")
 

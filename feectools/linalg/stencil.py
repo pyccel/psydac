@@ -11,6 +11,7 @@ from types import MappingProxyType
 
 import cunumpy as xp
 from cunumpy.kernels import PyccelKernel
+from cunumpy.mpi import synchronize_for_mpi
 from cunumpy.xp import array_backend
 from scipy.sparse import coo_matrix, diags as sp_diags
 
@@ -221,7 +222,8 @@ class StencilVectorSpace(VectorSpace):
     @staticmethod
     def _inner_python(v1, v2, nghost):
         index = tuple(slice(ng, -ng) for ng in nghost)
-        return xp.vdot(v1[index].flat, v2[index].flat)
+        # ravel, not flat: CuPy's flatiter cannot be used as an array
+        return xp.vdot(v1[index].ravel(), v2[index].ravel())
 
     #--------------------------------------
     # Abstract interface
@@ -294,6 +296,8 @@ class StencilVectorSpace(VectorSpace):
         if self.parallel:
             # Sometimes in the parallel case, we can get an empty vector that breaks our kernel
             x._dot_send_data[0] = 0 if x._data.shape[0] == 0 else inner_func(*inner_args)
+            # The send buffer was just written on the device; MPI reads it directly.
+            synchronize_for_mpi(x._dot_send_data, x._dot_recv_data)
             self.cart.global_comm.Allreduce((x._dot_send_data, self.mpi_type),
                                             (x._dot_recv_data, self.mpi_type),
                                              op=MPI.SUM )
@@ -2594,7 +2598,7 @@ class StencilInterfaceMatrix(LinearOperator):
             ii_kk = tuple( ii + kk )
 
             ii[c_axis] += c_start
-            out[tuple(ii)] = xp.dot( mat[ii_kk].flat, v[jj].flat )
+            out[tuple(ii)] = xp.dot( mat[ii_kk].ravel(), v[jj].ravel() )
 
 
         new_nrows = nrows.copy()
@@ -2616,7 +2620,7 @@ class StencilInterfaceMatrix(LinearOperator):
                     kk     = [slice(None,n-e) for n,e in zip(ndiags, ee)]
                     ii_kk  = tuple( ii + kk )
                     ii[c_axis] += c_start
-                    out[tuple(ii)] = xp.dot( mat[ii_kk].flat, v[jj].flat )
+                    out[tuple(ii)] = xp.dot( mat[ii_kk].ravel(), v[jj].ravel() )
 
             new_nrows[d] += er
 

@@ -1,6 +1,7 @@
 # coding: utf-8
 
 import cunumpy as xp
+from cunumpy.mpi import synchronize_for_mpi
 import numpy as np
 from itertools import product
 
@@ -98,6 +99,9 @@ class NonBlockingCartDataExchanger(CartDataExchanger):
         return tuple(requests)
 
     def start_update_ghost_regions(self, array, requests ):
+        # The persistent requests read/write `array` directly; on a device
+        # backend the kernels that produced it must have finished first.
+        synchronize_for_mpi( array )
         MPI.Prequest.Startall( requests )
 
     def end_update_ghost_regions(self, array, requests):
@@ -107,6 +111,10 @@ class NonBlockingCartDataExchanger(CartDataExchanger):
     def start_exchange_assembly_data( self, array ):
 
         assert isinstance( array, xp.ndarray )
+
+        # MPI reads/writes `array` directly; on a device backend the
+        # kernels that produced it must have finished first.
+        synchronize_for_mpi( array )
 
         # Shortcuts
         cart  = self._cart

@@ -65,6 +65,20 @@ feectools works when cunumpy's backend is CuPy, without device kernels:
 - `feectools.ddm.mpi` still disables MPI when `CUNUMPY_BACKEND=cupy` (lifted in CUDA 2).
 - Depends on `cunumpy >= 0.5.0, < 0.6`; `PyccelKernel` is imported from `cunumpy.kernels`.
 
+## CUDA 2 implementation notes (#86)
+
+MPI is allowed on the CuPy backend and passes device buffers directly, which needs a **CUDA-aware MPI library** (a
+library that is not CUDA-aware segfaults on device buffers; that is what the old check in `feectools.ddm.mpi`
+guarded against).
+
+- `cunumpy.mpi.synchronize_for_mpi` is called before every MPI call on device buffers: CuPy kernels run
+  asynchronously and MPI does not know CUDA streams, so a buffer still being written would be sent wrong without an
+  error. Called in the blocking, non-blocking and interface data exchangers, the `Allreduce` of
+  `StencilVectorSpace.inner` and the `Alltoallv` calls of the parallel Kronecker solver. No-op on NumPy.
+- `linalg/tests/test_mpi_device.py` compares distributed results with global references (a distributed run
+  compared with another distributed run hides stale ghost regions, since every rank agrees on the wrong answer)
+  and checks that the exchangers synchronize before calling MPI.
+
 ## Testing
 
 - Every PR runs the serial tests (`pytest feectools -m "not mpi and not petsc"`) and the MPI tests

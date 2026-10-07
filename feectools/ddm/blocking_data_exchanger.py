@@ -1,6 +1,7 @@
 # coding: utf-8
 
 import cunumpy as xp
+from cunumpy.mpi import synchronize_for_mpi
 import numpy as np
 from feectools.ddm.mpi import mpi as MPI
 
@@ -82,6 +83,10 @@ class BlockingCartDataExchanger(CartDataExchanger):
 
         assert isinstance( array, xp.ndarray )
 
+        # MPI reads/writes `array` directly; on a device backend the
+        # kernels that produced it must have finished first.
+        synchronize_for_mpi( array )
+
         # Shortcuts
         cart = self._cart
         comm = self._comm
@@ -122,6 +127,10 @@ class BlockingCartDataExchanger(CartDataExchanger):
     def start_exchange_assembly_data( self, array ):
 
         assert isinstance( array, xp.ndarray )
+
+        # MPI reads/writes `array` directly; on a device backend the
+        # kernels that produced it must have finished first.
+        synchronize_for_mpi( array )
 
         # Shortcuts
         cart  = self._cart

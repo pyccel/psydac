@@ -1,5 +1,6 @@
 # coding: utf-8
 
+from cunumpy.mpi import synchronize_for_mpi
 from feectools.ddm.mpi import mpi as MPI
 
 from .cart import InterfaceCartDecomposition, find_mpi_type
@@ -48,6 +49,10 @@ class InterfaceCartDataExchanger:
 
     # ...
     def start_update_ghost_regions( self, array_minus=None, array_plus=None ):
+        # MPI reads/writes these buffers directly; on a device backend the
+        # kernels that produced them must have finished first.
+        synchronize_for_mpi( array_minus, array_plus )
+
         send_req = []
         recv_req = []
         cart      = self._cart

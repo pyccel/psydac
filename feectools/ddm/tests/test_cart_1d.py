@@ -89,7 +89,7 @@ def run_cart_1d( data_exchanger_type, verbose=False ):
     #---------------------------------------------------------------------------
 
     # Fill in true domain with u[i1_loc]=i1_glob
-    u[p1:-p1] = [i1 for i1 in range(s1,e1+1)]
+    u[p1:-p1] = xp.asarray([i1 for i1 in range(s1,e1+1)])
 
     request = synchronizer.prepare_communications(u)
 
@@ -101,7 +101,7 @@ def run_cart_1d( data_exchanger_type, verbose=False ):
     # CHECK RESULTS
     #---------------------------------------------------------------------------
     # Verify that ghost cells contain correct data (note periodic domain!)
-    success = all( u[:] == [i1%n1 for i1 in range(s1-p1,e1+p1+1)] )
+    success = bool( (u[:] == xp.asarray([i1%n1 for i1 in range(s1-p1,e1+p1+1)])).all() )
 
     # MASTER only: collect information from all processes
     success_global = comm.reduce( success, op=MPI.LAND, root=0 )

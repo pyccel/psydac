@@ -3,6 +3,7 @@ from functools import reduce
 
 import numpy as np
 import cunumpy as xp
+from cunumpy.mpi import synchronize_for_mpi
 from scipy.sparse import kron
 from scipy.sparse import coo_matrix
 
@@ -879,6 +880,9 @@ class KroneckerLinearSolver(LinearOperator):
             targetargs = [tempmem[:self._datasize], self._target_transfer, self._mpi_type]
 
             # parts of stripes -> blocked stripes
+            # (MPI reads/writes the work arrays directly; on a device backend the
+            # kernels that produced them must have finished first.)
+            synchronize_for_mpi(workmem, tempmem)
             self._comm.Alltoallv(sourceargs, targetargs)
 
             # blocked stripes -> ordered stripes
@@ -891,6 +895,7 @@ class KroneckerLinearSolver(LinearOperator):
             self._contiguous_to_blocked(workmem, tempmem)
 
             # blocked stripes -> parts of stripes
+            synchronize_for_mpi(workmem, tempmem)
             self._comm.Alltoallv(targetargs, sourceargs)
 
 #==============================================================================
