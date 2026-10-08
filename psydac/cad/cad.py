@@ -89,10 +89,7 @@ def elevate(mapping, axis, times):
     if isinstance(mapping, NurbsMapping):
         weights = mapping._weights_field._coeffs.toarray().reshape(shape)
 
-        for i in range(pdim):
-            points[...,i] /= weights[...]
-
-    # degree elevation using igakit
+    # degree elevation using igakit, which expects Cartesian control points
     nrb = NURBS(knots, points, weights=weights)
     nrb = nrb.clone().elevate(axis, times)
 
@@ -106,12 +103,7 @@ def elevate(mapping, axis, times):
     idx_to = tuple( slice( s, e+1 ) for s,e in zip( starts, ends ) )
     for i,field in enumerate( fields ):
         idx_from = tuple(list(idx_to)+[i])
-        idw_from = tuple(idx_to)
-        if isinstance(mapping, NurbsMapping):
-            field.coeffs[idx_to] = nrb.points[idx_from] * nrb.weights[idw_from]
-
-        else:
-            field.coeffs[idx_to] = nrb.points[idx_from]
+        field.coeffs[idx_to] = nrb.points[idx_from]
 
         field.coeffs.update_ghost_regions()
 
@@ -162,10 +154,7 @@ def refine(mapping, axis, values):
     if isinstance(mapping, NurbsMapping):
         weights = mapping._weights_field._coeffs.toarray().reshape(shape)
 
-        for i in range(pdim):
-            points[...,i] /= weights[...]
-
-    # degree elevation using igakit
+    # knot insertion using igakit, which expects Cartesian control points
     nrb = NURBS(knots, points, weights=weights)
     nrb = nrb.clone().refine(axis, values)
 
@@ -184,12 +173,7 @@ def refine(mapping, axis, values):
     idx_to = tuple( slice( s, e+1 ) for s,e in zip( starts, ends ) )
     for i,field in enumerate( fields ):
         idx_from = tuple(list(idx_to)+[i])
-        idw_from = tuple(idx_to)
-        if isinstance(mapping, NurbsMapping):
-            field.coeffs[idx_to] = nrb.points[idx_from] * nrb.weights[idw_from]
-
-        else:
-            field.coeffs[idx_to] = nrb.points[idx_from]
+        field.coeffs[idx_to] = nrb.points[idx_from]
 
     if isinstance(mapping, NurbsMapping):
         weights_field = FemField( space )
