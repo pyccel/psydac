@@ -7,8 +7,12 @@ import numpy as np
 import pytest
 
 from psydac.cad.cad     import elevate, refine
-from psydac.cad.gallery import quart_circle
+from psydac.cad.gallery import annulus, circle, quart_circle
 from psydac.cad.tests.test_gallery import make_nurbs_mapping
+
+# The weights vary along axis 0 (quart_circle), axis 1 (annulus), or both (circle)
+gallery_functions = pytest.mark.parametrize('gallery_function', [quart_circle, annulus, circle],
+                                            ids=['quart_circle', 'annulus', 'circle'])
 
 #==============================================================================
 def assert_same_geometry(F, G) -> None:
@@ -19,11 +23,11 @@ def assert_same_geometry(F, G) -> None:
     assert np.allclose(x_F, x_G, rtol=0, atol=1e-14)
 
 #==============================================================================
-# The weights of the quarter annulus vary along axis 0 only
+@gallery_functions
 @pytest.mark.parametrize('axis', [0, 1])
-def test_elevate(axis: int) -> None:
+def test_elevate(axis: int, gallery_function) -> None:
 
-    F = make_nurbs_mapping(*quart_circle(rmin=0.5, rmax=1.0))
+    F = make_nurbs_mapping(*gallery_function())
     G = elevate(F, axis=axis, times=1)
 
     expected_degree = list(F.space.degree)
@@ -32,11 +36,13 @@ def test_elevate(axis: int) -> None:
     assert_same_geometry(F, G)
 
 #==============================================================================
+@gallery_functions
 @pytest.mark.parametrize('axis', [0, 1])
-def test_refine(axis: int) -> None:
+def test_refine(axis: int, gallery_function) -> None:
 
-    values = [0.3, 0.6]
-    F = make_nurbs_mapping(*quart_circle(rmin=0.5, rmax=1.0))
+    # Avoid the double knots of annulus, which already have multiplicity p
+    values = [0.1, 0.35, 0.6, 0.9]
+    F = make_nurbs_mapping(*gallery_function())
     G = refine(F, axis=axis, values=values)
 
     expected_breaks = np.union1d(F.space.spaces[axis].breaks, values)
