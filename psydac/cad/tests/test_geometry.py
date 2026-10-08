@@ -25,48 +25,69 @@ from psydac.ddm.cart                 import DomainDecomposition
 
 base_dir = os.path.dirname(os.path.realpath(__file__))
 #==============================================================================
-@pytest.mark.xdist_group('h5py')
-def test_geometry_2d_1():
+def assert_geometries_equal(geo: Geometry, ref: Geometry) -> None:
+    """Check that two geometries are equal, comparing their patches by position."""
+    assert geo.ldim == ref.ldim
+    assert geo.pdim == ref.pdim
+    assert list(geo.ncells.values()) == list(ref.ncells.values())
+    assert [list(p) for p in geo.periodic.values()] == [list(p) for p in ref.periodic.values()]
+    assert len(geo.mappings) == len(ref.mappings)
 
-    ncells = [1,1]
-    degree = [2,2]
+    for F, F_ref in zip(geo.mappings.values(), ref.mappings.values()):
+        assert type(F) is type(F_ref)
+        assert list(F.space.degree) == list(F_ref.space.degree)
+        assert all(np.array_equal(k, k_ref) for k, k_ref in zip(F.space.knots, F_ref.space.knots))
+
+        fields     = [*F    .fields, F    .weights_field] if isinstance(F, NurbsMapping) else F    .fields
+        fields_ref = [*F_ref.fields, F_ref.weights_field] if isinstance(F, NurbsMapping) else F_ref.fields
+        assert all(np.array_equal(f.coeffs.toarray(), f_ref.coeffs.toarray())
+                   for f, f_ref in zip(fields, fields_ref))
+
+def check_round_trips(geo: Geometry, mapping: SplineMapping, tmp_path) -> Geometry:
+    """Check that a single-patch geometry is preserved by export/read and
+    by from_discrete_mapping, and return the geometry read from file."""
+    filename = str(tmp_path / 'geo.h5')
+    geo.export(filename)
+    geo_read = Geometry.from_file(filename)
+    assert_geometries_equal(geo_read, geo)
+
+    # A geometry read from file is exported again without changes
+    filename_again = str(tmp_path / 'geo_again.h5')
+    geo_read.export(filename_again)
+    assert_geometries_equal(Geometry.from_file(filename_again), geo)
+
+    assert_geometries_equal(Geometry.from_discrete_mapping(mapping), geo)
+
+    return geo_read
+
+#==============================================================================
+@pytest.mark.xdist_group('h5py')
+def test_geometry_2d_1(tmp_path):
+
     # create an identity mapping
-    mapping = discrete_mapping('identity', ncells=ncells, degree=degree)
+    mapping = discrete_mapping('identity', ncells=[1, 1], degree=[2, 2])
 
     # create a topological domain
     F      = Mapping('F', dim=2)
     domain = F(Square(name='Omega'))
 
-    # associate the mapping to the topological domain
-    mappings = {domain.name: mapping}
-
-    # Define ncells as a dict
-    ncells = {domain.name:ncells}
-
     # create a geometry from a topological domain and the dict of mappings
-    geo = Geometry(domain=domain, pdim=2, ncells=ncells, mappings=mappings)
+    geo = Geometry(domain=domain, pdim=2, ncells={domain.name: [1, 1]}, mappings={domain.name: mapping})
 
-    # export the geometry
-    geo.export('geo.h5')
+    geo_read = check_round_trips(geo, mapping, tmp_path)
 
-    # read it again
-    geo_0 = Geometry.from_file('geo.h5')
-
-    # export it again
-    geo_0.export('geo_0.h5')
-
-    # create a geometry from a discrete mapping
-    geo_1 = Geometry.from_discrete_mapping(mapping)
-
-    # export it
-    geo_1.export('geo_1.h5')
+    # The mapping read from file is the identity
+    F_read = list(geo_read.mappings.values())[0]
+    t = np.linspace(0.0, 1.0, 5)
+    assert all(np.allclose(F_read(e1, e2), [e1, e2], rtol=0, atol=1e-15) for e1 in t for e2 in t)
 
 #==============================================================================
 @pytest.mark.xdist_group('h5py')
-def test_geometry_2d_2():
+def test_geometry_2d_2(tmp_path):
 
     # create a nurbs mapping
-    degrees, knots, points, weights = quart_circle( rmin=0.5, rmax=1.0, center=None )
+    rmin, rmax = 0.5, 1.0
+    degrees, knots, points, weights = quart_circle( rmin=rmin, rmax=rmax, center=None )
 
     # Create tensor spline space, distributed
     spaces = [SplineSpace( knots=k, degree=p ) for k,p in zip(knots, degrees)]
@@ -96,20 +117,13 @@ def test_geometry_2d_2():
     # create a geometry from a topological domain and the dict of mappings
     geo = Geometry(domain=domain, pdim=2, ncells=ncells, periodic=periodic, mappings=mappings)
 
-    # export the geometry
-    geo.export('quart_circle.h5')
+    geo_read = check_round_trips(geo, mapping, tmp_path)
 
-    # read it again
-    geo_0 = Geometry.from_file('quart_circle.h5')
-
-    # export it again
-    geo_0.export('quart_circle_0.h5')
-
-    # create a geometry from a discrete mapping
-    geo_1 = Geometry.from_discrete_mapping(mapping)
-
-    # export it
-    geo_1.export('quart_circle_1.h5')
+    # The mapping read from file is a quarter annulus, radial along axis 1
+    F_read = list(geo_read.mappings.values())[0]
+    t = np.linspace(0.0, 1.0, 9)
+    assert np.allclose([np.hypot(*F_read(e1, 0.0)) for e1 in t], rmin, rtol=0, atol=1e-14)
+    assert np.allclose([np.hypot(*F_read(e1, 1.0)) for e1 in t], rmax, rtol=0, atol=1e-14)
 
 #==============================================================================
 # TODO to be removed
@@ -447,12 +461,7 @@ def teardown_module():
 
     # Remove HDF5 files generated by Geometry.export()
     filenames = [
-        'geo.h5',
-        'geo_0.h5',
-        'geo_1.h5',
         'quart_circle.h5',
-        'quart_circle_0.h5',
-        'quart_circle_1.h5',
         'circle.h5',
         'pipe.h5',
         'L_shaped.h5',
