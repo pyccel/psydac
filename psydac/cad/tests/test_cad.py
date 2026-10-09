@@ -6,9 +6,10 @@
 import numpy as np
 import pytest
 
-from psydac.cad.cad     import elevate, refine
+from psydac.cad.cad     import elevate, refine, translate
 from psydac.cad.gallery import annulus, circle, quart_circle
 from psydac.cad.tests.test_gallery import make_nurbs_mapping
+from psydac.mapping.discrete_gallery import discrete_mapping
 
 # The weights vary along axis 0 (quart_circle), axis 1 (annulus), or both (circle)
 gallery_functions = pytest.mark.parametrize('gallery_function', [quart_circle, annulus, circle],
@@ -21,6 +22,22 @@ def assert_same_geometry(F, G) -> None:
     x_F = [F(e1, e2) for e1 in t for e2 in t]
     x_G = [G(e1, e2) for e1 in t for e2 in t]
     assert np.allclose(x_F, x_G, rtol=0, atol=1e-14)
+
+#==============================================================================
+@pytest.mark.parametrize('make_mapping', [
+    lambda: discrete_mapping('collela', ncells=[4, 4], degree=[2, 2]),
+    lambda: make_nurbs_mapping(*quart_circle()),
+    lambda: make_nurbs_mapping(*annulus()),
+    lambda: make_nurbs_mapping(*circle()),
+], ids=['spline', 'quart_circle', 'annulus', 'circle'])
+def test_translate_2d(make_mapping) -> None:
+
+    displ = np.array([1.0, -2.0])
+    F = make_mapping()
+    G = translate(F, displ)
+
+    assert type(G) is type(F)
+    assert_same_geometry(lambda *eta: np.asarray(F(*eta)) + displ, G)
 
 #==============================================================================
 @gallery_functions

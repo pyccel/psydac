@@ -20,6 +20,7 @@ def translate(mapping : SplineMapping, displ : Iterable[float]):
 
     Translate a single-patch CAD geometry (given as a spline or NURBS mapping)
     by adding a given displacement vector to the control points of the mapping.
+    The weights of a NURBS mapping are not changed.
 
     Parameters
     ----------
@@ -32,7 +33,8 @@ def translate(mapping : SplineMapping, displ : Iterable[float]):
     Returns
     -------
     SplineMapping
-        A new discrete mapping representing the translated geometry.
+        A new discrete mapping representing the translated geometry. It is a
+        NurbsMapping if the input mapping is a NurbsMapping.
     """
     assert isinstance(mapping, SplineMapping)
     assert isinstance(displ, Iterable)
@@ -54,6 +56,10 @@ def translate(mapping : SplineMapping, displ : Iterable[float]):
         idx_from = tuple(list(idx_to)+[i])
         field.coeffs[idx_to] = control_points[idx_from] + displ[i]
         field.coeffs.update_ghost_regions()
+
+    # The control points are Cartesian, hence the weights are not affected
+    if isinstance(mapping, NurbsMapping):
+        return NurbsMapping(*fields, mapping.weights_field.copy())
 
     return SplineMapping(*fields)
 
