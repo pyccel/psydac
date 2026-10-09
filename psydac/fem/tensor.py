@@ -258,7 +258,7 @@ class TensorFemSpace(FemSpace):
         assert isinstance( field, FemField )
         assert field.space is self
         assert len( eta ) == self.ldim
-        if weights:
+        if weights is not None:
             assert weights.space == field.coeffs.space
 
         bases = []
@@ -287,7 +287,7 @@ class TensorFemSpace(FemSpace):
         # Get contiguous copy of the spline coefficients required for evaluation
         index  = tuple( index )
         coeffs = field.coeffs[index].copy()
-        if weights:
+        if weights is not None:
             coeffs *= weights[index]
 
         # Evaluation of multi-dimensional spline
@@ -653,10 +653,16 @@ class TensorFemSpace(FemSpace):
         assert isinstance(field, FemField)
         assert field.space is self
         assert len(eta) == self.ldim
+        if weights is not None:
+            assert weights.space == field.coeffs.space
 
         bases_0 = []
         bases_1 = []
         index   = []
+
+        # Necessary if vector coeffs is distributed across processes
+        if not field.coeffs.ghost_regions_in_sync:
+            field.coeffs.update_ghost_regions()
 
         for (x, xlim, space) in zip( eta, self.eta_lims, self.spaces ):
             x_local, span = self._find_local_span(x, xlim, space)
@@ -682,7 +688,7 @@ class TensorFemSpace(FemSpace):
         # Get contiguous copy of the spline coefficients required for evaluation
         index  = tuple( index )
         coeffs = field.coeffs[index].copy()
-        if weights:
+        if weights is not None:
             coeffs *=  weights[index]
 
         # Evaluate each component of the gradient using algorithm described in "Option 1" above
