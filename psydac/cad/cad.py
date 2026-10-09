@@ -6,10 +6,12 @@
 from typing import Iterable
 
 import numpy as np
+from mpi4py import MPI
 
 from psydac.fem.splines      import SplineSpace
 from psydac.fem.tensor       import TensorFemSpace
 from psydac.fem.basic        import FemField
+from psydac.linalg.stencil   import StencilVector
 from psydac.mapping.discrete import SplineMapping, NurbsMapping
 from psydac.ddm.cart         import DomainDecomposition
 
@@ -87,13 +89,23 @@ def elevate(mapping, axis, times):
     knots  = [V.knots             for V in space.spaces]
     degree = [V.degree            for V in space.spaces]
     shape  = [V.nbasis            for V in space.spaces]
+
+    # The decomposition does not change, hence each process only needs the
+    # coefficients owned by its neighbours that are stored in its ghost regions
+    is_nurbs = isinstance(mapping, NurbsMapping)
+    input_fields = list(mapping.fields)
+    if is_nurbs:
+        input_fields.append(mapping.weights_field)
+    for f in input_fields:
+        f.coeffs.update_ghost_regions()
+
     points = np.zeros(shape+[mapping.pdim])
-    for i,f in enumerate( mapping._fields ):
-        points[...,i] = f._coeffs.toarray().reshape(shape)
+    for i, f in enumerate(mapping.fields):
+        points[..., i] = f.coeffs.toarray(with_pads=True).reshape(shape)
 
     weights = None
-    if isinstance(mapping, NurbsMapping):
-        weights = mapping._weights_field._coeffs.toarray().reshape(shape)
+    if is_nurbs:
+        weights = mapping.weights_field.coeffs.toarray(with_pads=True).reshape(shape)
 
     # degree elevation using igakit, which expects Cartesian control points
     nrb = NURBS(knots, points, weights=weights)
@@ -152,13 +164,16 @@ def refine(mapping, axis, values):
     knots  = [V.knots             for V in space.spaces]
     degree = [V.degree            for V in space.spaces]
     shape  = [V.nbasis            for V in space.spaces]
+
+    # The new balanced decomposition may move the subdomain boundaries far
+    # away, hence each process needs all the coefficients
     points = np.zeros(shape+[mapping.pdim])
-    for i,f in enumerate( mapping._fields ):
-        points[...,i] = f._coeffs.toarray().reshape(shape)
+    for i, f in enumerate(mapping.fields):
+        points[..., i] = _global_array(f.coeffs).reshape(shape)
 
     weights = None
     if isinstance(mapping, NurbsMapping):
-        weights = mapping._weights_field._coeffs.toarray().reshape(shape)
+        weights = _global_array(mapping.weights_field.coeffs).reshape(shape)
 
     # knot insertion using igakit, which expects Cartesian control points
     nrb = NURBS(knots, points, weights=weights)
@@ -180,6 +195,7 @@ def refine(mapping, axis, values):
     for i,field in enumerate( fields ):
         idx_from = tuple(list(idx_to)+[i])
         field.coeffs[idx_to] = nrb.points[idx_from]
+        field.coeffs.update_ghost_regions()
 
     if isinstance(mapping, NurbsMapping):
         weights_field = FemField( space )
@@ -193,3 +209,12 @@ def refine(mapping, axis, values):
         return NurbsMapping( *fields )
 
     return SplineMapping( *fields )
+
+#==============================================================================
+def _global_array(coeffs: StencilVector) -> np.ndarray:
+    """Return the global array of coefficients on every process."""
+    array = coeffs.toarray()
+    # In parallel, toarray() returns zeros outside of the block owned by the process
+    if coeffs.space.parallel:
+        coeffs.space.cart.comm.Allreduce(MPI.IN_PLACE, array, op=MPI.SUM)
+    return array
