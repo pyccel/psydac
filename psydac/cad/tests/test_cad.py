@@ -3,6 +3,8 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
+from itertools import product
+
 import numpy as np
 import pytest
 
@@ -11,25 +13,47 @@ from psydac.cad.gallery import annulus, circle, quart_circle
 from psydac.cad.tests.test_gallery import make_nurbs_mapping
 from psydac.mapping.discrete_gallery import discrete_mapping
 
-# The weights vary along axis 0 (quart_circle), axis 1 (annulus), or both (circle)
-gallery_functions = pytest.mark.parametrize('gallery_function', [quart_circle, annulus, circle],
-                                            ids=['quart_circle', 'annulus', 'circle'])
-
-#==============================================================================
-def assert_same_geometry(F, G) -> None:
-    """Check that two 2D mappings agree on a uniform grid of the unit square."""
-    t = np.linspace(0.0, 1.0, 9)
-    x_F = [F(e1, e2) for e1 in t for e2 in t]
-    x_G = [G(e1, e2) for e1 in t for e2 in t]
-    assert np.allclose(x_F, x_G, rtol=0, atol=1e-14)
-
-#==============================================================================
-@pytest.mark.parametrize('make_mapping', [
+# A spline mapping, and NURBS mappings whose weights vary along axis 0
+# (quart_circle), axis 1 (annulus), or both (circle)
+mappings_2d = pytest.mark.parametrize('make_mapping', [
     lambda: discrete_mapping('collela', ncells=[4, 4], degree=[2, 2]),
     lambda: make_nurbs_mapping(*quart_circle()),
     lambda: make_nurbs_mapping(*annulus()),
     lambda: make_nurbs_mapping(*circle()),
 ], ids=['spline', 'quart_circle', 'annulus', 'circle'])
+
+def make_mapping_3d():
+    return discrete_mapping('collela', ncells=[2, 2, 2], degree=[2, 2, 2])
+
+#==============================================================================
+def assert_same_geometry(F, G) -> None:
+    """Check that two mappings agree on a uniform grid of the logical domain of G."""
+    eta = list(product(np.linspace(0.0, 1.0, 9), repeat=G.ldim))
+    assert np.allclose([F(*e) for e in eta], [G(*e) for e in eta], rtol=0, atol=1e-14)
+
+def check_elevate(F, axis: int) -> None:
+    """Check that degree elevation along an axis preserves the geometry."""
+    G = elevate(F, axis=axis, times=1)
+
+    expected_degree = list(F.space.degree)
+    expected_degree[axis] += 1
+    assert type(G) is type(F)
+    assert list(G.space.degree) == expected_degree
+    assert_same_geometry(F, G)
+
+def check_refine(F, axis: int) -> None:
+    """Check that knot insertion along an axis preserves the geometry."""
+    # Avoid the double knots of annulus, which already have multiplicity p
+    values = [0.1, 0.35, 0.6, 0.9]
+    G = refine(F, axis=axis, values=values)
+
+    expected_breaks = np.union1d(F.space.spaces[axis].breaks, values)
+    assert type(G) is type(F)
+    assert np.allclose(G.space.spaces[axis].breaks, expected_breaks, rtol=0, atol=1e-15)
+    assert_same_geometry(F, G)
+
+#==============================================================================
+@mappings_2d
 def test_translate_2d(make_mapping) -> None:
 
     displ = np.array([1.0, -2.0])
@@ -40,28 +64,21 @@ def test_translate_2d(make_mapping) -> None:
     assert_same_geometry(lambda *eta: np.asarray(F(*eta)) + displ, G)
 
 #==============================================================================
-@gallery_functions
+@mappings_2d
 @pytest.mark.parametrize('axis', [0, 1])
-def test_elevate(axis: int, gallery_function) -> None:
+def test_elevate_2d(axis: int, make_mapping) -> None:
+    check_elevate(make_mapping(), axis)
 
-    F = make_nurbs_mapping(*gallery_function())
-    G = elevate(F, axis=axis, times=1)
-
-    expected_degree = list(F.space.degree)
-    expected_degree[axis] += 1
-    assert list(G.space.degree) == expected_degree
-    assert_same_geometry(F, G)
+@pytest.mark.parametrize('axis', [0, 1, 2])
+def test_elevate_3d(axis: int) -> None:
+    check_elevate(make_mapping_3d(), axis)
 
 #==============================================================================
-@gallery_functions
+@mappings_2d
 @pytest.mark.parametrize('axis', [0, 1])
-def test_refine(axis: int, gallery_function) -> None:
+def test_refine_2d(axis: int, make_mapping) -> None:
+    check_refine(make_mapping(), axis)
 
-    # Avoid the double knots of annulus, which already have multiplicity p
-    values = [0.1, 0.35, 0.6, 0.9]
-    F = make_nurbs_mapping(*gallery_function())
-    G = refine(F, axis=axis, values=values)
-
-    expected_breaks = np.union1d(F.space.spaces[axis].breaks, values)
-    assert np.allclose(G.space.spaces[axis].breaks, expected_breaks, rtol=0, atol=1e-15)
-    assert_same_geometry(F, G)
+@pytest.mark.parametrize('axis', [0, 1, 2])
+def test_refine_3d(axis: int) -> None:
+    check_refine(make_mapping_3d(), axis)

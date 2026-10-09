@@ -76,7 +76,7 @@ def elevate(mapping, axis, times):
     except:
         raise ImportError('Could not find igakit.')
 
-    assert( isinstance(mapping, (SplineSpace, NurbsMapping)) )
+    assert isinstance(mapping, SplineMapping)
     assert( isinstance(times, int) )
     assert( isinstance(axis, int) )
 
@@ -141,7 +141,7 @@ def refine(mapping, axis, values):
     except:
         raise ImportError('Could not find igakit.')
 
-    assert( isinstance(mapping, (SplineSpace, NurbsMapping)) )
+    assert isinstance(mapping, SplineMapping)
     assert( isinstance(values, (list, tuple)) )
     assert( isinstance(axis, int) )
 
