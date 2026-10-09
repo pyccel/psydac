@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+-   #527 : Add constructor `Geometry.from_file` with option `domain` to reuse an existing SymPDE domain, after checking that it matches the file
 -   #576 : Add module `psydac.feec.polar.conga_projections` with broken FEEC polar projections in 2D
 -   #576 : Add 2D Poisson and TE Maxwell examples on polar mapped domains in `psydac/feec/polar/examples`
 -   #576 : Add module `psydac.utilities.parallel_utils` for parallel execution and gathering variable-length arrays
@@ -20,6 +21,11 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 
 -   #527 : Require `sympde==0.20.0` which changes how multipatch interfaces are defined
+-   #527 : Fix `psydac.cad.elevate` and `refine` for NURBS mappings, see #608
+-   #527 : Keep the NURBS weights in `psydac.cad.translate`, see #609
+-   #527 : Fix type checks of input mappings in module `psydac.cad.cad`, see #610
+-   #527 : Fix `psydac.cad.elevate` and `refine` for distributed mappings, see #611
+-   #527 : Check the weights field in `NurbsMapping.__init__`, see #616
 -   #576 : Require `sympde==0.19.3` which fixes a bug in the linearity checks
 -   #579 : Require `h5py>=3.16` which installs correctly with `setuptools>=81.0`
 -   #576 : Fix bug in `TensorFemSpace.eval_field` caused by round-off at MPI subdomain boundaries
@@ -36,7 +42,10 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
--   #527 : Improve `Geometry` class in module `psydac.cad.geometry`
+-   #527 : Pass a domain decomposition `ddm` and physical dimension `pdim` to `Geometry.__init__`; remove arguments `ncells`, `periodic`, `filename`, `comm` and `mpi_dims_mask`
+-   #527 : Use the domain decomposition of the mapping's space in `Geometry.from_discrete_mapping`; remove arguments `comm` and `mpi_dims_mask`
+-   #527 : Key `Geometry.mappings` by the names of the domain interiors
+-   #527 : Return Cartesian (not homogeneous) control points from the NURBS functions in `psydac.cad.gallery`, see #608
 -   #576 : Use latest version of Igakit (commit dalcinl/igakit@92ee097 of 2026/07/24) which supports NumPy >= 2.4
 -   #595 : Use PETSc 3.25.5 whose Python bindings `petsc4py` are built correctly with `cython>=3`
 -   #580 : Use PETSc 3.25.0 whose Python bindings `petsc4py` install correctly with `setuptools>=81.0`
@@ -54,6 +63,9 @@ All notable changes to this project will be documented in this file.
 ### Deprecated
 
 ### Removed
+
+-   #527 : Remove method `Geometry.read`, use constructor `Geometry.from_file` instead
+-   #527 : Remove property `Geometry.is_parallel`
 
 ## [1.0.0] - 2026-01-19
 
