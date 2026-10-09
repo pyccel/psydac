@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+-   #614 : Add option `side` to `psydac.core.bsplines.find_span` to select the knot span on the left of a knot
 -   #576 : Add module `psydac.feec.polar.conga_projections` with broken FEEC polar projections in 2D
 -   #576 : Add 2D Poisson and TE Maxwell examples on polar mapped domains in `psydac/feec/polar/examples`
 -   #576 : Add module `psydac.utilities.parallel_utils` for parallel execution and gathering variable-length arrays
@@ -15,6 +16,8 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+-   #614 : Fix NaN in parallel evaluation of fields at subdomain boundaries with repeated knots, see #612
+-   #614 : Update ghost regions in `TensorFemSpace.eval_field_gradient` if needed, as in `eval_field`
 -   #576 : Fix bug in `TensorFemSpace.eval_field` caused by round-off at MPI subdomain boundaries
 -   #576 : Require `sympde==0.19.3` which fixes a bug in the linearity checks
 -   #579 : Require `h5py>=3.16` which installs correctly with `setuptools>=81.0`
