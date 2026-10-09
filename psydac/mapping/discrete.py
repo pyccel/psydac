@@ -819,6 +819,10 @@ class NurbsMapping(SplineMapping):
 
         SplineMapping.__init__(self, *components, name=name)
 
+        # The weights must be defined on the same space as the coordinates
+        assert isinstance(weights, FemField)
+        assert weights.space is self._space
+
         self._weights = NurbsMapping.Weights(self)
         self._weights_field = weights
 

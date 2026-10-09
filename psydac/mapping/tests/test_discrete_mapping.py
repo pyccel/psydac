@@ -16,6 +16,7 @@ from sympde.topology import Domain
 
 from psydac.api.discretization import discretize
 from psydac.core.bsplines import cell_index
+from psydac.fem.basic import FemField
 from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.splines import SplineSpace
 from psydac.mapping.discrete import NurbsMapping
@@ -309,3 +310,26 @@ def test_nurbs_circle():
             J_i = disk.gradient(u=x1, v=x2)
 
             assert np.allclose(J_i[:2], J_p, atol=ATOL, rtol=RTOL)
+
+#==============================================================================
+def make_tensor_space_2d(degree: tuple[int, int]) -> TensorFemSpace:
+    """Create a serial 2D spline space on a uniform grid of 3 x 5 cells."""
+    ncells = [3, 5]
+    domain_decomposition = DomainDecomposition(ncells, [False, False])
+    spaces = [SplineSpace(degree=p, grid=np.linspace(0.0, 1.0, n + 1))
+              for p, n in zip(degree, ncells)]
+    return TensorFemSpace(domain_decomposition, *spaces)
+
+@pytest.mark.parametrize('weights_kind', ['other_space', 'array'])
+def test_nurbs_mapping_wrong_weights(weights_kind: str) -> None:
+
+    V = make_tensor_space_2d((2, 2))
+    x, y = FemField(V), FemField(V)
+
+    if weights_kind == 'other_space':
+        weights = FemField(make_tensor_space_2d((1, 3)))
+    else:
+        weights = np.ones(V.nbasis)
+
+    with pytest.raises(AssertionError):
+        NurbsMapping(x, y, weights)
