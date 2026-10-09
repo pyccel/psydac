@@ -43,36 +43,31 @@ class Geometry:
     """
     Distributed discrete geometry that works for single and multiple patches.
 
-    The Geometry object can be created in four ways:
-    - case 0 : providing a `Domain` to `__init__` with detailed parameters for each patch.
-    - case 1 : passing the path to a geometry file to `from_file`.
-    - case 2 : passing a `SplineMapping` to `from_discrete_mapping` (single patch).
-    - case 3 : passing a `Domain`, ncells, and periodicity to `from_topological_domain` (single or multi-patch).
+    The Geometry object should be created with one of the class methods:
+    - `from_file`: passing the path to a geometry file (single or multi-patch).
+    - `from_discrete_mapping`: passing a `SplineMapping` (single patch).
+    - `from_topological_domain`: passing a `Domain`, the number of cells, and
+      the periodicity (single or multi-patch).
+
+    The constructor `__init__` requires an existing domain decomposition, from
+    which the number of cells and the periodicity of each patch are obtained.
 
     Parameters
     ----------
     domain : Sympde.topology.Domain
         The symbolic topological domain to be discretized.
 
+    ddm : DomainDecomposition | MultiPatchDomainDecomposition
+        The decomposition of the domain across the MPI processes: a
+        `DomainDecomposition` for a single patch, otherwise a
+        `MultiPatchDomainDecomposition` with one decomposition per patch.
+
     pdim : int
         Number of physical dimensions of the Geometry object (pdim >= ldim).
 
-    ncells : dict[str, Iterable[int]]
-        The number of cells of the discretized domain in each direction.
-
-    periodic : dict[str, Iterable[bool]], optional
-        The periodicity of the topological domain in each direction.
-
     mappings : dict[str, BasicCallableMapping], optional
-        The discrete mappings of each patch.
-
-    comm: MPI.Intracomm, optional
-        MPI intra-communicator.
-
-    mpi_dims_mask: Iterable[bool], optional
-        True if the dimension is to be used in the domain decomposition (=default for each dimension). 
-        If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
-  
+        The discrete mappings of each patch. A spline mapping must be defined
+        on the domain decomposition of its patch (the same object).
     """
     _ldim     = None
     _pdim     = None
@@ -80,88 +75,67 @@ class Geometry:
     _topology = None
 
     def __init__(self,
-                 domain : Domain,
+                 domain   : Domain,
                  *,
+                 ddm      : DomainDecomposition | MultiPatchDomainDecomposition,
                  pdim     : int,
-                 ncells   : dict[str, Iterable[int]],
-                 mappings : dict[str, SplineMapping | None] = None,
-                 periodic : dict[str, Iterable[bool]] = None,
-                 comm : MPI.Intracomm = None,
-                 mpi_dims_mask : Iterable[bool] = None):
+                 mappings : dict[str, BasicCallableMapping | None] = None):
 
         # Type checks
+        assert isinstance(domain, Domain)
+        assert isinstance(ddm, (DomainDecomposition, MultiPatchDomainDecomposition))
         assert isinstance(pdim, int)
-        assert isinstance(domain, Domain) 
-        assert isinstance(ncells, dict)
         assert isinstance(mappings, (NoneType, dict))
-        assert isinstance(periodic, (NoneType, dict))
-        assert isinstance(comm, (NoneType, MPI.Intracomm))
-        assert isinstance(mpi_dims_mask, (NoneType, Iterable))
 
         # Extract info from domain
         ldim : int = domain.dim
         interior_names : list = domain.interior_names
-        set_interior_names = set(interior_names)
 
         # Check sanity of pdim
         assert pdim >= ldim
 
-        # Check sanity of ncells
-        assert set(ncells.keys()) == set_interior_names
-        assert all(len(n) == ldim for n in ncells.values())
-        assert all(isinstance(ni, (int, np.integer)) for ni in chain(*ncells.values()))
-        assert all(ni > 0 for ni in chain(*ncells.values()))
-
-        # Although we allow the iterable values in ncells to contain NumPy
-        # integers, we convert them to lists of Python integers for consistency
-        ncells = {patch: [int(ni) for ni in n] for patch, n in ncells.items()}
-
-        # Check sanity of periodic
-        if periodic is None:
-            periodic = {patch: [False] * len(n) for patch, n in ncells.items()}
+        # Check that the domain decomposition matches the domain, and get the
+        # decomposition, number of cells, and periodicity of each patch
+        if len(domain) == 1:
+            assert isinstance(ddm, DomainDecomposition)
+            patch_ddms    = [ddm]
+            patch_ncells  = [ddm.ncells]
+            patch_periods = [ddm.periods]
         else:
-            assert set(periodic.keys()) == set_interior_names
-            assert all(len(p) == ldim for p in periodic.values())
-            assert all(isinstance(pi, bool) for pi in chain(*periodic.values()))
+            assert isinstance(ddm, MultiPatchDomainDecomposition)
+            assert len(ddm.domains) == len(domain)
+            patch_ddms    = ddm.domains
+            patch_ncells  = ddm.ncells
+            patch_periods = ddm.periods
 
-        # Check sanity of mappings
+        assert all(len(n) == ldim for n in patch_ncells)
+
+        # Store the number of cells and the periodicity as read-only tuples
+        ncells   = {name: tuple(int(ni) for ni in n)
+                    for name, n in zip(interior_names, patch_ncells)}
+        periodic = {name: tuple(bool(pi) for pi in p)
+                    for name, p in zip(interior_names, patch_periods)}
+
+        # Check sanity of mappings. A spline mapping must be defined on the
+        # domain decomposition of its patch
         if mappings is None:
             mappings = {name : None for name in interior_names}
         else:
-            assert set(mappings.keys()) == set_interior_names
+            assert set(mappings.keys()) == set(interior_names)
             assert all(isinstance(m, (BasicCallableMapping, NoneType)) for m in mappings.values())
             assert all(m.pdim == pdim for m in mappings.values() if m is not None)
-
-        # Check sanity of mpi_dims_mask
-        if mpi_dims_mask is not None:
-            assert len(mpi_dims_mask) == ldim
-            assert all(isinstance(mask, bool) for mask in mpi_dims_mask)
-
-        # Create a (multi-patch) domain decomposition
-        if len(domain) == 1:
-            #name = domain.name
-            name = interior_names[0]
-            ddm = DomainDecomposition(
-                ncells  = ncells[name],
-                periods = periodic[name],
-                comm    = comm,
-                mpi_dims_mask = mpi_dims_mask,
-            )
-        else:
-            ddm = MultiPatchDomainDecomposition(
-                ncells  = [  ncells[itr] for itr in interior_names],
-                periods = [periodic[itr] for itr in interior_names],
-                comm    = comm,
-            )
+            assert all(mappings[name].space.domain_decomposition is patch_ddm
+                       for name, patch_ddm in zip(interior_names, patch_ddms)
+                       if isinstance(mappings[name], SplineMapping))
 
         # Add attributes to the new object
         self._domain   = domain
-        self._ldim     = domain.dim
+        self._ldim     = ldim
         self._pdim     = pdim
         self._ncells   = ncells
         self._mappings = mappings
         self._periodic = periodic
-        self._comm     = comm
+        self._comm     = ddm.comm
         self._ddm      = ddm
         self._cart     = None
 
@@ -219,22 +193,19 @@ class Geometry:
     # Option [2]: from a discrete mapping
     #--------------------------------------------------------------------------
     @classmethod
-    def from_discrete_mapping(cls, mapping, *, comm=None, mpi_dims_mask=None, name=None):
+    def from_discrete_mapping(cls, mapping, *, name=None):
         """
         Create a single-patch Geometry instance from one discrete mapping.
 
+        The geometry uses the domain decomposition of the mapping's spline
+        space, hence its distribution across the MPI processes is that of the
+        mapping.
+
         Parameters
         ----------
-        mapping : BasicCallableMapping
+        mapping : SplineMapping
             The mapping from the unit square to the physical domain.
 
-        comm : MPI.Comm
-            MPI intra-communicator.
-    
-        mpi_dims_mask: list of bool
-            True if the dimension is to be used in the domain decomposition (=default for each dimension). 
-            If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
-    
         name : str
             Optional name for the symbolic Mapping that will be created.
             Needed to avoid conflicts in case several mappings are created.
@@ -253,18 +224,11 @@ class Geometry:
                            min_coords = [0.] * dim,
                            max_coords = [1.] * dim)) 
         M.set_callable_mapping(mapping)
-        pdim     = mapping.pdim
-        mappings = {domain.name: mapping}
-        ncells   = {domain.name: mapping.space.domain_decomposition.ncells}
-        periodic = {domain.name: mapping.space.domain_decomposition.periods}
 
         return Geometry(domain   = domain,
-                        pdim     = pdim,
-                        ncells   = ncells,
-                        periodic = periodic,
-                        mappings = mappings,
-                        comm     = comm,
-                        mpi_dims_mask = mpi_dims_mask)
+                        ddm      = mapping.space.domain_decomposition,
+                        pdim     = mapping.pdim,
+                        mappings = {domain.name: mapping})
 
     #--------------------------------------------------------------------------
     # Option [3]: discrete topological line/square/cube
@@ -302,13 +266,13 @@ class Geometry:
         if isinstance(periodic, (list, tuple)):
             periodic = {itr.name : periodic for itr in interior}
 
+        ddm = _make_ddm(domain, ncells, periodic,
+                        comm=comm, mpi_dims_mask=mpi_dims_mask)
+
         return Geometry(domain   = domain,
+                        ddm      = ddm,
                         pdim     = pdim,
-                        ncells   = ncells,
-                        periodic = periodic,
-                        mappings = mappings,
-                        comm     = comm,
-                        mpi_dims_mask = mpi_dims_mask)
+                        mappings = mappings)
 
     #--------------------------------------------------------------------------
     @property
@@ -404,8 +368,8 @@ class Geometry:
 
                 spaces[i_patch] = space_i
 
-                ncells  [interiors[i_patch].name] = [sp.ncells for sp in space_i]
-                periodic[interiors[i_patch].name] = periodic_i
+                ncells  [interiors[i_patch].name] = tuple(sp.ncells for sp in space_i)
+                periodic[interiors[i_patch].name] = tuple(periodic_i)
 
         if n_patches == 1:
             ddm  = DomainDecomposition(ncells[domain.name], periodic[domain.name], comm=comm, mpi_dims_mask=mpi_dims_mask)
@@ -1034,3 +998,74 @@ def _check_domain_matches_file(domain : Domain, file_domain : Domain, filename :
 
     if _get_interface_keys(domain) != _get_interface_keys(file_domain):
         raise ValueError(f"Interfaces of the domain do not match those in file {filename}")
+
+#==============================================================================
+def _make_ddm(domain        : Domain,
+              ncells        : dict[str, Iterable[int]],
+              periodic      : dict[str, Iterable[bool]] | None = None,
+              comm          : MPI.Intracomm | None = None,
+              mpi_dims_mask : Iterable[bool] | None = None,
+              ) -> DomainDecomposition | MultiPatchDomainDecomposition:
+    """
+    Create the domain decomposition of a single- or multi-patch domain.
+
+    Parameters
+    ----------
+    domain : Sympde.topology.Domain
+        The symbolic topological domain to be decomposed.
+
+    ncells : dict[str, Iterable[int]]
+        The number of cells of each patch along each direction.
+
+    periodic : dict[str, Iterable[bool]], optional
+        The periodicity of each patch along each direction (default: False).
+
+    comm : MPI.Intracomm, optional
+        The MPI intra-communicator.
+
+    mpi_dims_mask : Iterable[bool], optional
+        True if the dimension is to be used in the domain decomposition
+        (=default for each dimension). Only used for a single patch.
+
+    Returns
+    -------
+    DomainDecomposition | MultiPatchDomainDecomposition
+        The decomposition of a single patch, or of multiple patches.
+    """
+    assert isinstance(domain, Domain)
+    assert isinstance(ncells, dict)
+    assert isinstance(periodic, (NoneType, dict))
+    assert isinstance(comm, (NoneType, MPI.Intracomm))
+    assert isinstance(mpi_dims_mask, (NoneType, Iterable))
+
+    ldim = domain.dim
+    interior_names = domain.interior_names
+
+    # Check sanity of ncells
+    assert set(ncells.keys()) == set(interior_names)
+    assert all(len(n) == ldim for n in ncells.values())
+    assert all(isinstance(ni, (int, np.integer)) for ni in chain(*ncells.values()))
+    assert all(ni > 0 for ni in chain(*ncells.values()))
+
+    # Check sanity of periodic (no periodicity by default)
+    if periodic is None:
+        periods = {name: (False,) * ldim for name in interior_names}
+    else:
+        periods = periodic
+    assert set(periods.keys()) == set(interior_names)
+    assert all(len(p) == ldim for p in periods.values())
+    assert all(isinstance(pi, bool) for pi in chain(*periods.values()))
+
+    # Check sanity of mpi_dims_mask
+    if mpi_dims_mask is not None:
+        assert len(mpi_dims_mask) == ldim
+        assert all(isinstance(mask, bool) for mask in mpi_dims_mask)
+
+    if len(domain) == 1:
+        name = interior_names[0]
+        return DomainDecomposition(ncells[name], periods[name], comm=comm,
+                                   mpi_dims_mask=mpi_dims_mask)
+
+    return MultiPatchDomainDecomposition([ncells [name] for name in interior_names],
+                                         [periods[name] for name in interior_names],
+                                         comm=comm)

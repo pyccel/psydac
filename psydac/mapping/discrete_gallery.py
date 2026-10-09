@@ -75,6 +75,7 @@ def get_available_mappings(ldim):
 #==============================================================================
 def discrete_mapping(mapping, ncells, degree, *,
                      comm = MPI.COMM_WORLD,
+                     mpi_dims_mask = None,
                      return_space = False):
     """
     Create a SplineMapping by interpolating one of the available analytical mappings.
@@ -92,6 +93,11 @@ def discrete_mapping(mapping, ncells, degree, *,
 
     comm : MPI.Intracomm, optional
         The MPI intracommunicator.
+
+    mpi_dims_mask : Iterable[bool], optional
+        True if the dimension is to be used in the domain decomposition
+        (=default for each dimension). If mpi_dims_mask[i]=False, the i-th
+        dimension will not be decomposed.
 
     return_space : bool, optional
         Whether this function should also return the discrete space it creates.
@@ -193,7 +199,8 @@ def discrete_mapping(mapping, ncells, degree, *,
     # ...
 
     # Create the domain decomposition
-    domain_decomposition = DomainDecomposition(ncells=ncells, periods=periodic, comm=comm)
+    domain_decomposition = DomainDecomposition(ncells=ncells, periods=periodic,
+                                               comm=comm, mpi_dims_mask=mpi_dims_mask)
 
     # Create 1D spline spaces, not distributed
     spaces_1d = [SplineSpace(grid=np.linspace(*lims, num=nc+1), degree=p, periodic=per)

@@ -13,14 +13,15 @@ from sympde.topology import Domain, Line, Square, Cube, Mapping, IdentityMapping
 
 from psydac.cad.geometry             import Geometry, export_nurbs_to_hdf5, refine_nurbs
 from psydac.cad.geometry             import import_geopdes_to_nurbs
-from psydac.cad.cad                  import elevate, refine, translate
+from psydac.cad.cad                  import elevate, refine
 from psydac.cad.gallery              import quart_circle
 from psydac.mapping.discrete         import SplineMapping, NurbsMapping
 from psydac.mapping.discrete_gallery import discrete_mapping
 from psydac.fem.splines              import SplineSpace
 from psydac.fem.tensor               import TensorFemSpace
 from psydac.utilities.utils          import refine_array_1d
-from psydac.ddm.cart                 import DomainDecomposition
+from psydac.ddm.cart                 import (DomainDecomposition,
+                                             MultiPatchDomainDecomposition)
 
 
 base_dir = os.path.dirname(os.path.realpath(__file__))
@@ -72,7 +73,8 @@ def test_geometry_2d_1(tmp_path):
     domain = F(Square(name='Omega'))
 
     # create a geometry from a topological domain and the dict of mappings
-    geo = Geometry(domain=domain, pdim=2, ncells={domain.name: [1, 1]}, mappings={domain.name: mapping})
+    geo = Geometry(domain, ddm=mapping.space.domain_decomposition, pdim=2,
+                   mappings={domain.name: mapping})
 
     geo_read = check_round_trips(geo, mapping, tmp_path)
 
@@ -109,13 +111,9 @@ def test_geometry_2d_2(tmp_path):
     # associate the mapping to the topological domain
     mappings = {domain.name: mapping}
 
-    # Define ncells as a dict
-    ncells = {domain.name:[len(space.breaks)-1 for space in mapping.space.spaces]}
-
-    periodic = {domain.name:[space.periodic for space in mapping.space.spaces]}
-
     # create a geometry from a topological domain and the dict of mappings
-    geo = Geometry(domain=domain, pdim=2, ncells=ncells, periodic=periodic, mappings=mappings)
+    geo = Geometry(domain, ddm=mapping.space.domain_decomposition, pdim=2,
+                   mappings=mappings)
 
     geo_read = check_round_trips(geo, mapping, tmp_path)
 
@@ -149,12 +147,10 @@ def test_geometry_with_mpi_dims_mask():
     # associate the mapping to the topological domain
     mappings = {domain.name: mapping}
 
-    # Define d_ncells as a dict
-    d_ncells = {domain.name: ncells}
-
     # Create a geometry from a topological domain and the dict of mappings
     # Here we allow for any distribution of the domain: mpi_dims_mask is not passed
-    geo = Geometry(domain=domain, pdim=3, ncells=d_ncells, mappings=mappings, comm=comm)
+    geo = Geometry(domain, ddm=mapping.space.domain_decomposition, pdim=3,
+                   mappings=mappings)
     geo.export('geo_mpi_dims.h5')
 
     # Read geometry file in parallel, but using mpi_dims_mask
@@ -178,16 +174,18 @@ def test_from_discrete_mapping():
     size = comm.size
     mpi_dims_mask = [False, False, True]  # We will verify that this has an effect
     ncells = [4, 8, 2 * size]  # Each process should have two cells along x3
-    degree = [3, 3, 3]
+    degree = [3, 3, 2]  # Each process must own at least `degree` cells
 
     expected_starts = (0, 0, 2 * rank)
     expected_ends   = (3, 7, 2 * rank + 1)
 
-    # Create a mapping
-    mapping = discrete_mapping('identity', ncells=ncells, degree=degree)
+    # Create a mapping using mpi_dims_mask
+    mapping = discrete_mapping('identity', ncells=ncells, degree=degree,
+                               mpi_dims_mask=mpi_dims_mask)
 
-    # Create geometry from the mapping using mpi_dims_mask
-    geo_from_mapping = Geometry.from_discrete_mapping(mapping, comm=comm, mpi_dims_mask=mpi_dims_mask)
+    # The geometry uses the domain decomposition of the mapping
+    geo_from_mapping = Geometry.from_discrete_mapping(mapping)
+    assert geo_from_mapping.ddm is mapping.space.domain_decomposition
 
     # Verify that the domain is distributed as expected
     assert geo_from_mapping.ddm.starts == expected_starts
@@ -230,8 +228,18 @@ def test_geometry_init_without_mappings(npatches: int) -> None:
                              connectivity=[((0, 0, 1), (1, 0, -1), 1)],
                              name='Omega')
 
-    ncells = {name: [4, 4] for name in domain.interior_names}
-    geo = Geometry(domain, pdim=2, ncells=ncells)
+    ncells = [3, 5]
+    if npatches == 1:
+        ddm = DomainDecomposition(ncells, [False, False])
+    else:
+        ddm = MultiPatchDomainDecomposition([ncells] * npatches,
+                                            [[False, False]] * npatches)
+
+    geo = Geometry(domain, ddm=ddm, pdim=2)
+
+    # The number of cells and the periodicity are obtained from the decomposition
+    assert geo.ncells   == {name: (3, 5) for name in domain.interior_names}
+    assert geo.periodic == {name: (False, False) for name in domain.interior_names}
 
     assert geo.mappings == {name: None for name in domain.interior_names}
 
@@ -247,11 +255,28 @@ def make_domain(npatches: int, *, ornt: int = 1) -> Domain:
 
 def export_geometry(domain: Domain, filename: str) -> None:
     """Export a spline geometry on the domain, with patches side by side along x."""
-    F = discrete_mapping('identity', ncells=[2, 2], degree=[2, 2])
     names = domain.interior_names
-    mappings = {name: translate(F, [float(i), 0.0]) for i, name in enumerate(names)}
-    ncells = {name: [2, 2] for name in names}
-    Geometry(domain, pdim=2, ncells=ncells, mappings=mappings).export(filename)
+    ncells, degree = [2, 3], [2, 2]
+    if len(domain) == 1:
+        ddm = DomainDecomposition(ncells, [False, False])
+        patch_ddms = [ddm]
+    else:
+        ddm = MultiPatchDomainDecomposition([ncells] * len(names),
+                                            [[False, False]] * len(names))
+        patch_ddms = ddm.domains
+
+    # Spline mappings must be defined on the decomposition of their patch. The
+    # control points of the identity map are given by the Greville abscissae
+    mappings = {}
+    for i, (name, patch_ddm) in enumerate(zip(names, patch_ddms)):
+        spaces = [SplineSpace(degree=p, grid=np.linspace(0.0, 1.0, n + 1))
+                  for p, n in zip(degree, ncells)]
+        g1, g2 = [W.greville for W in spaces]
+        points = np.stack(np.meshgrid(g1 + i, g2, indexing='ij'), axis=-1)
+        V = TensorFemSpace(patch_ddm, *spaces)
+        mappings[name] = SplineMapping.from_control_points(V, points)
+
+    Geometry(domain, ddm=ddm, pdim=2, mappings=mappings).export(filename)
 
 #==============================================================================
 @pytest.mark.parametrize('npatches', [1, 2])

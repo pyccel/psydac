@@ -138,10 +138,7 @@ class PolarModel2D:
 
         # In order to create a sympde.Domain object from this mapping we have
         # to create first a HDF5 file and then load as sympde.Domain.fromfile
-        geometry = Geometry.from_discrete_mapping(
-            map_discrete,
-            comm=mpi_comm,
-        )
+        geometry = Geometry.from_discrete_mapping(map_discrete)
         geometry.export(filename)
 
         self._geometry_export_time = time() - t0
