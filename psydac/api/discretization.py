@@ -110,7 +110,7 @@ def get_max_degree_of_one_space(Vh):
     Returns
     -------
     list[int]
-        The maximum polynomial degre of Vh with respect to each coordinate.
+        The maximum polynomial degree of Vh with respect to each coordinate.
 
     """
 
@@ -125,7 +125,7 @@ def get_max_degree_of_one_space(Vh):
         return [max(p) for p in zip(*degree)]
 
     else:
-        raise TypeError(f'Type({V}) not understood')
+        raise TypeError(f'Type {type(Vh).__name__} not understood')
 
 
 def get_max_degree(*spaces):
