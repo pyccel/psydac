@@ -85,9 +85,7 @@ def define_data(n, p, matrix_data, dtype=float):
 def test_solver_tridiagonal(n, p, dtype, solver, use_jacobi_pc, verbose=False):
 
     # Quickly skip tests that are not relevant
-    if solver == 'BiCGSTAB' and use_jacobi_pc and dtype == complex:
-        pytest.skip("Preconditioned BiCGSTAB only works for real matrices")
-    elif solver == 'MINRES' and dtype == complex:
+    if solver == 'MINRES' and dtype == complex:
         pytest.skip("MINRES only works for real matrices")
     
     # Also skip some problematic tests for now -- see Issue #557
@@ -251,6 +249,74 @@ def test_solver_tridiagonal(n, p, dtype, solver, use_jacobi_pc, verbose=False):
     assert errt_norm < tol
     assert errh_norm < tol
     assert (solver == 'CG' and use_jacobi_pc) or errc_norm < tol
+
+#===============================================================================
+# Diagonal operators make the stopping tests divide by a vanishing norm
+@pytest.mark.parametrize(
+    ('solver', 'diagonal', 'expected'), [('MINRES', 0.0, 0.0), ('LSMR', 2.0, 0.5)]
+)
+def test_solver_diagonal(solver: str, diagonal: float, expected: float) -> None:
+
+    V, A, _ = define_data(6, 1, [0.0, diagonal, 0.0])
+    b = V.zeros()
+    b[:] = 1.0
+
+    x = inverse(A, solver, tol=1e-10) @ b
+
+    assert np.array_equal(x.toarray(), np.full(6, expected))
+
+#===============================================================================
+# GMRES converges in at most n iterations, and must report the true residual
+@pytest.mark.parametrize('maxiter', [1, 6, 12])
+@pytest.mark.parametrize('dtype', [float, complex])
+def test_GMRES_solve(maxiter: int, dtype: type) -> None:
+
+    n = 12
+    diagonals = [-7-2j, -6-2j, -1-10j] if dtype == complex else [-7, -6, -1]
+    _, A, xe = define_data(n, 1, diagonals, dtype=dtype)
+    b = A @ xe
+
+    solver = inverse(A, 'GMRES', tol=1e-10, maxiter=maxiter)
+    x = solver @ b
+    info = solver.get_info()
+
+    r = b - A @ x
+    assert np.isclose(info['res_norm'], np.sqrt(r.inner(r).real), rtol=1e-8, atol=1e-12)
+    assert info['success'] == (maxiter == n)
+
+#===============================================================================
+# With maxiter=1, CG only evaluates the residual of the initial guess
+@pytest.mark.parametrize('use_jacobi_pc', [False, True])
+def test_ConjugateGradient_solve_maxiter_1(use_jacobi_pc: bool) -> None:
+
+    V, A, xe = define_data_hermitian(6, 1)
+    pc = A.diagonal(inverse=True) if use_jacobi_pc else None
+
+    solver = inverse(A, 'CG', pc=pc, tol=1e-10, maxiter=1)
+    x = solver @ (A @ xe)
+    info = solver.get_info()
+
+    assert np.array_equal(x.toarray(), V.zeros().toarray())
+    assert info['niter'] == 1
+    assert not info['success']
+
+#===============================================================================
+# LSMR returns before iterating if b = 0 (x = 0) or if A^H (b - A x0) = 0 (x = x0)
+@pytest.mark.parametrize(('diagonal', 'rhs'), [(2.0, 0.0), (0.0, 1.0)])
+def test_LSMR_solve_early_exit(diagonal: float, rhs: float) -> None:
+
+    V, A, xe = define_data(6, 1, [0.0, diagonal, 0.0])
+    b = V.zeros()
+    b[:] = rhs
+
+    solver = inverse(A, 'LSMR', x0=xe, tol=1e-10)
+    x = solver @ b
+    info = solver.get_info()
+
+    expected = xe if rhs else V.zeros()
+    assert np.array_equal(x.toarray(), expected.toarray())
+    assert info['niter'] == 0
+    assert info['success']
 
 #===============================================================================
 def test_LST_preconditioner(comm=None):
