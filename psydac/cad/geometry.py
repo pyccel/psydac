@@ -128,6 +128,10 @@ class Geometry:
                        for name, patch_ddm in zip(interior_names, patch_ddms)
                        if isinstance(mappings[name], SplineMapping))
 
+            # Many functions access the mappings by position: use the order of
+            # the domain interiors
+            mappings = {name: mappings[name] for name in interior_names}
+
         # Add attributes to the new object
         self._domain   = domain
         self._ldim     = ldim
@@ -185,9 +189,41 @@ class Geometry:
             If the given domain does not match the domain defined in the file,
             or if one of its patches has no mapping or an analytical mapping.
         """
-        geo = super().__new__(cls)
-        geo.read(filename, comm=comm, mpi_dims_mask=mpi_dims_mask, domain=domain)
-        return geo
+        # Check the extension of the file
+        _, ext = os.path.splitext(filename)
+        if ext != '.h5':
+            raise ValueError('> Only h5 files are supported')
+
+        # Read the topological domain, or check the given one against it
+        file_domain = Domain.from_file(filename)
+        if domain is None:
+            geometry_domain = file_domain
+        else:
+            _check_domain_matches_file(domain, file_domain, filename)
+            geometry_domain = domain
+
+        parallel = comm is not None and comm.size > 1
+        kwargs = dict(driver='mpio', comm=comm) if parallel else {}
+        with h5py.File(filename, mode='r', **kwargs) as h5:
+            yml = yaml.load(h5['geometry.yml'][()], Loader=yaml.SafeLoader)
+            if len(yml['patches']) == 0:
+                raise ValueError("Input file contains no patches.")
+
+            # The patches in the file follow the order of the domain interiors
+            spaces   = _read_patch_spaces(h5, yml)
+            names    = geometry_domain.interior_names
+            ncells   = {name: [W.ncells   for W in s] for name, s in zip(names, spaces)}
+            periodic = {name: [W.periodic for W in s] for name, s in zip(names, spaces)}
+
+            ddm = _make_ddm(geometry_domain, ncells, periodic,
+                            comm=comm, mpi_dims_mask=mpi_dims_mask)
+            mappings = _read_spline_mappings(h5, yml, geometry_domain, ddm, spaces)
+
+        # Add the spline mappings to the symbolic mappings of the domain
+        for itr in _get_interiors(geometry_domain):
+            itr.mapping.set_callable_mapping(mappings[itr.name])
+
+        return cls(geometry_domain, ddm=ddm, pdim=yml['pdim'], mappings=mappings)
 
     #--------------------------------------------------------------------------
     # Option [2]: from a discrete mapping
@@ -309,165 +345,6 @@ class Geometry:
 
     def __len__(self):
         return len(self.domain)
-
-    def read(self, filename, comm=None, mpi_dims_mask=None, domain=None):
-        # ... check extension of the file
-        _, ext = os.path.splitext(filename)
-        if ext != '.h5':
-            raise ValueError('> Only h5 files are supported')
-        # ...
-
-        # read the topological domain, or check the given one against it
-        file_domain = Domain.from_file(filename)
-        if domain is None:
-            domain = file_domain
-        else:
-            _check_domain_matches_file(domain, file_domain, filename)
-
-        connectivity = construct_connectivity(domain)
-        interiors    = _get_interiors(domain)
-
-        if comm is not None:
-            kwargs = dict(driver='mpio', comm=comm) if comm.size > 1 else {}
-        else:
-            kwargs = {}
-
-        h5  = h5py.File(filename, mode='r', **kwargs)
-        yml = yaml.load(h5['geometry.yml'][()], Loader=yaml.SafeLoader)
-
-        ldim = yml['ldim']
-        pdim = yml['pdim']
-
-        n_patches = len(yml['patches'])
-
-        # ...
-        if n_patches == 0:
-            h5.close()
-            raise ValueError("Input file contains no patches.")
-        # ...
-
-        # ... read patches
-        mappings = {}
-        ncells   = {}
-        periodic = {}
-        spaces   = [None] * n_patches
-        for i_patch in range(n_patches):
-
-            item  = yml['patches'][i_patch]
-            patch_name = item['name']
-            mapping_id = item['mapping_id']
-            dtype = item['type']
-            patch = h5[mapping_id]
-            if dtype in ['SplineMapping', 'NurbsMapping']:
-
-                degree     = [int (p) for p in patch.attrs['degree'  ]]
-                periodic_i = [bool(b) for b in patch.attrs['periodic']]
-                knots      = [patch['knots_{}'.format(d)][:] for d in range(ldim)]
-                space_i    = [SplineSpace(degree=p, knots=k, periodic=P)
-                              for p, k, P in zip(degree, knots, periodic_i)]
-
-                spaces[i_patch] = space_i
-
-                ncells  [interiors[i_patch].name] = tuple(sp.ncells for sp in space_i)
-                periodic[interiors[i_patch].name] = tuple(periodic_i)
-
-        if n_patches == 1:
-            ddm  = DomainDecomposition(ncells[domain.name], periodic[domain.name], comm=comm, mpi_dims_mask=mpi_dims_mask)
-            ddms = [ddm]
-        else:
-            ncells_  = [ncells[itr.name] for itr in interiors]
-            periodic = [periodic[itr.name] for itr in interiors]
-            ddm      = MultiPatchDomainDecomposition(ncells_, periodic, comm=comm)
-            ddms     = ddm.domains
-
-        carts    = create_cart(ddms, spaces)
-        g_spaces = {inter:TensorFemSpace(ddms[i], *spaces[i], cart=carts[i]) for i,inter in enumerate(interiors)}
-
-        for i, j in connectivity:
-            minus = interiors[i]
-            plus  = interiors[j]
-            max_ncells = [max(ni, nj) for ni, nj in zip(ncells[minus.name], ncells[plus.name])]
-            g_spaces[minus].add_refined_space(ncells=max_ncells)
-            g_spaces[plus ].add_refined_space(ncells=max_ncells)
-
-        # ... construct interface spaces
-        construct_interface_spaces(ddm, g_spaces, carts, interiors, connectivity)
-
-        for i_patch in range( n_patches ):
-
-            item  = yml['patches'][i_patch]
-            patch_name = item['name']
-            mapping_id = item['mapping_id']
-            dtype = item['type']
-            patch = h5[mapping_id]
-            space_i = spaces[i_patch]
-            if dtype in ['SplineMapping', 'NurbsMapping']:
-                tensor_space = g_spaces[interiors[i_patch]]
-
-                if dtype == 'SplineMapping':
-                    mapping = SplineMapping.from_control_points(tensor_space,
-                                                                patch['points'][..., :pdim])
-
-                elif dtype == 'NurbsMapping':
-                    mapping = NurbsMapping.from_control_points_weights(tensor_space,
-                                                                       patch['points'][..., :pdim],
-                                                                       patch['weights'])
-
-                mapping.set_name(item['name'])
-                mappings[patch_name] = mapping
-
-        # ... Update ghost regions within each patch and across interfaces
-        if n_patches > 1:
-            coeffs         = [[e.coeffs for e in mapping.fields] for mapping in mappings.values()]
-            patch_spaces   = [BlockVectorSpace(*[c_ij.space for c_ij in c_i]) for c_i in coeffs]
-            patch_spaces_w = [c_i[0].space for c_i in coeffs]
-            space          = BlockVectorSpace(*patch_spaces  , connectivity=connectivity)
-            space_w        = BlockVectorSpace(*patch_spaces_w, connectivity=connectivity)
-            v = BlockVector(space)
-            w = BlockVector(space_w)
-            mapping_list = list(mappings.values())
-            for i in range(n_patches):
-                for j in range(len(coeffs[i])):
-                    v[i][j] = coeffs[i][j]
-
-                mapping = mapping_list[i]
-                if isinstance(mapping, NurbsMapping):
-                    w[i] = mapping.weights_field.coeffs
-                else:
-                    w[i] = v[i][0].space.zeros()
-
-            v.update_ghost_regions()
-            w.update_ghost_regions()
-
-        else:
-            mapping = list(mappings.values())[0]
-            for f in mapping._fields:
-                f.coeffs.update_ghost_regions()
-
-            if isinstance(mapping, NurbsMapping):
-                mapping.weights_field.coeffs.update_ghost_regions()
-        # ...
-
-        # ... close the h5 file
-        h5.close()
-        # ...
-
-        # Add spline callable mappings to domain undefined mappings
-        # NOTE: We assume that interiors and mappings.values() use the same ordering
-        for patch, F in zip(interiors, mappings.values()):
-            patch.mapping.set_callable_mapping(F)
-
-        # ...
-        self._domain      = domain
-        self._ldim        = ldim
-        self._pdim        = pdim
-        self._ncells      = ncells
-        self._mappings    = mappings
-        self._periodic    = periodic
-        self._comm        = comm
-        self._ddm         = ddm
-        self._cart        = None
-        # ...
 
     def export( self, filename ):
         """
@@ -1069,3 +946,120 @@ def _make_ddm(domain        : Domain,
     return MultiPatchDomainDecomposition([ncells [name] for name in interior_names],
                                          [periods[name] for name in interior_names],
                                          comm=comm)
+
+#==============================================================================
+def _read_patch_spaces(h5 : h5py.File, yml : dict) -> list[list[SplineSpace]]:
+    """
+    Read the 1D spline spaces of each patch from an open geometry file.
+
+    Parameters
+    ----------
+    h5 : h5py.File
+        The open geometry file.
+
+    yml : dict
+        The content of its `geometry.yml` section.
+
+    Returns
+    -------
+    list[list[SplineSpace]]
+        The 1D spline spaces along each direction, for each patch.
+    """
+    spaces = []
+    for item in yml['patches']:
+        if item['type'] not in ('SplineMapping', 'NurbsMapping'):
+            raise ValueError(f"Mapping type {item['type']} of patch {item['name']} "
+                             "is not supported")
+        patch    = h5[item['mapping_id']]
+        degree   = [int (p) for p in patch.attrs['degree'  ]]
+        periodic = [bool(b) for b in patch.attrs['periodic']]
+        knots    = [patch[f'knots_{d}'][:] for d in range(yml['ldim'])]
+        spaces.append([SplineSpace(degree=p, knots=k, periodic=P)
+                       for p, k, P in zip(degree, knots, periodic)])
+    return spaces
+
+def _read_spline_mappings(h5     : h5py.File,
+                          yml    : dict,
+                          domain : Domain,
+                          ddm    : DomainDecomposition | MultiPatchDomainDecomposition,
+                          spaces : list[list[SplineSpace]],
+                          ) -> dict[str, SplineMapping]:
+    """
+    Create the spline mappings of all patches from an open geometry file, on
+    the given domain decomposition.
+
+    Parameters
+    ----------
+    h5 : h5py.File
+        The open geometry file.
+
+    yml : dict
+        The content of its `geometry.yml` section.
+
+    domain : Sympde.topology.Domain
+        The topological domain, whose interiors follow the order of the patches.
+
+    ddm : DomainDecomposition | MultiPatchDomainDecomposition
+        The decomposition of the domain.
+
+    spaces : list[list[SplineSpace]]
+        The 1D spline spaces along each direction, for each patch.
+
+    Returns
+    -------
+    dict[str, SplineMapping]
+        The spline mappings, keyed by the names of the domain interiors.
+    """
+    interiors    = _get_interiors(domain)
+    connectivity = construct_connectivity(domain)
+    ddms         = [ddm] if len(domain) == 1 else ddm.domains
+    pdim         = yml['pdim']
+
+    carts    = create_cart(ddms, spaces)
+    g_spaces = {itr: TensorFemSpace(ddms[i], *spaces[i], cart=carts[i])
+                for i, itr in enumerate(interiors)}
+
+    # Add refined spaces on both sides of each interface
+    for i, j in connectivity:
+        max_ncells = [max(Wi.ncells, Wj.ncells) for Wi, Wj in zip(spaces[i], spaces[j])]
+        g_spaces[interiors[i]].add_refined_space(ncells=max_ncells)
+        g_spaces[interiors[j]].add_refined_space(ncells=max_ncells)
+
+    construct_interface_spaces(ddm, g_spaces, carts, interiors, connectivity)
+
+    mappings = {}
+    for itr, item in zip(interiors, yml['patches']):
+        patch  = h5[item['mapping_id']]
+        points = patch['points'][..., :pdim]
+        if item['type'] == 'SplineMapping':
+            mapping = SplineMapping.from_control_points(g_spaces[itr], points)
+        else:
+            mapping = NurbsMapping.from_control_points_weights(g_spaces[itr], points,
+                                                               patch['weights'])
+        mapping.set_name(item['name'])
+        mappings[itr.name] = mapping
+
+    # Update the ghost regions within each patch and across interfaces
+    if len(domain) > 1:
+        coeffs         = [[e.coeffs for e in m.fields] for m in mappings.values()]
+        patch_spaces   = [BlockVectorSpace(*[c.space for c in c_i]) for c_i in coeffs]
+        patch_spaces_w = [c_i[0].space for c_i in coeffs]
+        v = BlockVector(BlockVectorSpace(*patch_spaces  , connectivity=connectivity))
+        w = BlockVector(BlockVectorSpace(*patch_spaces_w, connectivity=connectivity))
+        for i, mapping in enumerate(mappings.values()):
+            for j, c_ij in enumerate(coeffs[i]):
+                v[i][j] = c_ij
+            if isinstance(mapping, NurbsMapping):
+                w[i] = mapping.weights_field.coeffs
+            else:
+                w[i] = v[i][0].space.zeros()
+        v.update_ghost_regions()
+        w.update_ghost_regions()
+    else:
+        mapping, = mappings.values()
+        for f in mapping.fields:
+            f.coeffs.update_ghost_regions()
+        if isinstance(mapping, NurbsMapping):
+            mapping.weights_field.coeffs.update_ghost_regions()
+
+    return mappings

@@ -17,6 +17,7 @@ from sympde.topology.analytical_mapping import IdentityMapping, AffineMapping, P
 from psydac.api.discretization import discretize
 from psydac.fem.basic import FemField
 from psydac.fem.tensor import TensorFemSpace
+from psydac.mapping.discrete import SplineMapping
 from psydac.utilities.utils import refine_array_1d
 from psydac.feec.pull_push import (push_2d_hcurl,
                                    push_2d_h1,
@@ -493,6 +494,9 @@ def test_reconstruct_DerhamSequence_discrete_domain(geometry, seq, dtype):
             space_file='test_reconstruct_DerhamSequence_discrete_domain.yml',
             fields_file='test_reconstruct_DerhamSequence_discrete_domain.h5'
         )
+
+    # The post-processor must use the spline mappings of the geometry file
+    assert all(isinstance(F, SplineMapping) for F in Pm._mappings.values())
 
     Om2 = OutputManager(
         'test_reconstruct_DerhamSequence_discrete_domain_2.yml',

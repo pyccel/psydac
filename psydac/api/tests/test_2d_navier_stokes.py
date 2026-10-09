@@ -479,7 +479,7 @@ if __name__ == '__main__':
         solutions, p_h, domain, domain_h = run_time_dependent_navier_stokes_2d(filename, dt_h=dt_h, nt=nt, scipy=False)
 
         domain = domain.logical_domain
-        mapping = domain_h.mappings['patch_0']
+        mapping, = domain_h.mappings.values()
 
         anim = animate_field(solutions, domain, mapping, res=(150,150), progress=True)
         anim.save('animated_fields_{}_{}.mp4'.format(str(Tf).replace('.','_'), str(dt_h).replace('.','_')), writer=animation.FFMpegWriter(fps=60))

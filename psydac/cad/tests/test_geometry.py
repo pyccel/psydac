@@ -24,6 +24,8 @@ from psydac.ddm.cart                 import (DomainDecomposition,
                                              MultiPatchDomainDecomposition)
 
 
+import psydac.cad.mesh as mesh_mod
+
 base_dir = os.path.dirname(os.path.realpath(__file__))
 #==============================================================================
 def assert_geometries_equal(geo: Geometry, ref: Geometry) -> None:
@@ -244,6 +246,26 @@ def test_geometry_init_without_mappings(npatches: int) -> None:
     assert geo.mappings == {name: None for name in domain.interior_names}
 
 #==============================================================================
+@pytest.mark.xdist_group('h5py')
+def test_geometry_from_file_multipatch() -> None:
+
+    mesh_dir = os.path.dirname(mesh_mod.__file__)
+    filename = os.path.join(mesh_dir, 'multipatch', 'magnet.h5')
+    geo = Geometry.from_file(filename)
+    names = geo.domain.interior_names
+
+    # Patch information is keyed by the interior names, in the same order
+    assert list(geo.ncells)   == names
+    assert list(geo.periodic) == names
+    assert list(geo.mappings) == names
+    assert all(isinstance(n, tuple) and len(n) == 2 for n in geo.ncells.values())
+    assert all(p == (False, False) for p in geo.periodic.values())
+
+    # Each spline mapping is defined on the decomposition of its patch
+    for F, patch_ddm in zip(geo.mappings.values(), geo.ddm.domains):
+        assert F.space.domain_decomposition is patch_ddm
+
+#==============================================================================
 def make_domain(npatches: int, *, ornt: int = 1) -> Domain:
     """Create a domain made of one or two unit squares, with generic mappings."""
     if npatches == 1:
@@ -346,7 +368,7 @@ def test_export_nurbs_to_hdf5(ncells, degree):
     assert abs(max_coords[0] - pipe.breaks(0)[-1])<1e-15
     assert abs(max_coords[1] - pipe.breaks(1)[-1])<1e-15
 
-    mapping = geo.mappings[domain.logical_domain.name]
+    mapping = geo.mappings[domain.interior.name]
 
     assert isinstance(mapping, NurbsMapping)
 
@@ -395,7 +417,7 @@ def test_import_geopdes_to_nurbs(ncells, degree):
     assert abs(max_coords[0] - L_shaped.breaks(0)[-1])<1e-15
     assert abs(max_coords[1] - L_shaped.breaks(1)[-1])<1e-15
 
-    mapping = geo.mappings[domain.logical_domain.name]
+    mapping = geo.mappings[domain.interior.name]
 
     space  = mapping.space
     knots  = space.knots

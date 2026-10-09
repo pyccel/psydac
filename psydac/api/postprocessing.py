@@ -1042,15 +1042,16 @@ class PostProcessManager:
             spl_maps = domain_h.mappings if domain_h.mappings is not None else {}
 
             if isinstance(domain.interior, InteriorDomain):
-                self._mappings[domain.name] = spl_maps.get(domain.logical_domain.name, domain.mapping)
+                self._mappings[domain.name] = spl_maps.get(domain.interior.name,
+                                                           domain.mapping)
             else:
                 if isinstance(domain.mapping, MultiPatchMapping):
                     for interior in domain.interior.as_tuple():
-                        self._mappings[interior.name] = spl_maps.get(interior.logical_domain.name, \
+                        self._mappings[interior.name] = spl_maps.get(interior.name, \
                                                                      domain.mapping.mappings[interior.logical_domain])
                 else:
                     for interior in domain.interior.as_tuple():
-                        self._mappings[interior.name] = spl_maps.get(interior.logical_domain.name, \
+                        self._mappings[interior.name] = spl_maps.get(interior.name, \
                                                                      interior.mapping)
         else:
             domain = self._domain
