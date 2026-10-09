@@ -210,6 +210,49 @@ class TensorFemSpace(FemSpace):
     #--------------------------------------------------------------------------
     # Abstract interface: evaluation methods
     #--------------------------------------------------------------------------
+    @staticmethod
+    def _find_local_span(x: float, xlim: tuple, space: SplineSpace) -> tuple:
+        """
+        Find the knot span of a point, as seen from the local interval of the
+        process along one direction.
+
+        Parameters
+        ----------
+        x : float
+            The coordinate of the point along one direction.
+
+        xlim : tuple
+            The bounds of the local interval along the same direction.
+
+        space : SplineSpace
+            The 1D spline space along the same direction.
+
+        Returns
+        -------
+        x_local : float
+            The coordinate `x`, moved onto the closest bound of `xlim` if it lies
+            outside of it by at most one machine epsilon.
+
+        span : int
+            The index of the knot span which contains `x_local` within `xlim`.
+        """
+        scale = max(abs(xlim[0]), abs(xlim[1]), 1.0)
+        tol = np.spacing(scale)
+
+        if x < xlim[0] and xlim[0] - x <= tol:
+            x_local = xlim[0]
+        elif x > xlim[1] and x - xlim[1] <= tol:
+            x_local = xlim[1]
+        else:
+            x_local = x
+
+        # On the right bound of the local interval, the knot span on the right
+        # of x belongs to the next process: use the one on the left of x
+        side = 'left' if x_local == xlim[1] else 'right'
+        span = find_span(space.knots, space.degree, x_local, side=side)
+
+        return x_local, span
+
     def eval_field( self, field, *eta, weights=None):
 
         assert isinstance( field, FemField )
@@ -226,36 +269,17 @@ class TensorFemSpace(FemSpace):
             field.coeffs.update_ghost_regions()
 
         for (x, xlim, space) in zip( eta, self.eta_lims, self.spaces ):
-            scale = max(abs(xlim[0]), abs(xlim[1]), 1.0)
-            tol = np.spacing(scale)
-
-            if x < xlim[0] and xlim[0] - x <= tol:
-                x = xlim[0]
-
-            elif x > xlim[1] and x - xlim[1] <= tol:
-                x = xlim[1]
-
-            knots  = space.knots
-            degree = space.degree
-            span   =  find_span( knots, degree, x )
-
-            #-------------------------------------------------#
-            # Fix span for boundaries between subdomains      #
-            #-------------------------------------------------#
-            # TODO: Use local knot sequence instead of global #
-            #       one to get correct span in all situations #
-            #-------------------------------------------------#
-            if x == xlim[1] and x != knots[-1-degree]:
-                span -= 1
-            #-------------------------------------------------#
-            basis = basis_funs( knots, degree, x, span)
+            x_local, span = self._find_local_span(x, xlim, space)
+            knots   = space.knots
+            degree  = space.degree
+            basis   = basis_funs( knots, degree, x_local, span)
 
             # If needed, rescale B-splines to get M-splines
             if space.basis == 'M':
                 basis *= space.scaling_array[span-degree : span+1]
 
             # Determine local span
-            wrap_x   = space.periodic and x > xlim[1]
+            wrap_x   = space.periodic and x_local > xlim[1]
             loc_span = span - space.nbasis if wrap_x else span
 
             bases.append( basis )
@@ -635,29 +659,11 @@ class TensorFemSpace(FemSpace):
         index   = []
 
         for (x, xlim, space) in zip( eta, self.eta_lims, self.spaces ):
-            scale = max(abs(xlim[0]), abs(xlim[1]), 1.0)
-            tol = np.spacing(scale)
-
-            if x < xlim[0] and xlim[0] - x <= tol:
-                x = xlim[0]
-
-            elif x > xlim[1] and x - xlim[1] <= tol:
-                x = xlim[1]
-
+            x_local, span = self._find_local_span(x, xlim, space)
             knots   = space.knots
             degree  = space.degree
-            span    =  find_span( knots, degree, x )
-            #-------------------------------------------------#
-            # Fix span for boundaries between subdomains      #
-            #-------------------------------------------------#
-            # TODO: Use local knot sequence instead of global #
-            #       one to get correct span in all situations #
-            #-------------------------------------------------#
-            if x == xlim[1] and x != knots[-1-degree]:
-                span -= 1
-            #-------------------------------------------------#
-            basis_0 = basis_funs(knots, degree, x, span)
-            basis_1 = basis_funs_1st_der(knots, degree, x, span)
+            basis_0 = basis_funs(knots, degree, x_local, span)
+            basis_1 = basis_funs_1st_der(knots, degree, x_local, span)
 
             # If needed, rescale B-splines to get M-splines
             if space.basis == 'M':
@@ -666,7 +672,7 @@ class TensorFemSpace(FemSpace):
                 basis_1 *= scaling
 
             # Determine local span
-            wrap_x   = space.periodic and x > xlim[1]
+            wrap_x   = space.periodic and x_local > xlim[1]
             loc_span = span - space.nbasis if wrap_x else span
 
             bases_0.append( basis_0 )
