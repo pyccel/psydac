@@ -3,7 +3,7 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-from typing import Iterable
+from typing import Callable, Iterable
 
 import numpy as np
 from mpi4py import MPI
@@ -73,71 +73,15 @@ def elevate(mapping, axis, times):
     Note: we are using igakit for the moment, until we implement the elevation
     degree algorithm in psydac
     """
-    try:
-        from igakit.nurbs import NURBS
-    except:
-        raise ImportError('Could not find igakit.')
-
     assert isinstance(mapping, SplineMapping)
-    assert( isinstance(times, int) )
-    assert( isinstance(axis, int) )
-
-    space                = mapping.space
-    domain_decomposition = space.domain_decomposition
-    pdim                 = mapping.pdim
-
-    knots  = [V.knots             for V in space.spaces]
-    degree = [V.degree            for V in space.spaces]
-    shape  = [V.nbasis            for V in space.spaces]
+    assert isinstance(times, int)
+    assert isinstance(axis, int)
 
     # The decomposition does not change, hence each process only needs the
     # coefficients owned by its neighbours that are stored in its ghost regions
-    is_nurbs = isinstance(mapping, NurbsMapping)
-    input_fields = list(mapping.fields)
-    if is_nurbs:
-        input_fields.append(mapping.weights_field)
-    for f in input_fields:
-        f.coeffs.update_ghost_regions()
+    nrb = _to_igakit(mapping, _local_array).elevate(axis, times)
 
-    # igakit requires at least 2 coordinates, the extra one is zero
-    points = np.zeros(shape + [max(pdim, 2)])
-    for i, f in enumerate(mapping.fields):
-        points[..., i] = f.coeffs.toarray(with_pads=True).reshape(shape)
-
-    weights = None
-    if is_nurbs:
-        weights = mapping.weights_field.coeffs.toarray(with_pads=True).reshape(shape)
-
-    # degree elevation using igakit, which expects Cartesian control points
-    nrb = NURBS(knots, points, weights=weights)
-    nrb = nrb.clone().elevate(axis, times)
-
-    spaces = [SplineSpace(degree=p, knots=u) for p,u in zip( nrb.degree, nrb.knots )]
-    space  = TensorFemSpace( domain_decomposition, *spaces )
-    fields = [FemField( space ) for d in range( pdim )]
-
-    # Get spline coefficients for each coordinate X_i
-    starts = space.coeff_space.starts
-    ends   = space.coeff_space.ends
-    idx_to = tuple( slice( s, e+1 ) for s,e in zip( starts, ends ) )
-    for i,field in enumerate( fields ):
-        idx_from = tuple(list(idx_to)+[i])
-        field.coeffs[idx_to] = nrb.points[idx_from]
-
-        field.coeffs.update_ghost_regions()
-
-    if isinstance(mapping, NurbsMapping):
-        weights_field = FemField( space )
-
-        idx_from = idx_to
-        weights_field.coeffs[idx_to] = nrb.weights[idx_from]
-        weights_field.coeffs.update_ghost_regions()
-
-        fields.append( weights_field )
-
-        return NurbsMapping( *fields )
-
-    return SplineMapping( *fields )
+    return _from_igakit(nrb, mapping.space.domain_decomposition, mapping)
 
 
 #==============================================================================
@@ -149,70 +93,107 @@ def refine(mapping, axis, values):
     Note: we are using igakit for the moment, until we implement the knot
     insertion algorithm in psydac
     """
-    try:
-        from igakit.nurbs import NURBS
-    except:
-        raise ImportError('Could not find igakit.')
-
     assert isinstance(mapping, SplineMapping)
-    assert( isinstance(values, (list, tuple)) )
-    assert( isinstance(axis, int) )
-
-    space                = mapping.space
-    domain_decomposition = space.domain_decomposition
-    pdim                 = mapping.pdim
-
-    knots  = [V.knots             for V in space.spaces]
-    degree = [V.degree            for V in space.spaces]
-    shape  = [V.nbasis            for V in space.spaces]
+    assert isinstance(values, (list, tuple))
+    assert isinstance(axis, int)
 
     # The new balanced decomposition may move the subdomain boundaries far
-    # away, hence each process needs all the coefficients.
+    # away, hence each process needs all the coefficients
+    nrb = _to_igakit(mapping, _global_array).refine(axis, values)
+
+    ddm = mapping.space.domain_decomposition
+    ncells = list(ddm.ncells)
+    ncells[axis] += len(values)
+    new_ddm = DomainDecomposition(ncells, ddm.periods, comm=ddm.comm)
+
+    return _from_igakit(nrb, new_ddm, mapping)
+
+#==============================================================================
+def _to_igakit(mapping: SplineMapping, to_array: Callable[[StencilVector], np.ndarray]):
+    """
+    Create an igakit NURBS object from a spline or NURBS mapping.
+
+    Parameters
+    ----------
+    mapping : SplineMapping
+        The input mapping (possibly a NurbsMapping).
+
+    to_array : Callable[[StencilVector], np.ndarray]
+        The function which returns the coefficients of a field as an array
+        with the global shape, which must be correct where it is used.
+
+    Returns
+    -------
+    igakit.nurbs.NURBS
+        The igakit object with the Cartesian control points and the weights
+        of the mapping.
+    """
+    try:
+        from igakit.nurbs import NURBS
+    except ImportError as err:
+        raise ImportError('Could not find igakit.') from err
+
+    knots = [V.knots  for V in mapping.space.spaces]
+    shape = [V.nbasis for V in mapping.space.spaces]
+
     # igakit requires at least 2 coordinates, the extra one is zero
-    points = np.zeros(shape + [max(pdim, 2)])
+    points = np.zeros(shape + [max(mapping.pdim, 2)])
     for i, f in enumerate(mapping.fields):
-        points[..., i] = _global_array(f.coeffs).reshape(shape)
+        points[..., i] = to_array(f.coeffs).reshape(shape)
 
     weights = None
     if isinstance(mapping, NurbsMapping):
-        weights = _global_array(mapping.weights_field.coeffs).reshape(shape)
+        weights = to_array(mapping.weights_field.coeffs).reshape(shape)
 
-    # knot insertion using igakit, which expects Cartesian control points
-    nrb = NURBS(knots, points, weights=weights)
-    nrb = nrb.clone().refine(axis, values)
+    # igakit expects Cartesian control points
+    return NURBS(knots, points, weights=weights)
 
-    spaces = [SplineSpace(degree=p, knots=u) for p,u in zip( nrb.degree, nrb.knots )]
+def _from_igakit(nrb, domain_decomposition: DomainDecomposition, mapping: SplineMapping) -> SplineMapping:
+    """
+    Create a mapping of the same type and dimension as a given mapping, from
+    an igakit NURBS object and a domain decomposition.
 
-    ncells = list(domain_decomposition.ncells)
-    ncells[axis] += len(values)
-    domain_decomposition = DomainDecomposition(ncells, domain_decomposition.periods, comm=domain_decomposition.comm)
+    Parameters
+    ----------
+    nrb : igakit.nurbs.NURBS
+        The igakit object, whose control points and weights are known on
+        every process.
 
-    space  = TensorFemSpace( domain_decomposition, *spaces )
-    fields = [FemField( space ) for d in range( pdim )]
+    domain_decomposition : DomainDecomposition
+        The decomposition of the new mapping's domain.
 
-    # Get spline coefficients for each coordinate X_i
-    starts = space.coeff_space.starts
-    ends   = space.coeff_space.ends
-    idx_to = tuple( slice( s, e+1 ) for s,e in zip( starts, ends ) )
-    for i,field in enumerate( fields ):
-        idx_from = tuple(list(idx_to)+[i])
-        field.coeffs[idx_to] = nrb.points[idx_from]
+    mapping : SplineMapping
+        The mapping whose type (SplineMapping or NurbsMapping) and physical
+        dimension are used.
+
+    Returns
+    -------
+    SplineMapping
+        The new mapping. It is a NurbsMapping if `mapping` is a NurbsMapping.
+    """
+    spaces = [SplineSpace(degree=p, knots=u) for p, u in zip(nrb.degree, nrb.knots)]
+    space  = TensorFemSpace(domain_decomposition, *spaces)
+
+    arrays = [nrb.points[..., i] for i in range(mapping.pdim)]
+    is_nurbs = isinstance(mapping, NurbsMapping)
+    if is_nurbs:
+        arrays.append(nrb.weights)
+
+    # Each process copies the coefficients that it owns
+    idx = tuple(slice(s, e + 1) for s, e in zip(space.coeff_space.starts, space.coeff_space.ends))
+    fields = [FemField(space) for _ in arrays]
+    for field, array in zip(fields, arrays):
+        field.coeffs[idx] = array[idx]
         field.coeffs.update_ghost_regions()
 
-    if isinstance(mapping, NurbsMapping):
-        weights_field = FemField( space )
+    return NurbsMapping(*fields) if is_nurbs else SplineMapping(*fields)
 
-        idx_from = idx_to
-        weights_field.coeffs[idx_to] = nrb.weights[idx_from]
-        weights_field.coeffs.update_ghost_regions()
+def _local_array(coeffs: StencilVector) -> np.ndarray:
+    """Return the array of coefficients owned by the process and its neighbours."""
+    coeffs.update_ghost_regions()
+    # In parallel, the array is zero outside of the block and the ghost regions
+    return coeffs.toarray(with_pads=True)
 
-        fields.append( weights_field )
-
-        return NurbsMapping( *fields )
-
-    return SplineMapping( *fields )
-
-#==============================================================================
 def _global_array(coeffs: StencilVector) -> np.ndarray:
     """Return the global array of coefficients on every process."""
     array = coeffs.toarray()
