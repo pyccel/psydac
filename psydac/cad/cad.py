@@ -177,7 +177,8 @@ def _from_igakit(nrb,
         # The number of cells is given by the spaces, because inserting a value
         # which is already a knot only increases its multiplicity (see #619)
         old_ddm = mapping.space.domain_decomposition
-        ddm = DomainDecomposition([W.ncells for W in spaces], old_ddm.periods, comm=old_ddm.comm)
+        ddm = DomainDecomposition([W.ncells for W in spaces], old_ddm.periods, comm=old_ddm.comm,
+                                  mpi_dims_mask=old_ddm.mpi_dims_mask)
 
     space = TensorFemSpace(ddm, *spaces)
 

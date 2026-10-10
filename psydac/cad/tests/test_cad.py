@@ -139,8 +139,9 @@ def test_refine_3d(axis: int) -> None:
     check_refine(make_volume(), axis)
 
 #==============================================================================
-def make_mapping_parallel(comm: MPI.Comm):
-    return discrete_mapping('collela', ncells=[8, 8], degree=[2, 2], comm=comm)
+def make_mapping_parallel(comm: MPI.Comm, mpi_dims_mask: list[bool] | None = None):
+    return discrete_mapping('collela', ncells=[8, 8], degree=[2, 2], comm=comm,
+                            mpi_dims_mask=mpi_dims_mask)
 
 def assert_same_local_coeffs(F, G) -> None:
     """Check that the local data (owned and ghost coefficients) of a distributed
@@ -174,12 +175,19 @@ def test_elevate_parallel(axis: int) -> None:
     [0.1, 0.35, 0.6, 0.9],
     [0.01, 0.04, 0.07, 0.1, 0.13, 0.16, 0.19, 0.22],
 ], ids=['spread', 'shifted'])
-def test_refine_parallel(values: list, axis: int) -> None:
+@pytest.mark.parametrize('mpi_dims_mask', [None, [False, True], [True, False]])
+def test_refine_parallel(mpi_dims_mask: list[bool] | None, values: list, axis: int) -> None:
 
-    F = make_mapping_parallel(MPI.COMM_WORLD)
+    F = make_mapping_parallel(MPI.COMM_WORLD, mpi_dims_mask)
     F_serial = make_mapping_parallel(MPI.COMM_SELF)
 
     G = refine(F, axis=axis, values=values)
     G_serial = refine(F_serial, axis=axis, values=values)
 
     assert_same_local_coeffs(G_serial, G)
+
+    # The directions excluded by the mask are not decomposed (see #622)
+    ddm = G.space.domain_decomposition
+    assert ddm.mpi_dims_mask == F.space.domain_decomposition.mpi_dims_mask
+    if mpi_dims_mask is not None:
+        assert all(n == 1 for n, use_dim in zip(ddm.nprocs, mpi_dims_mask) if not use_dim)

@@ -214,6 +214,7 @@ class DomainDecomposition:
 
         self._ncells       = tuple ( ncells )
         self._periods      = tuple ( periods )
+        self._mpi_dims_mask = None if mpi_dims_mask is None else tuple(mpi_dims_mask)
         self._comm         = comm
         self._global_comm  = comm if global_comm is None else global_comm
         self._comm_cart    = comm
@@ -299,6 +300,11 @@ class DomainDecomposition:
     @property
     def periods( self ):
         return self._periods
+
+    @property
+    def mpi_dims_mask(self) -> tuple[bool, ...] | None:
+        """The directions which may be decomposed, or None if not specified (all directions)."""
+        return self._mpi_dims_mask
 
     @property
     def size( self ):
@@ -398,9 +404,10 @@ class DomainDecomposition:
         assert len( ncells ) == len( self.ncells )
         assert all(nc>=snc for nc, snc in zip(ncells, self.ncells))
 
+        # The mask is needed to recover the same process grid (see #622)
         domain         = DomainDecomposition(self.ncells, self.periods, comm=self.comm,
                                             global_comm=self.global_comm, num_threads=self.num_threads,
-                                            size=self.size)
+                                            size=self.size, mpi_dims_mask=self.mpi_dims_mask)
         domain._ncells = tuple ( ncells )
 
         # Store arrays with all the starts and ends along each direction for every process
