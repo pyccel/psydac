@@ -4,6 +4,7 @@
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
 import os
+from itertools import product
 
 import pytest
 import numpy as np
@@ -15,6 +16,7 @@ from psydac.cad.geometry             import Geometry, export_nurbs_to_hdf5, refi
 from psydac.cad.geometry             import import_geopdes_to_nurbs
 from psydac.cad.cad                  import elevate, refine
 from psydac.cad.gallery              import quart_circle
+from psydac.cad.tests.test_cad       import assert_same_geometry, make_mapping_1d
 from psydac.mapping.discrete         import SplineMapping, NurbsMapping
 from psydac.mapping.discrete_gallery import discrete_mapping
 from psydac.fem.splines              import SplineSpace
@@ -27,6 +29,9 @@ from psydac.ddm.cart                 import (DomainDecomposition,
 import psydac.cad.mesh as mesh_mod
 
 base_dir = os.path.dirname(os.path.realpath(__file__))
+
+# Unit patch of each logical dimension
+PATCHES = {1: Line, 2: Square}
 #==============================================================================
 def assert_geometries_equal(geo: Geometry, ref: Geometry) -> None:
     """Check that two geometries are equal, comparing their patches by position."""
@@ -63,31 +68,53 @@ def check_round_trips(geo: Geometry, mapping: SplineMapping, tmp_path) -> Geomet
 
     return geo_read
 
+def make_identity_mapping(ddm: DomainDecomposition, degree: list[int], shift: float = 0.0) -> SplineMapping:
+    """Create a spline mapping on the decomposition, equal to the identity
+    shifted along x. Its control points are given by the Greville abscissae."""
+    spaces = [SplineSpace(degree=p, grid=np.linspace(0.0, 1.0, n + 1))
+              for p, n in zip(degree, ddm.ncells)]
+    grevilles = [W.greville for W in spaces]
+    grevilles[0] = grevilles[0] + shift
+    points = np.stack(np.meshgrid(*grevilles, indexing='ij'), axis=-1)
+    return SplineMapping.from_control_points(TensorFemSpace(ddm, *spaces), points)
+
 #==============================================================================
+@pytest.mark.parametrize('ldim', [1, 2])
 @pytest.mark.xdist_group('h5py')
-def test_geometry_2d_1(tmp_path):
+def test_geometry_identity_spline(ldim: int, tmp_path) -> None:
 
-    # create an identity mapping
-    mapping = discrete_mapping('identity', ncells=[1, 1], degree=[2, 2])
+    ddm = DomainDecomposition([2, 3][:ldim], [False] * ldim)
+    mapping = make_identity_mapping(ddm, degree=[2] * ldim)
+    domain = Mapping('F', dim=ldim)(PATCHES[ldim](name='Omega'))
 
-    # create a topological domain
-    F      = Mapping('F', dim=2)
-    domain = F(Square(name='Omega'))
-
-    # create a geometry from a topological domain and the dict of mappings
-    geo = Geometry(domain, ddm=mapping.space.domain_decomposition, pdim=2,
-                   mappings={domain.name: mapping})
-
+    geo = Geometry(domain, ddm=ddm, pdim=ldim, mappings={domain.name: mapping})
     geo_read = check_round_trips(geo, mapping, tmp_path)
 
     # The mapping read from file is the identity
-    F_read = list(geo_read.mappings.values())[0]
-    t = np.linspace(0.0, 1.0, 5)
-    assert all(np.allclose(F_read(e1, e2), [e1, e2], rtol=0, atol=1e-15) for e1 in t for e2 in t)
+    F_read, = geo_read.mappings.values()
+    eta = list(product(np.linspace(0.0, 1.0, 5), repeat=ldim))
+    assert np.allclose([F_read(*e) for e in eta], eta, rtol=0, atol=1e-15)
 
 #==============================================================================
 @pytest.mark.xdist_group('h5py')
-def test_geometry_2d_2(tmp_path):
+def test_geometry_nurbs_1d(tmp_path) -> None:
+
+    mapping = make_mapping_1d(weights=np.array([1.0, 0.5, 2.0, 0.7, 1.0]))
+    mapping = elevate(mapping, axis=0, times=1)
+    mapping = refine(mapping, axis=0, values=[0.1, 0.5])
+    domain = Mapping('F', dim=1)(Line(name='Omega'))
+
+    geo = Geometry(domain, ddm=mapping.space.domain_decomposition, pdim=1,
+                   mappings={domain.name: mapping})
+    geo_read = check_round_trips(geo, mapping, tmp_path)
+
+    # The mapping read from file is the original one
+    F_read, = geo_read.mappings.values()
+    assert_same_geometry(F_read, mapping)
+
+#==============================================================================
+@pytest.mark.xdist_group('h5py')
+def test_geometry_nurbs_quarter_annulus(tmp_path) -> None:
 
     # create a nurbs mapping
     rmin, rmax = 0.5, 1.0
@@ -218,30 +245,24 @@ def test_from_topological_domain():
     assert geo_from_domain.ddm.ends   == expected_ends
 
 # ==============================================================================
+@pytest.mark.parametrize('ldim', [1, 2])
 @pytest.mark.parametrize('npatches', [1, 2])
-def test_geometry_init_without_mappings(npatches: int) -> None:
+def test_geometry_init_without_mappings(npatches: int, ldim: int) -> None:
 
-    if npatches == 1:
-        domain = Square(name='A')
-    else:
-        A = Square('A', bounds1=(0, 1), bounds2=(0, 1))
-        B = Square('B', bounds1=(1, 2), bounds2=(0, 1))
-        domain = Domain.join(patches=[A, B],
-                             connectivity=[((0, 0, 1), (1, 0, -1), 1)],
-                             name='Omega')
+    domain = make_domain(npatches, ldim=ldim)
 
-    ncells = [3, 5]
+    ncells = [3, 5][:ldim]
     if npatches == 1:
-        ddm = DomainDecomposition(ncells, [False, False])
+        ddm = DomainDecomposition(ncells, [False] * ldim)
     else:
         ddm = MultiPatchDomainDecomposition([ncells] * npatches,
-                                            [[False, False]] * npatches)
+                                            [[False] * ldim] * npatches)
 
-    geo = Geometry(domain, ddm=ddm, pdim=2)
+    geo = Geometry(domain, ddm=ddm, pdim=ldim)
 
     # The number of cells and the periodicity are obtained from the decomposition
-    assert geo.ncells   == {name: (3, 5) for name in domain.interior_names}
-    assert geo.periodic == {name: (False, False) for name in domain.interior_names}
+    assert geo.ncells   == {name: tuple(ncells) for name in domain.interior_names}
+    assert geo.periodic == {name: (False,) * ldim for name in domain.interior_names}
 
     assert geo.mappings == {name: None for name in domain.interior_names}
 
@@ -268,7 +289,7 @@ def test_geometry_from_file_multipatch() -> None:
 #==============================================================================
 def make_domain(npatches: int, *, ldim: int = 2, ornt: int = 1) -> Domain:
     """Create a domain made of one or two unit lines or squares, with generic mappings."""
-    Patch = {1: Line, 2: Square}[ldim]
+    Patch = PATCHES[ldim]
     if npatches == 1:
         return Mapping('G', dim=ldim)(Patch('P'))
 
@@ -281,7 +302,7 @@ def export_geometry(domain: Domain, filename: str) -> None:
     """Export a spline geometry on the domain, with patches side by side along x."""
     names = domain.interior_names
     ldim = domain.dim
-    ncells, degree = [2, 3][:ldim], [2, 2][:ldim]
+    ncells = [2, 3][:ldim]
     if len(domain) == 1:
         ddm = DomainDecomposition(ncells, [False] * ldim)
         patch_ddms = [ddm]
@@ -290,17 +311,9 @@ def export_geometry(domain: Domain, filename: str) -> None:
                                             [[False] * ldim] * len(names))
         patch_ddms = ddm.domains
 
-    # Spline mappings must be defined on the decomposition of their patch. The
-    # control points of the identity map are given by the Greville abscissae
-    mappings = {}
-    for i, (name, patch_ddm) in enumerate(zip(names, patch_ddms)):
-        spaces = [SplineSpace(degree=p, grid=np.linspace(0.0, 1.0, n + 1))
-                  for p, n in zip(degree, ncells)]
-        grevilles = [W.greville for W in spaces]
-        grevilles[0] = grevilles[0] + i
-        points = np.stack(np.meshgrid(*grevilles, indexing='ij'), axis=-1)
-        V = TensorFemSpace(patch_ddm, *spaces)
-        mappings[name] = SplineMapping.from_control_points(V, points)
+    # Spline mappings must be defined on the decomposition of their patch
+    mappings = {name: make_identity_mapping(patch_ddm, degree=[2] * ldim, shift=i)
+                for i, (name, patch_ddm) in enumerate(zip(names, patch_ddms))}
 
     Geometry(domain, ddm=ddm, pdim=ldim, mappings=mappings).export(filename)
 
