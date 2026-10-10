@@ -12,7 +12,25 @@ from mpi4py import MPI
 from psydac.cad.cad     import elevate, refine, translate
 from psydac.cad.gallery import annulus, circle, quart_circle
 from psydac.cad.tests.test_gallery import make_nurbs_mapping
+from psydac.ddm.cart    import DomainDecomposition
+from psydac.fem.splines import SplineSpace
+from psydac.fem.tensor  import TensorFemSpace
+from psydac.mapping.discrete import NurbsMapping, SplineMapping
 from psydac.mapping.discrete_gallery import discrete_mapping
+
+def make_mapping_1d(weights=None) -> SplineMapping:
+    """Create a nonlinear 1D spline mapping, or a NURBS mapping if weights are given."""
+    W = SplineSpace(degree=2, knots=[0.0, 0.0, 0.0, 0.3, 0.7, 1.0, 1.0, 1.0])
+    V = TensorFemSpace(DomainDecomposition([W.ncells], [False]), W)
+    points = np.array([[0.0], [0.2], [0.9], [1.5], [2.0]])
+    if weights is None:
+        return SplineMapping.from_control_points(V, points)
+    return NurbsMapping.from_control_points_weights(V, points, weights)
+
+mappings_1d = pytest.mark.parametrize('make_mapping', [
+    make_mapping_1d,
+    lambda: make_mapping_1d(weights=np.array([1.0, 0.5, 2.0, 0.7, 1.0])),
+], ids=['spline', 'nurbs'])
 
 # A spline mapping, and NURBS mappings whose weights vary along axis 0
 # (quart_circle), axis 1 (annulus), or both (circle)
@@ -31,6 +49,13 @@ def assert_same_geometry(F, G) -> None:
     """Check that two mappings agree on a uniform grid of the logical domain of G."""
     eta = list(product(np.linspace(0.0, 1.0, 9), repeat=G.ldim))
     assert np.allclose([F(*e) for e in eta], [G(*e) for e in eta], rtol=0, atol=1e-14)
+
+def check_translate(F, displ: np.ndarray) -> None:
+    """Check that translation moves the geometry by the displacement."""
+    G = translate(F, displ)
+
+    assert type(G) is type(F)
+    assert_same_geometry(lambda *eta: np.asarray(F(*eta)) + displ, G)
 
 def check_elevate(F, axis: int) -> None:
     """Check that degree elevation along an axis preserves the geometry."""
@@ -54,17 +79,19 @@ def check_refine(F, axis: int) -> None:
     assert_same_geometry(F, G)
 
 #==============================================================================
+@mappings_1d
+def test_translate_1d(make_mapping) -> None:
+    check_translate(make_mapping(), np.array([-2.0]))
+
 @mappings_2d
 def test_translate_2d(make_mapping) -> None:
-
-    displ = np.array([1.0, -2.0])
-    F = make_mapping()
-    G = translate(F, displ)
-
-    assert type(G) is type(F)
-    assert_same_geometry(lambda *eta: np.asarray(F(*eta)) + displ, G)
+    check_translate(make_mapping(), np.array([1.0, -2.0]))
 
 #==============================================================================
+@mappings_1d
+def test_elevate_1d(make_mapping) -> None:
+    check_elevate(make_mapping(), axis=0)
+
 @mappings_2d
 @pytest.mark.parametrize('axis', [0, 1])
 def test_elevate_2d(axis: int, make_mapping) -> None:
@@ -75,6 +102,10 @@ def test_elevate_3d(axis: int) -> None:
     check_elevate(make_mapping_3d(), axis)
 
 #==============================================================================
+@mappings_1d
+def test_refine_1d(make_mapping) -> None:
+    check_refine(make_mapping(), axis=0)
+
 @mappings_2d
 @pytest.mark.parametrize('axis', [0, 1])
 def test_refine_2d(axis: int, make_mapping) -> None:

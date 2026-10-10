@@ -99,7 +99,8 @@ def elevate(mapping, axis, times):
     for f in input_fields:
         f.coeffs.update_ghost_regions()
 
-    points = np.zeros(shape+[mapping.pdim])
+    # igakit requires at least 2 coordinates, the extra one is zero
+    points = np.zeros(shape + [max(pdim, 2)])
     for i, f in enumerate(mapping.fields):
         points[..., i] = f.coeffs.toarray(with_pads=True).reshape(shape)
 
@@ -166,8 +167,9 @@ def refine(mapping, axis, values):
     shape  = [V.nbasis            for V in space.spaces]
 
     # The new balanced decomposition may move the subdomain boundaries far
-    # away, hence each process needs all the coefficients
-    points = np.zeros(shape+[mapping.pdim])
+    # away, hence each process needs all the coefficients.
+    # igakit requires at least 2 coordinates, the extra one is zero
+    points = np.zeros(shape + [max(pdim, 2)])
     for i, f in enumerate(mapping.fields):
         points[..., i] = _global_array(f.coeffs).reshape(shape)
 
