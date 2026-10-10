@@ -86,10 +86,9 @@ def check_elevate(F, axis: int) -> None:
     assert list(G.space.degree) == expected_degree
     assert_same_geometry(F, G)
 
-def check_refine(F, axis: int) -> None:
+def check_refine(F, axis: int, values: tuple[float, ...] = (0.1, 0.35, 0.6, 0.9)) -> None:
     """Check that knot insertion along an axis preserves the geometry."""
-    # Avoid the double knots of annulus, which already have multiplicity p
-    values = [0.1, 0.35, 0.6, 0.9]
+    # The default values avoid the double knots of annulus, which already have multiplicity p
     G = refine(F, axis=axis, values=values)
 
     expected_breaks = np.union1d(F.space.spaces[axis].breaks, values)
@@ -124,6 +123,11 @@ def test_elevate_3d(axis: int) -> None:
 @mappings_1d
 def test_refine_1d(make_mapping) -> None:
     check_refine(make_mapping(), axis=0)
+
+# Values which only increase the multiplicity of a knot create no new cells
+@pytest.mark.parametrize('values', [(0.3,), (0.5, 0.5)], ids=['existing_knot', 'repeated_value'])
+def test_refine_multiplicity(values: tuple[float, ...]) -> None:
+    check_refine(make_curve(nurbs=True), axis=0, values=values)
 
 @mappings_2d
 @pytest.mark.parametrize('axis', [0, 1])

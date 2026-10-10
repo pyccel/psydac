@@ -81,7 +81,7 @@ def elevate(mapping, axis, times):
     # coefficients owned by its neighbours that are stored in its ghost regions
     nrb = _to_igakit(mapping, _local_array).elevate(axis, times)
 
-    return _from_igakit(nrb, mapping.space.domain_decomposition, mapping)
+    return _from_igakit(nrb, mapping, mapping.space.domain_decomposition)
 
 
 #==============================================================================
@@ -101,12 +101,7 @@ def refine(mapping, axis, values):
     # away, hence each process needs all the coefficients
     nrb = _to_igakit(mapping, _global_array).refine(axis, values)
 
-    ddm = mapping.space.domain_decomposition
-    ncells = list(ddm.ncells)
-    ncells[axis] += len(values)
-    new_ddm = DomainDecomposition(ncells, ddm.periods, comm=ddm.comm)
-
-    return _from_igakit(nrb, new_ddm, mapping)
+    return _from_igakit(nrb, mapping)
 
 #==============================================================================
 def _to_igakit(mapping: SplineMapping, to_array: Callable[[StencilVector], np.ndarray]):
@@ -148,10 +143,12 @@ def _to_igakit(mapping: SplineMapping, to_array: Callable[[StencilVector], np.nd
     # igakit expects Cartesian control points
     return NURBS(knots, points, weights=weights)
 
-def _from_igakit(nrb, domain_decomposition: DomainDecomposition, mapping: SplineMapping) -> SplineMapping:
+def _from_igakit(nrb,
+                 mapping: SplineMapping,
+                 domain_decomposition: DomainDecomposition | None = None) -> SplineMapping:
     """
     Create a mapping of the same type and dimension as a given mapping, from
-    an igakit NURBS object and a domain decomposition.
+    an igakit NURBS object.
 
     Parameters
     ----------
@@ -159,12 +156,13 @@ def _from_igakit(nrb, domain_decomposition: DomainDecomposition, mapping: Spline
         The igakit object, whose control points and weights are known on
         every process.
 
-    domain_decomposition : DomainDecomposition
-        The decomposition of the new mapping's domain.
-
     mapping : SplineMapping
-        The mapping whose type (SplineMapping or NurbsMapping) and physical
-        dimension are used.
+        The mapping whose type (SplineMapping or NurbsMapping), physical
+        dimension, periodicity, and MPI communicator are used.
+
+    domain_decomposition : DomainDecomposition, optional
+        The decomposition of the new mapping's domain. If not given, a new
+        balanced decomposition is created for the new number of cells.
 
     Returns
     -------
@@ -172,7 +170,16 @@ def _from_igakit(nrb, domain_decomposition: DomainDecomposition, mapping: Spline
         The new mapping. It is a NurbsMapping if `mapping` is a NurbsMapping.
     """
     spaces = [SplineSpace(degree=p, knots=u) for p, u in zip(nrb.degree, nrb.knots)]
-    space  = TensorFemSpace(domain_decomposition, *spaces)
+
+    if domain_decomposition is not None:
+        ddm = domain_decomposition
+    else:
+        # The number of cells is given by the spaces, because inserting a value
+        # which is already a knot only increases its multiplicity (see #619)
+        old_ddm = mapping.space.domain_decomposition
+        ddm = DomainDecomposition([W.ncells for W in spaces], old_ddm.periods, comm=old_ddm.comm)
+
+    space = TensorFemSpace(ddm, *spaces)
 
     arrays = [nrb.points[..., i] for i in range(mapping.pdim)]
     is_nurbs = isinstance(mapping, NurbsMapping)
