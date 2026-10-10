@@ -419,7 +419,7 @@ class DomainDecomposition:
         domain._starts = tuple( domain._global_element_starts[axis][c] for axis,c in zip(range(self._ndims), self._coords) )
         domain._ends   = tuple( domain._global_element_ends  [axis][c] for axis,c in zip(range(self._ndims), self._coords) )
 
-        domain._local_ncells = tuple(e-s+1 for s,e in zip(self._starts, self._ends))
+        domain._local_ncells = tuple(e-s+1 for s,e in zip(domain._starts, domain._ends))
         return domain
 
 #==================================================================================

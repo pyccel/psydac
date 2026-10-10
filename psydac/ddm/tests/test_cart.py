@@ -40,3 +40,4 @@ def test_DomainDecomposition_refine(mpi_dims_mask) -> None:
     assert list(new_ddm.comm_cart.Get_topo()[0]) == list(ddm.nprocs)
     assert new_ddm.starts == tuple(2 * s for s in ddm.starts)
     assert new_ddm.ends   == tuple(2 * e + 1 for e in ddm.ends)
+    assert new_ddm.local_ncells == tuple(2 * n for n in ddm.local_ncells)  # see #623
