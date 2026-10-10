@@ -16,7 +16,7 @@ from psydac.cad.geometry             import Geometry, export_nurbs_to_hdf5, refi
 from psydac.cad.geometry             import import_geopdes_to_nurbs
 from psydac.cad.cad                  import elevate, refine
 from psydac.cad.gallery              import quart_circle
-from psydac.cad.tests.test_cad       import assert_same_geometry, make_mapping_1d
+from psydac.cad.tests.test_cad       import assert_same_geometry, make_curve, make_surface
 from psydac.mapping.discrete         import SplineMapping, NurbsMapping
 from psydac.mapping.discrete_gallery import discrete_mapping
 from psydac.fem.splines              import SplineSpace
@@ -96,15 +96,21 @@ def test_geometry_identity_spline(ldim: int, tmp_path) -> None:
     assert np.allclose([F_read(*e) for e in eta], eta, rtol=0, atol=1e-15)
 
 #==============================================================================
+@pytest.mark.parametrize('make_mapping', [
+    lambda: make_curve(nurbs=True),
+    lambda: make_curve(nurbs=True, pdim=2),
+    lambda: make_curve(nurbs=True, pdim=3),
+    lambda: make_surface(pdim=3),
+], ids=['line', 'curve_2d', 'curve_3d', 'surface_3d'])
 @pytest.mark.xdist_group('h5py')
-def test_geometry_nurbs_1d(tmp_path) -> None:
+def test_geometry_nurbs_manifold(make_mapping, tmp_path) -> None:
 
-    mapping = make_mapping_1d(weights=np.array([1.0, 0.5, 2.0, 0.7, 1.0]))
-    mapping = elevate(mapping, axis=0, times=1)
+    mapping = elevate(make_mapping(), axis=0, times=1)
     mapping = refine(mapping, axis=0, values=[0.1, 0.5])
-    domain = Mapping('F', dim=1)(Line(name='Omega'))
+    ldim, pdim = mapping.ldim, mapping.pdim
+    domain = Mapping('F', ldim=ldim, pdim=pdim)(PATCHES[ldim](name='Omega'))
 
-    geo = Geometry(domain, ddm=mapping.space.domain_decomposition, pdim=1,
+    geo = Geometry(domain, ddm=mapping.space.domain_decomposition, pdim=pdim,
                    mappings={domain.name: mapping})
     geo_read = check_round_trips(geo, mapping, tmp_path)
 

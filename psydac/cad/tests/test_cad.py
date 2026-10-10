@@ -18,31 +18,49 @@ from psydac.fem.tensor  import TensorFemSpace
 from psydac.mapping.discrete import NurbsMapping, SplineMapping
 from psydac.mapping.discrete_gallery import discrete_mapping
 
-def make_mapping_1d(weights=None) -> SplineMapping:
-    """Create a nonlinear 1D spline mapping, or a NURBS mapping if weights are given."""
+def make_curve(*, nurbs: bool = False, pdim: int = 1) -> SplineMapping:
+    """Create a nonlinear spline or NURBS curve in `pdim` dimensions."""
     W = SplineSpace(degree=2, knots=[0.0, 0.0, 0.0, 0.3, 0.7, 1.0, 1.0, 1.0])
     V = TensorFemSpace(DomainDecomposition([W.ncells], [False]), W)
-    points = np.array([[0.0], [0.2], [0.9], [1.5], [2.0]])
-    if weights is None:
-        return SplineMapping.from_control_points(V, points)
-    return NurbsMapping.from_control_points_weights(V, points, weights)
+    points = np.array([[0.0,  0.0,  1.0],
+                       [0.2,  0.5,  0.8],
+                       [0.9,  0.7,  0.3],
+                       [1.5,  0.4, -0.2],
+                       [2.0, -0.1,  0.0]])[:, :pdim]
+    if nurbs:
+        weights = np.array([1.0, 0.5, 2.0, 0.7, 1.0])
+        return NurbsMapping.from_control_points_weights(V, points, weights)
+    return SplineMapping.from_control_points(V, points)
+
+def make_surface(*, pdim: int = 2) -> NurbsMapping:
+    """Create a NURBS surface in `pdim` dimensions from the quarter annulus,
+    lifted to z = x * y if pdim = 3."""
+    degrees, knots, points, weights = quart_circle()
+    if pdim == 3:
+        z = points[..., 0] * points[..., 1]
+        points = np.concatenate([points, z[..., None]], axis=-1)
+    return make_nurbs_mapping(degrees, knots, points, weights)
+
+def make_volume() -> SplineMapping:
+    """Create a nonlinear spline volume in 3D."""
+    return discrete_mapping('collela', ncells=[2, 2, 2], degree=[2, 2, 2])
 
 mappings_1d = pytest.mark.parametrize('make_mapping', [
-    make_mapping_1d,
-    lambda: make_mapping_1d(weights=np.array([1.0, 0.5, 2.0, 0.7, 1.0])),
-], ids=['spline', 'nurbs'])
+    make_curve,
+    lambda: make_curve(nurbs=True),
+    lambda: make_curve(pdim=2),
+    lambda: make_curve(nurbs=True, pdim=3),
+], ids=['spline', 'nurbs', 'spline_curve_2d', 'nurbs_curve_3d'])
 
-# A spline mapping, and NURBS mappings whose weights vary along axis 0
-# (quart_circle), axis 1 (annulus), or both (circle)
+# A spline mapping, NURBS mappings whose weights vary along axis 0
+# (quart_circle), axis 1 (annulus), or both (circle), and a NURBS surface
 mappings_2d = pytest.mark.parametrize('make_mapping', [
     lambda: discrete_mapping('collela', ncells=[4, 4], degree=[2, 2]),
     lambda: make_nurbs_mapping(*quart_circle()),
     lambda: make_nurbs_mapping(*annulus()),
     lambda: make_nurbs_mapping(*circle()),
-], ids=['spline', 'quart_circle', 'annulus', 'circle'])
-
-def make_mapping_3d():
-    return discrete_mapping('collela', ncells=[2, 2, 2], degree=[2, 2, 2])
+    lambda: make_surface(pdim=3),
+], ids=['spline', 'quart_circle', 'annulus', 'circle', 'surface_3d'])
 
 #==============================================================================
 def assert_same_geometry(F, G) -> None:
@@ -50,8 +68,9 @@ def assert_same_geometry(F, G) -> None:
     eta = list(product(np.linspace(0.0, 1.0, 9), repeat=G.ldim))
     assert np.allclose([F(*e) for e in eta], [G(*e) for e in eta], rtol=0, atol=1e-14)
 
-def check_translate(F, displ: np.ndarray) -> None:
-    """Check that translation moves the geometry by the displacement."""
+def check_translate(F) -> None:
+    """Check that translation moves the geometry by a fixed displacement."""
+    displ = np.array([1.0, -2.0, 0.5])[:F.pdim]
     G = translate(F, displ)
 
     assert type(G) is type(F)
@@ -81,11 +100,11 @@ def check_refine(F, axis: int) -> None:
 #==============================================================================
 @mappings_1d
 def test_translate_1d(make_mapping) -> None:
-    check_translate(make_mapping(), np.array([-2.0]))
+    check_translate(make_mapping())
 
 @mappings_2d
 def test_translate_2d(make_mapping) -> None:
-    check_translate(make_mapping(), np.array([1.0, -2.0]))
+    check_translate(make_mapping())
 
 #==============================================================================
 @mappings_1d
@@ -99,7 +118,7 @@ def test_elevate_2d(axis: int, make_mapping) -> None:
 
 @pytest.mark.parametrize('axis', [0, 1, 2])
 def test_elevate_3d(axis: int) -> None:
-    check_elevate(make_mapping_3d(), axis)
+    check_elevate(make_volume(), axis)
 
 #==============================================================================
 @mappings_1d
@@ -113,7 +132,7 @@ def test_refine_2d(axis: int, make_mapping) -> None:
 
 @pytest.mark.parametrize('axis', [0, 1, 2])
 def test_refine_3d(axis: int) -> None:
-    check_refine(make_mapping_3d(), axis)
+    check_refine(make_volume(), axis)
 
 #==============================================================================
 def make_mapping_parallel(comm: MPI.Comm):
