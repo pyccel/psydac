@@ -17,6 +17,7 @@ from sympde.topology.analytical_mapping import IdentityMapping, AffineMapping, P
 from psydac.api.discretization import discretize
 from psydac.fem.basic import FemField
 from psydac.fem.tensor import TensorFemSpace
+from psydac.mapping.discrete import SplineMapping
 from psydac.utilities.utils import refine_array_1d
 from psydac.feec.pull_push import (push_2d_hcurl,
                                    push_2d_h1,
@@ -57,7 +58,7 @@ def build_2_mapped_squares():
     D2     = mapping_2(B)
 
     patches = [D1, D2]
-    connectivity = [((0,1,1),(1,1,-1))]
+    connectivity = [((0, 1, 1), (1, 1,-1), 1)]
     return Domain.join(patches, connectivity, 'domain')
 
 
@@ -66,7 +67,7 @@ def build_2_squares():
     B = Square('B',bounds1=(0.5, 1.), bounds2=(np.pi/2, np.pi))
 
     patches = [A, B]
-    connectivity = [((0,1,1),(1,1,-1))]
+    connectivity = [((0, 1, 1), (1, 1,-1), 1)]
     return Domain.join(patches, connectivity, 'domain')
 
 
@@ -75,9 +76,8 @@ def build_2_cubes():
     B = Cube('B',bounds1=(0.5, 1.), bounds2=(np.pi/2, np.pi), bounds3=(0, 1))
 
     patches = [A, B]
-    connectivity = [((0,1,1),(1,1,-1))]
+    connectivity = [((0, 1, 1), (1, 1,-1), (1, 1, 1))]
     return Domain.join(patches, connectivity, 'domain')
-
 
 ###############################################################################
 #                            Output Manager tests                             #
@@ -495,6 +495,9 @@ def test_reconstruct_DerhamSequence_discrete_domain(geometry, seq, dtype):
             fields_file='test_reconstruct_DerhamSequence_discrete_domain.h5'
         )
 
+    # The post-processor must use the spline mappings of the geometry file
+    assert all(isinstance(F, SplineMapping) for F in Pm._mappings.values())
+
     Om2 = OutputManager(
         'test_reconstruct_DerhamSequence_discrete_domain_2.yml',
         'test_reconstruct_DerhamSequence_discrete_domain.h5'
@@ -538,8 +541,8 @@ def test_reconstruct_multipatch(dtype):
     A = Square('A',bounds1=bounds1, bounds2=bounds2_A)
     B = Square('B',bounds1=bounds1, bounds2=bounds2_B)
 
-    connectivity = [((0,1,1),(1,1,-1))]
-    patches = [A,B]
+    patches = [A, B]
+    connectivity = [((0, 1, 1), (1, 1,-1), 1)]
     domain = Domain.join(patches, connectivity, 'domain')
 
     Va = ScalarFunctionSpace('Va', A)

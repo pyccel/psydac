@@ -80,7 +80,7 @@ def make_square_torus_geometry_3d(ncells, degree, comm=None):
     mapping = SquareTorus('S')
     map_discrete = SplineMapping.from_mapping(V_h, mapping.get_callable_mapping())
 
-    geometry = Geometry.from_discrete_mapping(map_discrete, comm=comm)
+    geometry = Geometry.from_discrete_mapping(map_discrete)
 
     if mpi_rank == 0:
         if not os.path.isdir('geometry'):

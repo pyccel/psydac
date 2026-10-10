@@ -19,18 +19,14 @@ As an example, a parallel simulation with 6 MPI processes may be run with:
 `mpirun -n 6 python poisson_2d.py -S -d 3 3 -t disk -D 0.2 -m 'C0conga'`
 """
 
+# Imports are local to keep the CLI fast (e.g. --help)
+# pylint: disable=import-outside-toplevel
+
 from dataclasses import dataclass
-from time import sleep, time
 
-import numpy as np
-from mpi4py import MPI
-from pyccel import lambdify
-from sympy import Rational, cos, pi, sin, symbols
-
+# Base classes are needed at class definition
 from psydac.feec.polar.examples.polar_model_2d import PolarModel2D
 from psydac.linalg.basic import LinearOperator
-from psydac.linalg.stencil import StencilMatrix, StencilVector
-from psydac.utilities.operators import Laplacian
 
 
 # ==============================================================================
@@ -56,6 +52,8 @@ class Poisson2D(PolarModel2D):
     """
 
     def __init__(self, domain_log, mapping, phi_log, rho_log):
+        from pyccel import lambdify
+
         super().__init__(domain_log, mapping)
 
         self._domain_log = domain_log
@@ -93,8 +91,10 @@ class Poisson2D(PolarModel2D):
             and source term.
 
         """
+        import numpy as np
         from sympde.topology.analytical_mapping import TargetMapping
         from sympde.topology.domain import Square
+        from sympy import cos, pi, sin, symbols
 
         domain_log = Square("Omega", bounds1=(0, R), bounds2=(0, 2 * np.pi))
         params = dict(c1=shift_D * R * R, c2=0, k=0, D=shift_D)
@@ -134,8 +134,12 @@ class Poisson2D(PolarModel2D):
         $\phi(x,y) = (1 - s^8)\sin(k_x(x - 0.5))\cos(k_y y)$.
 
         """
+        import numpy as np
         from sympde.topology.analytical_mapping import TargetMapping
         from sympde.topology.domain import Square
+        from sympy import Rational, cos, pi, sin
+
+        from psydac.utilities.operators import Laplacian
 
         domain_log = Square("Omega", bounds1=(0, 1), bounds2=(0, 2 * np.pi))
         params = dict(c1=0, c2=0, k=Rational(3, 10), D=Rational(2, 10))
@@ -167,8 +171,12 @@ class Poisson2D(PolarModel2D):
         $\phi(x,y) = (1 - s^8)\sin(\pi x)\cos(\pi y)$.
 
         """
+        import numpy as np
         from sympde.topology.analytical_mapping import CzarnyMapping
         from sympde.topology.domain import Square
+        from sympy import Rational, cos, pi, sin
+
+        from psydac.utilities.operators import Laplacian
 
         domain_log = Square("Omega", bounds1=(0, 1), bounds2=(0, 2 * np.pi))
         params = dict(c1=0, c2=0, eps=Rational(1, 5), b=Rational(7, 5))
@@ -240,6 +248,7 @@ class CongaLaplacian(LinearOperator):
             C0PolarProjection_V0,
             C1PolarProjection_U0,
         )
+        from psydac.linalg.stencil import StencilMatrix
 
         assert isinstance(S, StencilMatrix)
         assert isinstance(M, StencilMatrix)
@@ -257,6 +266,8 @@ class CongaLaplacian(LinearOperator):
         self.W0 = W0
 
     def dot(self, x, out=None):
+        from psydac.linalg.stencil import StencilVector
+
         if out is None:
             y = self.M._domain.zeros()
         else:
@@ -339,7 +350,7 @@ def compute_errors(phi, phi_ref, M, S):
     ErrorDiagnostics
         Reference L2 and H1 norms and relative L2 and H1 errors.
     """
-
+    import numpy as np
 
     # L2 and H1 norms
     ref_l2_2 = M.dot_inner(phi_ref.coeffs, phi_ref.coeffs)
@@ -386,6 +397,8 @@ def plot_solution(use_spline_mapping, model, ncells, periodic, V0_h, refine=10):
         Refinement factor for plotting.
     """
     import matplotlib.pyplot as plt
+    import numpy as np
+    from mpi4py import MPI
 
     from psydac.cad.geometry import Geometry
     from psydac.ddm.cart import DomainDecomposition
@@ -394,7 +407,7 @@ def plot_solution(use_spline_mapping, model, ncells, periodic, V0_h, refine=10):
     from psydac.utilities.utils import refine_array_1d
 
     if use_spline_mapping:
-        geometry = Geometry(filename="geo.h5", comm=MPI.COMM_SELF)
+        geometry = Geometry.from_file("geo.h5", comm=MPI.COMM_SELF)
         map_discrete = [*geometry.mappings.values()].pop()
         Vnew = map_discrete.space
         map_plot = map_discrete
@@ -488,7 +501,10 @@ def run_poisson_2d(
     mpi_comm, # given by function 'parallel_run_from_cli'
 ):
     import os
+    from time import sleep, time
 
+    import numpy as np
+    from mpi4py import MPI
     from sympde.calculus import dot, grad
     from sympde.expr import BilinearForm, LinearForm, integral
     from sympde.topology import ScalarFunctionSpace, elements_of

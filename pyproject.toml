@@ -31,7 +31,7 @@ dependencies = [
     'termcolor',
 
     # Our packages from PyPi
-    'sympde == 0.19.3',
+    'sympde == 0.20.0',
     'pyccel >= 2.2.3',
     'gelato == 0.12',
 
@@ -76,3 +76,37 @@ psydac = "psydac.cmd.main:psydac_command"
 setup   = ['--default-library=static']
 dist    = ['--include-subprojects']
 install = ['--only=python-modules']
+
+[tool.pylint.main]
+py-version      = '3.10'
+ignore-paths    = ['psydac/pyccel/.*', '.*/__e?pyccel__/.*', '.*/__psydac__/.*']
+ignored-modules = ['mpi4py']  # C extension, members not visible to Pylint
+
+[tool.pylint.basic]
+no-docstring-rgx = '^(_|test_|Test)'
+
+[tool.pylint.'messages control']
+disable = [
+    # formatting owned by black / isort
+    'line-too-long',
+    'trailing-whitespace',
+    'bad-indentation',
+    'multiple-statements',
+    'missing-final-newline',
+    'trailing-newlines',
+    'wrong-import-order',
+    # style choices for mathematical code
+    'invalid-name',
+    'too-many-arguments',
+    'too-many-positional-arguments',
+    'too-many-locals',
+    'too-many-branches',
+    'too-many-statements',
+    'too-many-instance-attributes',
+    'too-few-public-methods',
+    'too-many-nested-blocks',
+    # pytest fixtures shadow outer names by design
+    'redefined-outer-name',
+    'duplicate-code',
+    'fixme',
+]
