@@ -266,25 +266,28 @@ def test_geometry_from_file_multipatch() -> None:
         assert F.space.domain_decomposition is patch_ddm
 
 #==============================================================================
-def make_domain(npatches: int, *, ornt: int = 1) -> Domain:
-    """Create a domain made of one or two unit squares, with generic mappings."""
+def make_domain(npatches: int, *, ldim: int = 2, ornt: int = 1) -> Domain:
+    """Create a domain made of one or two unit lines or squares, with generic mappings."""
+    Patch = {1: Line, 2: Square}[ldim]
     if npatches == 1:
-        return Mapping('G', dim=2)(Square('P'))
+        return Mapping('G', dim=ldim)(Patch('P'))
 
-    A = Mapping('GA', dim=2)(Square('PA'))
-    B = Mapping('GB', dim=2)(Square('PB'))
-    return Domain.join([A, B], [((0, 0, 1), (1, 0, -1), ornt)], 'Omega')
+    A = Mapping('GA', dim=ldim)(Patch('PA'))
+    B = Mapping('GB', dim=ldim)(Patch('PB'))
+    # 1D interfaces have no orientation
+    return Domain.join([A, B], [((0, 0, 1), (1, 0, -1), ornt if ldim > 1 else None)], 'Omega')
 
 def export_geometry(domain: Domain, filename: str) -> None:
     """Export a spline geometry on the domain, with patches side by side along x."""
     names = domain.interior_names
-    ncells, degree = [2, 3], [2, 2]
+    ldim = domain.dim
+    ncells, degree = [2, 3][:ldim], [2, 2][:ldim]
     if len(domain) == 1:
-        ddm = DomainDecomposition(ncells, [False, False])
+        ddm = DomainDecomposition(ncells, [False] * ldim)
         patch_ddms = [ddm]
     else:
         ddm = MultiPatchDomainDecomposition([ncells] * len(names),
-                                            [[False, False]] * len(names))
+                                            [[False] * ldim] * len(names))
         patch_ddms = ddm.domains
 
     # Spline mappings must be defined on the decomposition of their patch. The
@@ -293,19 +296,21 @@ def export_geometry(domain: Domain, filename: str) -> None:
     for i, (name, patch_ddm) in enumerate(zip(names, patch_ddms)):
         spaces = [SplineSpace(degree=p, grid=np.linspace(0.0, 1.0, n + 1))
                   for p, n in zip(degree, ncells)]
-        g1, g2 = [W.greville for W in spaces]
-        points = np.stack(np.meshgrid(g1 + i, g2, indexing='ij'), axis=-1)
+        grevilles = [W.greville for W in spaces]
+        grevilles[0] = grevilles[0] + i
+        points = np.stack(np.meshgrid(*grevilles, indexing='ij'), axis=-1)
         V = TensorFemSpace(patch_ddm, *spaces)
         mappings[name] = SplineMapping.from_control_points(V, points)
 
-    Geometry(domain, ddm=ddm, pdim=2, mappings=mappings).export(filename)
+    Geometry(domain, ddm=ddm, pdim=ldim, mappings=mappings).export(filename)
 
 #==============================================================================
+@pytest.mark.parametrize('ldim', [1, 2])
 @pytest.mark.parametrize('npatches', [1, 2])
 @pytest.mark.xdist_group('h5py')
-def test_geometry_from_file_with_domain(npatches: int, tmp_path) -> None:
+def test_geometry_from_file_with_domain(npatches: int, ldim: int, tmp_path) -> None:
 
-    domain = make_domain(npatches)
+    domain = make_domain(npatches, ldim=ldim)
     filename = str(tmp_path / 'geo.h5')
     export_geometry(domain, filename)
 

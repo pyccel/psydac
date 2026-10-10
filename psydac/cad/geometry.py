@@ -1041,20 +1041,16 @@ def _read_spline_mappings(h5     : h5py.File,
 
     # Update the ghost regions within each patch and across interfaces
     if len(domain) > 1:
-        coeffs         = [[e.coeffs for e in m.fields] for m in mappings.values()]
-        patch_spaces   = [BlockVectorSpace(*[c.space for c in c_i]) for c_i in coeffs]
-        patch_spaces_w = [c_i[0].space for c_i in coeffs]
-        v = BlockVector(BlockVectorSpace(*patch_spaces  , connectivity=connectivity))
-        w = BlockVector(BlockVectorSpace(*patch_spaces_w, connectivity=connectivity))
-        for i, mapping in enumerate(mappings.values()):
-            for j, c_ij in enumerate(coeffs[i]):
-                v[i][j] = c_ij
-            if isinstance(mapping, NurbsMapping):
-                w[i] = mapping.weights_field.coeffs
-            else:
-                w[i] = v[i][0].space.zeros()
-        v.update_ghost_regions()
-        w.update_ghost_regions()
+        # One block vector per component, with one block per patch which
+        # references the coefficients of the mapping
+        mapping_list = list(mappings.values())
+        components = [[m.fields[k].coeffs for m in mapping_list] for k in range(pdim)]
+        if any(isinstance(m, NurbsMapping) for m in mapping_list):
+            components.append([m.weights_field.coeffs if isinstance(m, NurbsMapping)
+                               else m.fields[0].coeffs.space.zeros() for m in mapping_list])
+        for blocks in components:
+            V = BlockVectorSpace(*[b.space for b in blocks], connectivity=connectivity)
+            BlockVector(V, blocks=blocks).update_ghost_regions()
     else:
         mapping, = mappings.values()
         for f in mapping.fields:
