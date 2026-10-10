@@ -32,6 +32,7 @@ All notable changes to this project will be documented in this file.
 -   #527 : Fix `psydac.cad.elevate` and `refine` for mappings with `pdim=1`, see #618
 -   #527 : Fix `psydac.cad.refine` when inserting a value which is already a knot, see #619
 -   #527 : Keep the `mpi_dims_mask` of a `DomainDecomposition` in `TensorFemSpace.add_refined_space` and `psydac.cad.cad.refine`, see #622
+-   #527 : Fix `local_ncells` of the decomposition returned by `DomainDecomposition.refine`, see #623
 -   #527 : Avoid setting the `shape` of NumPy arrays (deprecated since NumPy 2.5) in `KroneckerLinearSolver`
 -   #527 : Fix error message in `psydac.api.discretization.get_max_degree_of_one_space`
 -   #576 : Require `sympde==0.19.3` which fixes a bug in the linearity checks
