@@ -157,7 +157,7 @@ def test_geometry_nurbs_quarter_annulus(tmp_path) -> None:
 
 #==============================================================================
 @pytest.mark.mpi
-def test_geometry_with_mpi_dims_mask():
+def test_geometry_with_mpi_dims_mask(mpi_tmp_path):
 
     comm = MPI.COMM_WORLD
     rank = comm.rank
@@ -183,19 +183,15 @@ def test_geometry_with_mpi_dims_mask():
     # Here we allow for any distribution of the domain: mpi_dims_mask is not passed
     geo = Geometry(domain, ddm=mapping.space.domain_decomposition, pdim=3,
                    mappings=mappings)
-    geo.export('geo_mpi_dims.h5')
+    filename = str(mpi_tmp_path / 'geo_mpi_dims.h5')
+    geo.export(filename)
 
     # Read geometry file in parallel, but using mpi_dims_mask
-    geo_from_file = Geometry.from_file(filename='geo_mpi_dims.h5', comm=comm, mpi_dims_mask=mpi_dims_mask)
+    geo_from_file = Geometry.from_file(filename=filename, comm=comm, mpi_dims_mask=mpi_dims_mask)
 
     # Verify that the domain is distributed as expected
     assert geo_from_file.ddm.starts == expected_starts
     assert geo_from_file.ddm.ends   == expected_ends
-
-    # Safely remove the file
-    comm.Barrier()
-    if rank == 0:
-        os.remove('geo_mpi_dims.h5')
 
 # ==============================================================================
 @pytest.mark.mpi
