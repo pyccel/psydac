@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 
 -   #527 : Add constructor `Geometry.from_file` with option `domain` to reuse an existing SymPDE domain, after checking that it matches the file
 -   #527 : Add function `get_available_mappings` and option `mpi_dims_mask` to `discrete_mapping` in `psydac.mapping.discrete_gallery`
+-   #527 : Add property `mpi_dims_mask` to `DomainDecomposition`
 -   #576 : Add module `psydac.feec.polar.conga_projections` with broken FEEC polar projections in 2D
 -   #576 : Add 2D Poisson and TE Maxwell examples on polar mapped domains in `psydac/feec/polar/examples`
 -   #576 : Add module `psydac.utilities.parallel_utils` for parallel execution and gathering variable-length arrays
@@ -30,6 +31,7 @@ All notable changes to this project will be documented in this file.
 -   #527 : Fix reading multipatch geometries with `pdim=1`, see #617
 -   #527 : Fix `psydac.cad.elevate` and `refine` for mappings with `pdim=1`, see #618
 -   #527 : Fix `psydac.cad.refine` when inserting a value which is already a knot, see #619
+-   #527 : Keep the `mpi_dims_mask` of a `DomainDecomposition` in `TensorFemSpace.add_refined_space` and `psydac.cad.cad.refine`, see #622
 -   #527 : Avoid setting the `shape` of NumPy arrays (deprecated since NumPy 2.5) in `KroneckerLinearSolver`
 -   #527 : Fix error message in `psydac.api.discretization.get_max_degree_of_one_space`
 -   #576 : Require `sympde==0.19.3` which fixes a bug in the linearity checks
