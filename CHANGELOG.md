@@ -15,6 +15,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+-   #624 : Terminate all MPI processes when one of them fails in `parallel_run_from_cli`, see #621
 -   #576 : Fix bug in `TensorFemSpace.eval_field` caused by round-off at MPI subdomain boundaries
 -   #576 : Require `sympde==0.19.3` which fixes a bug in the linearity checks
 -   #579 : Require `h5py>=3.16` which installs correctly with `setuptools>=81.0`
