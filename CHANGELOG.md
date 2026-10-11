@@ -32,6 +32,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+-   #625 : Require all components of a `VectorFemSpace` to share the same `DomainDecomposition` object, see #615
 -   #576 : Use latest version of Igakit (commit dalcinl/igakit@92ee097 of 2026/07/24) which supports NumPy >= 2.4
 -   #595 : Use PETSc 3.25.5 whose Python bindings `petsc4py` are built correctly with `cython>=3`
 -   #580 : Use PETSc 3.25.0 whose Python bindings `petsc4py` install correctly with `setuptools>=81.0`
