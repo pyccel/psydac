@@ -301,9 +301,10 @@ def test_derham_projector_2d_hcurl(ncells, degree, periodic, multiplicity, dtype
     # Function to project
     if dtype == complex:
         f1  = lambda xi1, xi2 : np.sin( xi1 + 0.5 ) * np.cos( xi2 + 0.3j )
+        f2  = lambda xi1, xi2 : 1j * np.cos( xi1 + 0.5 ) * np.sin( xi2 - 0.2 )
     else:
         f1  = lambda xi1, xi2 : np.sin( xi1 + 0.5 ) * np.cos( xi2 + 0.3 )
-    f2  = lambda xi1, xi2 : 1j * np.cos( xi1 + 0.5 ) * np.sin( xi2 - 0.2 )
+        f2  = lambda xi1, xi2 : np.cos( xi1 + 0.5 ) * np.sin( xi2 - 0.2 )
 
     # Compute the projection
     u0 = P0(f1)
@@ -344,7 +345,7 @@ def test_derham_projector_2d_hcurl(ncells, degree, periodic, multiplicity, dtype
     if verbose:
         print(ncells, maxnorm_error / error_estim)
     assert maxnorm_error <= max(10 * error_estim, 1e-13)
-    
+
 #==============================================================================
 @pytest.mark.parametrize('ncells', [[10,9,12]])
 @pytest.mark.parametrize('degree', [[2,2,2], [2,3,2], [3,3,3]])
@@ -432,7 +433,7 @@ def test_derham_projector_3d(ncells, degree, periodic, multiplicity, verbose=Fal
     if verbose:
         print(ncells, maxnorm_error / error_estim)
     assert maxnorm_error <= max(15 * error_estim, 1e-13)
-test_derham_projector_3d([10,9,12], [2,2,2], [True, True, True], [2,2,2], verbose=True)
+
 #==============================================================================
 def manual_convergence_tests(dim):
     """
@@ -444,23 +445,25 @@ def manual_convergence_tests(dim):
     if dim == 1:
         degrees = [3,4,5,6,7]
         ncells = [10, 20, 40, 80, 160, 320, 640]
+        dtype = float
         for deg in degrees:
             print(f"degree = {deg}")
             for nc in ncells:
-                test_H1_projector_1d(domain, nc, deg, periodic, multiplicity=1, verbose=True)
-                test_H1_projector_1d(domain, nc, deg, periodic, multiplicity=2, verbose=True)
-                test_L2_projector_1d(domain, nc, deg, periodic, nquads=deg, multiplicity=1, verbose=True)
+                test_H1_projector_1d(domain, nc, deg, periodic, multiplicity=1, dtype=dtype, verbose=True)
+                test_H1_projector_1d(domain, nc, deg, periodic, multiplicity=2, dtype=dtype, verbose=True)
+                test_L2_projector_1d(domain, nc, deg, periodic, nquads=deg, multiplicity=1, dtype=dtype, verbose=True)
         
     elif dim == 2:
         degrees = [[3,2], [3, 3], [3,4]]
         ncells = [10, 20, 40, 80, 160]
+        dtype = float
         for deg in degrees:
             print(f"degree = {deg}")
             for nc in ncells:
-                test_derham_projector_2d_hcurl ([nc, nc], deg, [periodic, periodic], multiplicity=[1,1], verbose=True)
-                test_derham_projector_2d_hdiv  ([nc, nc], deg, [periodic, periodic], multiplicity=[1,1], verbose=True)
-                test_derham_projector_2d_hdiv  ([nc, nc], deg, [periodic, periodic], multiplicity=[2,2], verbose=True)
-                test_derham_projector_2d_hdiv_2([nc, nc], deg, [periodic, periodic], multiplicity=[1,1], verbose=True)
+                test_derham_projector_2d_hcurl ([nc, nc], deg, [periodic, periodic], multiplicity=[1,1], dtype=dtype, verbose=True)
+                test_derham_projector_2d_hdiv  ([nc, nc], deg, [periodic, periodic], multiplicity=[1,1], dtype=dtype, verbose=True)
+                test_derham_projector_2d_hdiv  ([nc, nc], deg, [periodic, periodic], multiplicity=[2,2], dtype=dtype, verbose=True)
+                test_derham_projector_2d_hdiv_2([nc, nc], deg, [periodic, periodic], multiplicity=[1,1], dtype=dtype, verbose=True)
     
     elif dim == 3:
         print("\n3d")
