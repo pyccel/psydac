@@ -25,8 +25,9 @@ from sympde.topology               import element_of, Derham
 @pytest.mark.parametrize('degree', [1, 2, 3, 4, 5, 6, 7])
 @pytest.mark.parametrize('periodic', [False, True])
 @pytest.mark.parametrize('multiplicity', [1, 2])
+@pytest.mark.parametrize('dtype', [float, complex])
 
-def test_H1_projector_1d(domain, ncells, degree, periodic, multiplicity, verbose=False):
+def test_H1_projector_1d(domain, ncells, degree, periodic, multiplicity, dtype, verbose=False):
     if verbose:
         print('\n1d_h1')
 
@@ -39,13 +40,16 @@ def test_H1_projector_1d(domain, ncells, degree, periodic, multiplicity, verbose
 
     # H1 space (0-forms)
     N  = SplineSpace(degree=degree, knots=knots, periodic=periodic, basis='B')
-    V0 = TensorFemSpace(domain_decomposition, N, dtype=complex)
+    V0 = TensorFemSpace(domain_decomposition, N, dtype=dtype)
 
     # Projector onto H1 space (1D interpolation)
     P0 = GlobalGeometricProjectorH1(V0)
 
     # Function to project
-    f  = lambda xi1 : np.sin( xi1 + 0.5 -1j )
+    if dtype == complex:
+        f  = lambda xi1 : np.sin( xi1 + 0.5 -1j )
+    else:
+        f  = lambda xi1 : np.sin( xi1 + 0.5)
 
     # Compute the projection
     u0 = P0(f)
@@ -69,8 +73,9 @@ def test_H1_projector_1d(domain, ncells, degree, periodic, multiplicity, verbose
 @pytest.mark.parametrize('periodic', [True, False])
 @pytest.mark.parametrize('nquads', [100, 120, 140, 160])
 @pytest.mark.parametrize('multiplicity', [1, 2])
+@pytest.mark.parametrize('dtype', [float, complex])
 
-def test_L2_projector_1d(domain, ncells, degree, periodic, nquads, multiplicity, verbose=False):
+def test_L2_projector_1d(domain, ncells, degree, periodic, nquads, multiplicity, dtype, verbose=False):
     if verbose:
         print('\n1d_l2')
 
@@ -86,7 +91,7 @@ def test_L2_projector_1d(domain, ncells, degree, periodic, nquads, multiplicity,
     multiplicity = min(multiplicity, degree)
     # H1 space (0-forms)
     N  = SplineSpace(degree=degree, knots=knots, periodic=periodic, basis='B')
-    V0 = TensorFemSpace(domain_decomposition, N, dtype=complex)
+    V0 = TensorFemSpace(domain_decomposition, N, dtype=dtype)
 
     # L2 space (1-forms)
     V1 = V0.reduce_degree(axes=[0], basis='M')
@@ -95,7 +100,10 @@ def test_L2_projector_1d(domain, ncells, degree, periodic, nquads, multiplicity,
     P1 = GlobalGeometricProjectorL2(V1, nquads=[nquads])
 
     # Function to project
-    f  = lambda xi1 : np.sin( xi1 + 0.5j )
+    if dtype == complex:
+        f  = lambda xi1 : np.sin( xi1 + 0.5j )
+    else:
+        f  = lambda xi1 : np.sin( xi1 + 0.5 )
 
     # Compute the projection
     u1 = P1(f)
@@ -117,8 +125,9 @@ def test_L2_projector_1d(domain, ncells, degree, periodic, nquads, multiplicity,
 @pytest.mark.parametrize('degree', [[2,2], [2,3], [3,3]])
 @pytest.mark.parametrize('periodic', [[False, False], [True, True]])
 @pytest.mark.parametrize('multiplicity', [(1, 1), (2, 2)])
+@pytest.mark.parametrize('dtype', [float, complex])
 
-def test_derham_projector_2d_hdiv(ncells, degree, periodic, multiplicity, verbose=False):
+def test_derham_projector_2d_hdiv(ncells, degree, periodic, multiplicity, dtype, verbose=False):
     if verbose:
         print('\n2d_hdiv')
 
@@ -129,13 +138,20 @@ def test_derham_projector_2d_hdiv(ncells, degree, periodic, multiplicity, verbos
     multiplicity = [min(m, p) for p, m in zip(degree, multiplicity)]
 
     derham   = Derham(domain, ["H1", "Hdiv", "L2"])
+    if dtype == complex:
+        derham.V0.codomain_type='complex'
+        derham.V1.codomain_type='complex' 
+        derham.V2.codomain_type='complex'
 
     derham_h   = discretize(derham, domain_h, degree=degree, get_H1vec_space = True, multiplicity=multiplicity)
     P0, P1, P2, PX = derham_h.projectors(nquads=[2*p+1 for p in degree])
 
     # Function to project
     f1  = lambda xi1, xi2 : np.sin( xi1 + 0.5 ) * np.cos( xi2 + 0.3 )
-    f2  = lambda xi1, xi2 : np.cos( xi1 + 0.5 ) * np.sin( xi2 - 0.2j )
+    if dtype == complex:
+        f2  = lambda xi1, xi2 : np.cos( xi1 + 0.5 ) * np.sin( xi2 - 0.2j )
+    else:
+        f2  = lambda xi1, xi2 : np.cos( xi1 + 0.5 ) * np.sin( xi2 - 0.2 )
 
     # Compute the projection
     u0 = P0(f1)
@@ -182,8 +198,9 @@ def test_derham_projector_2d_hdiv(ncells, degree, periodic, multiplicity, verbos
 @pytest.mark.parametrize('degree', [[2,2], [2,3], [3,3]])
 @pytest.mark.parametrize('periodic', [[False, False], [True, True]])
 @pytest.mark.parametrize('multiplicity', [(1, 1), (2, 2)])
+@pytest.mark.parametrize('dtype', [float, complex])
 
-def test_derham_projector_2d_hdiv_2(ncells, degree, periodic, multiplicity, verbose=False):
+def test_derham_projector_2d_hdiv_2(ncells, degree, periodic, multiplicity, dtype, verbose=False):
     if verbose:
         print('\n2d_hdiv_2')
 
@@ -194,14 +211,18 @@ def test_derham_projector_2d_hdiv_2(ncells, degree, periodic, multiplicity, verb
     multiplicity = [min(m, p) for p, m in zip(degree, multiplicity)]
     
     derham   = Derham(domain, ["H1", "Hdiv", "L2"])
-    derham.V0.codomain_type='complex'
-    derham.V1.codomain_type='complex' 
-    derham.V2.codomain_type='complex'
+    if dtype == complex:
+        derham.V0.codomain_type='complex'
+        derham.V1.codomain_type='complex' 
+        derham.V2.codomain_type='complex'
     derham_h   = discretize(derham, domain_h, degree=degree, get_H1vec_space = True, multiplicity=multiplicity)
     P0, P1, P2, PX = derham_h.projectors()
 
     # Function to project
-    f1  = lambda xi1, xi2 : (20+2j) * xi1**2*(xi1-1.)**2 
+    if dtype == complex:
+        f1  = lambda xi1, xi2 : (20+2j) * xi1**2*(xi1-1.)**2
+    else:
+        f1  = lambda xi1, xi2 : 20 * xi1**2*(xi1-1.)**2 
     f2  = lambda xi1, xi2 : 10 * xi2**2*(xi2-1.)**2
 
     # Compute the projection
@@ -257,8 +278,9 @@ def test_derham_projector_2d_hdiv_2(ncells, degree, periodic, multiplicity, verb
 @pytest.mark.parametrize('degree', [[2,2], [2,3], [3,3]])
 @pytest.mark.parametrize('periodic', [[False, False], [True, False] ,[True, True]])
 @pytest.mark.parametrize('multiplicity', [[1,1],[2,2]])
+@pytest.mark.parametrize('dtype', [float, complex])
 
-def test_derham_projector_2d_hcurl(ncells, degree, periodic, multiplicity, verbose=False):
+def test_derham_projector_2d_hcurl(ncells, degree, periodic, multiplicity, dtype, verbose=False):
     if verbose:
         print('\n2d_hcurl')
 
@@ -269,14 +291,18 @@ def test_derham_projector_2d_hcurl(ncells, degree, periodic, multiplicity, verbo
     multiplicity = [min(m, p) for p, m in zip (degree, multiplicity)]
     
     derham   = Derham(domain, ["H1", "Hcurl", "L2"])
-    derham.V0.codomain_type='complex'
-    derham.V1.codomain_type='complex' 
-    derham.V2.codomain_type='complex'
+    if dtype == complex:
+        derham.V0.codomain_type='complex'
+        derham.V1.codomain_type='complex' 
+        derham.V2.codomain_type='complex'
     derham_h   = discretize(derham, domain_h, degree=degree, get_H1vec_space = True, multiplicity=multiplicity)
     P0, P1, P2, PX = derham_h.projectors()
 
     # Function to project
-    f1  = lambda xi1, xi2 : np.sin( xi1 + 0.5 ) * np.cos( xi2 + 0.3j )
+    if dtype == complex:
+        f1  = lambda xi1, xi2 : np.sin( xi1 + 0.5 ) * np.cos( xi2 + 0.3j )
+    else:
+        f1  = lambda xi1, xi2 : np.sin( xi1 + 0.5 ) * np.cos( xi2 + 0.3 )
     f2  = lambda xi1, xi2 : 1j * np.cos( xi1 + 0.5 ) * np.sin( xi2 - 0.2 )
 
     # Compute the projection
