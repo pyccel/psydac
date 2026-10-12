@@ -505,13 +505,13 @@ def mat_topetsc(mat):
     mat.update_ghost_regions()
     mat.remove_spurious_entries()
 
-    # Get the number of points per block, per process and per dimension:
-    dnpts_per_block_per_process = np.array(get_npts_per_block(mat.domain)) # global variable, indexed as [block, process, dimension]
-    cnpts_per_block_per_process = np.array(get_npts_per_block(mat.codomain)) # global variable, indexed as [block, process, dimension]
+    # Get the number of points per block, per process and per dimension (global variable) indexed as [block, process, dimension]
+    dnpts_per_block_per_process = np.array(get_npts_per_block(mat.domain))
+    cnpts_per_block_per_process = np.array(get_npts_per_block(mat.codomain))
 
-    # Get the index shift for each block and each process:
-    dindex_shift = get_index_shift_per_block_per_process(mat.domain) # global variable, indexed as [block, process, dimension]
-    cindex_shift = get_index_shift_per_block_per_process(mat.codomain) # global variable, indexed as [block, process, dimension]
+    # Get the index shift per block, per process and per dimension (global variable) indexed as [block, process, dimension]
+    dindex_shift = get_index_shift_per_block_per_process(mat.domain)
+    cindex_shift = get_index_shift_per_block_per_process(mat.codomain)
 
     I = [0] # Row pointers
     J = [] # Column indices
