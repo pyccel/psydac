@@ -142,7 +142,7 @@ def test_ZeroOperator_topetsc(n1, n2, p1, p2):
     q2 = p2 
     V1 = get_StencilVectorSpace([n1, n2], [p1, p2], [P1, P2])
     V2 = get_StencilVectorSpace([m1, m2], [q1, q2], [P1, P2])
-    O = ZeroOperator(codomain=V2, domain=V1)
+    O = ZeroOperator(domain=V1, codomain=V2)
     Op = O.topetsc()
 
     v1 = get_random_StencilVector(V1)
