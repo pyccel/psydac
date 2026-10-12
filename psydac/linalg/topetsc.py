@@ -523,14 +523,16 @@ def mat_topetsc(mat):
     for bc, bd in nonzero_block_indices:
         if isinstance(mat, BlockLinearOperator):
             mat_block = mat.blocks[bc][bd]
-        
-        if not isinstance(mat_block, ZeroOperator):
-            dnpts_block = dnpts_per_block_per_process[bd]
-            cnpts_block = cnpts_per_block_per_process[bc]
-            dshift_block = dindex_shift[bd]
-            cshift_block = cindex_shift[bc]
 
-            I,J,V,rowmap = toIJVrowmap(mat_block, bd, bc, I, J, V, rowmap, mat.domain, mat.codomain, dnpts_block, cnpts_block, dshift_block, cshift_block)
+        if isinstance(mat_block, ZeroOperator):
+            continue
+
+        dnpts_block = dnpts_per_block_per_process[bd]
+        cnpts_block = cnpts_per_block_per_process[bc]
+        dshift_block = dindex_shift[bd]
+        cshift_block = cindex_shift[bc]
+
+        I,J,V,rowmap = toIJVrowmap(mat_block, bd, bc, I, J, V, rowmap, mat.domain, mat.codomain, dnpts_block, cnpts_block, dshift_block, cshift_block)
 
     # Set the values using IJV&rowmap format. The values are stored in a cache memory.
     gmat.setValuesIJV(I, J, V, rowmap=rowmap, addv=PETSc.InsertMode.ADD_VALUES) # The addition mode is necessary when periodic BC
