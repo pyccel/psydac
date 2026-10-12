@@ -1373,9 +1373,9 @@ def test_block_vector_2d_parallel_topetsc( dtype, n1, n2, p1, p2, P1, P2 ):
     y = petsc_to_psydac(v, W)
     petsc_to_psydac(u, W, out=z)
 
-    assert np.allclose( x.toarray() , y.toarray(), rtol=1e-12, atol=1e-12 )
-    assert np.allclose( x.toarray() , z.toarray(), rtol=1e-12, atol=1e-12 )
-    assert np.allclose( v.array, u.array, rtol=1e-12, atol=1e-12 )
+    assert np.array_equal(x.toarray(), y.toarray())
+    assert np.array_equal(x.toarray(), z.toarray())
+    assert np.array_equal(v.array, u.array)
 
 
 #=============================================================================== 
