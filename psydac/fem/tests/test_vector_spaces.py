@@ -143,6 +143,28 @@ def test_vector_space_3d():
     assert F.patch_fields == (F,)
     assert F.component_fields == F.fields
 
+#==============================================================================
+def make_tensor_space_2d(domain_decomposition: DomainDecomposition) -> TensorFemSpace:
+    """Create a 2D tensor-product spline space of degree 2 on 3 x 5 cells."""
+    spaces = [SplineSpace(2, grid=linspace(0., 1., n + 1)) for n in [3, 5]]
+    return TensorFemSpace(domain_decomposition, *spaces)
+
+def test_vector_space_shared_domain_decomposition():
+
+    ddm = DomainDecomposition([3, 5], [False, False])
+    V = VectorFemSpace(make_tensor_space_2d(ddm), make_tensor_space_2d(ddm))
+
+    assert all(W.domain_decomposition is ddm for W in V.spaces)
+
+def test_vector_space_different_domain_decompositions():
+
+    # Two decompositions are rejected even if equivalent (see #615)
+    Vx = make_tensor_space_2d(DomainDecomposition([3, 5], [False, False]))
+    Vy = make_tensor_space_2d(DomainDecomposition([3, 5], [False, False]))
+
+    with pytest.raises(AssertionError, match='same DomainDecomposition'):
+        VectorFemSpace(Vx, Vy)
+
 ###############################################
 if __name__ == '__main__':
 
