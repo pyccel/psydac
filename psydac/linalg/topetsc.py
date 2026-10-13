@@ -343,8 +343,8 @@ def vec_topetsc(vec, out=None):
     ----------
     vec : psydac.linalg.stencil.StencilVector | psydac.linalg.block.BlockVector
       PSYDAC StencilVector or BlockVector. In the case of a BlockVector, only the case where the blocks are StencilVector is implemented.
-    out : PETSc.Vec
-      PETSc vector where to store the returned value. In case of None, a new vector is created.
+    out : PETSc.Vec, optional
+      PETSc vector where to store the returned value. In case of `None`, a new vector is created.
      
     Returns
     -------
