@@ -17,7 +17,7 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 
 -   #596 : Allow export to VTK with a prescribed grid containing exact domain bounds
--   #596 : Fix global geometric projectors with complex dtype
+-   #596 : Fix global geometric projectors with complex `dtype`
 -   #576 : Fix bug in `TensorFemSpace.eval_field` caused by round-off at MPI subdomain boundaries
 -   #576 : Require `sympde==0.19.3` which fixes a bug in the linearity checks
 -   #579 : Require `h5py>=3.16` which installs correctly with `setuptools>=81.0`
