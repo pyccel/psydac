@@ -5,7 +5,8 @@ All notable changes to this project will be documented in this file.
 ## Unreleased
 
 ### Added
-
+-   #596 : Add `topetsc` method to `psydac.linalg.basic.ZeroOperator`
+-   #596 : Add `out` argument to `array_to_psydac` and `vec_topetsc`
 -   #576 : Add module `psydac.feec.polar.conga_projections` with broken FEEC polar projections in 2D
 -   #576 : Add 2D Poisson and TE Maxwell examples on polar mapped domains in `psydac/feec/polar/examples`
 -   #576 : Add module `psydac.utilities.parallel_utils` for parallel execution and gathering variable-length arrays
@@ -15,6 +16,8 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+-   #596 : Allow export to VTK with a prescribed grid containing exact domain bounds
+-   #596 : Fix global geometric projectors with complex `dtype`
 -   #576 : Fix bug in `TensorFemSpace.eval_field` caused by round-off at MPI subdomain boundaries
 -   #576 : Require `sympde==0.19.3` which fixes a bug in the linearity checks
 -   #579 : Require `h5py>=3.16` which installs correctly with `setuptools>=81.0`
