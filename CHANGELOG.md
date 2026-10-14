@@ -9,6 +9,8 @@ All notable changes to this project will be documented in this file.
 -   #527 : Add constructor `Geometry.from_file` with option `domain` to reuse an existing SymPDE domain, after checking that it matches the file
 -   #527 : Add function `get_available_mappings` and option `mpi_dims_mask` to `discrete_mapping` in `psydac.mapping.discrete_gallery`
 -   #527 : Add property `mpi_dims_mask` to `DomainDecomposition`
+-   #596 : Add `topetsc` method to `psydac.linalg.basic.ZeroOperator`
+-   #596 : Add `out` argument to `array_to_psydac` and `vec_topetsc`
 -   #576 : Add module `psydac.feec.polar.conga_projections` with broken FEEC polar projections in 2D
 -   #576 : Add 2D Poisson and TE Maxwell examples on polar mapped domains in `psydac/feec/polar/examples`
 -   #576 : Add module `psydac.utilities.parallel_utils` for parallel execution and gathering variable-length arrays
@@ -35,6 +37,9 @@ All notable changes to this project will be documented in this file.
 -   #527 : Fix `local_ncells` of the decomposition returned by `DomainDecomposition.refine`, see #623
 -   #527 : Avoid setting the `shape` of NumPy arrays (deprecated since NumPy 2.5) in `KroneckerLinearSolver`
 -   #527 : Fix error message in `psydac.api.discretization.get_max_degree_of_one_space`
+-   #596 : Allow export to VTK with a prescribed grid containing exact domain bounds
+-   #596 : Fix global geometric projectors with complex `dtype`
+-   #576 : Fix bug in `TensorFemSpace.eval_field` caused by round-off at MPI subdomain boundaries
 -   #576 : Require `sympde==0.19.3` which fixes a bug in the linearity checks
 -   #579 : Require `h5py>=3.16` which installs correctly with `setuptools>=81.0`
 -   #576 : Fix bug in `TensorFemSpace.eval_field` caused by round-off at MPI subdomain boundaries
