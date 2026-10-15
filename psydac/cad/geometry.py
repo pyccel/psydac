@@ -271,6 +271,55 @@ class Geometry:
     #--------------------------------------------------------------------------
     @classmethod
     def from_topological_domain(cls, domain, ncells, *, periodic=None, comm=None, mpi_dims_mask=None):
+        """
+        Create a Geometry instance from a topological domain, without discrete mappings.
+
+        The domain may have symbolic mappings (e.g. analytical mappings), but
+        they must not carry discrete mappings, and no discrete mappings are
+        created. All the patches of the domain must be `NCubeInterior` objects
+        of the same dimension, i.e. lines, squares, or cubes. The physical
+        dimension is given by the mappings of the patches if they have any, and
+        otherwise it equals the logical dimension.
+
+        Parameters
+        ----------
+        domain : sympde.topology.Domain
+            The single- or multi-patch topological domain, with or without
+            symbolic mappings.
+
+        ncells : Iterable[int] | dict[str, Iterable[int]]
+            The number of cells along each direction. A list or tuple applies
+            to all patches; a dictionary gives the number of cells of each
+            patch, keyed by the names of the domain interiors.
+
+        periodic : Iterable[bool] | dict[str, Iterable[bool]], optional
+            The periodicity along each direction, given in the same way as
+            `ncells` (default: no periodicity). A warning is issued if a
+            multipatch domain is periodic along any direction.
+
+        comm : MPI.Intracomm, optional
+            The MPI intra-communicator.
+
+        mpi_dims_mask : Iterable[bool], optional
+            True if the dimension is to be used in the domain decomposition
+            (=default for each dimension). If mpi_dims_mask[i]=False, the i-th
+            dimension will not be decomposed. Only used for a single patch.
+
+        Returns
+        -------
+        Geometry
+            The new instance.
+
+        Raises
+        ------
+        TypeError
+            If a patch of the domain is not an `NCubeInterior`.
+
+        ValueError
+            If the patches of the domain have different physical dimensions, or
+            if the mapping of a patch carries a discrete mapping (e.g. a domain
+            returned by `Geometry.from_file`).
+        """
         assert isinstance(domain, Domain)
 
         interior = domain.interior
