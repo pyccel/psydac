@@ -35,6 +35,7 @@ All notable changes to this project will be documented in this file.
 -   #527 : Fix `psydac.cad.refine` when inserting a value which is already a knot, see #619
 -   #527 : Keep the `mpi_dims_mask` of a `DomainDecomposition` in `TensorFemSpace.add_refined_space` and `psydac.cad.cad.refine`, see #622
 -   #527 : Fix `local_ncells` of the decomposition returned by `DomainDecomposition.refine`, see #623
+-   #527 : Use the physical dimension of the mappings in `Geometry.from_topological_domain` and `from_discrete_mapping`
 -   #527 : Avoid setting the `shape` of NumPy arrays (deprecated since NumPy 2.5) in `KroneckerLinearSolver`
 -   #527 : Fix error message in `psydac.api.discretization.get_max_degree_of_one_space`
 -   #596 : Allow export to VTK with a prescribed grid containing exact domain bounds
@@ -62,6 +63,7 @@ All notable changes to this project will be documented in this file.
 -   #527 : Return Cartesian (not homogeneous) control points from the NURBS functions in `psydac.cad.gallery`, see #608
 -   #527 : Keep the given SymPDE domain in `discretize(domain, filename=...)`, after checking that it matches the geometry file
 -   #527 : Do not import the submodules of `psydac.cad` in its `__init__.py`
+-   #527 : Reject domains with discrete mappings in `Geometry.from_topological_domain`
 -   #527 : Use latest version of Igakit (commit dalcinl/igakit@2a0c9ee of 2026/10/14) which supports NumPy >= 2.5
 -   #576 : Use latest version of Igakit (commit dalcinl/igakit@92ee097 of 2026/07/24) which supports NumPy >= 2.4
 -   #595 : Use PETSc 3.25.5 whose Python bindings `petsc4py` are built correctly with `cython>=3`
