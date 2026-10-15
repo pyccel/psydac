@@ -11,6 +11,7 @@ import numpy as np
 from mpi4py import MPI
 
 from sympde.topology import Domain, Line, Square, Cube, Mapping, IdentityMapping
+from sympde.topology.analytical_mapping import PolarMapping
 
 from psydac.cad.geometry             import Geometry, export_nurbs_to_hdf5, refine_nurbs
 from psydac.cad.geometry             import import_geopdes_to_nurbs
@@ -271,6 +272,22 @@ def test_from_topological_domain_different_pdims() -> None:
 
     with pytest.raises(ValueError, match='different physical dimensions'):
         Geometry.from_topological_domain(join_squares((2, 3)), [3, 5])
+
+def test_from_topological_domain_analytical_mapping() -> None:
+
+    domain = PolarMapping('P', dim=2, c1=0., c2=0., rmin=0.5, rmax=1.)(Square('Omega'))
+    geo = Geometry.from_topological_domain(domain, [3, 5])
+
+    assert geo.mappings == {domain.name: None}
+
+def test_from_topological_domain_discrete_mapping() -> None:
+
+    # The domain carries the spline mapping attached by from_discrete_mapping
+    mapping = discrete_mapping('collela', ncells=[3, 5], degree=[2, 2])
+    domain = Geometry.from_discrete_mapping(mapping).domain
+
+    with pytest.raises(ValueError, match='discrete mapping attached'):
+        Geometry.from_topological_domain(domain, [3, 5])
 
 # ==============================================================================
 @pytest.mark.parametrize('ldim', [1, 2])
