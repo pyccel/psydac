@@ -1,18 +1,22 @@
-# coding: utf-8
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
+from collections import OrderedDict
 
 from mpi4py import MPI
 from sympy import lambdify
-
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib import cm, colors
-from collections import OrderedDict
 
 from psydac.linalg.utilities import array_to_psydac
 from psydac.fem.basic import FemField, FemSpace
 from psydac.utilities.utils import refine_array_1d
 from psydac.feec.pull_push import push_2d_h1_vec, push_2d_h1, push_2d_hcurl, push_2d_hdiv, push_2d_l2
+
 
 __all__ = (
     'get_grid_vals',
@@ -38,7 +42,13 @@ def get_grid_vals(u, etas, mappings_list, space_kind=None):
         vector_valued = u.space.is_vector_valued 
     else:
         # then u should be callable
-        vector_valued = isinstance(u, (list, tuple)) # [MCP 04.03.25]: this needs to be tested
+        if len(mappings_list) == 1:
+            # single patch
+            u_single_patch = u
+        else:
+            # multiple patches
+            u_single_patch = u[0]
+        vector_valued = isinstance(u_single_patch, (list, tuple)) # [MCP 04.03.25]: this needs to be tested
 
     if space_kind is None:
         # use a simple change of variable
@@ -231,8 +241,8 @@ def get_patch_knots_gridlines(Vh, N, mappings, plotted_patch=-1):
     F = [M.get_callable_mapping() for d, M in mappings.items()]
 
     if plotted_patch in range(len(mappings)):
-        grid_x1 = Vh.patch_spaces[plotted_patch].spaces[0].breaks[0]
-        grid_x2 = Vh.patch_spaces[plotted_patch].spaces[0].breaks[1]
+        grid_x1 = Vh.patch_spaces[plotted_patch].spaces[0].breaks
+        grid_x2 = Vh.patch_spaces[plotted_patch].spaces[1].breaks
 
         x1 = refine_array_1d(grid_x1, N)
         x2 = refine_array_1d(grid_x2, N)
@@ -353,12 +363,23 @@ def plot_field_2d(
         else:
             raise ValueError(plot_type)
 
+        # If there is just one patch, also plot the grid
+        if not vh.space.is_multipatch:
+            ncells = min(vh.space.component_spaces[0].axis_spaces[i].ncells for i in [0, 1])
+            N = N_vis // ncells
+            gridlines_x1, gridlines_x2 = get_patch_knots_gridlines(vh.space, N, mappings, 0)
+        else:
+            gridlines_x1 = None
+            gridlines_x2 = None
+
         my_small_plot(
             title=title,
             vals=plot_vals_list,
             titles=subtitles,
             xx=xx,
             yy=yy,
+            gridlines_x1 = gridlines_x1,
+            gridlines_x2 = gridlines_x2,
             surface_plot=surface_plot,
             cb_min=cb_min,
             cb_max=cb_max,
@@ -462,8 +483,9 @@ def my_small_plot(
             ax=ax,
             pad=0.05)
         if gridlines_x1 is not None:
-            ax.plot(*gridlines_x1, color='k')
-            ax.plot(*gridlines_x2, color='k')
+            ax.plot(*gridlines_x1, color='k', linewidth=1)
+        if gridlines_x2 is not None:
+            ax.plot(*gridlines_x2, color='k', linewidth=1)
         if show_xylabel:
             ax.set_xlabel(r'$x$', rotation='horizontal')
             ax.set_ylabel(r'$y$', rotation='horizontal')

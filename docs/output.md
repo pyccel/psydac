@@ -1,6 +1,6 @@
-# Psydac's outputs
+# PSYDAC's outputs
 ## Structure
-Psydac has a class meant to take care of outputing simulation results. This class, named `OuputManager` is located in `psydac/api/postprocessing.py`.
+PSYDAC has a class meant to take care of outputing simulation results. This class, named `OuputManager` is located in `psydac/api/postprocessing.py`.
 It writes `FemSpace` related information in the Yaml syntax. The file looks like this:
 ```yaml
 ndim: 2
@@ -102,7 +102,7 @@ file.h5
     ...
     snapshot_n/
 ```
-In addition to that, Psydac also features the `PostProcessManager` class to read those files, recreate all the `FemSpace` and `FemField` objects and export them to `VTK`.
+In addition to that, PSYDAC also features the `PostProcessManager` class to read those files, recreate all the `FemSpace` and `FemField` objects and export them to `VTK`.
 
 ## Usage of class `OutputManager`
 
@@ -159,9 +159,4 @@ post.export_to_vtk('filename_vtk', grid=grid, npts_per_cell=npts_per_cell, snaps
 ```
 
 ## Further Examples
-Further examples are present in the following files:
-
-*   `examples/poisson_3d_target_torus.py`
-*   `examples/sample_multipatch_parallel.py`
-*   `examples/notebooks/Poisson_non_periodic.ipynb`
-*   `psydac/api/tests/test_postprocessing.py`
+Further examples are present in the [example notebooks](https://pyccel.github.io/psydac/examples.html).

@@ -1,7 +1,11 @@
-# -*- coding: UTF-8 -*-
-import numpy as np
-
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 from itertools import product
+
+import numpy as np
 
 from sympy import Basic, Expr
 from sympy import AtomicExpr, S
@@ -23,24 +27,16 @@ from sympde.topology import dx1, dx2, dx3
 from sympde.topology import get_atom_logical_derivatives
 from sympde.topology import Interface
 
+from psydac.api.utilities   import flatten, random_string
 from psydac.pyccel.ast.core import AugAssign, Assign, Slice
 from psydac.pyccel.ast.core import _atomic
-from psydac.api.utilities   import flatten
-
-#==============================================================================
-# TODO move it
-import string
-import random
-def random_string( n ):
-    chars    = string.ascii_lowercase + string.digits
-    selector = random.SystemRandom()
-    return ''.join( selector.choice( chars ) for _ in range( n ) )
 
 #==============================================================================
 def toInteger(a):
     if isinstance(a,(int, np.int64)):
         return Integer(int(a))
     return a
+
 #==============================================================================
 _logical_partial_derivatives = (dx1, dx2, dx3)
 

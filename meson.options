@@ -1,0 +1,2 @@
+option('pyccel_language', type : 'string', value : 'fortran', description : 'The language that Pyccel translates to [default: Fortran].')
+

@@ -1,8 +1,13 @@
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 from itertools import product as cartesian_prod
 
 import numpy as np
 
-from psydac.linalg.basic   import VectorSpace
+from psydac.linalg.basic   import VectorSpace, ZeroOperator
 from psydac.linalg.block   import BlockVectorSpace, BlockVector, BlockLinearOperator
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
 from psydac.linalg.kernels.stencil2IJV_kernels import stencil2IJV_1d_C, stencil2IJV_2d_C, stencil2IJV_3d_C
@@ -90,12 +95,12 @@ def petsc_local_to_psydac(
     V : VectorSpace,
     petsc_index : int):
     """
-    Convert the PETSc local index (starting from 0 in each process) to a Psydac local index (natural multi-index, as grid coordinates).
+    Convert the PETSc local index (starting from 0 in each process) to a PSYDAC local index (natural multi-index, as grid coordinates).
 
     Parameters
-    -----------
+    ----------
     V : VectorSpace
-        The vector space to which the Psydac vector belongs.
+        The vector space to which the PSYDAC vector belongs.
         This defines the number of blocks, the size of each block,
         and how each block is distributed across MPI processes.
 
@@ -103,13 +108,13 @@ def petsc_local_to_psydac(
         The local PETSc index. The 0 index is only owned by every process.
 
     Returns
-    --------
+    -------
     block: tuple
-        The block where the Psydac multi-index belongs to.
-    psydac_index : tuple
-        The Psydac local multi-index. This index is local the block.
-    """
+        The block where the PSYDAC multi-index belongs to.
 
+    psydac_index : tuple
+        The PSYDAC local multi-index. This index is local the block.
+    """
     # Get the number of points for each block and each dimension local to the current process:
     npts_local_per_block = np.array(get_npts_local(V)) # indexed [b,d] for block b and dimension d
     # Get the local size of the current process for each block:
@@ -163,12 +168,12 @@ def psydac_to_petsc_global(
         block_indices, 
         ndarray_indices) -> int:
     """
-    Convert the Psydac local index (natural multi-index, as grid coordinates) to a PETSc global index. Performs a search to find the process owning the multi-index.
+    Convert the PSYDAC local index (natural multi-index, as grid coordinates) to a PETSc global index. Perform a search to find the process owning the multi-index.
 
     Parameters
-    -----------
+    ----------
     V : VectorSpace
-        The vector space to which the Psydac vector belongs.
+        The vector space to which the PSYDAC vector belongs.
         This defines the number of blocks, the size of each block,
         and how each block is distributed across MPI processes.
 
@@ -181,11 +186,10 @@ def psydac_to_petsc_global(
         excluding the ghost regions.
 
     Returns
-    --------
+    -------
     petsc_index : int
         The global PETSc index. The 0 index is only owned by the first process.
     """
-
     bb = block_indices[0]
     # Get the number of points per block, per process and per dimension:
     npts_local_per_block_per_process = np.array(get_npts_per_block(V)) #indexed [b,k,d] for block b and process k and dimension d
@@ -269,13 +273,13 @@ def get_npts_local(V : VectorSpace) -> list:
     Compute the local number of nodes per dimension owned by the actual process. 
     This is a local variable, its value will be different for each process.
 
-    Parameter
-    ---------
+    Parameters
+    ----------
     V : VectorSpace
-        The distributed Psydac vector space.
+        The distributed PSYDAC vector space.
 
     Returns
-    --------
+    -------
     list
         Local number of nodes per dimension owned by the actual process.
         In case of a StencilVectorSpace the list contains a single list with length equal the number of dimensions in the domain.
@@ -302,13 +306,13 @@ def get_npts_per_block(V : VectorSpace) -> list:
     Compute the number of nodes per block, process and dimension. 
     This is a global variable, its value is the same for all processes.
 
-    Parameter
-    ---------
+    Parameters
+    ----------
     V : VectorSpace
-        The distributed Psydac vector space.
+        The distributed PSYDAC vector space.
 
     Returns
-    --------
+    -------
     list
         Number of nodes per block, process and dimension.
     """ 
@@ -332,14 +336,16 @@ def get_npts_per_block(V : VectorSpace) -> list:
     return npts_local_per_block
 
 
-def vec_topetsc(vec):
-    """ Convert vector from Psydac format to a PETSc.Vec object.
+def vec_topetsc(vec, out=None):
+    """ Convert vector from PSYDAC format to a PETSc.Vec object.
 
     Parameters
     ----------
     vec : psydac.linalg.stencil.StencilVector | psydac.linalg.block.BlockVector
-      Psydac StencilVector or BlockVector. In the case of a BlockVector, only the case where the blocks are StencilVector is implemented.
-
+      PSYDAC StencilVector or BlockVector. In the case of a BlockVector, only the case where the blocks are StencilVector is implemented.
+    out : PETSc.Vec, optional
+      PETSc vector where to store the returned value. In case of `None`, a new vector is created.
+     
     Returns
     -------
     gvec : PETSc.Vec
@@ -370,13 +376,19 @@ def vec_topetsc(vec):
     # Sum over the blocks to get the total local size
     localsize = np.sum(np.prod(npts_local, axis=1))
 
-    gvec  = PETSc.Vec().create(comm=carts[0].global_comm)    
+    if out is not None:
+        assert isinstance(out, PETSc.Vec)
+        assert out.getSizes() == (localsize, globalsize)
+        out.zeroEntries()
+        gvec = out
+    else:
+        gvec  = PETSc.Vec().create(comm=carts[0].global_comm)    
 
-    # Set global and local size:
-    gvec.setSizes(size=(localsize, globalsize))
+        # Set global and local size:
+        gvec.setSizes(size=(localsize, globalsize))
 
-    gvec.setFromOptions()
-    gvec.setUp()
+        gvec.setFromOptions()
+        gvec.setUp()
 
     petsc_indices = []
     petsc_data = []
@@ -433,12 +445,12 @@ def vec_topetsc(vec):
 
 
 def mat_topetsc(mat):
-    """ Convert operator from Psydac format to a PETSc.Mat object.
+    """ Convert operator from PSYDAC format to a PETSc.Mat object.
 
     Parameters
     ----------
     mat : psydac.linalg.stencil.StencilMatrix | psydac.linalg.block.BlockLinearOperator
-      Psydac operator. In the case of a BlockLinearOperator, only the case where the blocks are StencilMatrix is implemented.
+      PSYDAC operator. In the case of a BlockLinearOperator, only the case where the blocks are StencilMatrix is implemented.
 
     Returns
     -------
@@ -448,7 +460,7 @@ def mat_topetsc(mat):
 
     from petsc4py import PETSc
 
-    assert isinstance(mat, StencilMatrix) or isinstance(mat, BlockLinearOperator), 'Conversion only implemented for StencilMatrix and BlockLinearOperator.'
+    assert isinstance(mat, StencilMatrix) or isinstance(mat, BlockLinearOperator) or isinstance(mat, ZeroOperator), 'Conversion only implemented for StencilMatrix, BlockLinearOperator and ZeroOperator.'
 
     if (isinstance(mat.domain, BlockVectorSpace) and any([isinstance(mat.domain.spaces[b], BlockVectorSpace) for b in range(len(mat.domain.spaces))]))\
         or (isinstance(mat.codomain, BlockVectorSpace) and any([isinstance(mat.codomain.spaces[b], BlockVectorSpace) for b in range(len(mat.codomain.spaces))])):
@@ -459,22 +471,10 @@ def mat_topetsc(mat):
     elif isinstance(mat.domain, BlockVectorSpace):
         comm = mat.domain.spaces[0].cart.global_comm
 
-    nonzero_block_indices = ((0,0),) if isinstance(mat, StencilMatrix) else mat.nonzero_block_indices
-
-    mat.update_ghost_regions()
-    mat.remove_spurious_entries()
 
     # Get the number of points local to the current process:
     dnpts_local = get_npts_local(mat.domain) # indexed [block, dimension]. Different for each process.
     cnpts_local = get_npts_local(mat.codomain) # indexed [block, dimension]. Different for each process. 
-
-    # Get the number of points per block, per process and per dimension:
-    dnpts_per_block_per_process = np.array(get_npts_per_block(mat.domain)) # global variable, indexed as [block, process, dimension]
-    cnpts_per_block_per_process = np.array(get_npts_per_block(mat.codomain)) # global variable, indexed as [block, process, dimension]
-
-    # Get the index shift for each block and each process:
-    dindex_shift = get_index_shift_per_block_per_process(mat.domain) # global variable, indexed as [block, process, dimension]
-    cindex_shift = get_index_shift_per_block_per_process(mat.codomain) # global variable, indexed as [block, process, dimension]
 
     globalsize = mat.shape
 
@@ -496,6 +496,23 @@ def mat_topetsc(mat):
     gmat.setFromOptions()
     gmat.setUp()
 
+    if isinstance(mat, ZeroOperator):
+        gmat.assemble()
+        return gmat
+
+    nonzero_block_indices = ((0,0),) if isinstance(mat, StencilMatrix) else mat.nonzero_block_indices
+
+    mat.update_ghost_regions()
+    mat.remove_spurious_entries()
+
+    # Get the number of points per block, per process and per dimension (global variable) indexed as [block, process, dimension]
+    dnpts_per_block_per_process = np.array(get_npts_per_block(mat.domain))
+    cnpts_per_block_per_process = np.array(get_npts_per_block(mat.codomain))
+
+    # Get the index shift per block, per process and per dimension (global variable) indexed as [block, process, dimension]
+    dindex_shift = get_index_shift_per_block_per_process(mat.domain)
+    cindex_shift = get_index_shift_per_block_per_process(mat.codomain)
+
     I = [0] # Row pointers
     J = [] # Column indices
     V = [] # Values
@@ -506,6 +523,10 @@ def mat_topetsc(mat):
     for bc, bd in nonzero_block_indices:
         if isinstance(mat, BlockLinearOperator):
             mat_block = mat.blocks[bc][bd]
+
+        if isinstance(mat_block, ZeroOperator):
+            continue
+
         dnpts_block = dnpts_per_block_per_process[bd]
         cnpts_block = cnpts_per_block_per_process[bc]
         dshift_block = dindex_shift[bd]

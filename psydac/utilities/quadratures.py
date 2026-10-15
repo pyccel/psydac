@@ -1,17 +1,17 @@
-# -*- coding: UTF-8 -*-
-#! /usr/bin/python
-
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 """
 This module contains some routines to generate quadrature points in 1D
 it has also a routine uniform, which generates uniform points
 with weights equal to 1
 """
 
-import numpy as np
-
 from math import cos, pi
-from numpy import zeros
 
+import numpy as np
 
 __all__ = ('gauss_legendre', 'gauss_lobatto', 'quadrature')
 
@@ -55,8 +55,8 @@ def gauss_legendre(m, tol=1e-13):
         dp = m*(p0 - t*p1)/(1.0 - t**2)
         return p1, dp
 
-    A = zeros(m)
-    x = zeros(m)
+    A = np.zeros(m)
+    x = np.zeros(m)
     nRoots = (m + 1) // 2          # Number of non-neg. roots
     for i in range(nRoots):
         t = cos(pi*(i + 0.75)/(m + 0.5))  # Approx. root

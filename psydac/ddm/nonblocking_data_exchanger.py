@@ -1,11 +1,16 @@
-# coding: utf-8
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
+from itertools import product
 
 import numpy as np
-from itertools import product
 from mpi4py import MPI
 
 from .cart import CartDecomposition, find_mpi_type
 from .basic import CartDataExchanger
+
 
 __all__ = ('NonBlockingCartDataExchanger',)
 

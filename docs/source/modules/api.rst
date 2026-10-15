@@ -14,6 +14,9 @@ api
     api.expr
     api.feec
     api.fem
+    api.fem_bilinear_form
+    api.fem_common
+    api.fem_sum_form
     api.glt
     api.grid
     api.postprocessing

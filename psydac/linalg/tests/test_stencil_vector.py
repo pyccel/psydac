@@ -1,5 +1,8 @@
-# coding: utf-8
-
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 import pytest
 import numpy as np
 
@@ -429,6 +432,8 @@ def test_stencil_vector_2d_serial_topetsc(dtype, n1, n2, p1, p2, s1, s2, P1, P2)
     # Create vector space and stencil vector
     V = StencilVectorSpace(C, dtype=dtype)
     x = StencilVector(V)
+    y = StencilVector(V)
+    z = StencilVector(V)
 
     # Fill the vector with data
     if dtype == complex:
@@ -441,19 +446,24 @@ def test_stencil_vector_2d_serial_topetsc(dtype, n1, n2, p1, p2, s1, s2, P1, P2)
 
     # Convert vector to PETSc.Vec
     v = x.topetsc()
+    w = v.copy()
+    x.topetsc(out=w)
 
     # Convert PETSc.Vec to StencilVector of V
-    v = petsc_to_psydac(v, V)
+    z = petsc_to_psydac(v, V)
+    petsc_to_psydac(w, V, out=y)
 
     # Test properties of v and data contained
-    assert v.space is V
-    assert v.dtype == dtype
-    assert v.starts == (0, 0)
-    assert v.ends == (n1 - 1, n2 - 1)
-    assert v.pads == (p1, p2)
-    assert v._data.shape == (n1 + 2 * p1 * s1, n2 + 2 * p2 * s2)
-    assert v._data.dtype == dtype
-    assert np.array_equal(x.toarray(), v.toarray())
+    assert z.space is V
+    assert z.dtype == dtype
+    assert z.starts == (0, 0)
+    assert z.ends == (n1 - 1, n2 - 1)
+    assert z.pads == (p1, p2)
+    assert z._data.shape == (n1 + 2 * p1 * s1, n2 + 2 * p2 * s2)
+    assert z._data.dtype == dtype
+    assert np.array_equal(x.toarray(), z.toarray())
+    assert np.array_equal(x.toarray(), y.toarray())
+    assert np.array_equal(v.array, w.array) 
 
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
@@ -525,7 +535,7 @@ def test_stencil_vector_2d_serial_update_ghost_region_interior(dtype, n1, n2, p1
 @pytest.mark.parametrize('n1', [12, 22])
 @pytest.mark.parametrize('p1', [1, 3])
 @pytest.mark.parametrize('s1', [1, 2])
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_stencil_vector_1d_parallel_init(dtype, n1, p1, s1, P1=True):
 
     from mpi4py import MPI
@@ -561,7 +571,7 @@ def test_stencil_vector_1d_parallel_init(dtype, n1, p1, s1, P1=True):
 @pytest.mark.parametrize('p2', [3])
 @pytest.mark.parametrize('s1', [1, 2])
 @pytest.mark.parametrize('s2', [2])
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_stencil_vector_2d_parallel_init(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=False):
 
     from mpi4py import MPI
@@ -599,7 +609,7 @@ def test_stencil_vector_2d_parallel_init(dtype, n1, n2, p1, p2, s1, s2, P1=True,
 @pytest.mark.parametrize('s2', [2])
 @pytest.mark.parametrize('P1', [True, False])
 @pytest.mark.parametrize('P2', [True])
-@pytest.mark.parallel
+@pytest.mark.mpi
 @pytest.mark.petsc
 def test_stencil_vector_2d_parallel_topetsc(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
     from mpi4py import MPI
@@ -616,6 +626,8 @@ def test_stencil_vector_2d_parallel_topetsc(dtype, n1, n2, p1, p2, s1, s2, P1, P
     # Create vector space and stencil vector
     V = StencilVectorSpace(C, dtype=dtype)
     x = StencilVector(V)
+    y = StencilVector(V)
+    z = StencilVector(V)
 
     # Fill the vector with data
     if dtype == complex:
@@ -630,11 +642,16 @@ def test_stencil_vector_2d_parallel_topetsc(dtype, n1, n2, p1, p2, s1, s2, P1, P
 
     # Convert vector to PETSc.Vec
     v = x.topetsc()
+    u = v.copy()
+    x.topetsc(out=u)
 
     # Convert PETSc.Vec to StencilVector of V
-    v = petsc_to_psydac(v, V)
+    y = petsc_to_psydac(v, V)
+    petsc_to_psydac(u, V, out=z)
 
-    assert np.array_equal(x.toarray(), v.toarray())
+    assert np.array_equal(x.toarray(), y.toarray())
+    assert np.array_equal(x.toarray(), z.toarray())
+    assert np.array_equal(v.array, u.array)    
     
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
@@ -642,7 +659,7 @@ def test_stencil_vector_2d_parallel_topetsc(dtype, n1, n2, p1, p2, s1, s2, P1, P
 @pytest.mark.parametrize('p1', [1, 3])
 @pytest.mark.parametrize('s1', [1, 2])
 @pytest.mark.parametrize('P1', [True, False])
-@pytest.mark.parallel
+@pytest.mark.mpi
 @pytest.mark.petsc
 def test_stencil_vector_1d_parallel_topetsc(dtype, n1, p1, s1, P1):
     from mpi4py import MPI
@@ -659,6 +676,8 @@ def test_stencil_vector_1d_parallel_topetsc(dtype, n1, p1, s1, P1):
     # Create vector space and stencil vector
     V = StencilVectorSpace(C, dtype=dtype)
     x = StencilVector(V)
+    y = StencilVector(V)
+    z = StencilVector(V)
 
     # Fill the vector with data
     if dtype == complex:
@@ -672,11 +691,16 @@ def test_stencil_vector_1d_parallel_topetsc(dtype, n1, p1, s1, P1):
 
     # Convert vector to PETSc.Vec
     v = x.topetsc()
+    u = v.copy()
+    x.topetsc(out=u)    
 
     # Convert PETSc.Vec to StencilVector of V
-    v = petsc_to_psydac(v, V)
+    y = petsc_to_psydac(v, V)
+    petsc_to_psydac(u, V, out=z)
 
-    assert np.array_equal(x.toarray(), v.toarray())
+    assert np.array_equal(x.toarray(), y.toarray())
+    assert np.array_equal(x.toarray(), z.toarray())
+    assert np.array_equal(v.array, u.array) 
 
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
@@ -693,7 +717,7 @@ def test_stencil_vector_1d_parallel_topetsc(dtype, n1, p1, s1, P1):
 @pytest.mark.parametrize('P2', [True])
 @pytest.mark.parametrize('P3', [False])
 
-@pytest.mark.parallel
+@pytest.mark.mpi
 @pytest.mark.petsc
 def test_stencil_vector_3d_parallel_topetsc(dtype, n1, n2, n3, p1, p2, p3, s1, s2, s3, P1, P2, P3):
     from mpi4py import MPI
@@ -710,6 +734,8 @@ def test_stencil_vector_3d_parallel_topetsc(dtype, n1, n2, n3, p1, p2, p3, s1, s
     # Create vector space and stencil vector
     V = StencilVectorSpace(C, dtype=dtype)
     x = StencilVector(V)
+    y = StencilVector(V)
+    z = StencilVector(V)
 
     # Fill the vector with data
 
@@ -726,11 +752,16 @@ def test_stencil_vector_3d_parallel_topetsc(dtype, n1, n2, n3, p1, p2, p3, s1, s
 
     # Convert vector to PETSc.Vec
     v = x.topetsc()
+    u = v.copy()
+    x.topetsc(out=u)
 
     # Convert PETSc.Vec to StencilVector of V
-    v = petsc_to_psydac(v, V)
+    y = petsc_to_psydac(v, V)
+    petsc_to_psydac(u, V, out=z)
 
-    assert np.array_equal(x.toarray(), v.toarray())
+    assert np.array_equal(x.toarray(), y.toarray())
+    assert np.array_equal(x.toarray(), z.toarray())
+    assert np.array_equal(v.array, u.array) 
 
 # ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
@@ -743,7 +774,7 @@ def test_stencil_vector_3d_parallel_topetsc(dtype, n1, n2, n3, p1, p2, p3, s1, s
 @pytest.mark.parametrize('s1', [1, 2])
 @pytest.mark.parametrize('s2', [3])
 @pytest.mark.parametrize('s3', [1])
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_stencil_vector_3d_parallel_init(dtype, n1, n2, n3, p1, p2, p3, s1, s2, s3, P1=True, P2=False, P3=True):
 
     from mpi4py import MPI
@@ -780,7 +811,7 @@ def test_stencil_vector_3d_parallel_init(dtype, n1, n2, n3, p1, p2, p3, s1, s2, 
 @pytest.mark.parametrize('p2', [2])
 @pytest.mark.parametrize('s1', [1, 2])
 @pytest.mark.parametrize('s2', [2])
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_stencil_vector_2d_parallel_toarray(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=False):
     # Create domain decomposition
     from mpi4py import MPI
@@ -849,7 +880,7 @@ def test_stencil_vector_2d_parallel_toarray(dtype, n1, n2, p1, p2, s1, s2, P1=Tr
 @pytest.mark.parametrize('s2', [1])
 @pytest.mark.parametrize('P1', [True, False])
 @pytest.mark.parametrize('P2', [True])
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_stencil_vector_2d_parallel_array_to_psydac(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
     npts = [n1, n2]   
 
@@ -907,7 +938,7 @@ def test_stencil_vector_2d_parallel_array_to_psydac(dtype, n1, n2, p1, p2, s1, s
 @pytest.mark.parametrize('p2', [2])
 @pytest.mark.parametrize('s1', [1, 2])
 @pytest.mark.parametrize('s2', [1])
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_stencil_vector_2d_parallel_dot(dtype, n1, n2, p1, p2, s1, s2, P1=True, P2=False):
     from mpi4py import MPI
 
@@ -975,7 +1006,7 @@ def test_stencil_vector_2d_parallel_dot(dtype, n1, n2, p1, p2, s1, s2, P1=True, 
 @pytest.mark.parametrize('s1', [1, 2])
 @pytest.mark.parametrize('s2', [1, 2])
 @pytest.mark.parametrize('s3', [1])
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_stencil_vector_3d_parallel_dot(dtype, n1, n2, n3, p1, p2, p3, s1, s2, s3, P1=True, P2=False, P3=True):
     from mpi4py import MPI
 

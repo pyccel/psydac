@@ -1,6 +1,8 @@
-# coding: utf-8
-# Copyright 2018 Ahmed Ratnani, Yaman Güçlü
-
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 import numpy as np
 from scipy.sparse import csc_matrix, csr_matrix, dia_matrix
 
@@ -23,6 +25,7 @@ from psydac.core.bsplines         import (
 
 from psydac.utilities.utils import unroll_edges, refine_array_1d
 from psydac.ddm.cart        import DomainDecomposition, CartDecomposition
+
 
 __all__ = ('SplineSpace',)
 
@@ -182,7 +185,7 @@ class SplineSpace( FemSpace ):
 
         if self.periodic:
             # Convert to CSC format and compute sparse LU decomposition
-            self._interpolator = SparseSolver( csc_matrix( imat ) )
+            self._interpolator = SparseSolver( csc_matrix(imat, dtype=dtype) )
         else:
             # Convert to LAPACK banded format (see DGBTRF function)
             dmat = dia_matrix( imat )
@@ -218,7 +221,7 @@ class SplineSpace( FemSpace ):
         self.hmat= imat
         if self.periodic:
             # Convert to CSC format and compute sparse LU decomposition
-            self._histopolator = SparseSolver( csc_matrix( imat ) )
+            self._histopolator = SparseSolver( csc_matrix(imat, dtype=dtype) )
         else:
             # Convert to LAPACK banded format (see DGBTRF function)
             dmat = dia_matrix( imat )
@@ -262,7 +265,7 @@ class SplineSpace( FemSpace ):
         """ Assume identity mapping for now.
         """
         # [YG, 28.03.2025]: not clear why there should be no mapping here...
-        # Clearly this property is never used in Psydac.
+        # Clearly this property is never used in PSYDAC.
         return None
 
     @property

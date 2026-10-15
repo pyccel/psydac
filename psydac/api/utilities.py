@@ -1,16 +1,22 @@
-# coding: utf-8
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
+import os
+import string
 
+from numpy.random import default_rng
 from sympy.core.containers import Tuple
 from sympy import Matrix, ImmutableDenseMatrix, MutableDenseNDimArray
 
-import inspect
-import sys
-import os
-import importlib
-import string
-import random
-import numpy as np
-
+__all__ = (
+    'flatten',
+    'mkdir_p',
+    'touch_init_file',
+    'random_string',
+    'write_code'
+)
 #==============================================================================
 def flatten(args):
 
@@ -53,11 +59,33 @@ def touch_init_file(path):
         os.utime(path, None)
 
 #==============================================================================
-def random_string( n ):
-    # we remove uppercase letters because of f2py
-    chars    = string.ascii_lowercase + string.digits
-    selector = random.SystemRandom()
-    return ''.join( selector.choice( chars ) for _ in range( n ) )
+def random_string(size : int = 8,
+                  chars: str = string.ascii_lowercase + string.digits,
+                  *,
+                  seed : int = None) -> str:
+    """
+    Create a random string of given length to be used in generated file names.
+
+    Parameters
+    ----------
+    size : int, optional
+        Length of the string (default: 8).
+
+    chars : str, optional
+        A string with the available characters for random drawing (default:
+        ASCII lower case characters + decimal digits).
+
+    seed : int, optional
+        Seed for the random number generator (default: None).
+
+    Returns
+    -------
+    str
+        A random string of the required length, made of the given characters.
+    """
+    rng = default_rng(seed=seed)
+    chars_list = [*chars]
+    return ''.join(rng.choice(chars_list) for _ in range(size))
 
 #==============================================================================
 def write_code(filename, code, folder=None):
@@ -81,4 +109,3 @@ def write_code(filename, code, folder=None):
     f.close()
 
     return filename
-

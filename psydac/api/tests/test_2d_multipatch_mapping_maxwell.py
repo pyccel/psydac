@@ -1,6 +1,11 @@
-# -*- coding: UTF-8 -*-
-
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 import os
+from pathlib import Path
+
 import pytest
 import numpy as np
 from mpi4py import MPI
@@ -19,19 +24,14 @@ from sympde.expr.expr     import Norm
 from sympde.expr.equation import find, EssentialBC
 
 from psydac.api.discretization       import discretize
-from psydac.api.tests.build_domain   import build_pretzel
+from psydac.api.tests.build_domain   import build_11_patch_pretzel, build_2_patch_annulus
 from psydac.fem.basic                import FemField
 from psydac.api.settings             import PSYDAC_BACKEND_GPYCCEL
 from psydac.feec.pull_push           import pull_2d_hcurl
 
-# ... get the mesh directory
-try:
-    mesh_dir = os.environ['PSYDAC_MESH_DIR']
-
-except:
-    base_dir = os.path.dirname(os.path.realpath(__file__))
-    base_dir = os.path.join(base_dir, '..', '..', '..')
-    mesh_dir = os.path.join(base_dir, 'mesh')
+# Get the mesh directory
+import psydac.cad.mesh as mesh_mod
+mesh_dir = Path(mesh_mod.__file__).parent
 
 #==============================================================================
 def run_maxwell_2d(uex, f, alpha, domain, *, ncells=None, degree=None, filename=None, k=None, kappa=None, comm=None):
@@ -100,7 +100,7 @@ def run_maxwell_2d(uex, f, alpha, domain, *, ncells=None, degree=None, filename=
     jacobi_pc = equation_h.linear_system.lhs.diagonal(inverse=True)
 
     # Choose a linear solver and pass any flags to it
-    equation_h.set_solver('pcg', pc=jacobi_pc, tol=1e-8)
+    equation_h.set_solver('cg', pc=jacobi_pc, tol=1e-8)
 
     # Solve the linear system and obtain the solution as a FEM field
     uh = equation_h.solve()
@@ -113,23 +113,7 @@ def run_maxwell_2d(uex, f, alpha, domain, *, ncells=None, degree=None, filename=
 #------------------------------------------------------------------------------
 def test_maxwell_2d_2_patch_dirichlet_0():
 
-    bounds1   = (0.5, 1.)
-    bounds2_A = (0, np.pi/2)
-    bounds2_B = (np.pi/2, np.pi)
-
-    A = Square('A',bounds1=bounds1, bounds2=bounds2_A)
-    B = Square('B',bounds1=bounds1, bounds2=bounds2_B)
-
-    mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
-    mapping_2 = PolarMapping('M2',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
-
-    D1     = mapping_1(A)
-    D2     = mapping_2(B)
-
-    connectivity = [((0,1,1),(1,1,-1))]
-    patches = [D1,D2]
-    domain = Domain.join(patches, connectivity, 'domain')
-
+    domain = build_2_patch_annulus()
     x,y    = domain.coordinates
 
     omega = 1.5
@@ -144,26 +128,9 @@ def test_maxwell_2d_2_patch_dirichlet_0():
 
     assert abs(l2_error - expected_l2_error) < 1e-7
 
+
 #------------------------------------------------------------------------------
 def test_maxwell_2d_2_patch_dirichlet_1():
-
-    domain = build_pretzel()
-    x,y    = domain.coordinates
-
-    omega = 1.5
-    alpha = -omega**2
-    Eex   = Tuple(sin(pi*y), sin(pi*x)*cos(pi*y))
-    f     = Tuple(alpha*sin(pi*y) - pi**2*sin(pi*y)*cos(pi*x) + pi**2*sin(pi*y),
-                  alpha*sin(pi*x)*cos(pi*y) + pi**2*sin(pi*x)*cos(pi*y))
-
-    l2_error, Eh      = run_maxwell_2d(Eex, f, alpha, domain, ncells=[2**2, 2**2], degree=[2,2])
-
-    expected_l2_error = 1.5941322657006822
-
-    assert abs(l2_error - expected_l2_error) < 1e-7
-
-#------------------------------------------------------------------------------
-def test_maxwell_2d_2_patch_dirichlet_2():
 
     filename = os.path.join(mesh_dir, 'multipatch/square_repeated_knots.h5')
     domain   = Domain.from_file(filename)
@@ -187,25 +154,10 @@ def test_maxwell_2d_2_patch_dirichlet_2():
 ###############################################################################
 
 #==============================================================================
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_maxwell_2d_2_patch_dirichlet_parallel_0():
 
-    bounds1   = (0.5, 1.)
-    bounds2_A = (0, np.pi/2)
-    bounds2_B = (np.pi/2, np.pi)
-
-    A = Square('A',bounds1=bounds1, bounds2=bounds2_A)
-    B = Square('B',bounds1=bounds1, bounds2=bounds2_B)
-
-    mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
-    mapping_2 = PolarMapping('M2',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
-
-    D1     = mapping_1(A)
-    D2     = mapping_2(B)
-
-    connectivity = [((0,1,1),(1,1,-1))]
-    patches = [D1,D2]
-    domain = Domain.join(patches, connectivity, 'domain')
+    domain = build_2_patch_annulus()
     x,y    = domain.coordinates
 
     omega = 1.5
@@ -220,7 +172,7 @@ def test_maxwell_2d_2_patch_dirichlet_parallel_0():
 
     assert abs(l2_error - expected_l2_error) < 1e-7
 
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_maxwell_2d_2_patch_dirichlet_parallel_1():
 
     filename = os.path.join(mesh_dir, 'multipatch/square_repeated_knots.h5')
@@ -257,7 +209,7 @@ if __name__ == '__main__':
     from psydac.fem.plotting_utilities   import get_plotting_grid, get_grid_vals
     from psydac.fem.plotting_utilities   import get_patch_knots_gridlines, my_small_plot
 
-    domain    = build_pretzel()
+    domain    = build_11_patch_pretzel()
     x,y       = domain.coordinates
 
     omega = 1.5

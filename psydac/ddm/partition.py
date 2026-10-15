@@ -1,7 +1,13 @@
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 import numpy    as np
 import numpy.ma as ma
 
 from sympy.ntheory import factorint
+
 
 __all__ = ('compute_dims', 'partition_procs_per_patch')
 

@@ -1,3 +1,8 @@
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 import pytest
 import numpy as np
 
@@ -42,7 +47,7 @@ def test_field_and_constant(backend):
 
     equation = find(u, forall=v, lhs=a(u, v), rhs=l(v), bc=bc)
 
-    # Discretization and solution with Psydac
+    # Discretization and solution with PSYDAC
     ncells = (5, 5)
     degree = (3, 3)
     domain_h = discretize(domain, ncells=ncells)

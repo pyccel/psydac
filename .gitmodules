@@ -1,0 +1,3 @@
+[submodule "subprojects/igakit"]
+	path = subprojects/igakit
+	url = https://github.com/dalcinl/igakit/

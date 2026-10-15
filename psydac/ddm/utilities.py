@@ -1,9 +1,13 @@
-# coding: utf-8
-
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 from .cart                       import CartDecomposition, InterfaceCartDecomposition
 from .blocking_data_exchanger    import BlockingCartDataExchanger
 from .nonblocking_data_exchanger import NonBlockingCartDataExchanger
 from .interface_data_exchanger   import InterfaceCartDataExchanger
+
 
 __all__ = ('get_data_exchanger',)
 

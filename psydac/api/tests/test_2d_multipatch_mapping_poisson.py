@@ -1,9 +1,13 @@
-# -*- coding: UTF-8 -*-
-
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 import os
+from pathlib import Path
+
 import pytest
 import numpy as np
-
 from mpi4py import MPI
 from sympy  import pi, sin
 
@@ -20,18 +24,13 @@ from sympde.expr.expr     import Norm, SemiNorm
 from sympde.expr.equation import find, EssentialBC
 
 from psydac.api.discretization     import discretize
-from psydac.api.tests.build_domain import build_pretzel
+from psydac.api.tests.build_domain import build_11_patch_pretzel, build_2_patch_annulus
 from psydac.api.settings           import PSYDAC_BACKEND_GPYCCEL
 from psydac.fem.plotting_utilities import plot_field_2d as plot_field
 
-# ... get the mesh directory
-try:
-    mesh_dir = os.environ['PSYDAC_MESH_DIR']
-
-except:
-    base_dir = os.path.dirname(os.path.realpath(__file__))
-    base_dir = os.path.join(base_dir, '..', '..', '..')
-    mesh_dir = os.path.join(base_dir, 'mesh')
+# Get the mesh directory
+import psydac.cad.mesh as mesh_mod
+mesh_dir = Path(mesh_mod.__file__).parent
 
 #==============================================================================
 def run_poisson_2d(solution, f, domain, ncells=None, degree=None, filename=None, comm=None, backend=None):
@@ -100,18 +99,7 @@ def run_poisson_2d(solution, f, domain, ncells=None, degree=None, filename=None,
 #------------------------------------------------------------------------------
 def test_poisson_2d_2_patches_dirichlet_0():
 
-    A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi/2))
-    B = Square('B',bounds1=(0.5, 1.), bounds2=(np.pi/2, np.pi))
-
-    mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
-    mapping_2 = PolarMapping('M2',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
-
-    D1     = mapping_1(A)
-    D2     = mapping_2(B)
-
-    connectivity = [((0,1,1),(1,1,-1))]
-    patches = [D1,D2]
-    domain = Domain.join(patches, connectivity, 'domain')
+    domain = build_2_patch_annulus()
 
     x,y = domain.coordinates
     solution = x**2 + y**2
@@ -128,18 +116,7 @@ def test_poisson_2d_2_patches_dirichlet_0():
 #------------------------------------------------------------------------------
 def test_poisson_2d_2_patches_dirichlet_1():
 
-    A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi/2))
-    B = Square('B',bounds1=(0.5, 1.), bounds2=(np.pi/2, np.pi))
-
-    mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
-    mapping_2 = PolarMapping('M2',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
-
-    D1     = mapping_1(A)
-    D2     = mapping_2(B)
-
-    connectivity = [((0,1,1),(1,1,-1))]
-    patches = [D1,D2]
-    domain = Domain.join(patches, connectivity, 'domain')
+    domain = build_2_patch_annulus()
 
     x,y = domain.coordinates
     solution = sin(pi*x)*sin(pi*y)
@@ -154,7 +131,7 @@ def test_poisson_2d_2_patches_dirichlet_1():
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
 
 #------------------------------------------------------------------------------
-def test_poisson_2d_2_patches_dirichlet_2():
+def test_poisson_2d_3_patches_dirichlet_2():
 
     mapping_1 = IdentityMapping('M1', 2)
     mapping_2 = PolarMapping   ('M2', 2, c1 = 0., c2 = 0.5, rmin = 0., rmax=1.)
@@ -190,15 +167,15 @@ def test_poisson_2d_2_patches_dirichlet_2():
 #------------------------------------------------------------------------------
 def test_poisson_2d_2_patches_dirichlet_3():
 
-    domain    = build_pretzel()
+    domain = build_2_patch_annulus()
     x,y       = domain.coordinates
-    solution  = x**2 + y**2
+    solution  = (2.654-x)**2 + (1.1-y)**2
     f         = -4
 
     l2_error, h1_error, uh = run_poisson_2d(solution, f, domain, ncells=[2**2,2**2], degree=[2,2])
 
-    expected_l2_error = 0.009824734742537082
-    expected_h1_error = 0.10615177751279731
+    expected_l2_error = 0.0014599905413109973 
+    expected_h1_error = 0.035873834713380987
 
     assert ( abs(l2_error - expected_l2_error) < 1e-7)
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
@@ -298,26 +275,31 @@ def test_poisson_2d_4_patch_dirichlet_0():
     assert ( abs(l2_error - expected_l2_error) < 1e-7 )
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
 
+def test_poisson_2d_bretzel_dirichlet_0():
+
+    domain = build_11_patch_pretzel()
+
+    x,y       = domain.coordinates
+    solution  = x**2 + y**2
+    f         = -4
+
+    l2_error, h1_error, uh = run_poisson_2d(solution, f, domain, ncells=[2**2,2**2], degree=[2,2])
+
+    expected_l2_error = 0.009824734742571888
+    expected_h1_error = 0.10615177751253213
+
+    assert ( abs(l2_error - expected_l2_error) < 1e-7 )
+    assert ( abs(h1_error - expected_h1_error) < 1e-7 )
+
 ###############################################################################
 #            PARALLEL TESTS
 ###############################################################################
 
 #==============================================================================
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_poisson_2d_2_patches_dirichlet_parallel_0():
 
-    A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi/2))
-    B = Square('B',bounds1=(0.5, 1.), bounds2=(np.pi/2, np.pi))
-
-    mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
-    mapping_2 = PolarMapping('M2',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
-
-    D1     = mapping_1(A)
-    D2     = mapping_2(B)
-
-    connectivity = [((0,1,1),(1,1,-1))]
-    patches = [D1, D2]
-    domain = Domain.join(patches, connectivity, 'domain')
+    domain = build_2_patch_annulus()
 
     x,y = domain.coordinates
     solution = sin(pi*x)*sin(pi*y)
@@ -333,7 +315,7 @@ def test_poisson_2d_2_patches_dirichlet_parallel_0():
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
 
 #------------------------------------------------------------------------------
-@pytest.mark.parallel
+@pytest.mark.mpi
 def test_poisson_2d_4_patches_dirichlet_parallel_0():
 
     filename = os.path.join(mesh_dir, 'multipatch/magnet.h5')
@@ -352,7 +334,7 @@ def test_poisson_2d_4_patches_dirichlet_parallel_0():
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
 
 #------------------------------------------------------------------------------
-@pytest.mark.parallel
+@pytest.mark.mpi
 @pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL])
 def test_poisson_2d_2_patches_dirichlet_parallel_1(backend):
 
@@ -388,7 +370,7 @@ if __name__ == '__main__':
     from psydac.fem.plotting_utilities import get_patch_knots_gridlines, my_small_plot
     from collections                               import OrderedDict
 
-    domain    = build_pretzel()
+    domain    = build_11_patch_pretzel()
     x,y       = domain.coordinates
     solution  = x**2 + y**2
     f         = -4

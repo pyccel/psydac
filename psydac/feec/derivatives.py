@@ -1,5 +1,8 @@
-# -*- coding: UTF-8 -*-
-
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 import numpy as np
 import scipy.sparse as spa
 
@@ -9,38 +12,28 @@ from psydac.linalg.block    import BlockVector, BlockLinearOperator
 from psydac.fem.vector      import VectorFemSpace
 from psydac.fem.tensor      import TensorFemSpace
 from psydac.linalg.basic    import IdentityOperator
-from psydac.fem.basic       import FemField, FemSpace
+from psydac.fem.basic       import FemField, FemSpace, FemLinearOperator
 from psydac.linalg.basic    import LinearOperator
 from psydac.ddm.cart        import DomainDecomposition, CartDecomposition
 
 __all__ = (
     'DirectionalDerivativeOperator',
-    'DiffOperator',
-    'Derivative_1D',
-    'Gradient_2D',
-    'Gradient_3D',
-    'ScalarCurl_2D',
-    'VectorCurl_2D',
-    'Curl_3D',
-    'Divergence_2D',
-    'Divergence_3D',
-    'block_tostencil'
+    'Derivative1D',
+    'Gradient2D',
+    'Gradient3D',
+    'ScalarCurl2D',
+    'VectorCurl2D',
+    'Curl3D',
+    'Divergence2D',
+    'Divergence3D',
+    'BrokenGradient2D',
+    'BrokenTransposedGradient2D',
+    'BrokenScalarCurl2D',
+    'BrokenTransposedScalarCurl2D',
 )
 
 #====================================================================================================
-def block_tostencil(M):
-    """
-    Convert a BlockLinearOperator that contains KroneckerStencilMatrix objects
-    to a BlockLinearOperator that contains StencilMatrix objects
-    """
-    blocks = [list(b) for b in M.blocks]
-    for i1,b in enumerate(blocks):
-        for i2, mat in enumerate(b):
-            if mat is None:
-                continue
-            blocks[i1][i2] = mat.tostencil()
-    return BlockLinearOperator(M.domain, M.codomain, blocks=blocks)
-
+# Singlepatch derivative operators
 #====================================================================================================
 class DirectionalDerivativeOperator(LinearOperator):
     """
@@ -361,40 +354,7 @@ class DirectionalDerivativeOperator(LinearOperator):
                 self._diffdir, negative=self._negative, transposed=self._transposed)
 
 #====================================================================================================
-class DiffOperator:
-    def __init__(self, domain, codomain, matrix):
-        assert isinstance(domain, FemSpace)
-        assert isinstance(codomain, FemSpace)
-        assert isinstance(matrix, LinearOperator)
-        assert domain.coeff_space is matrix.domain
-        assert codomain.coeff_space is matrix.codomain
-
-        self._domain = domain
-        self._codomain = codomain
-        self._matrix = matrix
-
-    @property
-    def matrix(self):
-        return self._matrix
-
-    @property
-    def domain(self):
-        return self._domain
-
-    @property
-    def codomain(self):
-        return self._codomain
-    
-    def __call__(self, u):
-        assert isinstance(u, FemField)
-        assert u.space == self.domain
-
-        coeffs = self.matrix.dot(u.coeffs)
-
-        return FemField(self.codomain, coeffs=coeffs)
-
-#====================================================================================================
-class Derivative_1D(DiffOperator):
+class Derivative1D(FemLinearOperator):
     """
     1D derivative.
 
@@ -415,10 +375,10 @@ class Derivative_1D(DiffOperator):
         assert H1.degree[0] == L2.degree[0] + 1
 
         # Store data in object   
-        super().__init__(H1, L2, DirectionalDerivativeOperator(H1.coeff_space, L2.coeff_space, 0))
+        super().__init__(fem_domain = H1, fem_codomain = L2, linop = DirectionalDerivativeOperator(H1.coeff_space, L2.coeff_space, 0))
 
 #====================================================================================================
-class Gradient_2D(DiffOperator):
+class Gradient2D(FemLinearOperator):
     """
     Gradient operator in 2D.
 
@@ -434,7 +394,7 @@ class Gradient_2D(DiffOperator):
     def __init__(self, H1, Hcurl):
 
         assert isinstance(   H1,  TensorFemSpace); assert    H1.ldim == 2
-        assert isinstance(Hcurl, VectorFemSpace); assert Hcurl.ldim == 2
+        assert isinstance(Hcurl,  VectorFemSpace); assert Hcurl.ldim == 2
 
         assert Hcurl.spaces[0].periodic == H1.periodic
         assert Hcurl.spaces[1].periodic == H1.periodic
@@ -454,11 +414,10 @@ class Gradient_2D(DiffOperator):
         matrix = BlockLinearOperator(H1.coeff_space, Hcurl.coeff_space, blocks=blocks)
 
         # Store data in object   
-        super().__init__(H1, Hcurl, matrix)
-
+        super().__init__(fem_domain = H1, fem_codomain = Hcurl, linop = matrix)
 
 #====================================================================================================
-class Gradient_3D(DiffOperator):
+class Gradient3D(FemLinearOperator):
     """
     Gradient operator in 3D.
 
@@ -497,10 +456,10 @@ class Gradient_3D(DiffOperator):
         matrix = BlockLinearOperator(H1.coeff_space, Hcurl.coeff_space, blocks=blocks)
 
         # Store data in object   
-        super().__init__(H1, Hcurl, matrix)
+        super().__init__(fem_domain = H1, fem_codomain = Hcurl, linop = matrix)
 
 #====================================================================================================
-class ScalarCurl_2D(DiffOperator):
+class ScalarCurl2D(FemLinearOperator):
     """
     Scalar curl operator in 2D: computes a scalar field from a vector field.
 
@@ -536,10 +495,10 @@ class ScalarCurl_2D(DiffOperator):
         matrix = BlockLinearOperator(Hcurl.coeff_space, L2.coeff_space, blocks=blocks)
 
         # Store data in object   
-        super().__init__(Hcurl, L2, matrix)
+        super().__init__(fem_domain = Hcurl, fem_codomain = L2, linop = matrix)
 
 #====================================================================================================
-class VectorCurl_2D(DiffOperator):
+class VectorCurl2D(FemLinearOperator):
     """
     Vector curl operator in 2D: computes a vector field from a scalar field.
     This is sometimes called the 'rot' operator.
@@ -576,10 +535,10 @@ class VectorCurl_2D(DiffOperator):
         matrix = BlockLinearOperator(H1.coeff_space, Hdiv.coeff_space, blocks=blocks)
 
         # Store data in object   
-        super().__init__(H1, Hdiv, matrix)
+        super().__init__(fem_domain = H1, fem_codomain = Hdiv, linop = matrix)
 
 #====================================================================================================
-class Curl_3D(DiffOperator):
+class Curl3D(FemLinearOperator):
     """
     Curl operator in 3D.
 
@@ -626,10 +585,10 @@ class Curl_3D(DiffOperator):
         # ...
 
         # Store data in object        
-        super().__init__(Hcurl, Hdiv, matrix)
+        super().__init__(fem_domain = Hcurl, fem_codomain = Hdiv, linop = matrix)
 
 #====================================================================================================
-class Divergence_2D(DiffOperator):
+class Divergence2D(FemLinearOperator):
     """
     Divergence operator in 2D.
 
@@ -665,10 +624,10 @@ class Divergence_2D(DiffOperator):
         matrix = BlockLinearOperator(Hdiv.coeff_space, L2.coeff_space, blocks=blocks)
 
         # Store data in object   
-        super().__init__(Hdiv, L2, matrix)
+        super().__init__(fem_domain = Hdiv, fem_codomain = L2, linop = matrix)
 
 #====================================================================================================
-class Divergence_3D(DiffOperator):
+class Divergence3D(FemLinearOperator):
     """
     Divergence operator in 3D.
 
@@ -707,4 +666,118 @@ class Divergence_3D(DiffOperator):
         matrix = BlockLinearOperator(Hdiv.coeff_space, L2.coeff_space, blocks=blocks)
 
         # Store data in object   
-        super().__init__(Hdiv, L2, matrix)
+        super().__init__(fem_domain = Hdiv, fem_codomain = L2, linop = matrix)
+
+#====================================================================================================
+# 2D Multipatch derivative operators
+#====================================================================================================
+class BrokenGradient2D(FemLinearOperator):
+    """
+    Gradient operator in a 2D multipatch domain,
+    acting independently on each patch.
+    In general, the resulting field is therefore discontinuous, or "broken".
+
+    Parameters
+    ----------
+    V0h : MultipatchFemSpace
+        Domain of the gradient operator.
+        
+    V1h : MultipatchFemSpace
+        Codomain of the gradient operator.
+    """
+    def __init__(self, V0h, V1h):
+
+        FemLinearOperator.__init__(self, fem_domain=V0h, fem_codomain=V1h)
+
+        D0s = [Gradient2D(V0, V1) for V0, V1 in zip(V0h.spaces, V1h.spaces)]
+
+        self._linop = BlockLinearOperator(self.linop_domain, self.linop_codomain, blocks={
+                                           (i, i): D0i.linop for i, D0i in enumerate(D0s)})
+
+    def transpose(self, conjugate=False):
+        # todo (MCP): define as the dual differential operator
+        return BrokenTransposedGradient2D(self.fem_domain, self.fem_codomain)
+
+# ==============================================================================
+class BrokenTransposedGradient2D(FemLinearOperator):
+    """
+    Transposed gradient operator in a 2D multipatch domain, 
+    acting independently on each patch.
+    In general, the resulting field is therefore discontinuous, or "broken".
+    
+    Parameters
+    ----------
+    V0h : MultipatchFemSpace
+        Codomain of the transposed gradient operator.
+        
+    V1h : MultipatchFemSpace
+        Domain of the transposed gradient operator.
+    """
+    def __init__(self, V0h, V1h):
+
+        FemLinearOperator.__init__(self, fem_domain=V1h, fem_codomain=V0h)
+
+        D0s = [Gradient2D(V0, V1) for V0, V1 in zip(V0h.spaces, V1h.spaces)]
+
+        self._linop = BlockLinearOperator(self.linop_domain, self.linop_codomain, blocks={
+                                           (i, i): D0i.linop.T for i, D0i in enumerate(D0s)})
+
+    def transpose(self, conjugate=False):
+        # todo (MCP): discard
+        return BrokenGradient2D(self.fem_codomain, self.fem_domain)
+
+# ==============================================================================
+class BrokenScalarCurl2D(FemLinearOperator):
+    """
+    Scalar curl operator in a 2D multipatch domain,
+    acting independently on each patch.
+    In general, the resulting field is therefore discontinuous, or "broken".
+
+    Parameters
+    ----------
+    V1h : MultipatchFemSpace
+        Domain of the scalar curl operator.
+        
+    V2h : MultipatchFemSpace
+        Codomain of the scalar curl operator.
+    """
+    def __init__(self, V1h, V2h):
+
+        FemLinearOperator.__init__(self, fem_domain=V1h, fem_codomain=V2h)
+
+        D1s = [ScalarCurl2D(V1, V2) for V1, V2 in zip(V1h.spaces, V2h.spaces)]
+
+        self._linop = BlockLinearOperator(self.linop_domain, self.linop_codomain, blocks={
+                                           (i, i): D1i.linop for i, D1i in enumerate(D1s)})
+
+    def transpose(self, conjugate=False):
+        return BrokenTransposedScalarCurl2D(
+            V1h=self.fem_domain, V2h=self.fem_codomain)
+
+
+# ==============================================================================
+class BrokenTransposedScalarCurl2D(FemLinearOperator):
+    """
+    Transposed scalar curl operator in a 2D multipatch domain,
+    acting independently on each patch.
+    In general, the resulting field is therefore discontinuous, or "broken".
+
+    Parameters
+    ----------
+    V1h : MultipatchFemSpace
+        Codomain of the transposed scalar curl operator.
+        
+    V2h : MultipatchFemSpace
+        Domain of the transposed scalar curl operator.
+    """
+    def __init__(self, V1h, V2h):
+
+        FemLinearOperator.__init__(self, fem_domain=V2h, fem_codomain=V1h)
+
+        D1s = [ScalarCurl2D(V1, V2) for V1, V2 in zip(V1h.spaces, V2h.spaces)]
+
+        self._linop = BlockLinearOperator(self.linop_domain, self.linop_codomain, blocks={
+                                           (i, i): D1i.linop.T for i, D1i in enumerate(D1s)})
+
+    def transpose(self, conjugate=False):
+        return BrokenScalarCurl2D(V1h=self.fem_codomain, V2h=self.fem_domain)

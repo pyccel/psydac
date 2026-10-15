@@ -1,3 +1,8 @@
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 import pytest
 import numpy as np
 
@@ -275,7 +280,7 @@ def test_stencil_vector_space_2D_serial_set_interface(dtype, n1, n2, p1, p2, s1,
 @pytest.mark.parametrize('p1', [1, 2])
 @pytest.mark.parametrize('s1', [1, 2])
 @pytest.mark.parametrize('P1', [True, False])
-@pytest.mark.parallel
+@pytest.mark.mpi
 
 def test_stencil_vector_space_1d_parallel_init(dtype, n1, p1, s1, P1):
 
@@ -322,7 +327,7 @@ def test_stencil_vector_space_1d_parallel_init(dtype, n1, p1, s1, P1):
 @pytest.mark.parametrize('s2', [2])
 @pytest.mark.parametrize('P1', [True, False])
 @pytest.mark.parametrize('P2', [True])
-@pytest.mark.parallel
+@pytest.mark.mpi
 
 def test_stencil_vector_space_2d_parallel_init(dtype, n1, n2, p1, p2, s1, s2, P1, P2):
 
@@ -369,7 +374,7 @@ def test_stencil_vector_space_2d_parallel_init(dtype, n1, n2, p1, p2, s1, s2, P1
 @pytest.mark.parametrize('s1', [1, 2])
 @pytest.mark.parametrize('s2', [1, 2])
 @pytest.mark.parametrize('s3', [1])
-@pytest.mark.parallel
+@pytest.mark.mpi
 
 def test_stencil_vector_space_3d_parallel_init(dtype, n1, n2, n3, p1, p2, p3, s1, s2, s3, P1=True, P2=False, P3=True):
 
@@ -409,7 +414,7 @@ def test_stencil_vector_space_3d_parallel_init(dtype, n1, n2, n3, p1, p2, p3, s1
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [15])
 @pytest.mark.parametrize('n2', [20])
-@pytest.mark.parallel
+@pytest.mark.mpi
 
 def test_stencil_vector_space_2D_parallel_parent(dtype, n1, n2, P1=True, P2=False):
 

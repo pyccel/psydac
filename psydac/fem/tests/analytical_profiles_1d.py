@@ -1,13 +1,15 @@
-# coding: utf-8
-# Copyright 2018 Yaman Güçlü
-
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 import math
 import numpy as np
 
 from psydac.fem.tests.analytical_profiles_base import AnalyticalProfile
 from psydac.fem.tests.utilities                import horner, falling_factorial
 
-__all__ = ('AnalyticalProfile_1d_cos', 'AnalyticalProfile1D_Poly')
+__all__ = ('AnalyticalProfile1D_Cos', 'AnalyticalProfile1D_Poly')
 
 #===============================================================================
 class AnalyticalProfile1D_Cos( AnalyticalProfile ):

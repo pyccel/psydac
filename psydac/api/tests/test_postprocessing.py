@@ -1,9 +1,14 @@
-import glob
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 import os
+import glob
+from pathlib import Path
+
 import pytest
-
 import numpy as np
-
 from mpi4py import MPI
 
 from sympde.topology import Square, Cube, ScalarFunctionSpace, VectorFunctionSpace, Domain, Derham, Union
@@ -24,13 +29,9 @@ from psydac.feec.pull_push import (push_2d_hcurl,
 
 from psydac.api.postprocessing import OutputManager, PostProcessManager
 
-# Get mesh_directory
-try:
-    mesh_dir = os.environ['PSYDAC_MESH_DIR']
-except KeyError:
-    base_dir = os.path.dirname(os.path.realpath(__file__))
-    base_dir = os.path.join(base_dir, '..', '..', '..')
-    mesh_dir = os.path.join(base_dir, 'mesh')
+# Get the mesh directory
+import psydac.cad.mesh as mesh_mod
+mesh_dir = Path(mesh_mod.__file__).parent
 
 # Tolerances for float equality
 ATOL=1e-15
@@ -81,7 +82,7 @@ def build_2_cubes():
 ###############################################################################
 #                            Output Manager tests                             #
 ###############################################################################
-@pytest.mark.serial
+@pytest.mark.xdist_group('h5py')
 @pytest.mark.parametrize( 'dtype', ['float', 'complex'] )
 def test_add_spaces(dtype):
     domain = Square('D')
@@ -205,7 +206,8 @@ def test_add_spaces(dtype):
     # Remove file
     os.remove('test_add_spaces_single_patch.yml')
 
-@pytest.mark.serial
+
+@pytest.mark.xdist_group('h5py')
 @pytest.mark.parametrize( 'dtype', ['float', 'complex'] )
 def test_export_fields_serial(dtype):
     domain = Square('D')
@@ -286,7 +288,9 @@ def test_export_fields_serial(dtype):
     os.remove('test_export_fields_serial.yml')
     os.remove('test_export_fields_serial.h5')
 
-@pytest.mark.parallel
+
+@pytest.mark.xdist_group('h5py')
+@pytest.mark.mpi
 def test_export_fields_parallel():
     comm = MPI.COMM_WORLD
     domain = Square('D')
@@ -328,7 +332,7 @@ def test_export_fields_parallel():
 ###############################################################################
 #                 Output Manager and PostProcess Manager tests                #
 ###############################################################################
-@pytest.mark.serial
+@pytest.mark.xdist_group('h5py')
 @pytest.mark.parametrize('domain', [Square(), Cube()])
 @pytest.mark.parametrize( 'dtype', ['float', 'complex'] )
 def test_reconstruct_spaces_topological_domain(domain, dtype):
@@ -398,7 +402,7 @@ def test_reconstruct_spaces_topological_domain(domain, dtype):
     os.remove("test_reconstruct_spaces_topological_domain_2.yml")
 
 
-@pytest.mark.serial
+@pytest.mark.xdist_group('h5py')
 @pytest.mark.parametrize('domain, seq', [(Square(), ['h1', 'hdiv', 'l2']), (Square(), ['h1', 'hcurl', 'l2']), (Cube(), None)])
 @pytest.mark.parametrize( 'dtype', ['float', 'complex'] )
 def test_reconstruct_DerhamSequence_topological_domain(domain, seq, dtype):
@@ -457,7 +461,7 @@ def test_reconstruct_DerhamSequence_topological_domain(domain, seq, dtype):
     os.remove('test_reconstruct_DerhamSequence_topological_domain.yml')
 
 
-@pytest.mark.serial
+@pytest.mark.xdist_group('h5py')
 @pytest.mark.parametrize('geometry, seq', [('identity_2d.h5', ['h1', 'hdiv', 'l2']),
                                            ('identity_2d.h5', ['h1', 'hcurl', 'l2']),
                                            ('identity_3d.h5', None),
@@ -523,6 +527,8 @@ def test_reconstruct_DerhamSequence_discrete_domain(geometry, seq, dtype):
     os.remove('test_reconstruct_DerhamSequence_discrete_domain_2.yml')
     os.remove('test_reconstruct_DerhamSequence_discrete_domain.yml')
 
+
+@pytest.mark.xdist_group('h5py')
 @pytest.mark.parametrize( 'dtype', ['float', 'complex'] )
 def test_reconstruct_multipatch(dtype):
     bounds1   = (0.5, 1.)
@@ -603,7 +609,8 @@ def test_reconstruct_multipatch(dtype):
                     else:
                         assert value1 == value2
 
-@pytest.mark.serial
+
+@pytest.mark.xdist_group('h5py')
 def test_incorrect_arg_export_to_vtk():
     domain = Square()
     space = ScalarFunctionSpace('V', domain)
@@ -648,7 +655,8 @@ def test_incorrect_arg_export_to_vtk():
     os.remove("test_incorrect_arg_export_to_vtk.h5")
 
 
-@pytest.mark.parallel
+@pytest.mark.xdist_group('h5py')
+@pytest.mark.mpi
 @pytest.mark.parametrize('geometry', ['identity_2d.h5',
                                       'identity_3d.h5',
                                     #   'pipe.h5',]) # Doesn't work, see issue #229
@@ -758,7 +766,8 @@ def test_parallel_export_discrete_domain(geometry, kind, space, dtype):
         os.remove("test_parallel_export_discrete_domain.h5")
 
 
-@pytest.mark.parallel
+@pytest.mark.xdist_group('h5py')
+@pytest.mark.mpi
 @pytest.mark.parametrize('domain', [
     Square(),
     Cube(),

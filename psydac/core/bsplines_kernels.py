@@ -1,3 +1,9 @@
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
+
 # This file holds the pyccelisable versions of the functions in bsplines.py
 # This will be changed once pyccel can return arrays and can get out=None arguments
 # like Numpy functions.
@@ -1089,7 +1095,7 @@ def cell_index_p(breaks: 'float[:]', i_grid: 'float[:]', tol: float, out: 'int[:
         i_cell = (low + high)//2
         it = 0
         max_it = 2*(high-low) # this number of iterations should not be reached
-        while it < max_it and (x < breaks[i_cell] - tol or x >= breaks[i_cell + 1] + tol):
+        while it < max_it and (x < breaks[i_cell] - tol or x > breaks[i_cell + 1] + tol):
             if x < breaks[i_cell]:
                 high = i_cell
             else:

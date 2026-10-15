@@ -10,7 +10,9 @@ fem
     fem.basic
     fem.context
     fem.grid
+    fem.lst_preconditioner
     fem.partitioning
+    fem.plotting_utilities
     fem.projectors
     fem.splines
     fem.tensor

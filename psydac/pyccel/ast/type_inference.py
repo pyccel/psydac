@@ -1,16 +1,9 @@
-# coding: utf-8
-
-from .core import PyccelPow, PyccelAdd, PyccelMul, PyccelDiv, PyccelMod, PyccelFloorDiv
-from .core import PyccelEq,  PyccelNe,  PyccelLt,  PyccelLe,  PyccelGt,  PyccelGe
-from .core import PyccelAnd, PyccelOr,  PyccelNot, Is, IsNot, PyccelAssociativeParenthesis
-from .core import PyccelUnary, FunctionCall, String
-from .core import Variable, IndexedElement, DottedVariable
-
-from .numbers   import Integer, Float, Complex, BooleanFalse, BooleanTrue
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 from .datatypes import NativeInteger, NativeReal, NativeComplex, NativeBool
-from .builtins  import List, PythonTuple
-
-from sympy.core.function import Application
 
 __all__ = ('str_dtype',)
 

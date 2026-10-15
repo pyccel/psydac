@@ -1,36 +1,33 @@
-# coding: utf-8
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
 
 # TODO for the moment we assume Product of same space
-
-import numpy as np
-from itertools import product
-from scipy.linalg import eig as eig_solver
-
-from gelato.expr     import GltExpr as sym_GltExpr
-
-from psydac.api.ast.glt       import GltKernel
-from psydac.api.ast.glt       import GltInterface
-from psydac.api.settings      import PSYDAC_BACKEND_PYTHON, PSYDAC_DEFAULT_FOLDER
-from psydac.api.grid          import CollocationBasisValues
-
-from psydac.api.utilities     import mkdir_p, touch_init_file, random_string, write_code
-from psydac.cad.geometry      import Geometry
-from psydac.mapping.discrete  import SplineMapping, NurbsMapping
-
-from psydac.fem.splines import SplineSpace
-from psydac.fem.tensor  import TensorFemSpace
-from psydac.fem.vector  import MultipatchFemSpace
-
-from sympde.expr.basic            import BasicForm
-from psydac.api.printing.pycode   import pycode
 
 import inspect
 import sys
 import os
 import importlib
-import string
-import random
+import subprocess
+
+import numpy as np
 from mpi4py import MPI
+from scipy.linalg import eig as eig_solver
+
+from gelato.expr     import GltExpr as sym_GltExpr
+
+from psydac.api.ast.glt         import GltKernel
+from psydac.api.ast.glt         import GltInterface
+from psydac.api.settings        import PSYDAC_BACKEND_PYTHON, PSYDAC_DEFAULT_FOLDER
+from psydac.api.grid            import CollocationBasisValues
+from psydac.api.utilities       import mkdir_p, touch_init_file, random_string, write_code
+from psydac.cad.geometry        import Geometry
+from psydac.mapping.discrete    import NurbsMapping
+from psydac.fem.tensor          import TensorFemSpace
+from psydac.fem.vector          import MultipatchFemSpace
+from psydac.api.printing.pycode import pycode
 
 __all__ = ('GltBasicCodeGen', 'DiscreteGltExpr')
 
@@ -325,7 +322,7 @@ class GltBasicCodeGen(object):
 
         os.chdir(self.folder)
         sys.path.append(self.folder)
-        os.system('pythran {}.py -O3'.format(module_name))
+        subprocess.run(['pythran', f'{module_name}.py', '-O3']) # nosec B607
         sys.path.remove(self.folder)
 
         # ...
