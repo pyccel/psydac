@@ -254,7 +254,7 @@ class Geometry:
 
         mapping_name = name if name else 'mapping'
         dim      = mapping.ldim
-        M        = Mapping(mapping_name, dim = dim)  # this is a symbolic mapping
+        M        = Mapping(mapping_name, ldim=dim, pdim=mapping.pdim)  # this is a symbolic mapping
         domain   = M(NCube(name = 'Omega',
                            dim  = dim,
                            min_coords = [0.] * dim,
@@ -284,7 +284,12 @@ class Geometry:
                 raise TypeError(msg)
 
         mappings = {itr.name : None for itr in interior}
-        pdim = next(iter(interior)).dim
+
+        # The physical dimension is given by the mappings of the patches, if any
+        pdims = {itr.mapping.pdim if itr.mapping is not None else itr.dim for itr in interior}
+        if len(pdims) > 1:
+            raise ValueError(f'The patches of the domain have different physical dimensions: {pdims}')
+        pdim = pdims.pop()
 
         if isinstance(ncells, (list, tuple)):
             ncells = {itr.name : ncells for itr in interior}

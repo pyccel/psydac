@@ -116,6 +116,9 @@ def test_geometry_nurbs_manifold(make_mapping, tmp_path) -> None:
     F_read, = geo_read.mappings.values()
     assert_same_geometry(F_read, mapping)
 
+    # The symbolic mapping has the physical dimension of the discrete one
+    assert Geometry.from_discrete_mapping(mapping).domain.mapping.pdim == pdim
+
 #==============================================================================
 def test_geometry_nurbs_quarter_annulus(tmp_path) -> None:
 
@@ -242,6 +245,32 @@ def test_from_topological_domain():
     # Verify that the domain is distributed as expected
     assert geo_from_domain.ddm.starts == expected_starts
     assert geo_from_domain.ddm.ends   == expected_ends
+
+# ==============================================================================
+def join_squares(pdims: tuple[int, int]) -> Domain:
+    """Join two unit squares, with mappings of the given physical dimensions."""
+    A = Mapping('FA', ldim=2, pdim=pdims[0])(Square('A'))
+    B = Mapping('FB', ldim=2, pdim=pdims[1])(Square('B'))
+    return Domain.join([A, B], [((0, 0, 1), (1, 0, -1), 1)], 'Omega')
+
+@pytest.mark.parametrize(('make_domain_2d', 'pdim'), [
+    (lambda: Square('Omega'), 2),
+    (lambda: Mapping('F', dim=2)(Square('Omega')), 2),
+    (lambda: Mapping('F', ldim=2, pdim=3)(Square('Omega')), 3),
+    (lambda: join_squares((3, 3)), 3),
+], ids=['no-mapping', 'mapping', 'surface-3d', 'multipatch-surface-3d'])
+def test_from_topological_domain_pdim(make_domain_2d, pdim: int) -> None:
+
+    # The physical dimension is given by the mappings of the patches, if any
+    geo = Geometry.from_topological_domain(make_domain_2d(), [3, 5])
+
+    assert geo.ldim == 2
+    assert geo.pdim == pdim
+
+def test_from_topological_domain_different_pdims() -> None:
+
+    with pytest.raises(ValueError, match='different physical dimensions'):
+        Geometry.from_topological_domain(join_squares((2, 3)), [3, 5])
 
 # ==============================================================================
 @pytest.mark.parametrize('ldim', [1, 2])
