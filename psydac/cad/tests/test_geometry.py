@@ -16,6 +16,7 @@ from psydac.cad.geometry             import Geometry, export_nurbs_to_hdf5, refi
 from psydac.cad.geometry             import import_geopdes_to_nurbs
 from psydac.cad.cad                  import elevate, refine
 from psydac.cad.gallery              import quart_circle
+from psydac.cad.multipatch           import export_multipatch_nurbs_to_hdf5
 from psydac.cad.tests.test_cad       import assert_same_geometry, make_curve, make_surface
 from psydac.mapping.discrete         import SplineMapping, NurbsMapping
 from psydac.mapping.discrete_gallery import discrete_mapping
@@ -293,6 +294,41 @@ def test_geometry_init_without_mappings(npatches: int, ldim: int) -> None:
     assert geo.periodic == {name: (False,) * ldim for name in domain.interior_names}
 
     assert geo.mappings == {name: None for name in domain.interior_names}
+
+#==============================================================================
+def _export_strip(filename: str, ncells_x: list[int]) -> None:
+    """
+    Export a strip of bilinear patches glued along x, where patch k maps the
+    unit square onto [k, k+1] x [0, 1] with ncells_x[k] cells along x.
+    """
+    from igakit.nurbs import NURBS
+
+    nurbs = []
+    for k, nx in enumerate(ncells_x):
+        points = np.zeros((nx + 1, 2, 2))
+        points[..., 0] = np.linspace(k, k + 1, nx + 1)[:, None]
+        points[..., 1] = [0, 1]
+        knots_x = np.concatenate([[0.], np.linspace(0, 1, nx + 1), [1.]])
+        nurbs.append(NURBS([knots_x, [0, 0, 1, 1]], points))
+    connectivity = {(k, k + 1): ((0, 1), (0, -1)) for k in range(len(ncells_x) - 1)}
+
+    export_multipatch_nurbs_to_hdf5(filename, nurbs, connectivity)
+
+# SymPDE sorts the interiors by name (patch_0, patch_1, patch_10, patch_2, ...),
+# while the file keeps the order patch_0, ..., patch_10
+@pytest.mark.parametrize('ncells_x', [[1] * 11, [1] * 10 + [2]], ids=['same-sizes', 'patch_10-refined'])
+def test_geometry_from_file_more_than_10_patches(ncells_x: list[int], tmp_path) -> None:
+
+    filename = str(tmp_path / 'strip.h5')
+    _export_strip(filename, ncells_x)
+    geo = Geometry.from_file(filename)
+
+    # Each patch must be paired with its interior by name, not by position
+    for itr in geo.domain.interior.args:
+        k = int(itr.logical_domain.name.removeprefix('patch_'))
+        x, _ = geo.mappings[itr.name](0.5, 0.5)
+        assert np.isclose(x, k + 0.5), f'interior {itr.name} got the mapping of patch_{round(x - 0.5)}'
+        assert geo.ncells[itr.name] == (ncells_x[k], 1)
 
 #==============================================================================
 def test_geometry_from_file_multipatch() -> None:

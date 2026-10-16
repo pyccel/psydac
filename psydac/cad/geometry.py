@@ -209,7 +209,9 @@ class Geometry:
             if len(yml['patches']) == 0:
                 raise ValueError("Input file contains no patches.")
 
-            # The patches in the file follow the order of the domain interiors
+            # Pair the patches with the domain interiors by name, because the
+            # orders may differ (e.g. 'patch_10' is sorted before 'patch_2')
+            yml['patches'] = _sort_patches(yml['patches'], geometry_domain)
             spaces   = _read_patch_spaces(h5, yml)
             names    = geometry_domain.interior_names
             ncells   = {name: [W.ncells   for W in s] for name, s in zip(names, spaces)}
@@ -887,6 +889,47 @@ def _read_patch(lines, i_patch, n_lines_per_patch, list_begin_line):
 def _get_interiors(domain : Domain) -> list:
     """Return the list of interior patches of a (multi-patch) domain."""
     return [domain.interior] if len(domain) == 1 else list(domain.interior.args)
+
+def _sort_patches(patches : list[dict], domain : Domain) -> list[dict]:
+    """
+    Sort the patches of a geometry file in the order of the domain interiors.
+
+    Each patch is identified by its name, which is either the name of the
+    interior (e.g. 'mapping_0(patch_0)', as written by `Geometry.export`), or
+    the name of its logical domain (e.g. 'patch_0', as written by
+    `export_multipatch_nurbs_to_hdf5`).
+
+    Parameters
+    ----------
+    patches : list[dict]
+        The patches listed in the `geometry.yml` section of the file.
+
+    domain : sympde.topology.Domain
+        The topological domain read from the file.
+
+    Returns
+    -------
+    list[dict]
+        The same patches, in the order of the domain interiors.
+
+    Raises
+    ------
+    ValueError
+        If the patch of an interior cannot be identified uniquely.
+    """
+    by_name = {patch['name']: patch for patch in patches}
+    if len(by_name) != len(patches):
+        raise ValueError('The patches of the geometry file must have distinct names')
+
+    sorted_patches = []
+    for itr in _get_interiors(domain):
+        names = {itr.name} if itr.logical_domain is None else {itr.name, itr.logical_domain.name}
+        matches = [by_name[name] for name in names if name in by_name]
+        if len(matches) != 1:
+            raise ValueError(f'Cannot identify the patch of interior {itr.name} in the geometry file')
+        sorted_patches.append(matches[0])
+
+    return sorted_patches
 
 def _get_interface_keys(domain : Domain) -> set:
     """Return the interfaces of a domain as hashable tuples, with orientation."""
