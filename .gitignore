@@ -29,3 +29,5 @@ __test__/
 
 # Meson lock files
 */.wraplock
+
+.venv/
