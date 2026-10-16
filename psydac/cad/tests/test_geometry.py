@@ -34,7 +34,7 @@ base_dir = os.path.dirname(os.path.realpath(__file__))
 # Unit patch of each logical dimension
 PATCHES = {1: Line, 2: Square}
 #==============================================================================
-def assert_geometries_equal(geo: Geometry, ref: Geometry) -> None:
+def _assert_geometries_equal(geo: Geometry, ref: Geometry) -> None:
     """Check that two geometries are equal, comparing their patches by position."""
     assert geo.ldim == ref.ldim
     assert geo.pdim == ref.pdim
@@ -52,24 +52,24 @@ def assert_geometries_equal(geo: Geometry, ref: Geometry) -> None:
         assert all(np.array_equal(f.coeffs.toarray(), f_ref.coeffs.toarray())
                    for f, f_ref in zip(fields, fields_ref))
 
-def check_round_trips(geo: Geometry, mapping: SplineMapping, tmp_path) -> Geometry:
+def _check_round_trips(geo: Geometry, mapping: SplineMapping, tmp_path) -> Geometry:
     """Check that a single-patch geometry is preserved by export/read and
     by from_discrete_mapping, and return the geometry read from file."""
     filename = str(tmp_path / 'geo.h5')
     geo.export(filename)
     geo_read = Geometry.from_file(filename)
-    assert_geometries_equal(geo_read, geo)
+    _assert_geometries_equal(geo_read, geo)
 
     # A geometry read from file is exported again without changes
     filename_again = str(tmp_path / 'geo_again.h5')
     geo_read.export(filename_again)
-    assert_geometries_equal(Geometry.from_file(filename_again), geo)
+    _assert_geometries_equal(Geometry.from_file(filename_again), geo)
 
-    assert_geometries_equal(Geometry.from_discrete_mapping(mapping), geo)
+    _assert_geometries_equal(Geometry.from_discrete_mapping(mapping), geo)
 
     return geo_read
 
-def make_identity_mapping(ddm: DomainDecomposition, degree: list[int], shift: float = 0.0) -> SplineMapping:
+def _make_identity_mapping(ddm: DomainDecomposition, degree: list[int], shift: float = 0.0) -> SplineMapping:
     """Create a spline mapping on the decomposition, equal to the identity
     shifted along x. Its control points are given by the Greville abscissae."""
     spaces = [SplineSpace(degree=p, grid=np.linspace(0.0, 1.0, n + 1))
@@ -84,11 +84,11 @@ def make_identity_mapping(ddm: DomainDecomposition, degree: list[int], shift: fl
 def test_geometry_identity_spline(ldim: int, tmp_path) -> None:
 
     ddm = DomainDecomposition([2, 3][:ldim], [False] * ldim)
-    mapping = make_identity_mapping(ddm, degree=[2] * ldim)
+    mapping = _make_identity_mapping(ddm, degree=[2] * ldim)
     domain = Mapping('F', dim=ldim)(PATCHES[ldim](name='Omega'))
 
     geo = Geometry(domain, ddm=ddm, pdim=ldim, mappings={domain.name: mapping})
-    geo_read = check_round_trips(geo, mapping, tmp_path)
+    geo_read = _check_round_trips(geo, mapping, tmp_path)
 
     # The mapping read from file is the identity
     F_read, = geo_read.mappings.values()
@@ -111,7 +111,7 @@ def test_geometry_nurbs_manifold(make_mapping, tmp_path) -> None:
 
     geo = Geometry(domain, ddm=mapping.space.domain_decomposition, pdim=pdim,
                    mappings={domain.name: mapping})
-    geo_read = check_round_trips(geo, mapping, tmp_path)
+    geo_read = _check_round_trips(geo, mapping, tmp_path)
 
     # The mapping read from file is the original one
     F_read, = geo_read.mappings.values()
@@ -151,7 +151,7 @@ def test_geometry_nurbs_quarter_annulus(tmp_path) -> None:
     geo = Geometry(domain, ddm=mapping.space.domain_decomposition, pdim=2,
                    mappings=mappings)
 
-    geo_read = check_round_trips(geo, mapping, tmp_path)
+    geo_read = _check_round_trips(geo, mapping, tmp_path)
 
     # The mapping read from file is a quarter annulus, radial along axis 1
     F_read = list(geo_read.mappings.values())[0]
@@ -248,7 +248,7 @@ def test_from_topological_domain():
     assert geo_from_domain.ddm.ends   == expected_ends
 
 # ==============================================================================
-def join_squares(pdims: tuple[int, int]) -> Domain:
+def _join_squares(pdims: tuple[int, int]) -> Domain:
     """Join two unit squares, with mappings of the given physical dimensions."""
     A = Mapping('FA', ldim=2, pdim=pdims[0])(Square('A'))
     B = Mapping('FB', ldim=2, pdim=pdims[1])(Square('B'))
@@ -258,7 +258,7 @@ def join_squares(pdims: tuple[int, int]) -> Domain:
     (lambda: Square('Omega'), 2),
     (lambda: Mapping('F', dim=2)(Square('Omega')), 2),
     (lambda: Mapping('F', ldim=2, pdim=3)(Square('Omega')), 3),
-    (lambda: join_squares((3, 3)), 3),
+    (lambda: _join_squares((3, 3)), 3),
 ], ids=['no-mapping', 'mapping', 'surface-3d', 'multipatch-surface-3d'])
 def test_from_topological_domain_pdim(make_domain_2d, pdim: int) -> None:
 
@@ -271,14 +271,14 @@ def test_from_topological_domain_pdim(make_domain_2d, pdim: int) -> None:
 def test_from_topological_domain_different_pdims() -> None:
 
     with pytest.raises(ValueError, match='different physical dimensions'):
-        Geometry.from_topological_domain(join_squares((2, 3)), [3, 5])
+        Geometry.from_topological_domain(_join_squares((2, 3)), [3, 5])
 
 # ==============================================================================
 @pytest.mark.parametrize('ldim', [1, 2])
 @pytest.mark.parametrize('npatches', [1, 2])
 def test_geometry_init_without_mappings(npatches: int, ldim: int) -> None:
 
-    domain = make_domain(npatches, ldim=ldim)
+    domain = _make_domain(npatches, ldim=ldim)
 
     ncells = [3, 5][:ldim]
     if npatches == 1:
@@ -350,7 +350,7 @@ def test_geometry_from_file_multipatch() -> None:
         assert F.space.domain_decomposition is patch_ddm
 
 #==============================================================================
-def make_domain(npatches: int, *, ldim: int = 2, ornt: int = 1) -> Domain:
+def _make_domain(npatches: int, *, ldim: int = 2, ornt: int = 1) -> Domain:
     """Create a domain made of one or two unit lines or squares, with generic mappings."""
     Patch = PATCHES[ldim]
     if npatches == 1:
@@ -361,7 +361,7 @@ def make_domain(npatches: int, *, ldim: int = 2, ornt: int = 1) -> Domain:
     # 1D interfaces have no orientation
     return Domain.join([A, B], [((0, 0, 1), (1, 0, -1), ornt if ldim > 1 else None)], 'Omega')
 
-def export_geometry(domain: Domain, filename: str) -> None:
+def _export_geometry(domain: Domain, filename: str) -> None:
     """Export a spline geometry on the domain, with patches side by side along x."""
     names = domain.interior_names
     ldim = domain.dim
@@ -375,7 +375,7 @@ def export_geometry(domain: Domain, filename: str) -> None:
         patch_ddms = ddm.domains
 
     # Spline mappings must be defined on the decomposition of their patch
-    mappings = {name: make_identity_mapping(patch_ddm, degree=[2] * ldim, shift=i)
+    mappings = {name: _make_identity_mapping(patch_ddm, degree=[2] * ldim, shift=i)
                 for i, (name, patch_ddm) in enumerate(zip(names, patch_ddms))}
 
     Geometry(domain, ddm=ddm, pdim=ldim, mappings=mappings).export(filename)
@@ -385,9 +385,9 @@ def export_geometry(domain: Domain, filename: str) -> None:
 @pytest.mark.parametrize('npatches', [1, 2])
 def test_geometry_from_file_with_domain(npatches: int, ldim: int, tmp_path) -> None:
 
-    domain = make_domain(npatches, ldim=ldim)
+    domain = _make_domain(npatches, ldim=ldim)
     filename = str(tmp_path / 'geo.h5')
-    export_geometry(domain, filename)
+    _export_geometry(domain, filename)
 
     geo = Geometry.from_file(filename, domain=domain)
 
@@ -404,12 +404,12 @@ def test_geometry_from_file_with_domain(npatches: int, ldim: int, tmp_path) -> N
     (1, lambda: Mapping('G', dim=3)(Cube('P')),                 'dimension'),
     (1, lambda: Mapping('H', dim=2)(Square('P')),               'Patch names'),
     (1, lambda: Mapping('G', dim=2)(Square('P', bounds1=(0, 2))), 'Parametric bounds'),
-    (2, lambda: make_domain(2, ornt=-1),                         'Interfaces'),
+    (2, lambda: _make_domain(2, ornt=-1),                         'Interfaces'),
 ], ids=['analytical', 'no-mapping', 'dimension', 'names', 'bounds', 'orientation'])
 def test_geometry_from_file_with_wrong_domain(npatches: int, make_wrong_domain, message: str, tmp_path) -> None:
 
     filename = str(tmp_path / 'geo.h5')
-    export_geometry(make_domain(npatches), filename)
+    _export_geometry(_make_domain(npatches), filename)
 
     with pytest.raises(ValueError, match=message):
         Geometry.from_file(filename, domain=make_wrong_domain())
