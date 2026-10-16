@@ -36,6 +36,7 @@ All notable changes to this project will be documented in this file.
 -   #527 : Keep the `mpi_dims_mask` of a `DomainDecomposition` in `TensorFemSpace.add_refined_space` and `psydac.cad.cad.refine`, see #622
 -   #527 : Fix `local_ncells` of the decomposition returned by `DomainDecomposition.refine`, see #623
 -   #527 : Use the physical dimension of the mappings in `Geometry.from_topological_domain` and `from_discrete_mapping`
+-   #527 : Pair the patches of a geometry file with the domain interiors by name, not by position
 -   #527 : Avoid setting the `shape` of NumPy arrays (deprecated since NumPy 2.5) in `KroneckerLinearSolver`
 -   #527 : Fix error message in `psydac.api.discretization.get_max_degree_of_one_space`
 -   #596 : Allow export to VTK with a prescribed grid containing exact domain bounds
