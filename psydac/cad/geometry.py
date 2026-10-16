@@ -332,17 +332,6 @@ class Geometry:
                       " got {} instead.".format(type(itr))
                 raise TypeError(msg)
 
-            # A discrete mapping is tied to its own domain decomposition, hence
-            # it cannot be reused on the new one
-            if itr.mapping is not None and not itr.mapping.is_analytical:
-                try:
-                    F = itr.mapping.get_callable_mapping()
-                except ValueError:  # no callable mapping attached
-                    F = None
-                if isinstance(F, SplineMapping):
-                    raise ValueError(f'Patch {itr.name} has a discrete mapping attached: use the'
-                                     ' Geometry it comes from, or Geometry.from_discrete_mapping')
-
         mappings = {itr.name : None for itr in interior}
 
         # The physical dimension is given by the mappings of the patches, if any
