@@ -1,0 +1,13 @@
+Data to be used for plotting utils development.
+Simulation using [32, 256] B-spline cells and B-splines of degree [3, 3]
+inner radius R0 = 2, outer radius R1 = 4
+max time T = 10, max steps n_steps = None, stepsize dt = 0.0005
+M1_0_inv pc = 'lst', max M1_0_inv iterations = 1000 and tolerance 1e-10
+material parameters: isotropic = False, eps_r = 0.5, eps_theta = 100, radial_angular_tensor = False, rotating_radial_angular_tensor = False
+
+ ----- 
+ Entire Loop Time:                       375.46991300582886
+ - of which spent to invert M1_eps_0:    332.46101689338684
+ - of which spent to store coefficients: 0.11454153060913086
+ Time spent to obtain the pc:            0.08901691436767578
+ ----- 
