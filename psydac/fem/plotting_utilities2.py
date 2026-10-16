@@ -6,8 +6,6 @@
 from __future__ import annotations
 
 import  os
-import  pickle
-import  tempfile
 from    typing                  import NamedTuple
 
 import  h5py
@@ -96,11 +94,14 @@ def get_grid_vals(u, etas, mappings_list=None, space_kind=None):
             vals[k] = np.empty_like(eta_1)
 
         if isinstance(u, FemField):
+            # The whole patch is evaluated at once (compiled kernel). The push-forwards below only call the field, 
+            # so the values are handed to them as functions returning these arrays.
+            values = Vh.patch_spaces[k].eval_fields(list(etas[k]), u.patch_fields[k])[0]
             if vector_valued:
-                uk_field_0 = u.patch_fields[k].fields[0]
-                uk_field_1 = u.patch_fields[k].fields[1]
+                uk_field_0 = lambda *eta, v=values[0]: v
+                uk_field_1 = lambda *eta, v=values[1]: v
             else:
-                uk_field_0 = u.patch_fields[k]
+                uk_field_0 = lambda *eta, v=values: v
                 uk_field_1 = None
         else:
             if vector_valued:
@@ -134,12 +135,19 @@ def get_grid_vals(u, etas, mappings_list=None, space_kind=None):
             raise ValueError(
                 'unknown value for space_kind = {}'.format(space_kind))
 
-        for i, x1i in enumerate(eta_1[:, 0]):
-            for j, x2j in enumerate(eta_2[0, :]):
-                if vector_valued:
-                    u_component_patch_vals[0][k][i, j], u_component_patch_vals[1][k][i, j] = push_field(x1i, x2j)
-                else:
-                    u_component_patch_vals[0][k][i, j]                                     = push_field(x1i, x2j)
+        if is_femfield:
+            # All points at once (the push-forwards work on arrays)
+            result = push_field(eta_1, eta_2)
+            for c, vals in enumerate(u_component_patch_vals):
+                vals[k] = result[c] if vector_valued else result
+        else:
+            # Arbitrary Python functions are not necessarily vectorized: point by point
+            for i, x1i in enumerate(eta_1[:, 0]):
+                for j, x2j in enumerate(eta_2[0, :]):
+                    if vector_valued:
+                        u_component_patch_vals[0][k][i, j], u_component_patch_vals[1][k][i, j] = push_field(x1i, x2j)
+                    else:
+                        u_component_patch_vals[0][k][i, j]                                     = push_field(x1i, x2j)
 
     if not vector_valued:
         return u_component_patch_vals[0]
@@ -597,16 +605,13 @@ def plot_2d(funs, titles=None, suptitle=None, xx=None, yy=None,
 
 
 def _plot_2d(funs, titles=None, suptitle=None, layout=None, show_plot=True, filename=None, fig=None, scales=None,
-             prepare_only=False, prepared=None, cache=None, **options):
+             prepare_only=False, cache=None, **options):
     """
     The work of plot_2d, with the additional arguments used by plot_2d_time.
     The options of plot_2d not listed here (plot_type, N_vis, xx, ...) are passed as options.
 
     prepare_only : bool
         If True, nothing is drawn and the prepared data of every entry of funs is returned.
-
-    prepared : list | None
-        Prepared data as returned with prepare_only=True. If passed, funs is ignored and this data is drawn.
 
     cache : dict | None
         Plotting grid and lines are stored here and reused by later calls passing the same dictionary.
@@ -621,16 +626,15 @@ def _plot_2d(funs, titles=None, suptitle=None, layout=None, show_plot=True, file
     if isinstance(titles, str):
         titles = (titles, )
 
-    if prepared is None:
-        # A single FemField, dict or grid data is turned into a tuple with one entry (and so is a single title).
-        if isinstance(funs, (FemField, dict)) or (isinstance(funs, (list, tuple)) and _is_grid_data(funs)):
-            funs = (funs, )
-        elif not isinstance(funs, (list, tuple)):
-            raise ValueError('funs must be a FemField, grid values, a dictionary, or a list/tuple of these.')
+    # A single FemField, dict or grid data is turned into a tuple with one entry (and so is a single title).
+    if isinstance(funs, (FemField, dict)) or (isinstance(funs, (list, tuple)) and _is_grid_data(funs)):
+        funs = (funs, )
+    elif not isinstance(funs, (list, tuple)):
+        raise ValueError('funs must be a FemField, grid values, a dictionary, or a list/tuple of these.')
 
-        # Everything that needs computing, once per entry of funs. Then we know how many plots there are.
-        cache    = {} if cache is None else cache
-        prepared = [_prepare(fun, global_opts, cache) for fun in funs]
+    # Everything that needs computing, once per entry of funs. Then we know how many plots there are.
+    cache    = {} if cache is None else cache
+    prepared = [_prepare(fun, global_opts, cache) for fun in funs]
     if prepare_only:
         return prepared
     layout   = _choose_layout(sum(len(p.arrays) for p in prepared), layout)
@@ -726,22 +730,25 @@ def _fixed_scales(style, vmin, vmax):
 
 def _to_palette(rgb, palette):
     """256-color image of an RGB array, every color replaced by the nearest color of palette (n x 3)."""
-    colors, inverse = np.unique(rgb.reshape(-1, 3), axis=0, return_inverse=True)
+    rgb             = np.ascontiguousarray(rgb)
+    packed          = rgb.reshape(-1, 3).astype(np.uint32) @ np.array([65536, 256, 1], dtype=np.uint32)     # one integer per pixel (fast unique)
+    unique, inverse = np.unique(packed, return_inverse=True)
+    colors          = np.stack([unique >> 16, (unique >> 8) & 255, unique & 255], axis=1)
     nearest = ((colors[:, None, :].astype(np.int32) - palette[None, :, :]) ** 2).sum(-1).argmin(1)
     image   = Image.fromarray(nearest[inverse.ravel()].reshape(rgb.shape[:2]).astype(np.uint8), 'P')
     image.putpalette(palette.ravel().tolist())
     return image
 
 
-def plot_2d_time(frames, filename, domain=None, fields=None, suptitles=None, fps=10, **kwargs):
+def plot_2d_time(frames, filename, domain=None, fields=None, suptitles=None, fps=10, N_vis=(20, 20), **kwargs):
     """
     Save an animated GIF of plot_2d over time. Nothing is shown, the frames are drawn one at a time.
 
     All scales (color ranges, contour levels, arrow lengths, z-axes) are the same in every frame.
-    To that end the frames are gone through twice: first to evaluate them and find the value range of every plot, 
-    then to draw them. The evaluated values are stored in a temporary folder in between, so every frame is evaluated only once.
+    To that end the frames are gone through twice: first to find the value range of every plot, then to draw them.
+    Evaluating a frame is cheap, so it is simply done in both passes.
     Only one frame is held in memory at a time (plus the finished GIF frames, as 256-color images).
-    All frames must have the same structure (same plots, grids and settings): these are taken from the first frame.
+    All frames must have the same structure (same plots, grids and settings).
 
     Parameters
     ----------
@@ -769,6 +776,9 @@ def plot_2d_time(frames, filename, domain=None, fields=None, suptitles=None, fps
     fps : float
         Speed of the GIF in frames per second.
 
+    N_vis : list | tuple
+        of two ints. Number of plotting points per patch and direction, see plot_2d. Low by default to keep the GIF small.
+
     **kwargs : dict
         Passed on to plot_2d (titles, plot_type, xx, yy, ...). 
         vmin and vmax passed here or in a dictionary of a frame overwrite the value range found over all frames.
@@ -788,41 +798,31 @@ def plot_2d_time(frames, filename, domain=None, fields=None, suptitles=None, fps
     else:
         get_frame, n_frames = frames.__getitem__, len(frames)
 
-    with tempfile.TemporaryDirectory() as tmp:
+    # First pass: evaluate every frame (one at a time) and keep track of the value range of every plot over all frames.
+    # The grid and the lines are the same in every frame, they are only computed once (cache).
+    kwargs['N_vis']   = N_vis
+    cache, vmin, vmax = {}, None, None
+    for i in range(n_frames):
+        prepared = _plot_2d(get_frame(i), prepare_only=True, cache=cache, **kwargs)
+        plots    = [(arr, p.style) for p in prepared for arr in p.arrays]
+        lo, hi   = np.array([_value_range(arr, style['plot_type']) for arr, style in plots]).T
+        vmin     = lo if vmin is None else np.minimum(vmin, lo)
+        vmax     = hi if vmax is None else np.maximum(vmax, hi)
+    scales = [_fixed_scales(style, a, b) for (_, style), a, b in zip(plots, vmin, vmax)]
 
-        # First pass: evaluate every frame once, store the values of its plots on disk (one file per frame)
-        # and keep track of the value range of every plot over all frames.
-        # The grid and the lines are the same in every frame, they are only computed in the first one (cache).
-        cache, template = {}, None
-        vmin, vmax      = None, None
-        for i in range(n_frames):
-            prepared = _plot_2d(get_frame(i), prepare_only=True, cache=cache, **kwargs)
-            with open(os.path.join(tmp, f'{i}.pkl'), 'wb') as file:
-                pickle.dump([p.arrays for p in prepared], file, protocol=pickle.HIGHEST_PROTOCOL)
-
-            plots    = [(arr, p.style) for p in prepared for arr in p.arrays]
-            lo, hi   = np.array([_value_range(arr, style['plot_type']) for arr, style in plots]).T
-            vmin     = lo if vmin is None else np.minimum(vmin, lo)
-            vmax     = hi if vmax is None else np.maximum(vmax, hi)
-            template = prepared if template is None else template     # grid, lines and settings of the first frame
-        scales = [_fixed_scales(style, a, b) for (_, style), a, b in zip(plots, vmin, vmax)]
-
-        # Second pass: read the values of one frame at a time, draw them into the same Figure and keep it as a 
-        # 256-color image. All frames use the palette of the first one, which contains the full colorbars, so colors don't flicker.
-        fig, palette, images = None, None, []
-        for i in range(n_frames):
-            with open(os.path.join(tmp, f'{i}.pkl'), 'rb') as file:
-                arrays = pickle.load(file)
-            if suptitles is not None:
-                kwargs['suptitle'] = suptitles[i]
-            fig = _plot_2d(None, prepared=[p._replace(arrays=a) for p, a in zip(template, arrays)], 
-                          fig=fig, scales=scales, show_plot=False, **kwargs)
-            fig.canvas.draw()
-            rgb = np.asarray(fig.canvas.buffer_rgba())[..., :3]
-            if palette is None:
-                palette = np.array(Image.fromarray(rgb).quantize().getpalette()[:768]).reshape(-1, 3)
-            images.append(_to_palette(rgb, palette))
-        plt.close(fig)
+    # Second pass: draw every frame into the same Figure and keep it as a 256-color image.
+    # All frames use the palette of the first one, which contains the full colorbars, so colors don't flicker.
+    fig, palette, images = None, None, []
+    for i in range(n_frames):
+        if suptitles is not None:
+            kwargs['suptitle'] = suptitles[i]
+        fig = _plot_2d(get_frame(i), cache=cache, fig=fig, scales=scales, show_plot=False, **kwargs)
+        fig.canvas.draw()
+        rgb = np.asarray(fig.canvas.buffer_rgba())[..., :3]
+        if palette is None:
+            palette = np.array(Image.fromarray(rgb).quantize().getpalette()[:768]).reshape(-1, 3)
+        images.append(_to_palette(rgb, palette))
+    plt.close(fig)
 
     images[0].save(filename, save_all=True, append_images=images[1:], duration=1000 / fps, loop=0)
 
