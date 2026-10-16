@@ -274,12 +274,13 @@ class Geometry:
         """
         Create a Geometry instance from a topological domain, without discrete mappings.
 
-        The domain may have symbolic mappings (e.g. analytical mappings), but
-        they must not carry discrete mappings, and no discrete mappings are
-        created. All the patches of the domain must be `NCubeInterior` objects
-        of the same dimension, i.e. lines, squares, or cubes. The physical
-        dimension is given by the mappings of the patches if they have any, and
-        otherwise it equals the logical dimension.
+        The domain may have symbolic mappings (e.g. analytical mappings), and
+        callable mappings attached to them are kept (e.g. the discrete mappings
+        of a domain returned by `Geometry.from_file`), but no discrete mappings
+        are created. All the patches of the domain must be `NCubeInterior`
+        objects of the same dimension, i.e. lines, squares, or cubes. The
+        physical dimension is given by the mappings of the patches if they
+        have any, and otherwise it equals the logical dimension.
 
         Parameters
         ----------
@@ -316,9 +317,7 @@ class Geometry:
             If a patch of the domain is not an `NCubeInterior`.
 
         ValueError
-            If the patches of the domain have different physical dimensions, or
-            if the mapping of a patch carries a discrete mapping (e.g. a domain
-            returned by `Geometry.from_file`).
+            If the patches of the domain have different physical dimensions.
         """
         assert isinstance(domain, Domain)
 
