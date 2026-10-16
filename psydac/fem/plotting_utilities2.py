@@ -3,13 +3,23 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
+from __future__ import annotations
+
+import  os
+import  pickle
+import  tempfile
+from    typing                  import NamedTuple
+
+import  h5py
 import  numpy                   as np
 import  matplotlib.pyplot       as plt
 from    matplotlib              import cm, colors
+from    PIL                     import Image
 
 from    psydac.utilities.utils  import refine_array_1d
 from    psydac.feec.pull_push   import push_2d_h1_vec, push_2d_h1, push_2d_hcurl, push_2d_hdiv, push_2d_l2
 from    psydac.fem.basic        import FemField, FemSpace
+from    psydac.api.postprocessing import PostProcessManager
 
 __all__ = (
     'get_grid_vals',
@@ -17,7 +27,9 @@ __all__ = (
     'get_patch_knots_gridlines',
     'get_patch_boundary_gridlines',
     'plot_2d',
-    'fill_axes')
+    'plot_2d_time',
+    'fill_axes'
+)
 
 # ==============================================================================
 
@@ -242,14 +254,216 @@ def get_patch_boundary_gridlines(Vh, N, plotted_patch=-1):
     return line1x, line2x, line1y, line2y
 
 # ------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+
+def _grid_ndim(x):
+    """Number of array dimensions of (nested lists/tuples of) arrays, without converting anything to a numpy array."""
+    n = 0
+    while isinstance(x, (list, tuple)) and len(x) > 0:
+        x, n = x[0], n + 1
+    return n + (x.ndim if isinstance(x, np.ndarray) else 0)
+
+
+def _is_grid_data(x):
+    """True for a single scalar-valued (patches, x, y) or vector-valued (2, patches, x, y) grid data."""
+    n = _grid_ndim(x)
+    return n == 3 or (n == 4 and len(x) == 2)
+
+
+def _patch_lines(source, selection, getter, N=100, cache=None):
+    """
+    Lines to be drawn on top of the plot (spline grid or patch boundaries), one entry per patch.
+
+    Parameters
+    ----------
+    source : FemSpace | list | None
+        Where the lines come from.
+        FemSpace: the lines are computed with `getter` (get_patch_knots_gridlines or get_patch_boundary_gridlines).
+        list:     the lines are already computed, one entry per patch.
+        None:     nothing is drawn.
+
+    selection : bool | list | tuple
+        Patches to draw the lines on: a list/tuple of patch indices, otherwise (True or False) all patches.
+        Whether to draw at all is decided by the caller, by passing source=None.
+
+    getter : Callable
+        Function (Vh, N, patch_index) -> lines of that patch. Only used if source is a FemSpace.
+
+    N : int
+        Resolution of the lines. Only used if source is a FemSpace.
+
+    cache : dict | None
+        Computed lines are stored here and reused, as long as the source is the same FemSpace object.
+
+    Returns
+    -------
+    list | None
+        One entry per patch: the lines of the patch, or None if the patch is not selected.
+        None if source is None.
+    """
+    if source is None:
+        return None
+
+    is_space  = isinstance(source, FemSpace)
+    n_patches = len(source.symbolic_space.domain.mappings) if is_space else len(source)
+    selected  = selection if isinstance(selection, (list, tuple)) else range(n_patches)
+
+    if not is_space:
+        return [lines if k in selected else None for k, lines in enumerate(source)]
+
+    cache = {} if cache is None else cache
+    lines = []
+    for k in range(n_patches):
+        if k not in selected:
+            lines.append(None)
+            continue
+        key = ('lines', id(source), getter.__name__, N, k)
+        if key not in cache or cache[key][0] is not source:     # the stored source guards against a reused id
+            cache[key] = (source, getter(source, N, k))
+        lines.append(cache[key][1])
+    return lines
+
+# ------------------------------------------------------------------------------
+
+def _abs(vals):
+    """Absolute values of scalar-valued grid values (a list with one array per patch)."""
+    return [np.abs(v) for v in vals]
+
+
+def _fem_field_arrays(vals, vector_valued, o):
+    """
+    The grid values to plot for a FemField, one entry per plot (axes), 
+    depending on the options 'plot_type', 'components' and 'magnitude' in o.
+    """
+    plot_type, components, magnitude = o['plot_type'], o['components'], o['magnitude']
+
+    if plot_type == 'vector_field':                 # 1 plot of the vector (v_x, v_y)
+        if not vector_valued:
+            raise ValueError("plot_type='vector_field' requires a vector-valued function.")
+        return [[_abs(v) for v in vals] if magnitude else vals]
+
+    if not vector_valued:                           # 1 plot of v or |v|
+        return [_abs(vals) if magnitude else vals]
+
+    vx, vy = vals
+    if components is True:                          # 2 plots: v_x, v_y (or their absolute values)
+        arrays = [vx, vy]
+    elif components in ('x', 'y'):                  # 1 plot: v_x or v_y (or its absolute value)
+        arrays = [vx if components == 'x' else vy]
+    elif magnitude:                                 # 1 plot of || (v_x, v_y) ||
+        return [[np.hypot(a, b) for a, b in zip(vx, vy)]]
+    else:
+        raise ValueError('components=False must be accompanied by magnitude=True for vector-valued functions.')
+
+    return [_abs(a) for a in arrays] if magnitude else arrays
+
+
+def _from_fem_field(vh, o, cache):
+    """Grid values (one entry per plot) and physical grid xx, yy of a FemField, over its own domain."""
+    Vh       = vh.space
+    mappings = Vh.symbolic_space.domain.mappings
+
+    # The grid only depends on the domain and N_vis, so it is computed once and then reused
+    key = ('grid', id(mappings), tuple(o['N_vis']))
+    if key not in cache or cache[key][0] is not mappings:       # the stored mappings guard against a reused id
+        cache[key] = (mappings, *get_plotting_grid(mappings, N=o['N_vis']))
+    _, etas, xx, yy = cache[key]
+
+    vals         = get_grid_vals(vh, etas, list(mappings.values()))
+    return _fem_field_arrays(vals, Vh.is_vector_valued, o), xx, yy
+
+
+def _from_grid_vals(vals, o):
+    """Grid values (one entry per plot) and physical grid xx, yy of grid values. Absolute values must be passed manually."""
+    if o['xx'] is None or o['yy'] is None:
+        raise ValueError('Grid values require xx and yy.')
+    ndim = _grid_ndim(vals)
+    if ndim not in (3, 4):
+        raise ValueError(f'Grid values must have shape (patches, x, y) or (2, patches, x, y), got {ndim} dimensions.')
+
+    # Vector-valued grid values give 2 plots (one per component), except for a vector field plot
+    one_plot = ndim == 3 or o['plot_type'] == 'vector_field'
+    return ([vals] if one_plot else list(vals)), o['xx'], o['yy']
+
+# ------------------------------------------------------------------------------
+
+class _Prepared(NamedTuple):
+    """Everything needed to draw the plot(s) of one entry of funs."""
+    arrays           : list          # one entry per plot (axes)
+    xx               : list
+    yy               : list
+    spline_grid      : list | None   # per patch, see _patch_lines
+    patch_boundaries : list | None   # per patch, see _patch_lines
+    style            : dict          # options passed on to fill_axes
+
+# Options that plot_2d uses itself, they are not passed on to fill_axes
+_PLOT2D_ONLY = {'xx', 'yy', 'N_vis', 'N_lines', 'components', 'magnitude', 
+                'plot_spline_grid', 'spline_grid', 'plot_patch_boundaries', 'patch_boundaries'}
+
+
+def _split_fun(fun):
+    """
+    Split one entry of funs into (kind, data, local options), where kind is 'fem_field' or 'vals'.
+    The local options (only possible for dictionaries) overwrite the global options for this entry.
+    """
+    if isinstance(fun, FemField):
+        return 'fem_field', fun, {}
+    if not isinstance(fun, dict):
+        return 'vals', fun, {}
+
+    options = {k: v for k, v in fun.items() if k not in ('fem_field', 'vals')}   # the user's dict stays untouched
+    for kind in ('fem_field', 'vals'):
+        if fun.get(kind) is not None:
+            return kind, fun[kind], options
+    raise ValueError("A dictionary in funs needs the key 'fem_field' or 'vals'.")
+
+
+def _prepare(fun, global_opts, cache):
+    """Compute everything needed to draw one entry of funs: the data of its plot(s) and its lines."""
+    kind, data, local_opts = _split_fun(fun)
+    o = {**global_opts, **local_opts}
+
+    if kind == 'fem_field':
+        arrays, xx, yy = _from_fem_field(data, o, cache)
+        # A FemField is its own source of the lines, they are drawn if requested
+        spline_source   = data.space if o['plot_spline_grid']      is not False else None
+        boundary_source = data.space if o['plot_patch_boundaries'] is not False else None
+    else:
+        arrays, xx, yy = _from_grid_vals(data, o)
+        # For grid values the source of the lines must be passed, and the lines are drawn if it is
+        spline_source, boundary_source = o['spline_grid'], o['patch_boundaries']
+
+    return _Prepared(
+        arrays           = arrays, 
+        xx               = xx, 
+        yy               = yy,
+        spline_grid      = _patch_lines(spline_source,   o['plot_spline_grid'],      get_patch_knots_gridlines,    o['N_lines'], cache),
+        patch_boundaries = _patch_lines(boundary_source, o['plot_patch_boundaries'], get_patch_boundary_gridlines, o['N_lines'], cache),
+        style            = {k: v for k, v in o.items() if k not in _PLOT2D_ONLY},
+    )
+
+
+def _choose_layout(n_plots, layout=None):
+    """(rows, columns) of the Figure. Chosen automatically (roughly square) if not passed."""
+    if n_plots == 0:
+        raise ValueError('Nothing to plot.')
+    if layout is None:
+        n_rows = int(np.floor(np.sqrt(n_plots)))
+        return n_rows, int(np.ceil(n_plots / n_rows))
+    if layout[0] * layout[1] < n_plots:
+        raise ValueError(f'layout {tuple(layout)} has too few cells for {n_plots} plots.')
+    return layout
+
+# ------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+
 
 def plot_2d(funs, titles=None, suptitle=None, xx=None, yy=None,
         plot_type='contourf', components=True, magnitude=False,
         N_vis=(100,100),
         plot_spline_grid=False, spline_grid=None, plot_patch_boundaries=False, patch_boundaries=None,
         cmap='jet', layout=None,
-        show_plot=True, filename=None,
-        verbose=False, # to be deleted
+        show_plot=True, filename=None, fig=None, scales=None,
         **kwargs
         ):
     """
@@ -330,9 +544,16 @@ def plot_2d(funs, titles=None, suptitle=None, xx=None, yy=None,
     filename : str | None
         The Figure will be saved if a filename is passed.
 
+    fig : matplotlib.Figure | None
+        If passed, this Figure is cleared and reused instead of creating a new one (used by plot_2d_time).
+
+    scales : list | None
+        One dictionary per plot, with settings overwriting all others for that plot (used by plot_2d_time to fix the scales).
+
     **kwargs : dict
         Extra settings to be applied to all plots. Currently implemented: 
-        figsize, suptitle_size, tight_layout & 
+        figsize, suptitle_size, tight_layout, 
+        N_lines (resolution of the spline grid and patch boundary lines, default 100) & 
         all additional kwargs implemented for fil_axes in this file.
 
     Returns
@@ -367,323 +588,246 @@ def plot_2d(funs, titles=None, suptitle=None, xx=None, yy=None,
     patch_boundary_linewidth = kwargs.get('patch_boundary_linewidth', 2).
     
     """
+    return _plot_2d(funs, titles=titles, suptitle=suptitle, xx=xx, yy=yy, 
+                    plot_type=plot_type, components=components, magnitude=magnitude, N_vis=N_vis,
+                    plot_spline_grid=plot_spline_grid, spline_grid=spline_grid, 
+                    plot_patch_boundaries=plot_patch_boundaries, patch_boundaries=patch_boundaries,
+                    cmap=cmap, layout=layout, show_plot=show_plot, filename=filename, fig=fig, scales=scales, 
+                    **kwargs)
 
-    # Store global settings (used for all plots unless overwritten)
-    global_kwargs = {'plot_type':plot_type, 'components':components, 'magnitude':magnitude, 
-                     'N_vis':N_vis, 'xx':xx, 'yy':yy,
-                     'plot_spline_grid':plot_spline_grid, 'spline_grid':spline_grid, 
-                     'plot_patch_boundaries':plot_patch_boundaries, 'patch_boundaries':patch_boundaries,
-                     'cmap':cmap,}
-    global_kwargs.update(kwargs)
 
-    # -----
-    # Handle case in which funs is not a list or tuple of functions, but rather a FemField or grid data. 
-    # In the latter case, write funs = (funs, ), and possibly do the same to titles.
-    if isinstance (funs, (list, tuple)):
-        try:
-            # Check if only grid values are passed.
-            # This only works if only vector valued grid data or only scalar valued grid data is passed as else the dimensions don't match
-            funs_np    = np.array(funs)
-            funs_shape = funs_np.shape
+def _plot_2d(funs, titles=None, suptitle=None, layout=None, show_plot=True, filename=None, fig=None, scales=None,
+             prepare_only=False, prepared=None, cache=None, **options):
+    """
+    The work of plot_2d, with the additional arguments used by plot_2d_time.
+    The options of plot_2d not listed here (plot_type, N_vis, xx, ...) are passed as options.
 
-            # (patches, x, y) -> 3
-            is_single_scalar_valued_grid_data = True if len(funs_shape) == 3 else False
-            # (2 components, patches, x, y) -> 4 & [0]==2 (could also be a list/tuple of exactly 2 scalar-avlued function grid data)
-            is_single_vector_valued_grid_data = True if len(funs_shape) == 4 and funs_shape[0] == 2 else False # or 2 scalar-valued grid data
+    prepare_only : bool
+        If True, nothing is drawn and the prepared data of every entry of funs is returned.
 
-            if verbose: # to be deleted
-                if is_single_scalar_valued_grid_data:
-                    print('Single scalar-valued grid data')
-                if is_single_vector_valued_grid_data:
-                    print('Single vector-valued grid data')
+    prepared : list | None
+        Prepared data as returned with prepare_only=True. If passed, funs is ignored and this data is drawn.
 
-            if is_single_scalar_valued_grid_data or is_single_vector_valued_grid_data:
-                funs = (funs, )
-                if titles is not None:
-                    assert isinstance(titles, str)
-                    titles = (titles, )
-        except:
-            pass
-    elif isinstance(funs, FemField):
-        funs = (funs, )
-        if titles is not None:
-            assert isinstance(titles, str)
-            titles = (titles, )
-        if verbose: # to be deleted
-            print('Single FemField')
-    elif isinstance(funs, dict):
-        funs = (funs, )
-        if titles is not None:
-            assert isinstance(titles, str)
-            titles = (titles, )
-        if verbose: # to be deleted
-            print('Single dict')
+    cache : dict | None
+        Plotting grid and lines are stored here and reused by later calls passing the same dictionary.
+    """
+    # Global options (used for all plots unless overwritten locally)
+    global_opts = {'plot_type':'contourf', 'components':True, 'magnitude':False, 'N_vis':(100, 100), 'N_lines':100, 
+                   'xx':None, 'yy':None, 'cmap':'jet', 'plot_spline_grid':False, 'spline_grid':None, 
+                   'plot_patch_boundaries':False, 'patch_boundaries':None,
+                   **options}
+    kwargs = options
+
+    if isinstance(titles, str):
+        titles = (titles, )
+
+    if prepared is None:
+        # A single FemField, dict or grid data is turned into a tuple with one entry (and so is a single title).
+        if isinstance(funs, (FemField, dict)) or (isinstance(funs, (list, tuple)) and _is_grid_data(funs)):
+            funs = (funs, )
+        elif not isinstance(funs, (list, tuple)):
+            raise ValueError('funs must be a FemField, grid values, a dictionary, or a list/tuple of these.')
+
+        # Everything that needs computing, once per entry of funs. Then we know how many plots there are.
+        cache    = {} if cache is None else cache
+        prepared = [_prepare(fun, global_opts, cache) for fun in funs]
+    if prepare_only:
+        return prepared
+    layout   = _choose_layout(sum(len(p.arrays) for p in prepared), layout)
+
+    # Figure
+    if fig is None:
+        fig = plt.figure(figsize=kwargs.get('figsize', (2.6 + 4.8 * layout[1], 4.8 * layout[0])))
     else:
-        raise ValueError(f'funs not understood.')
-    # -----
-
-    # -----
-    # Gather information on the amount of plots (per fun) to generate
-    plots_per_fun = []
-    for fun in funs:
-
-        is_fem_field = isinstance(fun, FemField) or (isinstance(fun, dict) and fun.get('fem_field', None) is not None)
-        is_grid_data = isinstance(fun, (list, tuple)) or (isinstance(fun, dict) and fun.get('vals', None) is not None)
-        is_dict      = isinstance(fun, dict)
-
-        if is_fem_field:
-            vh = fun['fem_field'] if is_dict else fun
-            is_vector_valued = True if vh.space.is_vector_valued else False
-            comp = fun.get('components', global_kwargs.get('components')) if is_dict else global_kwargs.get('components')
-            pt   = fun.get('plot_type', global_kwargs.get('plot_type'))   if is_dict else global_kwargs.get('plot_type')
-            # A vector-valued FemField will generate 2 plots unless (components==False and magnitude==True) or (plot_type=='vector_field')
-            if is_vector_valued:
-                if comp == True and pt != 'vector_field':
-                    plots_per_fun.append(2)
-                else:
-                    if comp == False:
-                        mag = fun.get('magnitude', global_kwargs.get('magnitude')) if is_dict else global_kwargs.get('magnitude')
-                        assert mag == True, f'Components=False must be acompanied by magnitude=True for vector-valued functions'
-                    plots_per_fun.append(1)
-            else:
-                plots_per_fun.append(1)
-        else:
-            assert is_grid_data
-            vals = fun.get('vals') if is_dict else fun
-            vals_np = np.array(vals)
-            vals_shape = vals_np.shape
-            # (2 components, patches, x, y) -> 4
-            is_vector_valued = True if len(vals_shape) == 4 else False
-            # comp = True (in case of grid data, convert to abs value manually if required)
-            pt = fun.get('plot_type', global_kwargs.get('plot_type')) if is_dict else global_kwargs.get('plot_type')
-            # Hence, the only exception of vector-valued data implying 2 plots: A vector_field plot!
-            if is_vector_valued:
-                if pt != 'vector_field':
-                    plots_per_fun.append(2)
-                else:
-                    plots_per_fun.append(1)
-            else:
-                plots_per_fun.append(1)
-    if verbose: # to be deleted
-        print(f'{plots_per_fun = }')
-    total_nb_plots = sum(plots_per_fun)
-    # -----
-
-    # -----
-    # Use above information to create layout if not already passed
-    if layout is not None:
-        assert layout[0]*layout[1] >= total_nb_plots
-        nb_rows = layout[0]
-        nb_cols = layout[1]
-    else:
-        nb_rows = int(np.floor(np.sqrt(total_nb_plots)))
-        nb_cols = int(np.ceil(total_nb_plots/nb_rows))
-        layout = (nb_rows, nb_cols)
-    # -----
-
-    # -----
-    # Create Figure, set figsize based on layout, and set Figure title
-    figsize_default = (2.6 + 4.8 * layout[1], 4.8 * layout[0])
-    figsize         = global_kwargs.pop('figsize', figsize_default)
-    fig             = plt.figure(figsize=figsize)
-
+        fig.clf()
     if suptitle is not None:
-        suptitle_size = kwargs.get('suptitle_size', 14)
-        fig.suptitle(suptitle, fontsize=suptitle_size)
-    # -----
+        fig.suptitle(suptitle, fontsize=kwargs.get('suptitle_size', 14))
 
-    # -----
-    # Generate the individual plots
+    # Individual plots
     count = 0
-
-    for i, fun in enumerate(funs):
-
-        # ---
-        # Check if fun corresponds to a FemField or grid values
-        is_fem_field = isinstance(fun, FemField) or (isinstance(fun, dict) and (fun.get('fem_field', None) is not None))
-        # ---
-
-        # ---
-        # Get all plotting relevant data
-        if is_fem_field:
-            # -
-            # Update kwargs
-            if isinstance(fun, dict):
-                vh           = fun.pop('fem_field')
-                local_kwargs = global_kwargs.copy()
-                local_kwargs.update(fun)
-            else:
-                vh           = fun
-                local_kwargs = global_kwargs.copy()
-
-            # xx and yy are ignored by FemFields
-            local_kwargs.pop('xx')
-            local_kwargs.pop('yy')
-            # -
-
-            # -
-            # Get grid and vals
-            Vh            = vh.space
-            V             = Vh.symbolic_space
-            domain        = V.domain
-            mappings      = domain.mappings
-            mappings_list = list(mappings.values())
-
-            N_vis         = local_kwargs.pop('N_vis')
-            etas, xx, yy  = get_plotting_grid(mappings, N=N_vis)
-            vh_vals       = get_grid_vals(vh, etas, mappings_list)
-            # -
-
-            # -
-            # Create plot_vals from vh_vals based on values of 'components', 'magnitude' and 'plot_type'
-            components           = local_kwargs.pop('components')
-            magnitude            = local_kwargs.pop('magnitude')
-            is_vector_field_plot = local_kwargs.get('plot_type') == 'vector_field'
-            is_vector_valued     = Vh.is_vector_valued
-
-            if is_vector_field_plot:
-                if magnitude:                           # vector field plot of v = ( |v_x|, |v_y| ) - probably rarely used
-                    plot_vals = (np.abs(vh_vals), )
-                else:                                   # vector field plot of v = (  v_x ,  v_y  )
-                    plot_vals = (vh_vals, )
-            else:
-                if is_vector_valued:
-                    if components == True:
-                        if magnitude:                   # 2 plots corresponding to |v_x| and |v_y|
-                            plot_vals = np.abs(vh_vals)
-                        else:                           # 2 plots corresponding to  v_x  and  v_y
-                            plot_vals = vh_vals
-                    elif components in ('x', 'y'):      # 1 plot only of either v_x, v_y, |v_x| or |v_y|
-                        if magnitude:
-                            plot_vals = (np.abs(vh_vals[0]), ) if components == 'x' else (np.abs(vh_vals[1]), )
-                        else:
-                            plot_vals = (       vh_vals[0] , ) if components == 'x' else (       vh_vals[1] , )
-                    else:                               # 1 plot of || (v_x, v_y) ||
-                        assert magnitude
-                        plot_vals = ([np.sqrt(abs(v[0])**2 + abs(v[1])**2) for v in zip(vh_vals[0], vh_vals[1])], )
-                else:                                   # v is scalar-valued
-                    if magnitude:                       # 1 plot of |v|
-                        plot_vals = (np.abs(vh_vals), )
-                    else:                               # 1 plot of  v
-                        plot_vals = (vh_vals, )
-            # -
-
-            # -
-            # Obtain spline grid
-            plot_spline_grid = local_kwargs.pop('plot_spline_grid')
-            local_kwargs.pop('spline_grid')
-            if plot_spline_grid is not False:
-                spline_grid_on_patches = plot_spline_grid if isinstance(plot_spline_grid, (list, tuple)) else range(len(mappings))
-                spline_grid = [get_patch_knots_gridlines(Vh, 100, k) if k in spline_grid_on_patches else None for k in range(len(mappings))]
-            else:
-                spline_grid = None
-            # -
-
-            # -
-            # Obtain patch boundaries
-            plot_patch_boundaries = local_kwargs.pop('plot_patch_boundaries')
-            local_kwargs.pop('patch_boundaries')
-            if plot_patch_boundaries is not False: #  or local_kwargs.get('patch_boundaries', None) is not None:
-                patch_boundaries_on_patches = plot_patch_boundaries if isinstance(plot_patch_boundaries, (list, tuple)) else range(len(mappings))
-                patch_boundaries = [get_patch_boundary_gridlines(Vh, 100, k) if k in patch_boundaries_on_patches else None for k in range(len(mappings))]
-            else:
-                patch_boundaries = None
-            # -
-
-        else: # fun corresponds to grid values
-            # -
-            # Update kwargs
-            if isinstance(fun, dict):
-                vals         = fun.pop('vals')
-                local_kwargs = global_kwargs.copy()
-                local_kwargs.update(fun)
-            else:
-                vals         = fun
-                local_kwargs = global_kwargs.copy()
-            # -
-
-            # -
-            # Get plot_vals from vals --- Pass absolute values manually if required
-            vals_np    = np.array(vals)
-            vals_shape = vals_np.shape
-            # (patches, x, y) -> 3
-            is_scalar_valued = len(vals_shape) == 3
-            # (2 components, patches, x, y) -> 4
-            is_vector_valued = len(vals_shape) == 4
-            if is_scalar_valued:
-                plot_vals = (vals, )
-            else:
-                assert is_vector_valued
-                plot_vals = vals
-            # -
-
-            # -
-            # Get grid
-            xx = local_kwargs.pop('xx')
-            yy = local_kwargs.pop('yy')
-            # -
-
-            # -
-            # Obtaine spline grid
-            plot_spline_grid = local_kwargs.pop('plot_spline_grid')
-            spline_grid      = local_kwargs.pop('spline_grid')
-            # if spline_grid is None, no spline grid is plotted, even if plot_spline_grid, 
-            # because in the case of grid values the "source" of the spline grid must be specified
-            if spline_grid is not None:
-                if isinstance(spline_grid, FemSpace):
-                    Vh                     = spline_grid
-                    mappings               = Vh.symbolic_space.domain.mappings
-                    spline_grid_on_patches = plot_spline_grid if isinstance(plot_spline_grid, (list, tuple)) else range(0, len(mappings))
-                    spline_grid            = [get_patch_knots_gridlines(Vh, 100, k) if k in spline_grid_on_patches else None for k in range(len(mappings))]
-                else:
-                    spline_grid_on_patches = plot_spline_grid if isinstance(plot_spline_grid, (list, tuple)) else range(0, len(spline_grid))
-                    spline_grid            = [sg if k in spline_grid_on_patches else None for k, sg in enumerate(spline_grid)]
-            # -
-            
-            # -
-            # Obtain patch boundaries
-            plot_patch_boundaries = local_kwargs.pop('plot_patch_boundaries')
-            patch_boundaries = local_kwargs.pop('patch_boundaries')
-            # if patch_boundaries is None, no patch boundary is plotted, even if plot_patch_boundaries, 
-            # because in the case of grid values the "source" of the patch boundaries must be specified
-            if patch_boundaries is not None:
-                if isinstance(patch_boundaries, FemSpace):
-                    Vh                     = patch_boundaries
-                    mappings               = Vh.symbolic_space.domain.mappings
-                    patch_boundaries_on_patches = plot_patch_boundaries if isinstance(plot_patch_boundaries, (list, tuple)) else range(0, len(mappings))
-                    patch_boundaries            = [get_patch_boundary_gridlines(Vh, 100, k) if k in patch_boundaries_on_patches else None for k in range(len(mappings))]
-                else:
-                    patch_boundaries_on_patches = plot_patch_boundaries if isinstance(plot_patch_boundaries, (list, tuple)) else range(0, len(patch_boundaries))
-                    patch_boundaries            = [pb if k in patch_boundaries_on_patches else None for k, pb in enumerate(patch_boundaries)]
-            # -
-        # ---
-
-        # ---
-        # Generate the plot(s)
-        for j in range(plots_per_fun[i]):
-            title = titles[count] if titles is not None else None
-
-            # Add 2d or 3d axes to the Figure
-            if local_kwargs['plot_type'] == 'surface_plot':
-                ax = fig.add_subplot(*layout, count+1, projection='3d')
-            else:
-                ax = fig.add_subplot(*layout, count+1)
-
-            fill_axes(ax, xx, yy, plot_vals[j], 
-                 title=title, spline_grid=spline_grid, patch_boundaries=patch_boundaries, index=count, **local_kwargs)
+    for p in prepared:
+        projection = '3d' if p.style['plot_type'] == 'surface_plot' else None
+        for arr in p.arrays:
+            title = titles[count] if titles is not None and count < len(titles) else None
+            style = {**p.style, **scales[count]} if scales is not None else p.style
+            ax    = fig.add_subplot(*layout, count + 1, projection=projection)
+            fill_axes(ax, p.xx, p.yy, arr, title=title, 
+                      spline_grid=p.spline_grid, patch_boundaries=p.patch_boundaries, index=count, **style)
             count += 1
-        # ---
 
-    if filename is not None:
-        plt.savefig(filename, bbox_inches='tight') # look up dpi keyword and implement, look up what bbox_inches does
-
-    if global_kwargs.get('tight_layout', True):
+    if kwargs.get('tight_layout', True):
         fig.tight_layout()
-
+    if filename is not None:
+        fig.savefig(filename, bbox_inches='tight')
     if show_plot:
-        plt.show() # look into fig.show() / fig.canvas.draw() ? 
+        plt.show()
 
     return fig
+
+# ------------------------------------------------------------------------------
+
+def _h5_frames(f, domain, fields):
+    """
+    Frames of a fields file written by psydac.api.postprocessing.OutputManager.
+    Returns (get_frame, n_frames, times), where get_frame(i) loads snapshot i only.
+    """
+
+    if domain is None:
+        raise ValueError('domain is required for an h5py.File, the mapping is not stored in the file.')
+
+    # The spaces are rebuilt from the space file the fields file points to; the coefficients are read from f.
+    space_file = os.path.join(os.path.dirname(f.filename), f.attrs['spaces'])
+    ppm = PostProcessManager(domain=domain, space_file=space_file, fields_file=f.filename)
+    ppm.close()
+    ppm.fields_file = f
+
+    snapshots = sorted(k for k in f.keys() if k.startswith('snapshot_'))
+
+    if fields is None:
+        fields = []
+        for patch in f[snapshots[0]].values():
+            for space in patch.values():
+                for name, dset in space.items():
+                    # Components of a vector-valued field (E[0], E[1]) carry the name of the field (E)
+                    name = dset.attrs.get('parent_field', name)
+                    if name not in fields:
+                        fields.append(name)
+    fields = fields if isinstance(fields, (list, tuple)) else [fields]
+    names  = [x if isinstance(x, str) else x['fem_field'] for x in fields]
+
+    def get_frame(i):
+        ppm.load_snapshot(int(snapshots[i].split('_')[1]), *names)
+        return [ppm.fields[x] if isinstance(x, str) else {**x, 'fem_field': ppm.fields[x['fem_field']]} for x in fields]
+
+    return get_frame, len(snapshots), [f[s].attrs['t'] for s in snapshots]
+
+
+def _value_range(arr, plot_type):
+    """(min, max) of the values of one plot, of the magnitude for a vector field plot."""
+    vals = [np.hypot(a, b) for a, b in zip(*arr)] if plot_type == 'vector_field' else arr
+    return min(np.min(v) for v in vals), max(np.max(v) for v in vals)
+
+
+def _fixed_scales(style, vmin, vmax):
+    """Settings that keep every scale of one plot the same in all frames. Settings passed by the user win."""
+    vmin = style.get('vmin', vmin)
+    vmax = style.get('vmax', vmax)
+    if vmax <= vmin:
+        vmax = vmin + 1e-12     # contour levels must be increasing, even for a constant function
+    opts = {'vmin': vmin, 'vmax': vmax}
+    for key, n in (('contourf_levels', 50), ('contour_levels', 10)):
+        levels = style.get(key, n)
+        if np.isscalar(levels):
+            opts[key] = np.linspace(vmin, vmax, levels + 1)
+    if style['plot_type'] == 'vector_field' and 'scale' not in style:
+        opts['scale'] = style.get('amp_factor', 10) * vmax
+    return opts
+
+
+def _to_palette(rgb, palette):
+    """256-color image of an RGB array, every color replaced by the nearest color of palette (n x 3)."""
+    colors, inverse = np.unique(rgb.reshape(-1, 3), axis=0, return_inverse=True)
+    nearest = ((colors[:, None, :].astype(np.int32) - palette[None, :, :]) ** 2).sum(-1).argmin(1)
+    image   = Image.fromarray(nearest[inverse.ravel()].reshape(rgb.shape[:2]).astype(np.uint8), 'P')
+    image.putpalette(palette.ravel().tolist())
+    return image
+
+
+def plot_2d_time(frames, filename, domain=None, fields=None, suptitles=None, fps=10, **kwargs):
+    """
+    Save an animated GIF of plot_2d over time. Nothing is shown, the frames are drawn one at a time.
+
+    All scales (color ranges, contour levels, arrow lengths, z-axes) are the same in every frame.
+    To that end the frames are gone through twice: first to evaluate them and find the value range of every plot, 
+    then to draw them. The evaluated values are stored in a temporary folder in between, so every frame is evaluated only once.
+    Only one frame is held in memory at a time (plus the finished GIF frames, as 256-color images).
+    All frames must have the same structure (same plots, grids and settings): these are taken from the first frame.
+
+    Parameters
+    ----------
+    frames : list | tuple | h5py.File
+        One entry per time step, each one exactly what plot_2d accepts as funs
+        (a FemField, grid values, a dictionary, or a list/tuple of those).
+        Or a fields file written by psydac.api.postprocessing.OutputManager (requires domain).
+        In that case one snapshot at a time is loaded, only when it is needed.
+
+    filename : str
+        Name of the GIF, e.g. 'solution.gif' ('.gif' is appended if missing).
+
+    domain : sympde.topology.Domain | None
+        Symbolic domain of the simulation. Required if frames is an h5py.File.
+
+    fields : str | dict | list | tuple | None
+        Only used if frames is an h5py.File. Names of the fields to plot, e.g. ('E', 'B'), all fields if None.
+        A dictionary as in plot_2d, with the name instead of the FemField, gives field specific settings,
+        e.g. ({'fem_field':'E', 'magnitude':True, 'components':False}, 'B').
+
+    suptitles : list | tuple | None
+        One Figure title per time step, e.g. the simulation time. Overwrites suptitle.
+        For an h5py.File the simulation time is used if None.
+
+    fps : float
+        Speed of the GIF in frames per second.
+
+    **kwargs : dict
+        Passed on to plot_2d (titles, plot_type, xx, yy, ...). 
+        vmin and vmax passed here or in a dictionary of a frame overwrite the value range found over all frames.
+
+    Returns
+    -------
+    str
+        Name of the saved GIF.
+    """
+    if not filename.endswith('.gif'):
+        filename += '.gif'
+
+    if isinstance(frames, h5py.File):
+        get_frame, n_frames, times = _h5_frames(frames, domain, fields)
+        if suptitles is None:
+            suptitles = [f't = {t:.3g}' for t in times]
+    else:
+        get_frame, n_frames = frames.__getitem__, len(frames)
+
+    with tempfile.TemporaryDirectory() as tmp:
+
+        # First pass: evaluate every frame once, store the values of its plots on disk (one file per frame)
+        # and keep track of the value range of every plot over all frames.
+        # The grid and the lines are the same in every frame, they are only computed in the first one (cache).
+        cache, template = {}, None
+        vmin, vmax      = None, None
+        for i in range(n_frames):
+            prepared = _plot_2d(get_frame(i), prepare_only=True, cache=cache, **kwargs)
+            with open(os.path.join(tmp, f'{i}.pkl'), 'wb') as file:
+                pickle.dump([p.arrays for p in prepared], file, protocol=pickle.HIGHEST_PROTOCOL)
+
+            plots    = [(arr, p.style) for p in prepared for arr in p.arrays]
+            lo, hi   = np.array([_value_range(arr, style['plot_type']) for arr, style in plots]).T
+            vmin     = lo if vmin is None else np.minimum(vmin, lo)
+            vmax     = hi if vmax is None else np.maximum(vmax, hi)
+            template = prepared if template is None else template     # grid, lines and settings of the first frame
+        scales = [_fixed_scales(style, a, b) for (_, style), a, b in zip(plots, vmin, vmax)]
+
+        # Second pass: read the values of one frame at a time, draw them into the same Figure and keep it as a 
+        # 256-color image. All frames use the palette of the first one, which contains the full colorbars, so colors don't flicker.
+        fig, palette, images = None, None, []
+        for i in range(n_frames):
+            with open(os.path.join(tmp, f'{i}.pkl'), 'rb') as file:
+                arrays = pickle.load(file)
+            if suptitles is not None:
+                kwargs['suptitle'] = suptitles[i]
+            fig = _plot_2d(None, prepared=[p._replace(arrays=a) for p, a in zip(template, arrays)], 
+                          fig=fig, scales=scales, show_plot=False, **kwargs)
+            fig.canvas.draw()
+            rgb = np.asarray(fig.canvas.buffer_rgba())[..., :3]
+            if palette is None:
+                palette = np.array(Image.fromarray(rgb).quantize().getpalette()[:768]).reshape(-1, 3)
+            images.append(_to_palette(rgb, palette))
+        plt.close(fig)
+
+    images[0].save(filename, save_all=True, append_images=images[1:], duration=1000 / fps, loop=0)
+
+    return filename
+
 
 # ------------------------------------------------------------------------------
 
@@ -822,6 +966,8 @@ def fill_axes(ax, xx, yy, vals,
                 linewidth=0,
                 antialiased=False,
                 )
+        if 'vmin' in kwargs or 'vmax' in kwargs:
+            ax.set_zlim(vmin, vmax)
 
     elif plot_type == 'vector_field':
         vals_x      = vals[0]
