@@ -18,6 +18,8 @@ def quart_circle( rmin=0.5, rmax=1.0, center=None ):
     degrees = (2, 1)
     pdim    = 2
 
+    s = 1./np.sqrt(2)
+
     knots = [[0.0 , 0.0 , 0.0 , 1.0 , 1.0 , 1.0],
              [0.0 , 0.0 , 1.0 , 1.0] ]
 
@@ -38,15 +40,12 @@ def quart_circle( rmin=0.5, rmax=1.0, center=None ):
     weights         = np.zeros((3,2))
     j = 0
     weights[0,j]   = 1.0
-    weights[1,j]   = 0.707106781187
+    weights[1,j]   = s
     weights[2,j]   = 1.0
     j = 1
     weights[0,j]   = 1.0
-    weights[1,j]   = 0.707106781187
+    weights[1,j]   = s
     weights[2,j]   = 1.0
-
-    for i in range(pdim):
-        points[...,i] *= weights[...]
 
     return degrees, knots, points, weights
 
@@ -56,6 +55,8 @@ def annulus(rmin=0.5, rmax=1.0, center=None):
 
     degrees = (1, 2)
     pdim    = 2
+
+    s = 1./np.sqrt(2)
 
     knots = [[0.0 , 0.0 , 1.0 , 1.0],
              [0.0 , 0.0 , 0.0 , 0.25 , 0.25 , 0.5 , 0.5 , 0.75 , 0.75 , 1.0 , 1.0 , 1.0] ]
@@ -89,27 +90,24 @@ def annulus(rmin=0.5, rmax=1.0, center=None):
     weights         = np.zeros((2,9))
     j = 0
     weights[j,0]   = 1.0
-    weights[j,1]   = 0.707106781187
+    weights[j,1]   = s
     weights[j,2]   = 1.0
-    weights[j,3]   = 0.707106781187
+    weights[j,3]   = s
     weights[j,4]   = 1.0
-    weights[j,5]   = 0.707106781187
+    weights[j,5]   = s
     weights[j,6]   = 1.0
-    weights[j,7]   = 0.707106781187
+    weights[j,7]   = s
     weights[j,8]   = 1.0
     j = 1
     weights[j,0]   = 1.0
-    weights[j,1]   = 0.707106781187
+    weights[j,1]   = s
     weights[j,2]   = 1.0
-    weights[j,3]   = 0.707106781187
+    weights[j,3]   = s
     weights[j,4]   = 1.0
-    weights[j,5]   = 0.707106781187
+    weights[j,5]   = s
     weights[j,6]   = 1.0
-    weights[j,7]   = 0.707106781187
+    weights[j,7]   = s
     weights[j,8]   = 1.0
-
-    for i in range(pdim):
-        points[...,i] *= weights[...]
 
     return degrees, knots, points, weights
 
@@ -149,9 +147,6 @@ def circle(radius=1.0, center=None):
     weights[0,2]    = 1.
     weights[1,2]    = s
     weights[2,2]    = 1.
-
-    for i in range(pdim):
-        points[...,i] *= weights[...]
 
     return degrees, knots, points, weights
 
