@@ -52,11 +52,11 @@ def define_data(n, p, matrix_data, dtype=float):
     """
     Create a banded matrix with 2p+1 constant diagonals, and a random exact solution.
 
-    The p lower diagonals are set to -matrix_data[0], the main diagonal to
+    The p lower diagonals are set to matrix_data[0], the main diagonal to
     matrix_data[1], and the p upper diagonals to matrix_data[2]. Hence the
     matrix is not necessarily symmetric or positive definite. It is Hermitian
-    positive definite if matrix_data[2] = -conj(matrix_data[0]) and
-    matrix_data[1] >= 2p |matrix_data[0]|, e.g. with matrix_data = [1, 2p, -1].
+    positive definite if matrix_data[2] = conj(matrix_data[0]) and
+    matrix_data[1] >= 2p |matrix_data[0]|, e.g. with matrix_data = [-1, 2p, -1].
     See also `define_data_hermitian`.
 
     Returns
@@ -78,7 +78,7 @@ def define_data(n, p, matrix_data, dtype=float):
     s = V.starts[0]
 
     A = StencilMatrix(V, V)
-    A[:, -p:0] = -matrix_data[0]
+    A[:, -p:0] = matrix_data[0]
     A[:, 0:1] = matrix_data[1]
     A[:, 1:p + 1] = matrix_data[2]
     A.remove_spurious_entries()
@@ -123,10 +123,10 @@ def test_solver_tridiagonal(n, p, dtype, solver, use_jacobi_pc, verbose=False):
         diagonals = None
     elif solver in ['BiCG', 'BiCGSTAB', 'LSMR']:
         hermitian = False
-        diagonals = [1-10j, 6+9j, 3+5j] if dtype==complex else [1, 6, 3]
+        diagonals = [-1+10j, 6+9j, 3+5j] if dtype==complex else [-1, 6, 3]
     elif solver == 'GMRES':
         hermitian = False
-        diagonals = [-7-2j, -6-2j, -1-10j] if dtype==complex else [-7, -6, -1]
+        diagonals = [7+2j, -6-2j, -1-10j] if dtype==complex else [7, -6, -1]
 
     if hermitian:
         V, A, xe = define_data_hermitian(n, p, dtype=dtype)
@@ -290,7 +290,7 @@ def test_solver_diagonal(solver: str, diagonal: float, expected: float) -> None:
 def test_GMRES_solve(maxiter: int, dtype: type) -> None:
 
     n = 12
-    diagonals = [-7-2j, -6-2j, -1-10j] if dtype == complex else [-7, -6, -1]
+    diagonals = [7+2j, -6-2j, -1-10j] if dtype == complex else [7, -6, -1]
     _, A, xe = define_data(n, 1, diagonals, dtype=dtype)
     b = A @ xe
 
