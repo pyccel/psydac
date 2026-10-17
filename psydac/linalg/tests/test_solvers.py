@@ -49,15 +49,33 @@ def define_data_hermitian(n, p, dtype=float):
     return(V, A, xe)
 
 def define_data(n, p, matrix_data, dtype=float):
+    """
+    Create a banded matrix with 2p+1 constant diagonals, and a random exact solution.
+
+    The p lower diagonals are set to -matrix_data[0], the main diagonal to
+    matrix_data[1], and the p upper diagonals to matrix_data[2]. Hence the
+    matrix is not necessarily symmetric or positive definite. It is Hermitian
+    positive definite if matrix_data[2] = -conj(matrix_data[0]) and
+    matrix_data[1] >= 2p |matrix_data[0]|, e.g. with matrix_data = [1, 2p, -1].
+    See also `define_data_hermitian`.
+
+    Returns
+    -------
+    V : StencilVectorSpace
+        The space of the matrix and of the solution.
+
+    A : StencilMatrix
+        The banded matrix.
+
+    xe : StencilVector
+        The exact solution, with random entries.
+    """
     domain_decomposition = DomainDecomposition([n - p], [False])
     cart = CartDecomposition(domain_decomposition, [n], [np.array([0])], [np.array([n - 1])], [p], [1])
     # ... Vector Spaces
     V = StencilVectorSpace(cart, dtype=dtype)
     e = V.ends[0]
     s = V.starts[0]
-
-    # Build banded matrix with 2p+1 diagonals: must be symmetric and positive definite
-    # Here we assign value 2*p on main diagonal and -1 on other diagonals
 
     A = StencilMatrix(V, V)
     A[:, -p:0] = -matrix_data[0]
