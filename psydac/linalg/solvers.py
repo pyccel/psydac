@@ -908,7 +908,9 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
 
         while res_sqr > tol_sqr and niter < maxiter:
 
-            # v = A @ pp, vp = PC @ v, alphap = rhop/(rp0.vp)
+            # v = A @ pp, vp = PC @ v, alphap = rhop/(rp0^H vp)
+            # `inner` conjugates its first argument, as `vdot` in SciPy's bicgstab:
+            # the arguments must be swapped if this convention changes (see #485)
             A.dot(pp, out=v)
             pc.dot(v, out=vp)
             alphap = rhop / rp0.inner(vp)
@@ -944,7 +946,7 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
             tp *= omegap
             rp -= tp
 
-            # rhop_new = rp0.rp, betap = (alphap*rhop_new)/(omegap*rhop)
+            # rhop_new = rp0^H rp, betap = (alphap*rhop_new)/(omegap*rhop)
             rhop_new = rp0.inner(rp)
             betap = (alphap*rhop_new) / (omegap*rhop)
             rhop = 1*rhop_new
@@ -1801,7 +1803,7 @@ class GMRES(InverseLinearOperator):
             # make the last diagonal entry in H equal to 0, so that H becomes upper triangular
             self.apply_givens_rotation(k, sn, cn)
 
-            # update the residual vector
+            # update the residual vector with the same rotation, as in PETSc
             beta.append(- sn[k] * beta[k])
             beta[k] *= cn[k].conjugate()
 
@@ -1846,6 +1848,8 @@ class GMRES(InverseLinearOperator):
         self._A.dot( self._Q[k] , out=p) # Krylov vector
 
         for i in range(k + 1): # Modified Gram-Schmidt, keeping Hessenberg matrix
+            # h[i] = Q[i]^H p, because `inner` conjugates its first argument:
+            # the arguments must be swapped if this convention changes (see #485)
             h[i] = self._Q[i].inner(p)
             p.mul_iadd(-h[i], self._Q[i])
         
@@ -1860,6 +1864,8 @@ class GMRES(InverseLinearOperator):
     def apply_givens_rotation(self, k, sn, cn):
         # Apply Givens rotation to last column of H
         # Rotation [[conj(c), conj(s)], [-s, c]] is unitary also for complex c, s
+        # Here s is real, because h[k+1] is a norm (see `arnoldi`), hence this
+        # is the same rotation as in PETSc, which does not conjugate s
         h = self._H[:k+2, k]
 
         for i in range(k):
