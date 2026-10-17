@@ -43,31 +43,20 @@ class Geometry:
     """
     Distributed discrete geometry that works for single and multiple patches.
 
-    The Geometry object should be created with one of the class methods:
-    - `from_file`: passing the path to a geometry file (single or multi-patch).
-    - `from_discrete_mapping`: passing a `SplineMapping` (single patch).
-    - `from_topological_domain`: passing a `Domain`, the number of cells, and
-      the periodicity (single or multi-patch).
+    A Geometry object is usually created by calling
+    `~psydac.api.discretization.discretize` on a SymPDE domain:
+    `discretize(domain, filename=...)` calls `Geometry.from_file`, and
+    `discretize(domain, ncells=...)` calls `Geometry.from_topological_domain`.
 
-    The constructor `__init__` requires an existing domain decomposition, from
-    which the number of cells and the periodicity of each patch are obtained.
+    It can also be created directly with one of the class methods:
 
-    Parameters
-    ----------
-    domain : Sympde.topology.Domain
-        The symbolic topological domain to be discretized.
+    - `Geometry.from_file`: from a geometry file (single or multi-patch).
+    - `Geometry.from_discrete_mapping`: from a
+      `~psydac.mapping.discrete.SplineMapping` (single patch).
+    - `Geometry.from_topological_domain`: from a topological domain, the number
+      of cells, and the periodicity (single or multi-patch).
 
-    ddm : DomainDecomposition | MultiPatchDomainDecomposition
-        The decomposition of the domain across the MPI processes: a
-        `DomainDecomposition` for a single patch, otherwise a
-        `MultiPatchDomainDecomposition` with one decomposition per patch.
-
-    pdim : int
-        Number of physical dimensions of the Geometry object (pdim >= ldim).
-
-    mappings : dict[str, BasicCallableMapping], optional
-        The discrete mappings of each patch. A spline mapping must be defined
-        on the domain decomposition of its patch (the same object).
+    The constructor `__init__` is meant for internal use by these class methods.
     """
     _ldim     = None
     _pdim     = None
@@ -80,7 +69,35 @@ class Geometry:
                  ddm      : DomainDecomposition | MultiPatchDomainDecomposition,
                  pdim     : int,
                  mappings : dict[str, BasicCallableMapping | None] = None):
+        """
+        Create a Geometry instance from an existing domain decomposition.
 
+        This constructor is meant for internal use: the class methods should be
+        preferred. The number of cells and the periodicity of each patch are
+        obtained from the domain decomposition.
+
+        Parameters
+        ----------
+        domain : Sympde.topology.Domain
+            The symbolic topological domain to be discretized.
+
+        ddm : DomainDecomposition | MultiPatchDomainDecomposition
+            The decomposition of the domain across the MPI processes: a
+            `DomainDecomposition` for a single patch, otherwise a
+            `MultiPatchDomainDecomposition` with one decomposition per patch.
+
+        pdim : int
+            Number of physical dimensions of the Geometry object (pdim >= ldim).
+
+        mappings : dict[str, BasicCallableMapping | None], optional
+            The callable mapping of each patch, keyed by the names of the domain
+            interiors, or None if the patch has no callable mapping (default:
+            no patch has one). Each mapping must have physical dimension `pdim`.
+            If a mapping is a `SplineMapping` (or a `NurbsMapping`), its space
+            must be defined on the domain decomposition of its patch, i.e. on
+            the same object as `ddm` (single patch) or as the corresponding
+            element of `ddm.domains` (multiple patches).
+        """
         # Type checks
         assert isinstance(domain, Domain)
         assert isinstance(ddm, (DomainDecomposition, MultiPatchDomainDecomposition))
