@@ -24,29 +24,19 @@ from    psydac.linalg.tests.utilities import check_linop_equality_using_rng, Ann
 
 
 def define_data_hermitian(n, p, dtype=float):
-    domain_decomposition = DomainDecomposition([n - p], [False])
-    cart = CartDecomposition(domain_decomposition, [n], [np.array([0])], [np.array([n - 1])], [p], [1])
-    # ... Vector Spaces
-    V = StencilVectorSpace(cart,dtype=dtype)
-    e = V.ends[0]
-    s = V.starts[0]
+    """
+    Create a Hermitian positive definite banded matrix, and a random exact solution.
 
-    # Build banded matrix with 2p+1 diagonals: must be symmetric and positive definite
-    # Here we assign value 2*p on main diagonal and -1 on other diagonals
-    if dtype==complex:
-        factor=1+1j
-    else:
-        factor=1
-    A = StencilMatrix(V, V)
-    A[:, -p:0] = 1-1*factor
-    A[:, 0:1] = 2 * p
-    A[:, 1:p + 1] = 1-1*factor.conjugate()
-    A.remove_spurious_entries()
-
-    # Build exact solution
-    xe = StencilVector(V)
-    xe[s:e + 1] = factor*np.random.random(e + 1 - s)
-    return(V, A, xe)
+    The matrix is created by `define_data` with 2p on the main diagonal, and -1
+    (real case) or -1j (complex case) on the p lower diagonals. The p upper
+    diagonals hold the complex conjugate of the lower ones. In the complex case,
+    the exact solution is complex as well. See `define_data` for the returns.
+    """
+    lower = -1j if dtype == complex else -1
+    V, A, xe = define_data(n, p, [lower, 2 * p, np.conj(lower)], dtype=dtype)
+    if dtype == complex:
+        xe *= 1 + 1j
+    return V, A, xe
 
 def define_data(n, p, matrix_data, dtype=float):
     """
