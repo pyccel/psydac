@@ -65,6 +65,7 @@ All notable changes to this project will be documented in this file.
 -   #527 : Keep the given SymPDE domain in `discretize(domain, filename=...)`, after checking that it matches the geometry file
 -   #527 : Do not import the submodules of `psydac.cad` in its `__init__.py`
 -   #527 : Use latest version of Igakit (commit dalcinl/igakit@2a0c9ee of 2026/10/14) which supports NumPy >= 2.5
+-   #527 : Raise a `ValueError` with an explanation, instead of an `AssertionError`, when an MPI process owns too few coefficients
 -   #576 : Use latest version of Igakit (commit dalcinl/igakit@92ee097 of 2026/07/24) which supports NumPy >= 2.4
 -   #595 : Use PETSc 3.25.5 whose Python bindings `petsc4py` are built correctly with `cython>=3`
 -   #580 : Use PETSc 3.25.0 whose Python bindings `petsc4py` install correctly with `setuptools>=81.0`
