@@ -1494,8 +1494,9 @@ class LSMR(InverseLinearOperator):
         if conlim > 0:ctol = 1 / conlim
         normr = beta
 
-        # Early exit as in SciPy: the solution of A x = 0 is x = 0, and
-        # A^H (b - A x) = 0 means that x is already a least-squares solution
+        # Early exits as in SciPy (which returns istop = 0 in both cases):
+        # the solution of A x = 0 is x = 0, and A^H (b - A x) = 0 means
+        # that x is already a least-squares solution
         if normb == 0:
             x *= 0.0
             normr = 0.0
