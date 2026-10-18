@@ -259,19 +259,28 @@ def test_solver_tridiagonal(n, p, dtype, solver, use_jacobi_pc, verbose=False):
     assert (solver == 'CG' and use_jacobi_pc) or errc_norm < tol
 
 #===============================================================================
-# Diagonal operators make the stopping tests divide by a vanishing norm
-@pytest.mark.parametrize(
-    ('solver', 'diagonal', 'expected'), [('MINRES', 0.0, 0.0), ('LSMR', 2.0, 0.5)]
-)
-def test_solver_diagonal(solver: str, diagonal: float, expected: float) -> None:
+# With A = 0, the stopping tests of MINRES set test1 = test2 = inf
+def test_MinimumResidual_solve_zero_operator() -> None:
 
-    V, A, _ = define_data(6, 1, [0.0, diagonal, 0.0])
+    V, A, _ = define_data(6, 1, [0.0, 0.0, 0.0])
     b = V.zeros()
     b[:] = 1.0
 
-    x = inverse(A, solver, tol=1e-10) @ b
+    x = inverse(A, 'MINRES', tol=1e-10) @ b
 
-    assert np.array_equal(x.toarray(), np.full(6, expected))
+    assert np.array_equal(x.toarray(), np.zeros(6))
+
+#===============================================================================
+# With A = 2I, LSMR finds the exact solution, and its stopping tests set test2 = inf
+def test_LSMR_solve_zero_residual() -> None:
+
+    V, A, _ = define_data(6, 1, [0.0, 2.0, 0.0])
+    b = V.zeros()
+    b[:] = 1.0
+
+    x = inverse(A, 'LSMR', tol=1e-10) @ b
+
+    assert np.array_equal(x.toarray(), np.full(6, 0.5))
 
 #===============================================================================
 # GMRES must report the true residual of the returned solution, converged or not
