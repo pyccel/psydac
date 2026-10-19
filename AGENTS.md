@@ -39,7 +39,7 @@ memory supercomputers using MPI and OpenMP.
 - Unit tests can be run with `psydac test` CLI command (see `README.md`)
 - Test file names follow `test_<module>.py`
 - Test function names follow `test_<function>` or `test_<class>_<method>`
-- Parametrize unit tests with `@pytest.parametrize` to minimize code duplication
+- Parametrize unit tests with `@pytest.mark.parametrize` to minimize code duplication
 - Keep run time of tests at a minimum
 - Aim for 100% coverage on newly committed code
 
@@ -52,6 +52,7 @@ memory supercomputers using MPI and OpenMP.
 - psydac/feec - finite element exterior calculus (FEEC)
 - psydac/fem - "finite element method" middle-level Python interface (spaces and fields)
 - psydac/linalg - "linear algebra" low-level Python interface (vectors, linear operators, iterative solvers)
+- psydac/mapping - spline and NURBS mappings, and a gallery of discrete mappings
 - psydac/polar - implementation of polar splines for H1 spaces
 - psydac/pyccel - distillation of an old version of Pyccel for Python code generation (to be removed)
 - psydac/utilities - various generic functions used across the library
