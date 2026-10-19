@@ -110,3 +110,6 @@ disable = [
     'duplicate-code',
     'fixme',
 ]
+
+[tool.isort]
+profile = 'black'  # sort imports as black formats them

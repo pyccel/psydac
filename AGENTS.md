@@ -61,10 +61,12 @@ memory supercomputers using MPI and OpenMP.
 - subprojects - Git submodules
 
 ## Always do
-- Before claiming done:
-  . Run `python -m black --check $(git ls-files "*.py")`
-  . Run `python -m isort --check $(git ls-files "*.py" | grep -v "FOUND_DUPLICATED_IMPORT.py")`
-  . Run `pylint --disable=all --enable=unused-import ./psydac --ignore-paths="__pyccel*" --ignore-paths="__epyccel*"`
+- Before claiming done, run these checks on the Python files you changed:
+  . Run `python -m black --check $(git diff --name-only --diff-filter=d devel -- "*.py")`
+  . Run `python -m isort --check $(git diff --name-only --diff-filter=d devel -- "*.py")`
+  . Run `pylint --disable=all --enable=unused-import $(git diff --name-only --diff-filter=d devel -- "*.py")`
+- Until the code base is reformatted, black and isort fail on most existing files:
+  do not reformat code outside your change. The pylint check must pass.
 - Unless specified differently, assume process with `rank=0` in MPI communicator is root
 - Use root MPI process to perform serial operations (e.g. open/save image)
 
