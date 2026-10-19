@@ -6,7 +6,8 @@
 from __future__ import annotations
 
 import  os
-from    typing                  import NamedTuple
+import  warnings
+from    typing                  import Literal, NamedTuple
 
 import  h5py
 import  numpy                   as np
@@ -333,37 +334,42 @@ def _patch_lines(source, selection, getter, N=100, cache=None):
 
 # ------------------------------------------------------------------------------
 
-def _abs(vals):
-    """Absolute values of scalar-valued grid values (a list with one array per patch)."""
-    return [np.abs(v) for v in vals]
-
-
 def _fem_field_arrays(vals, vector_valued, o):
     """
     The grid values to plot for a FemField, one entry per plot (axes), 
-    depending on the options 'plot_type', 'components' and 'magnitude' in o.
+    depending on the options 'plot_type', 'components' and 'magnitude' in o:
+    first the magnitude plot (if magnitude), then the component plot(s) (if components).
+    By default (components=None), components are plotted unless magnitude is True.
+    A scalar-valued function is always plotted as it is (1 plot), magnitude only gives a warning.
+    Returns (arrays, kinds), kinds being one of 'magnitude', 'x', 'y' (component of a vector), 'plain' (everything else) per plot, used for the titles.
     """
     plot_type, components, magnitude = o['plot_type'], o['components'], o['magnitude']
 
-    if plot_type == 'vector_field':                 # 1 plot of the vector (v_x, v_y)
+    if plot_type == 'vector_field':                 # 1 plot of the vector (v_x, v_y), colored by its magnitude
         if not vector_valued:
             raise ValueError("plot_type='vector_field' requires a vector-valued function.")
-        return [[_abs(v) for v in vals] if magnitude else vals]
+        return [vals], ['plain']
 
-    if not vector_valued:                           # 1 plot of v or |v|
-        return [_abs(vals) if magnitude else vals]
+    if components is None:
+        components = not magnitude
+    if not (components or magnitude):
+        raise ValueError('Nothing to plot: components and magnitude are both False.')
+
+    if not vector_valued:                           # 1 plot of v, there is no magnitude of a scalar
+        if magnitude:
+            warnings.warn('magnitude has no effect on a scalar-valued function, it is plotted as it is.')
+        return [vals], ['plain']
 
     vx, vy = vals
-    if components is True:                          # 2 plots: v_x, v_y (or their absolute values)
-        arrays = [vx, vy]
-    elif components in ('x', 'y'):                  # 1 plot: v_x or v_y (or its absolute value)
-        arrays = [vx if components == 'x' else vy]
-    elif magnitude:                                 # 1 plot of || (v_x, v_y) ||
-        return [[np.hypot(a, b) for a, b in zip(vx, vy)]]
-    else:
-        raise ValueError('components=False must be accompanied by magnitude=True for vector-valued functions.')
+    arrays, kinds = [], []
+    if magnitude:                                   # || (v_x, v_y) ||
+        arrays.append([np.hypot(a, b) for a, b in zip(vx, vy)]); kinds.append('magnitude')
+    if components is True:                          # v_x and v_y
+        arrays += [vx, vy];                                      kinds += ['x', 'y']
+    elif components in ('x', 'y'):                  # v_x or v_y
+        arrays.append(vx if components == 'x' else vy);          kinds.append(components)
 
-    return [_abs(a) for a in arrays] if magnitude else arrays
+    return arrays, kinds
 
 
 def _from_fem_field(vh, o, cache):
@@ -378,7 +384,8 @@ def _from_fem_field(vh, o, cache):
     _, etas, xx, yy = cache[key]
 
     vals         = get_grid_vals(vh, etas, list(mappings.values()))
-    return _fem_field_arrays(vals, Vh.is_vector_valued, o), xx, yy
+    arrays, kinds = _fem_field_arrays(vals, Vh.is_vector_valued, o)
+    return arrays, kinds, xx, yy
 
 
 def _from_grid_vals(vals, o):
@@ -391,13 +398,15 @@ def _from_grid_vals(vals, o):
 
     # Vector-valued grid values give 2 plots (one per component), except for a vector field plot
     one_plot = ndim == 3 or o['plot_type'] == 'vector_field'
-    return ([vals] if one_plot else list(vals)), o['xx'], o['yy']
+    arrays = [vals] if one_plot else list(vals)
+    return arrays, ['plain'] * len(arrays), o['xx'], o['yy']
 
 # ------------------------------------------------------------------------------
 
 class _Prepared(NamedTuple):
     """Everything needed to draw the plot(s) of one entry of funs."""
     arrays           : list          # one entry per plot (axes)
+    kinds            : list          # one entry per plot: 'magnitude', 'x', 'y' or 'plain', see _fem_field_arrays
     xx               : list
     yy               : list
     spline_grid      : list | None   # per patch, see _patch_lines
@@ -432,23 +441,31 @@ def _prepare(fun, global_opts, cache):
     o = {**global_opts, **local_opts}
 
     if kind == 'fem_field':
-        arrays, xx, yy = _from_fem_field(data, o, cache)
+        arrays, kinds, xx, yy = _from_fem_field(data, o, cache)
         # A FemField is its own source of the lines, they are drawn if requested
         spline_source   = data.space if o['plot_spline_grid']      is not False else None
         boundary_source = data.space if o['plot_patch_boundaries'] is not False else None
     else:
-        arrays, xx, yy = _from_grid_vals(data, o)
+        arrays, kinds, xx, yy = _from_grid_vals(data, o)
         # For grid values the source of the lines must be passed, and the lines are drawn if it is
         spline_source, boundary_source = o['spline_grid'], o['patch_boundaries']
 
     return _Prepared(
         arrays           = arrays, 
+        kinds            = kinds,
         xx               = xx, 
         yy               = yy,
         spline_grid      = _patch_lines(spline_source,   o['plot_spline_grid'],      get_patch_knots_gridlines,    o['N_lines'], cache),
         patch_boundaries = _patch_lines(boundary_source, o['plot_patch_boundaries'], get_patch_boundary_gridlines, o['N_lines'], cache),
         style            = {k: v for k, v in o.items() if k not in _PLOT2D_ONLY},
     )
+
+
+def _decorate_title(title, kind):
+    """Title of one plot, made from the title of its function: ||E|| for the magnitude, x(E) and y(E) for components, otherwise the title itself."""
+    if title is None or kind == 'plain':
+        return title
+    return f'||{title}||' if kind == 'magnitude' else f'{kind}({title})'
 
 
 def _choose_layout(n_plots, layout=None):
@@ -467,7 +484,7 @@ def _choose_layout(n_plots, layout=None):
 
 
 def plot_2d(funs, titles=None, suptitle=None, xx=None, yy=None,
-        plot_type='contourf', components=True, magnitude=False,
+        plot_type='contourf', components=None, magnitude=False,
         N_vis=(100,100),
         plot_spline_grid=False, spline_grid=None, plot_patch_boundaries=False, patch_boundaries=None,
         cmap='jet', layout=None,
@@ -496,7 +513,10 @@ def plot_2d(funs, titles=None, suptitle=None, xx=None, yy=None,
         or a list or tuple of the above.
 
     titles : list | tuple | None
-        (optional) list of strings (titles) for each plot. Vector-valued FemFields might require 2 titles (if components==True).
+        (optional) list of strings (titles). Either one per plot (used as they are), in the order of the plots: 
+        for each entry of funs, the magnitude plot first (if magnitude), then its component plot(s).
+        Or, if there are more plots than entries of funs, one per entry of funs. The titles of its plots are then made from it: 
+        ||E|| for the magnitude of a vector-valued function, x(E) and y(E) for its components. All other plots (scalar values, vector field) keep the title as it is.
 
     suptitle : str | None
         Suptitle of the Figure.
@@ -510,14 +530,16 @@ def plot_2d(funs, titles=None, suptitle=None, xx=None, yy=None,
     plot_type : str
         Either 'contourf', 'surface_plot' or 'vector_field'. Determines which mpl function is used for the individual plots.
 
-    components : str | bool
-        Relevant only for vector-valued FemFields. Determines whether both components (True) are plotted individually (2 plots, unless plot_type='vector_plot', then 1 plot),
-        or only one component ('x' or 'y') (1 plot).
-        If False, we assert magnitude and plot its magnitude (1 plot).
+    components : str | bool | None
+        If True, the components of the FemField are plotted (vector-valued: 2 plots, v_x and v_y; scalar-valued: 1 plot, the function itself).
+        If 'x' or 'y', only that component of a vector-valued FemField is plotted (1 plot).
+        Default None: True, unless magnitude is True.
 
     magnitude : bool
-        If True, the absolute values of the FemFields are plotted. In the vector-valued case, depending on components, 
-        either the magnitude of both components (2 plots) or the magnitude (\\ell^2 norm) of the entire function (1 plot).
+        If True, the magnitude (\\ell^2 norm) of a vector-valued FemField is plotted, 1 plot.
+        A scalar-valued FemField has no magnitude: a warning is given and it is plotted as it is.
+        If components and magnitude are both True, both are plotted, the magnitude plot first, then the component plot(s).
+        Ignored for plot_type='vector_field', which always gives 1 plot of the vector (colored by its magnitude).
 
     N_vis : list | tuple
         of two ints. Determines the interpolation points (per patch) used for the plot.
@@ -637,7 +659,17 @@ def _plot_2d(funs, titles=None, suptitle=None, layout=None, show_plot=True, file
     prepared = [_prepare(fun, global_opts, cache) for fun in funs]
     if prepare_only:
         return prepared
-    layout   = _choose_layout(sum(len(p.arrays) for p in prepared), layout)
+    n_plots  = sum(len(p.arrays) for p in prepared)
+    layout   = _choose_layout(n_plots, layout)
+
+    # Titles: either one per plot (used as they are), or, if there are more plots than entries of funs, 
+    # one per entry of funs, from which the titles of its plots are made: ||E||, x(E), y(E), the title itself otherwise.
+    plot_titles = [None] * n_plots
+    if titles is not None:
+        if len(titles) == len(prepared) and n_plots > len(prepared):
+            plot_titles = [_decorate_title(t, kind) for t, p in zip(titles, prepared) for kind in p.kinds]
+        else:
+            plot_titles = [*titles[:n_plots], *[None] * (n_plots - len(titles))]
 
     # Figure
     if fig is None:
@@ -652,7 +684,7 @@ def _plot_2d(funs, titles=None, suptitle=None, layout=None, show_plot=True, file
     for p in prepared:
         projection = '3d' if p.style['plot_type'] == 'surface_plot' else None
         for arr in p.arrays:
-            title = titles[count] if titles is not None and count < len(titles) else None
+            title = plot_titles[count]
             style = {**p.style, **scales[count]} if scales is not None else p.style
             ax    = fig.add_subplot(*layout, count + 1, projection=projection)
             fill_axes(ax, p.xx, p.yy, arr, title=title, 
@@ -740,34 +772,41 @@ def _to_palette(rgb, palette):
     return image
 
 
-def plot_2d_time(frames, filename, domain=None, fields=None, suptitles=None, fps=10, N_vis=(20, 20), **kwargs):
+def plot_2d_time(frames, filedirname, format:Literal['gif', 'png']='gif', domain=None, fields=None, suptitles=None, fps=10, N_vis=(20, 20), **kwargs):
     """
-    Save an animated GIF of plot_2d over time. Nothing is shown, the frames are drawn one at a time.
+    Save an animated GIF of plot_2d over time, or a folder of PNGs (one per frame). 
+    Nothing is shown, the frames are drawn one at a time.
 
     All scales (color ranges, contour levels, arrow lengths, z-axes) are the same in every frame.
     To that end the frames are gone through twice: first to find the value range of every plot, then to draw them.
     Evaluating a frame is cheap, so it is simply done in both passes.
-    Only one frame is held in memory at a time (plus the finished GIF frames, as 256-color images).
+    Only one frame is held in memory at a time (plus the finished GIF frames, as 256-color images, if saving a GIF).
     All frames must have the same structure (same plots, grids and settings).
 
     Parameters
     ----------
-    frames : list | tuple | h5py.File
+    frames : list | tuple | h5py.File | str | os.PathLike
         One entry per time step, each one exactly what plot_2d accepts as funs
         (a FemField, grid values, a dictionary, or a list/tuple of those).
-        Or a fields file written by psydac.api.postprocessing.OutputManager (requires domain).
+        Or a fields file written by psydac.api.postprocessing.OutputManager (requires domain), 
+        either an open h5py.File or the path to it (opened, and closed again, by this function).
         In that case one snapshot at a time is loaded, only when it is needed.
 
-    filename : str
-        Name of the GIF, e.g. 'solution.gif' ('.gif' is appended if missing).
+    filedirname : str | os.PathLike
+        Depends on format. For 'gif': name of the GIF, '.gif' is appended if missing, e.g. 'solution' or 'solution.gif'.
+        For 'png': name of the folder (created if necessary), exactly as given (also if it ends with '.gif'), 
+        in which one PNG per frame is saved, named by the frame index: 0.png, 1.png, ... 
+
+    format : Literal['gif', 'png']
+        Either an animated GIF, or a folder of PNGs.
 
     domain : sympde.topology.Domain | None
-        Symbolic domain of the simulation. Required if frames is an h5py.File.
+        Symbolic domain of the simulation. Required if frames is an h5py.File or a path.
 
     fields : str | dict | list | tuple | None
         Only used if frames is an h5py.File. Names of the fields to plot, e.g. ('E', 'B'), all fields if None.
         A dictionary as in plot_2d, with the name instead of the FemField, gives field specific settings,
-        e.g. ({'fem_field':'E', 'magnitude':True, 'components':False}, 'B').
+        e.g. ({'fem_field':'E', 'magnitude':True}, 'B').
 
     suptitles : list | tuple | None
         One Figure title per time step, e.g. the simulation time. Overwrites suptitle.
@@ -786,10 +825,21 @@ def plot_2d_time(frames, filename, domain=None, fields=None, suptitles=None, fps
     Returns
     -------
     str
-        Name of the saved GIF.
+        Name of the saved GIF, or of the folder with the PNGs.
     """
-    if not filename.endswith('.gif'):
-        filename += '.gif'
+    if isinstance(frames, (str, os.PathLike)):          # path to a fields file: open it here, and close it afterwards
+        with h5py.File(frames, 'r') as f:
+            return plot_2d_time(f, filedirname, format, domain=domain, fields=fields, suptitles=suptitles, fps=fps, N_vis=N_vis, **kwargs)
+
+    if format not in ('gif', 'png'):
+        raise ValueError(f"format must be 'gif' or 'png', got {format!r}.")
+
+    path   = os.fspath(filedirname)
+    as_gif = format == 'gif'
+    if as_gif and not path.endswith('.gif'):
+        path += '.gif'
+    if not as_gif:                                      # the name is the folder name, whatever it ends with
+        os.makedirs(path, exist_ok=True)
 
     if isinstance(frames, h5py.File):
         get_frame, n_frames, times = _h5_frames(frames, domain, fields)
@@ -810,13 +860,17 @@ def plot_2d_time(frames, filename, domain=None, fields=None, suptitles=None, fps
         vmax     = hi if vmax is None else np.maximum(vmax, hi)
     scales = [_fixed_scales(style, a, b) for (_, style), a, b in zip(plots, vmin, vmax)]
 
-    # Second pass: draw every frame into the same Figure and keep it as a 256-color image.
-    # All frames use the palette of the first one, which contains the full colorbars, so colors don't flicker.
+    # Second pass: draw every frame into the same Figure. 
+    # PNGs are saved right away. For a GIF, the frame is kept as a 256-color image; all frames use the palette
+    # of the first one, which contains the full colorbars, so colors don't flicker.
     fig, palette, images = None, None, []
     for i in range(n_frames):
         if suptitles is not None:
             kwargs['suptitle'] = suptitles[i]
         fig = _plot_2d(get_frame(i), cache=cache, fig=fig, scales=scales, show_plot=False, **kwargs)
+        if not as_gif:
+            fig.savefig(os.path.join(path, f'{i}.png'))
+            continue
         fig.canvas.draw()
         rgb = np.asarray(fig.canvas.buffer_rgba())[..., :3]
         if palette is None:
@@ -824,9 +878,10 @@ def plot_2d_time(frames, filename, domain=None, fields=None, suptitles=None, fps
         images.append(_to_palette(rgb, palette))
     plt.close(fig)
 
-    images[0].save(filename, save_all=True, append_images=images[1:], duration=1000 / fps, loop=0)
+    if as_gif:
+        images[0].save(path, save_all=True, append_images=images[1:], duration=1000 / fps, loop=0)
 
-    return filename
+    return path
 
 
 # ------------------------------------------------------------------------------
