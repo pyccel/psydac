@@ -35,6 +35,7 @@ All notable changes to this project will be documented in this file.
 -   #527 : Fix `psydac.cad.refine` when inserting a value which is already a knot, see #619
 -   #527 : Keep the `mpi_dims_mask` of a `DomainDecomposition` in `TensorFemSpace.add_refined_space` and `psydac.cad.cad.refine`, see #622
 -   #527 : Fix `local_ncells` of the decomposition returned by `DomainDecomposition.refine`, see #623
+-   #527 : Raise a `ValueError` in `Geometry.export` if a patch has no spline mapping, instead of an `AttributeError` after creating the file, see #631
 -   #527 : Use the physical dimension of the mappings in `Geometry.from_topological_domain` and `from_discrete_mapping`
 -   #527 : Pair the patches of a geometry file with the domain interiors by name, not by position
 -   #527 : Avoid setting the `shape` of NumPy arrays (deprecated since NumPy 2.5) in `KroneckerLinearSolver`
