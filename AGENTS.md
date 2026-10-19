@@ -21,6 +21,8 @@ memory supercomputers using MPI and OpenMP.
 - mpi4py for MPI parallelization
 - h5py for parallel I/O
 - petsc4py for direct linear solvers (optional install)
+- sphinx + numpydoc + nbsphinx + myst-parser for documentation
+  (see `docs/requirements.txt`; build with `make -C docs html`)
 
 ## Code standards
 - Follow PEP 8 style guide whenever possible
