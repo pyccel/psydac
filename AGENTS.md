@@ -12,8 +12,8 @@ speed using Pyccel. The library enables large parallel computations on distribut
 memory supercomputers using MPI and OpenMP.
 
 ## Tech stack
-- Python 3.10+, type hints required everywhere
-- meson-python + mesonpy for building
+- Python 3.10+, type hints required in new code
+- meson-python (Meson build backend) for building
 - pip with submodules (for igakit)
 - pytest + pytest-cov + pytest-mpi + pytest-xdist for testing
 - sympde for symbolic definition of weak formulations
@@ -27,7 +27,7 @@ memory supercomputers using MPI and OpenMP.
 ## Code standards
 - Follow PEP 8 style guide whenever possible
 - Docstrings of public functions and classes follow Numpydoc conventions
-- pylint + black + isort for linting/typing
+- pylint + black + isort for linting and formatting
 - Computational kernels to be accelerated with Pyccel named as `<module>_kernels.py`
 - Minimize code duplication. Never add code that already exists
 - Strive for concise, clean, and human-readable code. Avoid useless verbosity
@@ -45,6 +45,8 @@ memory supercomputers using MPI and OpenMP.
 - Each library subpackage contains a `tests/` folder with an `__init__.py` file
 - Unit tests are part of the library and shipped with it
 - Unit tests can be run with `psydac test` CLI command (see `README.md`)
+- Parallel tests are marked with `@pytest.mark.mpi` (from pytest-mpi) and run with
+  `psydac test --mpi`; serial tests run with `psydac test`
 - Test file names follow `test_<module>.py`
 - Test function names follow `test_<function>` or `test_<class>_<method>`
 - Parametrize unit tests with `@pytest.mark.parametrize` to minimize code duplication
