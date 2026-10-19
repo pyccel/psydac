@@ -17,7 +17,7 @@ import h5py
 import yaml
 from mpi4py import MPI
 
-from sympde.topology       import Domain, Interface, Line, Square, Cube, NCubeInterior, Mapping, NCube
+from sympde.topology       import Domain, Line, Square, Cube, NCubeInterior, Mapping, NCube
 from sympde.topology.basic import Union
 from sympde.topology.callable_mapping import BasicCallableMapping
 

@@ -3,13 +3,11 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-import string
-import random
 import numpy as np
 
 from psydac.fem.splines      import SplineSpace
 from psydac.fem.tensor       import TensorFemSpace
-from psydac.mapping.discrete import SplineMapping, NurbsMapping
+from psydac.mapping.discrete import NurbsMapping
 from psydac.cad.utils        import plot_mapping
 
 #==============================================================================

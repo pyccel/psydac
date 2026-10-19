@@ -4,7 +4,6 @@
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
 import pytest
-from collections import OrderedDict
 
 import numpy as np
 from sympy import Tuple, lambdify

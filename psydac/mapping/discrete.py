@@ -4,8 +4,6 @@
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
 from itertools import product
-import string
-import random
 
 import yaml
 import numpy as np
