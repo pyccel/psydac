@@ -32,6 +32,12 @@ memory supercomputers using MPI and OpenMP.
 - Self-explanatory names for variables, functions, and classes
 - Do not reassign value to an existing variable, especially if the type changes
 - Use short comments (one-liners or inline) to explain "why" rather than "what" or "how"
+- In docstrings, use single backticks for names and short code,
+  and double backticks only for code expressions
+- Write new code in clean style (e.g. no superfluous parentheses, f-strings),
+  even if the surrounding legacy code does not
+- Do not add author credits in code or comments;
+  credit goes in commit messages and PR descriptions
 
 ## Testing conventions
 - Each library subpackage contains a `tests/` folder with an `__init__.py` file
