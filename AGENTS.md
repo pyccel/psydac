@@ -42,6 +42,13 @@ memory supercomputers using MPI and OpenMP.
 - Parametrize unit tests with `@pytest.mark.parametrize` to minimize code duplication
 - Keep run time of tests at a minimum
 - Aim for 100% coverage on newly committed code
+- Every bugfix comes with a regression test that fails before the fix
+- Use distinct sizes in each direction (e.g. 3 x 5 cells, not 4 x 4),
+  so that swapped indices are detected
+- Write files only to the `tmp_path` fixture (`mpi_tmp_path` in MPI tests),
+  never to the working directory
+- After changing a module, also run the tests of the subpackages which use it
+  (e.g. `psydac/api/tests` after changing `psydac/cad`)
 
 ## File structure
 - psydac/api - high-level Python interface
