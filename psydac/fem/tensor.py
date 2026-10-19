@@ -8,7 +8,6 @@ We assume here that a tensor space is the product of fem spaces whom basis are
 of compact support
 
 """
-import os
 import itertools
 from types import MappingProxyType
 
