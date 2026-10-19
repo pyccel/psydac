@@ -4,7 +4,6 @@
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
 import pytest
-from collections import OrderedDict
 
 import numpy as np
 from sympy import Tuple, lambdify
@@ -43,7 +42,7 @@ def get_polynomial_function(degree, hom_bc_axes, domain):
         g0_y = (y - 0.75)**degree[1]
 
     expr = g0_x * g0_y
-    callable_function = lambdify(domain.coordinates, expr)
+    callable_function = lambdify(domain.coordinates, expr, modules=['numpy'])
 
     return expr, callable_function
 
