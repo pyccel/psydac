@@ -76,6 +76,16 @@ memory supercomputers using MPI and OpenMP.
 - scripts - Various scripts for library maintenance
 - subprojects - Git submodules
 
+## Workflow
+- PRs are squash-merged and the PR description becomes the commit message:
+  keep it complete, and write "(fixes #N)" next to each fix
+- Every PR adds entries to `CHANGELOG.md` under Added/Changed/Fixed/Removed
+- Format of the CHANGELOG entries:
+  . `-   #<PR> : <change>`, followed by `, see #<issue>` if there is one
+  . `-   [DEVELOPER] <change>` for changes which only concern developers
+- Issues describe bugs as they appear on `devel`, with a reproducer that runs on `devel`
+- Do not commit changes to submodule pointers (`subprojects/`) unless intended
+
 ## Always do
 - Before claiming done, run these checks on the Python files you changed:
   . Run `python -m black --check $(git diff --name-only --diff-filter=d devel -- "*.py")`
