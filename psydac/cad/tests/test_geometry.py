@@ -273,6 +273,17 @@ def test_from_topological_domain_different_pdims() -> None:
     with pytest.raises(ValueError, match='different physical dimensions'):
         Geometry.from_topological_domain(_join_squares((2, 3)), [3, 5])
 
+@pytest.mark.parametrize('npatches', [1, 2])
+def test_geometry_export_without_spline_mappings(npatches: int, tmp_path) -> None:
+
+    geo = Geometry.from_topological_domain(_make_domain(npatches), [3, 5])
+    filename = tmp_path / 'geo.h5'
+
+    # The error is raised before the file is created
+    with pytest.raises(ValueError, match='without a spline mapping'):
+        geo.export(str(filename))
+    assert not filename.exists()
+
 # ==============================================================================
 @pytest.mark.parametrize('ldim', [1, 2])
 @pytest.mark.parametrize('npatches', [1, 2])

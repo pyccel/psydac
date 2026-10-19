@@ -436,9 +436,13 @@ class Geometry:
         yml['ldim'] = self.ldim
         yml['pdim'] = self.pdim
 
+        # Only spline mappings can be written to file
+        missing = [name for name, mapping in self.mappings.items()
+                   if not isinstance(mapping, SplineMapping)]
+        if missing:
+            raise ValueError(f'Cannot export patches without a spline mapping: {missing}')
+
         # ... information about the patches
-        if not( self.mappings ):
-            raise ValueError('No mappings were found')
 
         patches_info = []
         i_mapping    = 0
