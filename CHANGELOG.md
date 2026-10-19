@@ -20,6 +20,7 @@ All notable changes to this project will be documented in this file.
 -   #565 : Expand editable install info in `README.md`
 -   [DEVELOPER] Create action `install_petsc4py` to install PETSc & `petsc4py` w/ complex support
 -   [DEVELOPER] Configure Pylint in `pyproject.toml`
+-   [DEVELOPER] Configure isort in `pyproject.toml`, with the profile of black
 -   [DEVELOPER] Add `AGENTS.md` with developer rules
 
 ### Fixed
