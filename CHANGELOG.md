@@ -25,7 +25,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
--   #604 : Fix several bugs in iterative linear solvers (MINRES, LSMR, GMRES, CG, preconditioned BiCGSTAB), see #603
+-   #604 : Fix several bugs in iterative linear solvers (MINRES, LSMR, GMRES, CG, BiCGSTAB), see #603
 -   #527 : Require `sympde==0.20.0` which changes how multipatch interfaces are defined
 -   #527 : Fix `psydac.cad.elevate` and `refine` for NURBS mappings, see #608
 -   #527 : Keep the NURBS weights in `psydac.cad.translate`, see #609
