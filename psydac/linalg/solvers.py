@@ -1863,17 +1863,15 @@ class GMRES(InverseLinearOperator):
             self._Q.append(p.copy())
 
     def apply_givens_rotation(self, k, sn, cn):
-        # Apply Givens rotation to last column of H
-        # Rotation [[conj(c), conj(s)], [-s, c]] is unitary also for complex c, s
-        # Here s is real, because h[k+1] is a norm (see `arnoldi`), hence this
-        # is the same rotation as in PETSc, which does not conjugate s
+        # Apply Givens rotation [[conj(c), s], [-s, c]] to last column of H,
+        # as in PETSc: s is real, because h[k+1] is a norm (see `arnoldi`)
         h = self._H[:k+2, k]
 
         for i in range(k):
             h_i_prev = h[i]
 
             h[i] *= cn[i].conjugate()
-            h[i] += sn[i].conjugate() * h[i+1]
+            h[i] += sn[i] * h[i+1]
 
             h[i+1] *= cn[i]
             h[i+1] -= sn[i] * h_i_prev
@@ -1883,7 +1881,7 @@ class GMRES(InverseLinearOperator):
         sn.append( h[k+1] / mod )
 
         h[k] *= cn[k].conjugate()
-        h[k] += sn[k].conjugate() * h[k+1]
+        h[k] += sn[k] * h[k+1]
         h[k+1] = 0. # becomes triangular
 
     def dot(self, b, out=None):
