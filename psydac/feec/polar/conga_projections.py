@@ -59,7 +59,7 @@ __all__ = (
 
 
 def polar_index(radial_dim, radial_index, angular_index):
-    """Index tuple for (radial, angular) indices r, a in the actual array ordering."""
+    """Index tuple for (radial, angular) indices in the correct array ordering."""
     if radial_dim == 0:
         return (radial_index, angular_index)
     else:
@@ -141,7 +141,7 @@ class C0PolarProjection_V0(LinearOperator):
             y = out
 
         ang = slice(sa, ea + 1)
-        # regions of the coefficient array local to the process, in the actual array ordering
+        # regions of the coefficient array local to the process, in the correct array ordering
         pole  = polar_index(rdim, 0, ang)                  # s = 0
         inner = polar_index(rdim, slice(1, er + 1), ang)   # s > 0, rank at polar edge
         owned = polar_index(rdim, slice(sr, er + 1), ang)  # all radial indices of the rank
@@ -190,7 +190,7 @@ class C0PolarProjection_V0(LinearOperator):
         rank_at_outer_edge = er == nr - 1
         data, cols, rows = [], [], []
 
-        # Assemble the matrix entries which contribute to the polar edge (s1 = 0)
+        # Assemble the matrix entries which contribute to the polar edge (s = 0)
         len_theta = ea - sa + 1
         if rank_at_polar_edge:
             data = np.tile((1 / na) * np.ones(na), len_theta)
@@ -702,7 +702,7 @@ class C0PolarProjection_V2(LinearOperator):
 # =============================================================================#
 
 
-def cos_sin_avg(theta, x, angle_comm, s2, e2, n2, i):
+def cos_sin_avg(theta, x, angle_comm, s2, e2, n2, i, radial_dim=0):
     """
     Compute weighted averages  in parallel:
     sum (2/n2) * cos(theta_k) * x_ik
@@ -712,8 +712,9 @@ def cos_sin_avg(theta, x, angle_comm, s2, e2, n2, i):
     """
     from mpi4py import MPI
 
-    sum_cos = (2 / n2) * np.dot(np.cos(theta), x[i, s2 : e2 + 1])
-    sum_sin = (2 / n2) * np.dot(np.sin(theta), x[i, s2 : e2 + 1])
+    ring = x[polar_index(radial_dim, i, slice(s2, e2 + 1))]
+    sum_cos = (2 / n2) * np.dot(np.cos(theta), ring)
+    sum_sin = (2 / n2) * np.dot(np.sin(theta), ring)
     buf = np.array([sum_cos, sum_sin])
 
     if angle_comm is not None:
@@ -752,13 +753,23 @@ class C1PolarProjection_U0(LinearOperator):
 
     hbc : bool, default=False
         If `True`, impose homogeneous Dirichlet boundary conditions.
+    
+    radial_dim : int, default=0
+        Index of the logical dimension corresponding to the radial coordinate
+        $s$. The other dimension is the (periodic) angular coordinate $\theta$.
+        Use `radial_dim=1` for spaces built on $(\theta, s)$.
     """
-    def __init__(self, W0, *, transposed=False, hbc=False):
+    def __init__(self, W0, *, transposed=False, hbc=False, radial_dim=0):
         assert isinstance(W0, TensorFemSpace)
+        assert radial_dim in (0, 1)
+        assert W0.coeff_space.periods[radial_dim] == False
+        assert W0.coeff_space.periods[1 - radial_dim] == True
 
         self.W0 = W0
         self.transposed = transposed
         self.hbc = hbc
+        self.radial_dim = radial_dim
+        self.angle_dim = 1 - radial_dim
 
     @property
     def domain(self):
@@ -778,28 +789,40 @@ class C1PolarProjection_U0(LinearOperator):
         if not x.ghost_regions_in_sync:
             x.update_ghost_regions()
 
-        [s1, s2] = self.W0.coeff_space.starts
-        [e1, e2] = self.W0.coeff_space.ends
-        [n1, n2] = self.W0.coeff_space.npts
-        theta_local = np.linspace(s2 * 2 * pi / n2, e2 * 2 * pi / n2, e2 - s2 + 1)
-        rank_at_polar_edge = s1 == 0
-        rank_at_outer_edge = e1 == n1 - 1
+        rdim, adim = self.radial_dim, self.angle_dim
+        V = self.W0.coeff_space
+        sr, sa = V.starts[rdim], V.starts[adim]
+        er, ea = V.ends[rdim], V.ends[adim]
+        nr, na = V.npts[rdim], V.npts[adim]
+        theta_local = np.linspace(sa * 2 * pi / na, ea * 2 * pi / na, ea - sa + 1)
+        rank_at_polar_edge = sr == 0
+        rank_at_outer_edge = er == nr - 1
 
         if out is None:
-            y = self.W0.coeff_space.zeros()
+            y = V.zeros()
         else:
             assert isinstance(out, StencilVector)
-            assert out.space is self.W0.coeff_space
+            assert out.space is V
             out *= 0
             y = out
 
+        ang = slice(sa, ea + 1)
+        # regions of the coefficient array local to the process, in the correct array ordering
+        pole  = polar_index(rdim, 0, ang)                  # s = 0
+        ring1 = polar_index(rdim, 1, ang)                  # first ring around the pole
+        inner = polar_index(rdim, slice(2, er + 1), ang)   # s > 1, rank at polar edge
+        owned = polar_index(rdim, slice(sr, er + 1), ang)  # all radial indices of the rank
+        outer = polar_index(rdim, er, slice(None))         # s = L
+
         if rank_at_polar_edge:
             # compute sums of points with s = 0, 1 for the process
-            x0 = np.sum(x[0, s2 : e2 + 1]) / n2
-            x1 = np.sum(x[1, s2 : e2 + 1]) / n2
+            x0 = np.sum(x[pole]) / na
+            x1 = np.sum(x[ring1]) / na
 
-            angle_comm = x.space.cart.subcomm[1] if x.space.parallel else None
-            sum_cos, sum_sin = cos_sin_avg(theta_local, x, angle_comm, s2, e2, n2, 1)
+            angle_comm = x.space.cart.subcomm[adim] if x.space.parallel else None
+            sum_cos, sum_sin = cos_sin_avg(
+                theta_local, x, angle_comm, sa, ea, na, 1, radial_dim=rdim
+            )
 
             if x.space.parallel:
 
@@ -810,30 +833,31 @@ class C1PolarProjection_U0(LinearOperator):
                 x1 = angle_comm.allreduce(x1, op=MPI.SUM)
 
             if self.transposed:
-                y[0, s2 : e2 + 1] = x0 + x1
-                y[1, s2 : e2 + 1] = (
+                y[pole] = x0 + x1
+                y[ring1] = (
                     + np.cos(theta_local) * sum_cos
                     + np.sin(theta_local) * sum_sin
                 )
             else:
-                y[0, s2 : e2 + 1] = x0
-                y[1, s2 : e2 + 1] = (
+                y[pole] = x0
+                y[ring1] = (
                     x0 + np.cos(theta_local) * sum_cos
                     + np.sin(theta_local) * sum_sin
                 )
-            y[2 : e1 + 1, s2 : e2 + 1] = x[2 : e1 + 1, s2 : e2 + 1]
+            y[inner] = x[inner]
         else:
-            y[s1 : e1 + 1, s2 : e2 + 1] = x[s1 : e1 + 1, s2 : e2 + 1]
+            y[owned] = x[owned]
 
         if self.hbc and rank_at_outer_edge:
-            y[e1, :] = 0.0
+            y[outer] = 0.0
 
         y.update_ghost_regions()
         return y
 
     def transpose(self, conjugate=False):
         return C1PolarProjection_U0(
-            self.W0, transposed=not self.transposed, hbc=self.hbc
+            self.W0, transposed=not self.transposed, hbc=self.hbc,
+            radial_dim=self.radial_dim
         )
 
     def tosparse(self):
