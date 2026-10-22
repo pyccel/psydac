@@ -5,6 +5,7 @@
 #---------------------------------------------------------------------------#
 import os
 import contextlib
+from itertools import product
 from pathlib import Path
 
 import pytest
@@ -20,6 +21,10 @@ from sympde.topology.analytical_mapping import TargetMapping
 
 from psydac.mapping.discrete_gallery import discrete_mapping
 from psydac.api.discretization import discretize
+from psydac.ddm.cart import DomainDecomposition
+from psydac.fem.basic import FemField
+from psydac.fem.splines import SplineSpace
+from psydac.fem.tensor import TensorFemSpace
 
 
 #==============================================================================
@@ -223,3 +228,74 @@ if __name__ == '__main__':
     test_plot_2d_decomposition('spline', 'first')
     test_plot_2d_decomposition('analytical', 'last')
     plt.show()
+
+#==============================================================================
+def make_linear_field(knots: np.ndarray, degree: int) -> FemField:
+    """
+    Create the field f(x, y) = x + 2y on a 2D spline space with the same knots
+    along both directions, distributed over all processes. The ghost regions
+    of its coefficients are not updated.
+    """
+    spaces = [SplineSpace(degree=degree, knots=knots) for _ in range(2)]
+    ncells = [len(W.breaks) - 1 for W in spaces]
+    comm = MPI.COMM_WORLD
+    V = TensorFemSpace(DomainDecomposition(ncells, [False, False], comm=comm), *spaces)
+
+    # The coefficients of a linear field are given by the Greville abscissae
+    g1, g2 = [W.greville for W in V.spaces]
+    s1, s2 = V.coeff_space.starts
+    e1, e2 = V.coeff_space.ends
+    f = FemField(V)
+    f.coeffs[s1:e1+1, s2:e2+1] = g1[s1:e1+1, None] + 2 * g2[None, s2:e2+1]
+    return f
+
+def local_points(V: TensorFemSpace) -> list:
+    """Return a grid of points on the closed local subdomain, including its bounds."""
+    starts, ends = V.local_domain
+    grids = [np.linspace(W.breaks[s], W.breaks[e + 1], 5)
+             for W, s, e in zip(V.spaces, starts, ends)]
+    return list(product(*grids))
+
+#==============================================================================
+# The right bound of each local subdomain (except the last) is an interior knot,
+# whose multiplicity may be larger than one
+@pytest.mark.mpi
+@pytest.mark.parametrize('multiplicity', ['simple', 'repeated', 'mixed'])
+def test_TensorFemSpace_eval_field_parallel(multiplicity: str) -> None:
+
+    p = 3
+    grid = np.linspace(0.0, 1.0, 9)
+    interior = grid[1:-1]
+    # Mixed: repeated knots at 0.25, 0.5 and 0.75, simple knots in between
+    m = {'simple'  : [1] * len(interior),
+         'repeated': [p] * len(interior),
+         'mixed'   : [1, 2, 1, 3, 1, 2, 1]}[multiplicity]
+    knots = np.r_[[grid[0]] * (p + 1), np.repeat(interior, m), [grid[-1]] * (p + 1)]
+
+    f = make_linear_field(knots, p)
+    f.coeffs.update_ghost_regions()
+
+    for x, y in local_points(f.space):
+        assert np.isclose(f(x, y), x + 2 * y, rtol=0, atol=1e-14)
+        assert np.allclose(f.gradient(x, y), [1.0, 2.0], rtol=0, atol=1e-13)
+
+#==============================================================================
+# Both evaluation methods must update the ghost regions if they are not in sync
+@pytest.mark.mpi
+@pytest.mark.parametrize('method', ['field', 'gradient'])
+def test_TensorFemSpace_eval_field_ghost_regions(method: str) -> None:
+
+    p = 3
+    grid = np.linspace(0.0, 1.0, 9)
+    knots = np.r_[[grid[0]] * p, grid, [grid[-1]] * p]
+
+    f = make_linear_field(knots, p)
+    assert not f.coeffs.ghost_regions_in_sync
+
+    for x, y in local_points(f.space):
+        if method == 'field':
+            assert np.isclose(f(x, y), x + 2 * y, rtol=0, atol=1e-14)
+        else:
+            assert np.allclose(f.gradient(x, y), [1.0, 2.0], rtol=0, atol=1e-13)
+
+    assert f.coeffs.ghost_regions_in_sync
