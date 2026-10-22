@@ -235,22 +235,32 @@ class C0PolarProjection_V0(LinearOperator):
 
 
 # --------- 1-FORMS CONGA PROJECTOR P1 ----------#
-# It is a BlockLinearOperator with 4 blocks Upper-Left (0, 0), Upper-Right (0, 1)
-# Lower-Left (1, 0) and Lower-Right (1, 1).
+# It is a BlockLinearOperator acting on the s- and theta-components of a
+# 1-form. The s-component has index radial_dim in W1 and the theta-component
+# has index 1 - radial_dim. P1 has three non-zero blocks:
 #
-#                ______________________
-#               |           |          |
-#               |   (0,0)   |   (0,1)  |
-#               |___________|__________|
-#               |           |          |
-#               |   (1,0)   |   (1,1)  |
-#               |___________|__________|
+#   s_s         : s-component     -> s-component,     identity
+#   theta_s     : s-component     -> theta-component, coupling at the pole
+#   theta_theta : theta-component -> theta-component, diagonal
+#
+#   radial_dim = 0, (s, theta):              radial_dim = 1, (theta, s):
+#    _____________________________            _____________________________
+#   |              |              |          |              |              |
+#   |     s_s      |      0       |          | theta_theta  |   theta_s    |
+#   |______________|______________|          |______________|______________|
+#   |              |              |          |              |              |
+#   |   theta_s    | theta_theta  |          |      0       |     s_s      |
+#   |______________|______________|          |______________|______________|
+#
+# In the transposed matrix, the transpose of theta_s is in the other
+# off-diagonal position.
 
 
-class C0PolarProjection_V1_00(LinearOperator):
+class C0PolarProjection_V1_s_s(LinearOperator):
     r"""
-    Matrix-free representation of the upper left block of the CONGA
-    projection matrix $\mathbb{P}_V^1$.
+    Matrix-free representation of the block of the CONGA projection matrix
+    $\mathbb{P}_V^1$ which maps the $s$-component of a 1-form to itself.
+    This block is the identity.
 
     Parameters
     ----------
@@ -258,39 +268,47 @@ class C0PolarProjection_V1_00(LinearOperator):
         The full tensor product spline space of 1-forms
         $\mathbb{S}_{p_1-1, p_2}(\hat{\Omega})
         \times \mathbb{S}_{p_1, p_2-1}(\hat{\Omega})$.
+
+    radial_dim : int, default=0
+        Index of the logical dimension corresponding to the radial coordinate. 
+        With `radial_dim=0` this is the upper-left block of $\mathbb{P}_V^1$, with
+        `radial_dim=1` it is the lower-right block.
     """
-    def __init__(self, W1):
+    def __init__(self, W1, radial_dim=0):
         assert isinstance(W1, VectorFemSpace)
+        assert radial_dim in (0, 1)
 
         self.W1 = W1
+        self.radial_dim = radial_dim
 
     @property
     def domain(self):
-        return self.W1.coeff_space[0]
+        return self.W1.coeff_space[self.radial_dim]
 
     @property
     def codomain(self):
-        return self.W1.coeff_space[0]
+        return self.W1.coeff_space[self.radial_dim]
 
     @property
     def dtype(self):
         return float
 
-    # The upper-left block of P1 is an identity block
+    # This block is the identity, so it does not depend on the ordering of
+    # the logical coordinates.
     def dot(self, x, out=None):
         assert isinstance(x, StencilVector)
 
         if not x.ghost_regions_in_sync:
             x.update_ghost_regions()
 
-        [s1, s2] = self.W1.coeff_space[0].starts
-        [e1, e2] = self.W1.coeff_space[0].ends
+        [s1, s2] = self.domain.starts
+        [e1, e2] = self.domain.ends
 
         if out is None:
-            y = self.W1.coeff_space[0].zeros()
+            y = self.codomain.zeros()
         else:
             assert isinstance(out, StencilVector)
-            assert out.space is self.W1.coeff_space[0]
+            assert out.space is self.codomain
             out *= 0
             y = out
 
@@ -304,20 +322,20 @@ class C0PolarProjection_V1_00(LinearOperator):
 
     def tosparse(self):
 
-        [n01, n02] = self.domain.npts
+        [n1, n2] = self.domain.npts
         [s1, s2] = self.domain.starts
         [e1, e2] = self.domain.ends
 
         i = np.arange(s1, e1 + 1)[:, None]
         j = np.arange(s2, e2 + 1)[None, :]
-        local_rows = (i * n02 + j).ravel()
+        local_rows = (i * n2 + j).ravel()
         data = np.ones((e1 - s1 + 1) * (e2 - s2 + 1))
 
         local_rows = np.asarray(local_rows, dtype=np.int64)
 
         P = coo_matrix(
             (data, (local_rows, local_rows)),
-            shape=[n01 * n02, n01 * n02],
+            shape=[n1 * n2, n1 * n2],
             dtype=self.domain.dtype,
         )
         P.eliminate_zeros()
@@ -328,10 +346,11 @@ class C0PolarProjection_V1_00(LinearOperator):
         return self.tosparse().toarray()
 
 
-class C0PolarProjection_V1_10(LinearOperator):
+class C0PolarProjection_V1_theta_s(LinearOperator):
     r"""
-    Matrix-free representation of the lower left block of the CONGA
-    projection matrix $\mathbb{P}_V^1$.
+    Matrix-free representation of the block of the CONGA projection matrix
+    $\mathbb{P}_V^1$ which maps the $s$-component of a 1-form to its
+    $\theta$-component. 
 
     Parameters
     ----------
@@ -342,22 +361,34 @@ class C0PolarProjection_V1_10(LinearOperator):
 
     transposed : bool, default=False
         If `True`, create block of transposed projection matrix
-        $(\mathbb{P}_V^1)^T$.
+        $(\mathbb{P}_V^1)^T$, which maps the $\theta$-component of a 1-form
+        to its $s$-component.
+
+    radial_dim : int, default=0
+        Index of the logical dimension corresponding to the radial coordinate
+        $s$. With `radial_dim=0` this is the lower-left block of $\mathbb{P}_V^1$
+        (upper-right if transposed), with `radial_dim=1` it is the upper-right
+        block (lower-left if transposed).
     """
-    def __init__(self, W1, transposed=False):
+    def __init__(self, W1, transposed=False, radial_dim=0):
         assert isinstance(W1, VectorFemSpace)
+        assert radial_dim in (0, 1)
 
         self.W1 = W1
         self.transposed = transposed
+        self.radial_dim = radial_dim
+        self.angle_dim = 1 - radial_dim
 
     @property
     def domain(self):
-        idx = 1 if self.transposed else 0
+        # s-component, or theta-component if transposed
+        idx = self.angle_dim if self.transposed else self.radial_dim
         return self.W1.coeff_space[idx]
 
     @property
     def codomain(self):
-        idx = 0 if self.transposed else 1
+        # theta-component, or s-component if transposed
+        idx = self.radial_dim if self.transposed else self.angle_dim
         return self.W1.coeff_space[idx]
 
     @property
@@ -370,10 +401,11 @@ class C0PolarProjection_V1_10(LinearOperator):
         if not x.ghost_regions_in_sync:
             x.update_ghost_regions()
 
-        # The number of radial basis functions is one less than the number on the angular basis functions along dir x1
-        [s1, s2] = self.domain.starts
-        [e1, e2] = self.domain.ends
-        rank_at_polar_edge = s1 == 0
+        rdim, adim = self.radial_dim, self.angle_dim
+        V = self.domain
+        sr, sa = V.starts[rdim], V.starts[adim]
+        ea = V.ends[adim]
+        rank_at_polar_edge = sr == 0
 
         if out is None:
             y = self.codomain.zeros()
@@ -383,51 +415,71 @@ class C0PolarProjection_V1_10(LinearOperator):
             out *= 0
             y = out
 
-        y[s1 : e1 + 1, s2 : e2 + 1] = 0
+        if rank_at_polar_edge:
+            # the cells are periodic in angular dim, so we use ghost regions            
+            ang      = slice(sa, ea + 1)
+            ang_next = slice(sa + 1, ea + 2)
+            ang_prev = slice(sa - 1, ea)
 
-        if self.transposed:
-            if rank_at_polar_edge:
-                y[0, s2 : e2 + 1] = x[1, s2 - 1 : e2] - x[1, s2 : e2 + 1]
-        else:
-            if rank_at_polar_edge:
-                # the cells are periodic in angular dim, so we use ghost regions
-                y[1, s2 : e2 + 1] = x[0, s2 + 1 : e2 + 2] - x[0, s2 : e2 + 1]
+            if self.transposed:
+                # (s-component)[0, j] = (theta-component)[1, j-1] - (theta-component)[1, j]
+                s_ring0          = polar_index(rdim, 0, ang)
+                theta_ring1      = polar_index(rdim, 1, ang)
+                theta_ring1_prev = polar_index(rdim, 1, ang_prev)
+                y[s_ring0] = x[theta_ring1_prev] - x[theta_ring1]
+            else:
+                # (theta-component)[1, j] = (s-component)[0, j+1] - (s-component)[0, j]
+                theta_ring1  = polar_index(rdim, 1, ang)
+                s_ring0      = polar_index(rdim, 0, ang)
+                s_ring0_next = polar_index(rdim, 0, ang_next)
+                y[theta_ring1] = x[s_ring0_next] - x[s_ring0]
 
         y.update_ghost_regions()
         return y
 
     def transpose(self, conjugate=False):
-        return C0PolarProjection_V1_10(self.W1, transposed=not self.transposed)
+        return C0PolarProjection_V1_theta_s(
+            self.W1, transposed=not self.transposed, radial_dim=self.radial_dim
+        )
 
     def tosparse(self):
 
-        [n01, n02] = self.domain.npts
-        [n11, n12] = self.codomain.npts
-        s1, s2 = self.domain.starts
-        e1, e2 = self.codomain.ends
-        rank_at_polar_edge = s1 == 0
+        rdim, adim = self.radial_dim, self.angle_dim
+        nr_dom, na = self.domain.npts[rdim], self.domain.npts[adim]
+        nr_cod = self.codomain.npts[rdim]
+        sr, sa = self.domain.starts[rdim], self.domain.starts[adim]
+        ea = self.domain.ends[adim]
+        rank_at_polar_edge = sr == 0
 
         data, cols, rows = [], [], []
 
         # matrix d (derivatives of periodic splines)
-        # for example: n_theta = 3, single rank at polar edge, not transposed. Then:
+        # for example: n_theta = 3, single rank at polar edge, not transposed.
+        # Then, in (radial, angular) flat indices:
         # data = [-1 1 -1 1 -1 1], rows = [3 3 4 4 5 5], cols = [0 1 1 2 2 0]
         if rank_at_polar_edge:
-            len_theta = e2 - s2 + 1
+            len_theta = ea - sa + 1
             data = np.tile([-1, 1], len_theta)
-            k = np.arange(s2, e2 + 1)
+            k = np.arange(sa, ea + 1)
             if self.transposed:
-                rows = np.repeat(np.arange(s2, e2 + 1), 2)
-                cols = np.column_stack((k, (k - 1) % n12)).ravel() + n12
+                rows = np.repeat(k, 2)
+                cols = np.column_stack((k, (k - 1) % na)).ravel() + na
             else:
-                rows = np.repeat(np.arange(s2, e2 + 1), 2) + n12
-                cols = np.column_stack((k, (k + 1) % n12)).ravel()
+                rows = np.repeat(k, 2) + na
+                cols = np.column_stack((k, (k + 1) % na)).ravel()
 
-        dtype = self.domain.dtype
         rows = np.asarray(rows, dtype=np.int64)
         cols = np.asarray(cols, dtype=np.int64)
 
-        P = coo_matrix((data, (rows, cols)), shape=[n11 * n12, n01 * n02], dtype=dtype)
+        if rdim == 1:
+            rows = transpose_flat_index(rows, nr_cod, na)
+            cols = transpose_flat_index(cols, nr_dom, na)
+
+        P = coo_matrix(
+            (data, (rows, cols)),
+            shape=[nr_cod * na, nr_dom * na],
+            dtype=self.domain.dtype,
+        )
         P.eliminate_zeros()
         return P
 
@@ -435,10 +487,10 @@ class C0PolarProjection_V1_10(LinearOperator):
         return self.tosparse().toarray()
 
 
-class C0PolarProjection_V1_11(LinearOperator):
+class C0PolarProjection_V1_theta_theta(LinearOperator):
     r"""
-    Matrix-free representation of the lower right block of the CONGA
-    projection matrix $\mathbb{P}_V^1$.
+    Matrix-free representation of the block of the CONGA projection matrix
+    $\mathbb{P}_V^1$ which maps the $\theta$-component of a 1-form to itself.
 
     Parameters
     ----------
@@ -454,86 +506,108 @@ class C0PolarProjection_V1_11(LinearOperator):
     hbc : bool, default=False
         If `True`, impose homogeneous Dirichlet boundary conditions on the
         tangential (angular) component of the field.
+
+    radial_dim : int, default=0
+        Index of the logical dimension corresponding to the radial coordinate
+        $s$. The $\theta$-component is the other component of `W1`. With
+        `radial_dim=0` this is the lower-right block of $\mathbb{P}_V^1$, with
+        `radial_dim=1` it is the upper-left block.
     """
-    def __init__(self, W1, transposed=False, hbc=False):
+    def __init__(self, W1, transposed=False, hbc=False, radial_dim=0):
         assert isinstance(W1, VectorFemSpace)
+        assert radial_dim in (0, 1)
 
         self.W1 = W1
         self.transposed = transposed
         self.hbc = hbc
+        self.radial_dim = radial_dim
+        self.angle_dim = 1 - radial_dim
 
     @property
     def domain(self):
-        return self.W1.coeff_space[1]
+        return self.W1.coeff_space[self.angle_dim]
 
     @property
     def codomain(self):
-        return self.W1.coeff_space[1]
+        return self.W1.coeff_space[self.angle_dim]
 
     @property
     def dtype(self):
         return float
 
-    # It is diagonal block with a zero block of size (2n2)x(2n2) and an identity block
     def dot(self, x, out=None):
         assert isinstance(x, StencilVector)
 
         if not x.ghost_regions_in_sync:
             x.update_ghost_regions()
 
-        [s1, s2] = self.codomain.starts
-        [e1, e2] = self.codomain.ends
-        [n1, n2] = self.codomain.npts
-        rank_at_polar_edge = s1 == 0
-        rank_at_outer_edge = e1 == n1 - 1
+        rdim, adim = self.radial_dim, self.angle_dim
+        V = self.domain
+        sr, sa = V.starts[rdim], V.starts[adim]
+        er, ea = V.ends[rdim], V.ends[adim]
+        nr = V.npts[rdim]
+        rank_at_polar_edge = sr == 0
+        rank_at_outer_edge = er == nr - 1
 
         if out is None:
-            y = self.W1.coeff_space[1].zeros()
+            y = V.zeros()
         else:
             assert isinstance(out, StencilVector)
-            assert out.space is self.codomain
+            assert out.space is V
             out *= 0
             y = out
+
+        ang = slice(sa, ea + 1)
         if rank_at_polar_edge:
-            y[0, s2 : e2 + 1] = 0
-            y[1, s2 : e2 + 1] = 0
-            y[2 : e1 + 1, s2 : e2 + 1] = x[2 : e1 + 1, s2 : e2 + 1]  # Identity block
+            # radial indices 0 and 1 stay zero, identity on the others
+            inner = polar_index(rdim, slice(2, er + 1), ang)
+            y[inner] = x[inner]
         else:
-            y[s1 : e1 + 1, s2 : e2 + 1] = x[s1 : e1 + 1, s2 : e2 + 1]
+            # all radial indices of the rank
+            owned = polar_index(rdim, slice(sr, er + 1), ang)
+            y[owned] = x[owned]
 
         if self.hbc and rank_at_outer_edge:
-            y[e1, :] = 0.0
+            outer = polar_index(rdim, er, slice(None)) # s = L
+            y[outer] = 0.0
 
         y.update_ghost_regions()
         return y
 
     def transpose(self, conjugate=False):
-        return C0PolarProjection_V1_11(
-            self.W1, transposed=not self.transposed, hbc=self.hbc
+        return C0PolarProjection_V1_theta_theta(
+            self.W1, transposed=not self.transposed, hbc=self.hbc,
+            radial_dim=self.radial_dim
         )
 
     def tosparse(self):
 
-        [s1, s2] = self.codomain.starts
-        [e1, e2] = self.codomain.ends
-        [n01, n02] = self.domain.npts
-        [n11, n12] = self.codomain.npts
-        rank_at_outer_edge = e1 == n01 - 1
-        dtype = self.domain.dtype
+        rdim, adim = self.radial_dim, self.angle_dim
+        V = self.domain
+        sr, sa = V.starts[rdim], V.starts[adim]
+        er, ea = V.ends[rdim], V.ends[adim]
+        nr, na = V.npts[rdim], V.npts[adim]
+        rank_at_outer_edge = er == nr - 1
 
-        # identity block of size n12(n12 - 2)
-        start_s = max(2, s1)
-        end_s = e1 if (rank_at_outer_edge and self.hbc) else e1 + 1
-        len_theta = e2 - s2 + 1
+        # identity on radial indices 2 <= i < nr (i < nr - 1 with hbc),
+        # which is a block of size na*(nr - 2) (na*(nr - 3) with hbc)
+        start_s = max(2, sr)
+        end_s = er if (rank_at_outer_edge and self.hbc) else er + 1
+        len_theta = ea - sa + 1
         data = np.ones(len_theta * (end_s - start_s))
 
         i = np.arange(start_s, end_s)[:, None]
-        j = np.arange(s2, e2 + 1)[None, :]
-        local_rows = (i * n02 + j).ravel()
+        j = np.arange(sa, ea + 1)[None, :]
+        local_rows = (i * na + j).ravel()
         local_rows = np.asarray(local_rows, dtype=np.int64)
 
+        if rdim == 1:
+            local_rows = transpose_flat_index(local_rows, nr, na)
+
         P = coo_matrix(
-            (data, (local_rows, local_rows)), shape=[n11 * n12, n01 * n02], dtype=dtype
+            (data, (local_rows, local_rows)),
+            shape=[nr * na, nr * na],
+            dtype=V.dtype,
         )
         P.eliminate_zeros()
         return P
@@ -562,27 +636,48 @@ class C0PolarProjection_V1(BlockLinearOperator):
     transposed : bool, default=False
         If `True`, create the transposed projection matrix $(\mathbb{P}_V^1)^T$.
 
-    hbc : Boolean
+    hbc : bool, default=False
         If `True`, impose homogeneous Dirichlet boundary conditions on the
         tangential (angular) component of the field.
+    
+    radial_dim : int, default=0
+        Index of the logical dimension corresponding to the radial coordinate
+        $s$, which is also the index of the $s$-component in `W1`. With
+        `radial_dim=0` the matrix is block lower triangular, with
+        `radial_dim=1` it is block upper triangular (and vice versa if
+        transposed).
     """
-    def __init__(self, W1, transposed=False, hbc=False):
+    def __init__(self, W1, transposed=False, hbc=False, radial_dim=0):
         assert isinstance(W1, VectorFemSpace)
         assert W1.symbolic_space.kind.name == "hcurl"
+        assert radial_dim in (0, 1)
 
         T1 = W1.coeff_space
 
         super().__init__(T1, T1)
 
-        self[0, 0] = C0PolarProjection_V1_00(W1)
-        # self[0, 1] = C0CongaProjector1_01(W1, transposed = transposed)
-        self[1, 0] = C0PolarProjection_V1_10(W1, transposed=transposed)
-        self[1, 1] = C0PolarProjection_V1_11(W1, transposed=transposed, hbc=hbc)
+        # indices of the s- and theta-components in W1
+        rdim, adim = radial_dim, 1 - radial_dim
+
+        self[rdim, rdim] = C0PolarProjection_V1_s_s(W1, radial_dim=radial_dim)
+        self[adim, adim] = C0PolarProjection_V1_theta_theta(
+            W1, transposed=transposed, hbc=hbc, radial_dim=radial_dim
+        )
+
+        P_theta_s = C0PolarProjection_V1_theta_s(
+            W1, transposed=transposed, radial_dim=radial_dim
+        )
+
+        if transposed:
+            self[rdim, adim] = P_theta_s
+
+        else:
+            self[adim, rdim] = P_theta_s
 
         self.W1 = W1
         self.transposed = transposed
         self.hbc = hbc
-
+        self.radial_dim = radial_dim
 
 # ---------------- 2-FORMS CONGA PROJECTOR P2 ----------------#
 class C0PolarProjection_V2(LinearOperator):
@@ -1311,7 +1406,7 @@ class C1PolarProjection_U1(BlockLinearOperator):
         self[1, 0] = C1PolarProjection_U1_10(W1, transposed=transposed)
         # self[0, 1] is 0 block
         # The lower right block is the same for C0 and C1 projections
-        self[1, 1] = C0PolarProjection_V1_11(W1, transposed=transposed, hbc=hbc)
+        self[1, 1] = C0PolarProjection_V1_theta_theta(W1, transposed=transposed, hbc=hbc)
 
         self.W1 = W1
         self.transposed = transposed
