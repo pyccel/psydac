@@ -600,9 +600,23 @@ class C0PolarProjection_V2(LinearOperator):
 
     transposed : bool, default=False
         If `True`, create the transposed projection matrix $(\mathbb{P}_V^2)^T$.
+    
+    radial_dim : int, default=0
+        Index of the logical dimension corresponding to the radial coordinate
+        $s$. The other dimension is the (periodic) angular coordinate $\theta$.
+        Use `radial_dim=1` for spaces built on $(\theta, s)$.
+
     """
-    def __init__(self, W2, transposed=False):
+    def __init__(self, W2, transposed=False, radial_dim=0):
         assert isinstance(W2, TensorFemSpace)
+        assert radial_dim in (0, 1)
+        assert W2.coeff_space.periods[radial_dim] == False
+        assert W2.coeff_space.periods[1 - radial_dim] == True
+
+        self.W2 = W2
+        self.transposed = transposed
+        self.radial_dim = radial_dim
+        self.angle_dim = 1 - radial_dim
 
         self.W2 = W2
         self.transposed = transposed
@@ -625,69 +639,88 @@ class C0PolarProjection_V2(LinearOperator):
         if not x.ghost_regions_in_sync:
             x.update_ghost_regions()
 
-        [s1, s2] = self.W2.coeff_space.starts
-        [e1, e2] = self.W2.coeff_space.ends
-        [n1, n2] = self.W2.coeff_space.npts
-        rank_at_polar_edge = s1 == 0
+        rdim, adim = self.radial_dim, self.angle_dim
+        V = self.W2.coeff_space
+        sr, sa = V.starts[rdim], V.starts[adim]
+        er, ea = V.ends[rdim], V.ends[adim]
+        rank_at_polar_edge = sr == 0
 
         if out is None:
-            y = self.W2.coeff_space.zeros()
+            y = V.zeros()
         else:
             assert isinstance(out, StencilVector)
-            assert out.space is self.W2.coeff_space
+            assert out.space is V
             out *= 0
             y = out
 
-        if self.transposed:
-            if rank_at_polar_edge:
-                y[0, s2 : e2 + 1] = x[1, s2 : e2 + 1]
-                y[1, s2 : e2 + 1] = x[1, s2 : e2 + 1]
-                y[2 : e1 + 1, s2 : e2 + 1] = x[2 : e1 + 1, s2 : e2 + 1]
-            else:
-                y[s1 : e1 + 1, s2 : e2 + 1] = x[s1 : e1 + 1, s2 : e2 + 1]
+        ang = slice(sa, ea + 1)
 
-        else:
-            if rank_at_polar_edge:
-                y[0, s2 : e2 + 1] = 0
-                y[1, s2 : e2 + 1] = x[0, s2 : e2 + 1] + x[1, s2 : e2 + 1]
-                y[2 : e1 + 1, s2 : e2 + 1] = x[2 : e1 + 1, s2 : e2 + 1]
+        if rank_at_polar_edge:
+            # regions of the local coefficient array near the pole, in the correct array ordering
+            ring0 = polar_index(rdim, 0, ang)                  # first radial index, touching the pole
+            ring1 = polar_index(rdim, 1, ang)                  # second radial index
+            inner = polar_index(rdim, slice(2, er + 1), ang)   # radial indices > 1 owned by the rank
+
+            if self.transposed:
+                y[ring0] = x[ring1]
+                y[ring1] = x[ring1]
             else:
-                y[s1 : e1 + 1, s2 : e2 + 1] = x[s1 : e1 + 1, s2 : e2 + 1]
+                y[ring0] = 0
+                y[ring1] = x[ring0] + x[ring1]
+            y[inner] = x[inner]
+        else:
+            # all radial indices of the rank
+            owned = polar_index(rdim, slice(sr, er + 1), ang)
+            y[owned] = x[owned]
 
         y.update_ghost_regions()
         return y
 
     def transpose(self, conjugate=False):
-        return C0PolarProjection_V2(self.W2, transposed=not self.transposed)
+        return type(self)(
+            self.W2, transposed=not self.transposed, radial_dim=self.radial_dim
+        )
 
     def tosparse(self):
 
-        [s1, s2] = self.W2.coeff_space.starts
-        [e1, e2] = self.W2.coeff_space.ends
-        [n1, n2] = self.W2.coeff_space.npts
+        # The matrix is assembled with (radial, angular) C-style flat indices
+        # i*na + j for radial index i and angular index j, so that radial
+        # index 0 has flat indices k < na and radial index 1 has na <= k < 2*na.
 
-        data = np.ones((e1 - s1 + 1) * (e2 - s2 + 1))
+        rdim, adim = self.radial_dim, self.angle_dim
+        V = self.W2.coeff_space
+        sr, sa = V.starts[rdim], V.starts[adim]
+        er, ea = V.ends[rdim], V.ends[adim]
+        nr, na = V.npts[rdim], V.npts[adim]
 
-        i = np.arange(s1, e1 + 1)[:, None]
-        j = np.arange(s2, e2 + 1)[None, :]
-        local_rows = (i * n2 + j).ravel()
+        data = np.ones((er - sr + 1) * (ea - sa + 1))
+
+        i = np.arange(sr, er + 1)[:, None]
+        j = np.arange(sa, ea + 1)[None, :]
+        local_rows = (i * na + j).ravel()
         if self.transposed:
             rows = local_rows
-            cols = local_rows[local_rows < n2] + n2
+            cols = local_rows[local_rows < na] + na
         else:
-            rows_to_repeat = local_rows[(local_rows >= n2) & (local_rows < 2 * n2)]
+            rows_to_repeat = local_rows[(local_rows >= na) & (local_rows < 2 * na)]
             rows = np.tile(rows_to_repeat, 2)
-            cols = rows_to_repeat - n2
-            rows = np.concatenate((rows, local_rows[local_rows >= 2 * n2]))
-        cols = np.concatenate((cols, local_rows[local_rows >= n2]))
+            cols = rows_to_repeat - na
+            rows = np.concatenate((rows, local_rows[local_rows >= 2 * na]))
+        cols = np.concatenate((cols, local_rows[local_rows >= na]))
 
         rows = np.asarray(rows, dtype=np.int64)
         cols = np.asarray(cols, dtype=np.int64)
 
+        # If the radial dimension is the second one, the coefficient array is
+        # ordered (angular, radial): remap flat indices i*na + j to j*nr + i
+        if rdim == 1:
+            rows = transpose_flat_index(rows, nr, na)
+            cols = transpose_flat_index(cols, nr, na)
+
         P = coo_matrix(
             (data, (rows, cols)),
-            shape=(n1 * n2, n1 * n2),
-            dtype=self.W2.coeff_space.dtype,
+            shape=(nr * na, nr * na),
+            dtype=V.dtype,
         )
         P.eliminate_zeros()
 
@@ -1301,6 +1334,10 @@ class C1PolarProjection_U2(C0PolarProjection_V2):
 
     transposed : bool, default=False
         If `True`, create the transposed projection matrix $(\mathbb{P}_U^2)^T$.
+    
+    radial_dim : int, default=0
+        Index of the logical dimension corresponding to the radial coordinate
+        $s$. The other dimension is the (periodic) angular coordinate $\theta$.
+        Use `radial_dim=1` for spaces built on $(\theta, s)$.
+
     """
-    def transpose(self, conjugate=False):
-        return C1PolarProjection_U2(self.W2, transposed=not self.transposed)
