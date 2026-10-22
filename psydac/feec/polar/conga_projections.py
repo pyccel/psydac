@@ -93,7 +93,6 @@ class C0PolarProjection_V0(LinearOperator):
         Index of the logical dimension corresponding to the radial coordinate
         $s$. The other dimension is the (periodic) angular coordinate $\theta$.
         Use `radial_dim=1` for spaces built on $(\theta, s)$.
-
     """
     def __init__(self, W0, *, transposed=False, hbc=False, radial_dim=0):
         assert isinstance(W0, TensorFemSpace)
@@ -141,13 +140,13 @@ class C0PolarProjection_V0(LinearOperator):
             y = out
 
         ang = slice(sa, ea + 1)
-        # regions of the coefficient array local to the process, in the correct array ordering
-        pole  = polar_index(rdim, 0, ang)                  # s = 0
-        inner = polar_index(rdim, slice(1, er + 1), ang)   # s > 0, rank at polar edge
-        owned = polar_index(rdim, slice(sr, er + 1), ang)  # all radial indices of the rank
-        outer = polar_index(rdim, er, slice(None))         # s = L
 
         if rank_at_polar_edge:
+            # regions of the local coefficient array near the pole,
+            # in the correct array ordering
+            pole  = polar_index(rdim, 0, ang)                  # s = 0
+            inner = polar_index(rdim, slice(1, er + 1), ang)   # s > 0
+
             # compute sum of points with s = 0 for the process
             local_sum = np.sum(x[pole])
             if x.space.parallel:
@@ -159,10 +158,13 @@ class C0PolarProjection_V0(LinearOperator):
             y[pole] = local_sum / na
             y[inner] = x[inner]
         else:
+            # all radial indices of the rank
+            owned = polar_index(rdim, slice(sr, er + 1), ang)
             y[owned] = x[owned]
 
         if self.hbc:
             if rank_at_outer_edge:
+                outer = polar_index(rdim, er, slice(None))  # s = L
                 y[outer] = 0.0
 
         y.update_ghost_regions()
@@ -605,7 +607,6 @@ class C0PolarProjection_V2(LinearOperator):
         Index of the logical dimension corresponding to the radial coordinate
         $s$. The other dimension is the (periodic) angular coordinate $\theta$.
         Use `radial_dim=1` for spaces built on $(\theta, s)$.
-
     """
     def __init__(self, W2, transposed=False, radial_dim=0):
         assert isinstance(W2, TensorFemSpace)
@@ -840,14 +841,13 @@ class C1PolarProjection_U0(LinearOperator):
             y = out
 
         ang = slice(sa, ea + 1)
-        # regions of the coefficient array local to the process, in the correct array ordering
-        pole  = polar_index(rdim, 0, ang)                  # s = 0
-        ring1 = polar_index(rdim, 1, ang)                  # first ring around the pole
-        inner = polar_index(rdim, slice(2, er + 1), ang)   # s > 1, rank at polar edge
-        owned = polar_index(rdim, slice(sr, er + 1), ang)  # all radial indices of the rank
-        outer = polar_index(rdim, er, slice(None))         # s = L
 
         if rank_at_polar_edge:
+            # regions of the coefficient array local to the process, in the correct array ordering
+            pole  = polar_index(rdim, 0, ang)                  # s = 0
+            ring1 = polar_index(rdim, 1, ang)                  # first ring around the pole
+            inner = polar_index(rdim, slice(2, er + 1), ang)   # s > 1, rank at polar edge
+
             # compute sums of points with s = 0, 1 for the process
             x0 = np.sum(x[pole]) / na
             x1 = np.sum(x[ring1]) / na
@@ -879,9 +879,11 @@ class C1PolarProjection_U0(LinearOperator):
                 )
             y[inner] = x[inner]
         else:
+            owned = polar_index(rdim, slice(sr, er + 1), ang)  # all radial indices of the rank
             y[owned] = x[owned]
 
         if self.hbc and rank_at_outer_edge:
+            outer = polar_index(rdim, er, slice(None))  # s = L
             y[outer] = 0.0
 
         y.update_ghost_regions()
