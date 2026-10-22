@@ -57,6 +57,18 @@ __all__ = (
     "C1PolarProjection_U2",
 )
 
+
+def polar_index(radial_dim, radial_index, angular_index):
+    """Index tuple for (radial, angular) indices r, a in the actual array ordering."""
+    if radial_dim == 0:
+        return (radial_index, angular_index)
+    else:
+        return (angular_index, radial_index)
+
+def transpose_flat_index(k, nr, na):
+    """Map the C-order flat index i*na + j of a (radial, angular) array to j*nr + i."""
+    return (k % na) * nr + k // na
+
 class C0PolarProjection_V0(LinearOperator):
     r"""
     Matrix-free representation of the CONGA projection matrix $\mathbb{P}_V^0$.
@@ -76,13 +88,24 @@ class C0PolarProjection_V0(LinearOperator):
 
     hbc : bool, default=False
         If `True`, impose homogeneous Dirichlet boundary conditions.
+
+    radial_dim : int, default=0
+        Index of the logical dimension corresponding to the radial coordinate
+        $s$. The other dimension is the (periodic) angular coordinate $\theta$.
+        Use `radial_dim=1` for spaces built on $(\theta, s)$.
+
     """
-    def __init__(self, W0, *, transposed=False, hbc=False):
+    def __init__(self, W0, *, transposed=False, hbc=False, radial_dim=0):
         assert isinstance(W0, TensorFemSpace)
+        assert radial_dim in (0, 1)
+        assert W0.coeff_space.periods[radial_dim] == False
+        assert W0.coeff_space.periods[1 - radial_dim] == True
 
         self.W0 = W0
         self.transposed = transposed
         self.hbc = hbc
+        self.radial_dim = radial_dim
+        self.angle_dim = 1 - radial_dim
 
     @property
     def domain(self):
@@ -101,74 +124,88 @@ class C0PolarProjection_V0(LinearOperator):
         if not x.ghost_regions_in_sync:
             x.update_ghost_regions()
 
-        [s1, s2] = self.W0.coeff_space.starts
-        [e1, e2] = self.W0.coeff_space.ends
-        [n1, n2] = self.W0.coeff_space.npts
-        rank_at_polar_edge = s1 == 0
-        rank_at_outer_edge = e1 == n1 - 1
+        rdim, adim = self.radial_dim, self.angle_dim
+        V = self.W0.coeff_space
+        sr, sa = V.starts[rdim], V.starts[adim]
+        er, ea = V.ends[rdim], V.ends[adim]
+        nr, na = V.npts[rdim], V.npts[adim]
+        rank_at_polar_edge = sr == 0
+        rank_at_outer_edge = er == nr - 1
 
         if out is None:
-            y = self.W0.coeff_space.zeros()
+            y = V.zeros()
         else:
             assert isinstance(out, StencilVector)
-            assert out.space is self.W0.coeff_space
+            assert out.space is V
             out *= 0
             y = out
 
+        ang = slice(sa, ea + 1)
+        # regions of the coefficient array local to the process, in the actual array ordering
+        pole  = polar_index(rdim, 0, ang)                  # s = 0
+        inner = polar_index(rdim, slice(1, er + 1), ang)   # s > 0, rank at polar edge
+        owned = polar_index(rdim, slice(sr, er + 1), ang)  # all radial indices of the rank
+        outer = polar_index(rdim, er, slice(None))         # s = L
+
         if rank_at_polar_edge:
             # compute sum of points with s = 0 for the process
-            local_sum = np.sum(x[0, s2 : e2 + 1])
+            local_sum = np.sum(x[pole])
             if x.space.parallel:
                 from mpi4py import MPI
 
-                angle_comm = x.space.cart.subcomm[1]
+                angle_comm = x.space.cart.subcomm[adim]
                 local_sum = angle_comm.allreduce(local_sum, op=MPI.SUM)
             # compute average of all points with s = 0
-            y[0, s2 : e2 + 1] = local_sum / n2
-            y[1 : e1 + 1, s2 : e2 + 1] = x[1 : e1 + 1, s2 : e2 + 1]
+            y[pole] = local_sum / na
+            y[inner] = x[inner]
         else:
-            y[s1 : e1 + 1, s2 : e2 + 1] = x[s1 : e1 + 1, s2 : e2 + 1]
+            y[owned] = x[owned]
 
         if self.hbc:
             if rank_at_outer_edge:
-                y[e1, :] = 0.0
+                y[outer] = 0.0
 
         y.update_ghost_regions()
         return y
 
     def transpose(self, conjugate=False):
         return C0PolarProjection_V0(
-            self.W0, transposed=not self.transposed, hbc=self.hbc
+            self.W0, transposed=not self.transposed, hbc=self.hbc,
+            radial_dim=self.radial_dim
         )
 
     def tosparse(self):
 
-        # Matrix size is n1*n2. Rows with global indices i*n2 + j (C-style flattening) with
-        # s1 <= i <= e1, s2 <= j <= e2 are filled for the current process
+        # Matrix size is nr*na. Rows with radial index sr <= i <= er and angular
+        # index sa <= j <= ea are filled for the current process. The matrix is
+        # assembled with (radial, angular) C-style flat indices i*na + j, which
+        # are remapped to j*nr + i if the radial dimension is the second one.
 
-        [n1, n2] = self.W0.coeff_space.npts
-        [s1, s2] = self.W0.coeff_space.starts
-        [e1, e2] = self.W0.coeff_space.ends
-        rank_at_polar_edge = s1 == 0
-        rank_at_outer_edge = e1 == n1 - 1
+        rdim, adim = self.radial_dim, self.angle_dim
+        V = self.W0.coeff_space
+        sr, sa = V.starts[rdim], V.starts[adim]
+        er, ea = V.ends[rdim], V.ends[adim]
+        nr, na = V.npts[rdim], V.npts[adim]
+        rank_at_polar_edge = sr == 0
+        rank_at_outer_edge = er == nr - 1
         data, cols, rows = [], [], []
 
         # Assemble the matrix entries which contribute to the polar edge (s1 = 0)
-        len_theta = e2 - s2 + 1
+        len_theta = ea - sa + 1
         if rank_at_polar_edge:
-            data = np.tile((1 / n2) * np.ones(n2), len_theta)
-            rows = np.repeat(np.arange(s2, e2 + 1), n2)
-            cols = np.tile(np.arange(n2), len_theta)
+            data = np.tile((1 / na) * np.ones(na), len_theta)
+            rows = np.repeat(np.arange(sa, ea + 1), na)
+            cols = np.tile(np.arange(na), len_theta)
 
         # Assemble the rest of the matrix (identity block)
         # We do not need entries with s1 = 0 (already accounted for)
-        start_s = s1 + 1 if rank_at_polar_edge else s1
-        end_s = e1 if (rank_at_outer_edge and self.hbc) else e1 + 1
+        start_s = sr + 1 if rank_at_polar_edge else sr
+        end_s = er if (rank_at_outer_edge and self.hbc) else er + 1
 
         i = np.arange(start_s, end_s)[:, None]
-        j = np.arange(s2, e2 + 1)[None, :]
+        j = np.arange(sa, ea + 1)[None, :]
         # rows of identity owned by the process
-        local_rows = (i * n2 + j).ravel()
+        local_rows = (i * na + j).ravel()
 
         data = np.concatenate((data, np.ones(len_theta * (end_s - start_s))))
         cols = np.concatenate((cols, local_rows))
@@ -177,9 +214,13 @@ class C0PolarProjection_V0(LinearOperator):
         rows = np.asarray(rows, dtype=np.int64)
         cols = np.asarray(cols, dtype=np.int64)
 
+        if rdim == 1:
+            rows = transpose_flat_index(rows, nr, na)
+            cols = transpose_flat_index(cols, nr, na)
+
         P = coo_matrix(
             (data, (rows, cols)),
-            shape=[n1 * n2, n1 * n2],
+            shape=[nr * na, nr * na],
             dtype=self.W0.coeff_space.dtype,
         )
         P.eliminate_zeros()
