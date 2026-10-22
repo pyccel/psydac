@@ -5,6 +5,7 @@
 #---------------------------------------------------------------------------#
 import pytest
 from numpy import linspace
+from mpi4py import MPI
 
 from psydac.fem.basic   import FemField
 from psydac.fem.splines import SplineSpace
@@ -142,6 +143,42 @@ def test_vector_space_3d():
     assert F.fields[2].space == Vz
     assert F.patch_fields == (F,)
     assert F.component_fields == F.fields
+
+#==============================================================================
+def make_tensor_space_2d(domain_decomposition: DomainDecomposition) -> TensorFemSpace:
+    """Create a 2D tensor-product spline space of degree 2 on the cells of the decomposition."""
+    spaces = [SplineSpace(2, grid=linspace(0., 1., n + 1), periodic=periodic)
+              for n, periodic in zip(domain_decomposition.ncells, domain_decomposition.periods)]
+    return TensorFemSpace(domain_decomposition, *spaces)
+
+def test_vector_space_shared_domain_decomposition():
+
+    ddm = DomainDecomposition([3, 5], [False, False])
+    V = VectorFemSpace(make_tensor_space_2d(ddm), make_tensor_space_2d(ddm))
+
+    assert all(W.domain_decomposition is ddm for W in V.spaces)
+
+def test_vector_space_different_domain_decompositions():
+
+    # Two decompositions are rejected even if equivalent (see #615)
+    Vx = make_tensor_space_2d(DomainDecomposition([3, 5], [False, False]))
+    Vy = make_tensor_space_2d(DomainDecomposition([3, 5], [False, False]))
+
+    with pytest.raises(AssertionError, match='same DomainDecomposition'):
+        VectorFemSpace(Vx, Vy)
+
+@pytest.mark.mpi(min_size=2)
+def test_vector_space_different_domain_decompositions_parallel():
+
+    # Decompositions along different axes give different local subdomains (see #615)
+    comm = MPI.COMM_WORLD
+    ncells = [2 * comm.size, 3 * comm.size]
+    Vx = make_tensor_space_2d(DomainDecomposition(ncells, [True, False], comm=comm, mpi_dims_mask=[True, False]))
+    Vy = make_tensor_space_2d(DomainDecomposition(ncells, [True, False], comm=comm, mpi_dims_mask=[False, True]))
+    assert Vx.local_domain != Vy.local_domain
+
+    with pytest.raises(AssertionError, match='same DomainDecomposition'):
+        VectorFemSpace(Vx, Vy)
 
 ###############################################
 if __name__ == '__main__':

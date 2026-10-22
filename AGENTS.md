@@ -94,7 +94,9 @@ memory supercomputers using MPI and OpenMP.
   . Run `python -m isort --check $(git diff --name-only --diff-filter=d devel -- "*.py")`
   . Run `pylint --disable=all --enable=unused-import $(git diff --name-only --diff-filter=d devel -- "*.py")`
 - Until the code base is reformatted, black and isort fail on most existing files:
-  do not reformat code outside your change. The pylint check must pass.
+  do not reformat existing code, and do not run black on the changed lines only
+  (it mixes quote styles, comment separators, and alignment within a file).
+  The pylint check must pass.
 - Unless specified differently, assume process with `rank=0` in MPI communicator is root
 - Use root MPI process to perform serial operations (e.g. open/save image)
 

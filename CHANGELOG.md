@@ -28,6 +28,7 @@ All notable changes to this project will be documented in this file.
 
 -   #614 : Fix NaN in parallel evaluation of fields at subdomain boundaries with repeated knots, see #612
 -   #614 : Update ghost regions in `TensorFemSpace.eval_field_gradient` if needed, as in `eval_field`
+-   #604 : Fix several bugs in iterative linear solvers (MINRES, LSMR, GMRES, CG, BiCGSTAB), see #603
 -   #527 : Require `sympde==0.20.0` which changes how multipatch interfaces are defined
 -   #527 : Fix `psydac.cad.elevate` and `refine` for NURBS mappings, see #608
 -   #527 : Keep the NURBS weights in `psydac.cad.translate`, see #609
@@ -63,6 +64,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+-   #625 : Require all components of a `VectorFemSpace` to share the same `DomainDecomposition` object, see #615
 -   #527 : Pass a domain decomposition `ddm` and physical dimension `pdim` to `Geometry.__init__`; remove arguments `ncells`, `periodic`, `filename`, `comm` and `mpi_dims_mask`
 -   #527 : Use the domain decomposition of the mapping's space in `Geometry.from_discrete_mapping`; remove arguments `comm` and `mpi_dims_mask`
 -   #527 : Key `Geometry.mappings` by the names of the domain interiors
