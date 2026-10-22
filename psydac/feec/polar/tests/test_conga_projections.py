@@ -285,6 +285,7 @@ def test_PolarProjection_V1(
     assert np.allclose(y_sp, y, atol=ATOL, rtol=RTOL)
 
 
+@pytest.mark.parametrize("radial_dim", [0, 1])
 @pytest.mark.parametrize("transposed", [True, False])
 @pytest.mark.parametrize("degree", [[2, 2], [2, 3]])
 @pytest.mark.parametrize("ncells", [[8, 10], [15, 12]])
@@ -292,35 +293,47 @@ def test_PolarProjection_V1(
 @pytest.mark.parametrize("Projector", [C0PolarProjection_V2, C1PolarProjection_U2])
 @pytest.mark.mpi
 def test_PolarProjection_V2(
-        Projector, R, ncells, degree, transposed, verbose=False
+        Projector, R, ncells, degree, transposed, radial_dim, verbose=False
 ):
     mpi_comm = MPI.COMM_WORLD
-    domain = get_domain(R)
+    domain = get_domain(R, radial_dim)
+
+    # ncells and degree are given in (radial, angular) order
+    if radial_dim == 0:
+        periodic = [False, True]
+    else:
+        ncells, degree, periodic = ncells[::-1], degree[::-1], [True, False]
 
     # Discrete physical domain and discrete space
-    domain_h = discretize(domain, ncells=ncells, periodic=[False, True], comm=mpi_comm)
+    domain_h = discretize(domain, ncells=ncells, periodic=periodic, comm=mpi_comm)
     V2 = ScalarFunctionSpace("V2", domain)
     V2_h = discretize(V2, domain_h, degree=degree)
 
-    P2 = Projector(V2_h, transposed=transposed)
+    P2 = Projector(V2_h, transposed=transposed, radial_dim=radial_dim)
+    # Checking that the transpose keeps the projector type and coordinate ordering
+    P2_T = P2.T
+    assert type(P2_T) is Projector
+    assert P2_T.transposed == (not transposed)
+    assert P2_T.radial_dim == radial_dim
 
     x = get_random_vector(V2_h)
     phiC = FemField(V2_h)
     y = phiC.coeffs
     P2.dot(x, out=y)
 
-    # Checking projection property P0(P0(phi)) = P0(phi)
+    # Checking projection property P2(P2(phi)) = P2(phi)
     assert np.allclose(P2.dot(y)[:, :], y[:, :], atol=ATOL, rtol=RTOL)
 
-    # Comparing the global sparse matrix to reference file
     sp_P2 = P2.tosparse().tocoo()
     if verbose:
         print("Projection P2 in matrix form on rank", mpi_comm.rank)
         print(sp_P2.toarray())
 
-    [n1, n2] = V2_h.coeff_space.npts
-    assert sp_P2.shape == (n1 * n2, n1 * n2)
+    nr = V2_h.coeff_space.npts[radial_dim]
+    na = V2_h.coeff_space.npts[1 - radial_dim]
+    assert sp_P2.shape == (nr * na, nr * na)
 
+    # gather sparse matrix entries (rows, columns, data) on root process
     data = gather_vlen_array(sp_P2.data, mpi_comm)
     cols_rows = gather_vlen_arrays((sp_P2.col, sp_P2.row), mpi_comm)
 
@@ -329,8 +342,14 @@ def test_PolarProjection_V2(
         cols = cols_rows[0]
         rows = cols_rows[1]
 
+        # Express rows and columns as (radial, angular) flat indices i*na + j,
+        # so that the checks below are the same for both orderings
+        if radial_dim == 1:
+            rows = transpose_flat_index(rows, na, nr)
+            cols = transpose_flat_index(cols, na, nr)
+
         # Check the number of non-zero entries in the sparse matrix
-        assert len(data) == n1 * n2
+        assert len(data) == nr * na
 
         if transposed:
             rows, cols = cols, rows
@@ -338,8 +357,8 @@ def test_PolarProjection_V2(
         # Check all non-zero entries
         for i, j, v in zip(rows, cols, data):
             assert np.isclose(v, 1.0, atol=ATOL, rtol=RTOL)
-            if j < n2:
-                assert i == j + n2
+            if j < na:
+                assert i == j + na
             else:
                 assert i == j
 
@@ -352,9 +371,9 @@ def test_PolarProjection_V2(
 
 if __name__ == "__main__":
     test_PolarProjection_V0(
-        C0PolarProjection_V0, 1, [3, 3], [1, 1], False, False, verbose=True
+        C0PolarProjection_V0, 1, [3, 3], [1, 1], False, False, 1, verbose=True
     )
     test_PolarProjection_V1(
         C0PolarProjection_V1, 1, [2, 3], [1, 1], False, False, verbose=True
     )
-    test_PolarProjection_V2(1, [8, 10], [2, 2], False, verbose=True)
+    test_PolarProjection_V2(1, [8, 10], [2, 2], False, 1, verbose=True)
