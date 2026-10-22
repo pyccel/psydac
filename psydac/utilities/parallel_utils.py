@@ -19,6 +19,12 @@ def parallel_run_from_cli(parser, main):
     CLI arguments. When not run (serially) from IPython, it also calls
     `plt.show()` to keep any Matplotlib windows open after `main` is run.
 
+    If `main` raises an uncaught exception on any process, all the processes
+    are terminated by calling `MPI_Abort` at exit, as done by the launcher
+    `python -m mpi4py`. Otherwise, the other processes would hang as soon as
+    they wait for a message from the failing one. The exception is re-raised,
+    hence its traceback is printed and the failing process is cleaned up.
+
     Parameters
     ----------
     parser : callable
@@ -83,8 +89,15 @@ def parallel_run_from_cli(parser, main):
     # Store local variables in a dictionary
     namespace = locals()
 
-    # Run simulation in parallel, and update local variables
-    namespace.update(main(**args_dict))
+    # Run simulation in parallel, and update local variables. In case of an
+    # uncaught exception, terminate all processes at exit (see #621)
+    try:
+        namespace.update(main(**args_dict))
+    except BaseException as exc:
+        from mpi4py.run import set_abort_status
+
+        set_abort_status(exc)
+        raise
 
     # Keep matplotlib windows open (not necessary in IPython sessions)
     try:

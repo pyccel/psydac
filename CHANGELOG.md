@@ -25,6 +25,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+-   #624 : Terminate all MPI processes when one of them fails in `parallel_run_from_cli`, see #621
 -   #604 : Fix several bugs in iterative linear solvers (MINRES, LSMR, GMRES, CG, BiCGSTAB), see #603
 -   #527 : Require `sympde==0.20.0` which changes how multipatch interfaces are defined
 -   #527 : Fix `psydac.cad.elevate` and `refine` for NURBS mappings, see #608
