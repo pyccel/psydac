@@ -862,55 +862,66 @@ class C1PolarProjection_U0(LinearOperator):
 
     def tosparse(self):
 
-        [n1, n2] = self.W0.coeff_space.npts
-        [s1, s2] = self.W0.coeff_space.starts
-        [e1, e2] = self.W0.coeff_space.ends
-        theta = np.linspace(0, 2 * pi, n2, endpoint=False)
+        # The matrix is assembled with (radial, angular) C-style flat indices
+        # i*na + j for radial index i and angular index j.
 
-        rank_at_polar_edge = s1 == 0
-        rank_at_outer_edge = e1 == n1 - 1
+        rdim, adim = self.radial_dim, self.angle_dim
+        V = self.W0.coeff_space
+        sr, sa = V.starts[rdim], V.starts[adim]
+        er, ea = V.ends[rdim], V.ends[adim]
+        nr, na = V.npts[rdim], V.npts[adim]
+        theta = np.linspace(0, 2 * pi, na, endpoint=False)
+
+        rank_at_polar_edge = sr == 0
+        rank_at_outer_edge = er == nr - 1
         data, cols, rows = [], [], []
 
         if rank_at_polar_edge:
-            # matrix of size n2*n2 with all entries equal to 1 / n2
-            data = (1 / n2) * np.ones(n2 * (e2 - s2 + 1))
-            rows = np.tile(np.repeat(np.arange(s2, e2 + 1), n2), 1)
-            cols = np.tile(np.arange(n2), e2 - s2 + 1)
-        if e1 > 1 > s1:
-            # matrix of size n2*n2 with all entries equal to 1 / n2
-            d_block2 = (1 / n2) * np.ones((e2 - s2 + 1) * n2)
+            # matrix of size na*na with all entries equal to 1 / na
+            data = (1 / na) * np.ones(na * (ea - sa + 1))
+            rows = np.tile(np.repeat(np.arange(sa, ea + 1), na), 1)
+            cols = np.tile(np.arange(na), ea - sa + 1)
+        if er > 1 > sr:
+            # matrix of size na*na with all entries equal to 1 / na
+            d_block2 = (1 / na) * np.ones((ea - sa + 1) * na)
             data = np.concatenate((data, d_block2))
             rows = np.concatenate(
-                (rows, np.repeat(np.arange(n2 + s2, n2 + e2 + 1), n2))
+                (rows, np.repeat(np.arange(na + sa, na + ea + 1), na))
             )
-            cols = np.concatenate((cols, np.tile(np.arange(n2), e2 - s2 + 1)))
+            cols = np.concatenate((cols, np.tile(np.arange(na), ea - sa + 1)))
 
             # matrix p
-            d_block2 = 2 / n2 * toeplitz_columns_sym(theta, s2, e2, n2)
+            d_block2 = 2 / na * toeplitz_columns_sym(theta, sa, ea, na)
             data = np.concatenate((data, d_block2))
             rows = np.concatenate(
-                (rows, np.repeat(np.arange(n2 + s2, n2 + e2 + 1), n2))
+                (rows, np.repeat(np.arange(na + sa, na + ea + 1), na))
             )
-            cols = np.concatenate((cols, np.tile(np.arange(n2, 2 * n2), e2 - s2 + 1)))
+            cols = np.concatenate((cols, np.tile(np.arange(na, 2 * na), ea - sa + 1)))
 
         # Assemble the rest of the matrix (identity block)
-        start_s = max(s1, 2)
-        end_s = e1 if (rank_at_outer_edge and self.hbc) else e1 + 1
+        start_s = max(sr, 2)
+        end_s = er if (rank_at_outer_edge and self.hbc) else er + 1
         i = np.arange(start_s, end_s)[:, None]
-        j = np.arange(s2, e2 + 1)[None, :]
-        local_rows = (i * n2 + j).ravel()
+        j = np.arange(sa, ea + 1)[None, :]
+        local_rows = (i * na + j).ravel()
 
-        data = np.concatenate((data, np.ones((e2 - s2 + 1) * (end_s - start_s))))
+        data = np.concatenate((data, np.ones((ea - sa + 1) * (end_s - start_s))))
         cols = np.concatenate((cols, local_rows))
         rows = np.concatenate((rows, local_rows))
 
         rows = np.asarray(rows, dtype=np.int64)
         cols = np.asarray(cols, dtype=np.int64)
 
+        # If the radial dimension is the second one, the coefficient array is
+        # ordered (angular, radial): remap flat indices i*na + j to j*nr + i
+        if rdim == 1:
+            rows = transpose_flat_index(rows, nr, na)
+            cols = transpose_flat_index(cols, nr, na)
+
         P = coo_matrix(
             (data, (rows, cols)),
-            shape=[n1 * n2, n1 * n2],
-            dtype=self.W0.coeff_space.dtype,
+            shape=[nr * na, nr * na],
+            dtype=V.dtype,
         )
         P.eliminate_zeros()
 
