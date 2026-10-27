@@ -57,7 +57,7 @@ __all__ = ('find_span',
 
 
 #==============================================================================
-def find_span(knots, degree, x):
+def find_span(knots, degree, x, side='right'):
     """
     Determine the knot span index at location x, given the B-Splines' knot
     sequence and polynomial degree. See Algorithm A2.1 in [1].
@@ -76,14 +76,29 @@ def find_span(knots, degree, x):
     x : float
         Location of interest.
 
+    side : {'right', 'left'}, default='right'
+        Which non-empty knot span to select if `x` is an interior knot, of any
+        multiplicity: the one on the right of `x`, such that
+        ``knots[span] <= x < knots[span+1]``, or the one on the left of `x`,
+        such that ``knots[span] < x <= knots[span+1]``. At the boundaries of the
+        domain the first or last knot span is always selected.
+
     Returns
     -------
     span : int
         Knot span index.
     """
+    assert side in ('right', 'left')
     x = float(x)
     knots = np.ascontiguousarray(knots, dtype=float)
-    return find_span_p(knots, degree, x)
+    span = find_span_p(knots, degree, x)
+
+    # Skip back over all the copies of x, if it is an interior knot
+    if side == 'left':
+        while span > degree and knots[span] == x:
+            span -= 1
+
+    return span
 
 #==============================================================================
 def find_spans(knots, degree, x, out=None):
