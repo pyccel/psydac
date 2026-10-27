@@ -374,6 +374,12 @@ class BlockVector(Vector):
 
     # ...
     def __setitem__(self, key, value):
+        """
+        Replace the block at the given position.
+
+        This does not change the flag `ghost_regions_in_sync` of the block
+        vector, which is stored independently of the flags of its blocks.
+        """
         assert value.space == self.space[key]
         assert isinstance(value, Vector)
         self._blocks[key] = value
@@ -381,6 +387,14 @@ class BlockVector(Vector):
     # ...
     @property
     def ghost_regions_in_sync(self):
+        """
+        True if the ghost regions of all blocks are known to be up to date.
+
+        This flag decides whether the collective method `update_ghost_regions`
+        is called, hence it must have the same value on all processes. It is
+        stored independently of the flags of the blocks, and setting it also
+        sets the flags of all blocks. It is not changed by `__setitem__`.
+        """
         return self._sync
 
     # ...
@@ -482,11 +496,11 @@ class BlockVector(Vector):
         return np.block([blocks])[0]
 
     # ...
-    def topetsc(self):
+    def topetsc(self, out=None):
         """ Convert to petsc data structure.
         """
         from psydac.linalg.topetsc import vec_topetsc
-        vec = vec_topetsc( self )
+        vec = vec_topetsc( self, out=out )
         return vec
 
 #===============================================================================
@@ -886,17 +900,20 @@ class BlockLinearOperator(LinearOperator):
     # ...
     def update_ghost_regions(self):
         for Lij in self._blocks.values():
-            Lij.update_ghost_regions()
+            if hasattr(Lij, 'update_ghost_regions'):
+                Lij.update_ghost_regions()
 
     # ...
     def exchange_assembly_data(self):
         for Lij in self._blocks.values():
-            Lij.exchange_assembly_data()
+            if hasattr(Lij, 'exchange_assembly_data'):
+                Lij.exchange_assembly_data()
 
     # ...
-    def remove_spurious_entries(self ):
+    def remove_spurious_entries(self):
         for Lij in self._blocks.values():
-            Lij.remove_spurious_entries()
+            if hasattr(Lij, 'remove_spurious_entries'):
+                Lij.remove_spurious_entries()
 
     @property
     def ghost_regions_in_sync(self):

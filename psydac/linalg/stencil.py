@@ -698,11 +698,11 @@ class StencilVector(Vector):
         return out.flatten( order=order)
 
     #...
-    def topetsc(self):
+    def topetsc(self, out=None):
         """ Convert to petsc data structure.
         """
         from psydac.linalg.topetsc import vec_topetsc
-        vec = vec_topetsc( self )
+        vec = vec_topetsc( self, out=out )
         return vec
 
     # ...
@@ -712,12 +712,29 @@ class StencilVector(Vector):
 
     # ...
     def __setitem__(self, key, value):
+        """
+        Write into the data array at the given (global) indices.
+
+        This updates neither the ghost regions nor the flag
+        `ghost_regions_in_sync`, because writes are often performed on a
+        subset of the processes only, while updating the ghost regions is a
+        collective operation. If needed, call `update_ghost_regions`
+        collectively afterwards.
+        """
         index = self._getindex(key)
         self._data[index] = value
 
     # ...
     @property
     def ghost_regions_in_sync(self):
+        """
+        True if the ghost regions are known to be up to date.
+
+        This flag decides whether the collective method `update_ghost_regions`
+        is called, hence it must have the same value on all processes. It is
+        not changed by `__setitem__`: after writing the data directly, call
+        `update_ghost_regions` collectively if the ghost regions are needed.
+        """
         return self._sync
 
     # ...
@@ -1216,6 +1233,15 @@ class StencilMatrix(LinearOperator):
 
     # ...
     def __setitem__(self, key, value):
+        """
+        Write into the data array at the given (global) indices.
+
+        This updates neither the ghost regions nor the flag
+        `ghost_regions_in_sync`, because writes are often performed on a
+        subset of the processes only, while updating the ghost regions is a
+        collective operation. If needed, call `update_ghost_regions`
+        collectively afterwards.
+        """
         index = self._getindex( key )
         self._data[index] = value
 
@@ -1682,6 +1708,14 @@ class StencilMatrix(LinearOperator):
     # ...
     @property
     def ghost_regions_in_sync(self):
+        """
+        True if the ghost regions are known to be up to date.
+
+        This flag decides whether the collective method `update_ghost_regions`
+        is called, hence it must have the same value on all processes. It is
+        not changed by `__setitem__`: after writing the data directly, call
+        `update_ghost_regions` collectively if the ghost regions are needed.
+        """
         return self._sync
 
     # ...
@@ -2557,6 +2591,15 @@ class StencilInterfaceMatrix(LinearOperator):
 
     # ...
     def __setitem__(self, key, value):
+        """
+        Write into the data array at the given (global) indices.
+
+        This updates neither the ghost regions nor the flag
+        `ghost_regions_in_sync`, because writes are often performed on a
+        subset of the processes only, while updating the ghost regions is a
+        collective operation. If needed, call `update_ghost_regions`
+        collectively afterwards.
+        """
         index = self._getindex( key )
         self._data[index] = value
 
@@ -2664,6 +2707,14 @@ class StencilInterfaceMatrix(LinearOperator):
     # ...
     @property
     def ghost_regions_in_sync(self):
+        """
+        True if the ghost regions are known to be up to date.
+
+        This flag decides whether the collective method `update_ghost_regions`
+        is called, hence it must have the same value on all processes. It is
+        not changed by `__setitem__`: after writing the data directly, call
+        `update_ghost_regions` collectively if the ghost regions are needed.
+        """
         return self._sync
 
     # ...

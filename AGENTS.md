@@ -1,0 +1,106 @@
+# Project: PSYDAC
+
+## Overview
+Python 3 library for isogeometric analysis (IGA). Solve general systems of partial
+differential equations (PDEs) in weak form, defined using the domain-specific
+language provided by SymPDE. Supports finite element exterior calculus (FEEC)
+with tensor-product spline spaces. Handles multi-patch geometries in various ways;
+usually broken-FEEC a.k.a. CONGA (conforming/non-conforming Galerkin).
+Python code is automatically generated for the assembly of user-defined functionals,
+linear forms, and bilinear forms. This Python code is then accelerated to C/Fortran
+speed using Pyccel. The library enables large parallel computations on distributed-
+memory supercomputers using MPI and OpenMP.
+
+## Tech stack
+- Python 3.10+, type hints required in new code
+- meson-python (Meson build backend) for building
+- pip with submodules (for igakit)
+- pytest + pytest-cov + pytest-mpi + pytest-xdist for testing
+- sympde for symbolic definition of weak formulations
+- pyccel for translation of Python kernels to Fortran or C
+- mpi4py for MPI parallelization
+- h5py for parallel I/O
+- petsc4py for direct linear solvers (optional install)
+- sphinx + numpydoc + nbsphinx + myst-parser for documentation
+  (see `docs/requirements.txt`; build with `make -C docs html`)
+
+## Code standards
+- Follow PEP 8 style guide whenever possible
+- Docstrings of public functions and classes follow Numpydoc conventions
+- pylint + black + isort for linting and formatting
+- Computational kernels to be accelerated with Pyccel named as `<module>_kernels.py`
+- Minimize code duplication. Never add code that already exists
+- Strive for concise, clean, and human-readable code. Avoid useless verbosity
+- Self-explanatory names for variables, functions, and classes
+- Do not reassign value to an existing variable, especially if the type changes
+- Use short comments (one-liners or inline) to explain "why" rather than "what" or "how"
+- In docstrings, use single backticks for names and short code,
+  and double backticks only for code expressions
+- Write new code in clean style (e.g. no superfluous parentheses, f-strings),
+  even if the surrounding legacy code does not
+- Do not add author credits in code or comments;
+  credit goes in commit messages and PR descriptions
+
+## Testing conventions
+- Each library subpackage contains a `tests/` folder with an `__init__.py` file
+- Unit tests are part of the library and shipped with it
+- Unit tests can be run with `psydac test` CLI command (see `README.md`)
+- Parallel tests are marked with `@pytest.mark.mpi` (from pytest-mpi) and run with
+  `psydac test --mpi`; serial tests run with `psydac test`
+- Test file names follow `test_<module>.py`
+- Test function names follow `test_<function>` or `test_<class>_<method>`
+- Parametrize unit tests with `@pytest.mark.parametrize` to minimize code duplication
+- Keep run time of tests at a minimum
+- Aim for 100% coverage on newly committed code
+- Every bugfix comes with a regression test that fails before the fix
+- Use distinct sizes in each direction (e.g. 3 x 5 cells, not 4 x 4),
+  so that swapped indices are detected
+- Write files only to the `tmp_path` fixture (`mpi_tmp_path` in MPI tests),
+  never to the working directory
+- After changing a module, also run the tests of the subpackages which use it
+  (e.g. `psydac/api/tests` after changing `psydac/cad`)
+
+## File structure
+- psydac/api - high-level Python interface
+- psydac/cad - computer-aided design (CAD) functionality
+- psydac/cmd - command-line interface (CLI) commands
+- psydac/core - splines functionality
+- psydac/ddm - MPI decomposition of domain, vectors of spline coefficients, and matrices
+- psydac/feec - finite element exterior calculus (FEEC)
+- psydac/fem - "finite element method" middle-level Python interface (spaces and fields)
+- psydac/linalg - "linear algebra" low-level Python interface (vectors, linear operators, iterative solvers)
+- psydac/mapping - spline and NURBS mappings, and a gallery of discrete mappings
+- psydac/polar - implementation of polar splines for H1 spaces
+- psydac/pyccel - distillation of an old version of Pyccel for Python code generation (to be removed)
+- psydac/utilities - various generic functions used across the library
+- docs - Sphinx documentation
+- examples - Various examples of library usage (mostly Jupyter notebooks)
+- scripts - Various scripts for library maintenance
+- subprojects - Git submodules
+
+## Workflow
+- PRs are squash-merged and the PR description becomes the commit message:
+  keep it complete, and write "(fixes #N)" next to each fix
+- Every PR adds entries to `CHANGELOG.md` under Added/Changed/Fixed/Removed
+- Format of the CHANGELOG entries:
+  . `-   #<PR> : <change>`, followed by `, see #<issue>` if there is one
+  . `-   [DEVELOPER] <change>` for changes which only concern developers
+- Issues describe bugs as they appear on `devel`, with a reproducer that runs on `devel`
+- Do not commit changes to submodule pointers (`subprojects/`) unless intended
+
+## Always do
+- Before claiming done, run these checks on the Python files you changed:
+  . Run `python -m black --check $(git diff --name-only --diff-filter=d devel -- "*.py")`
+  . Run `python -m isort --check $(git diff --name-only --diff-filter=d devel -- "*.py")`
+  . Run `pylint --disable=all --enable=unused-import $(git diff --name-only --diff-filter=d devel -- "*.py")`
+- Until the code base is reformatted, black and isort fail on most existing files:
+  do not reformat existing code, and do not run black on the changed lines only
+  (it mixes quote styles, comment separators, and alignment within a file).
+  The pylint check must pass.
+- Unless specified differently, assume process with `rank=0` in MPI communicator is root
+- Use root MPI process to perform serial operations (e.g. open/save image)
+
+## Never do
+- Commit secrets or `.env` files
+- Add new dependencies without team discussion
+- Use `eval` function together with `input`
