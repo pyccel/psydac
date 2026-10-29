@@ -714,9 +714,6 @@ class C0PolarProjection_V2(LinearOperator):
         self.radial_dim = radial_dim
         self.angle_dim = 1 - radial_dim
 
-        self.W2 = W2
-        self.transposed = transposed
-
     @property
     def domain(self):
         return self.W2.coeff_space
@@ -1062,22 +1059,17 @@ class C1PolarProjection_U0(LinearOperator):
 
 
 # --------- 1-FORMS CONGA PROJECTOR P1 ----------#
-# It is a BlockLinearOperator with 4 blocks Upper-Left (0, 0), Upper-Right (0, 1)
-# Lower-Left (1, 0) and Lower-Right (1, 1).
+# Same block structure as the C0 projector P_V^1 (see above)
 #
-#                ______________________
-#               |           |          |
-#               |   (0,0)   |   (0,1)  |
-#               |___________|__________|
-#               |           |          |
-#               |   (1,0)   |   (1,1)  |
-#               |___________|__________|
+#   s_s         : s-component     -> s-component,     p at the pole
+#   theta_s     : s-component     -> theta-component, q = d p at the pole
+#   theta_theta : theta-component -> theta-component, same block as for P_V^1
 
 
-class C1PolarProjection_U1_00(LinearOperator):
+class C1PolarProjection_U1_s_s(LinearOperator):
     r"""
-    Matrix-free representation of the upper left block of the CONGA
-    projection matrix $\mathbb{P}_U^1$.
+    Matrix-free representation of the block of the CONGA projection matrix
+    $\mathbb{P}_U^1$ which maps the $s$-component of a 1-form to itself.
 
     Parameters
     ----------
@@ -1089,20 +1081,29 @@ class C1PolarProjection_U1_00(LinearOperator):
     transposed : bool, default=False
         If `True`, create block of transposed projection matrix
         $(\mathbb{P}_U^1)^T$.
+
+    radial_dim : int, default=0
+        Index of the logical dimension corresponding to the radial coordinate
+        $s$, which is also the index of the $s$-component in `W1`. With
+        `radial_dim=0` this is the upper-left block of $\mathbb{P}_U^1$, with
+        `radial_dim=1` it is the lower-right block.
     """
-    def __init__(self, W1, transposed=False):
+    def __init__(self, W1, transposed=False, radial_dim=0):
         assert isinstance(W1, VectorFemSpace)
+        assert radial_dim in (0, 1)
 
         self.W1 = W1
         self.transposed = transposed
+        self.radial_dim = radial_dim
+        self.angle_dim = 1 - radial_dim
 
     @property
     def domain(self):
-        return self.W1.coeff_space[0]
+        return self.W1.coeff_space[self.radial_dim]
 
     @property
     def codomain(self):
-        return self.W1.coeff_space[0]
+        return self.W1.coeff_space[self.radial_dim]
 
     @property
     def dtype(self):
@@ -1111,11 +1112,13 @@ class C1PolarProjection_U1_00(LinearOperator):
     def dot(self, x, out=None):
         assert isinstance(x, StencilVector)
 
-        [s1, s2] = self.domain.starts
-        [e1, e2] = self.domain.ends
-        [n1, n2] = self.domain.npts
-        theta_local = np.linspace(s2 * 2 * pi / n2, e2 * 2 * pi / n2, e2 - s2 + 1)
-        rank_at_polar_edge = s1 == 0
+        rdim, adim = self.radial_dim, self.angle_dim
+        V = self.domain
+        sr, sa = V.starts[rdim], V.starts[adim]
+        er, ea = V.ends[rdim], V.ends[adim]
+        na = V.npts[adim]
+        theta_local = np.linspace(sa * 2 * pi / na, ea * 2 * pi / na, ea - sa + 1)
+        rank_at_polar_edge = sr == 0
 
         if out is None:
             y = self.codomain.zeros()
@@ -1125,84 +1128,91 @@ class C1PolarProjection_U1_00(LinearOperator):
             out *= 0
             y = out
 
+        ang = slice(sa, ea + 1)
+
         if rank_at_polar_edge:
-            angle_comm = x.space.cart.subcomm[1] if x.space.parallel else None
-            sum_cos0, sum_sin0 = cos_sin_avg(theta_local, x, angle_comm, s2, e2, n2, 0)
+            ring0 = polar_index(rdim, 0, ang)
+            ring1 = polar_index(rdim, 1, ang)
+            inner = polar_index(rdim, slice(2, er + 1), ang)
+
+            angle_comm = x.space.cart.subcomm[adim] if x.space.parallel else None
+            sum_cos0, sum_sin0 = cos_sin_avg(
+                theta_local, x, angle_comm, sa, ea, na, 0, radial_dim=rdim
+            )
+            p_x0 = sum_cos0 * np.cos(theta_local) + sum_sin0 * np.sin(theta_local)
 
             if self.transposed:
                 sum_cos1, sum_sin1 = cos_sin_avg(
-                    theta_local, x, angle_comm, s2, e2, n2, 1
+                    theta_local, x, angle_comm, sa, ea, na, 1, radial_dim=rdim
                 )
-                y[0, s2 : e2 + 1] = (
-                    sum_cos0 * np.cos(theta_local)
-                    + sum_sin0 * np.sin(theta_local)
-                    + x[1, s2 : e2 + 1]
-                    - sum_cos1 * np.cos(theta_local)
-                    - sum_sin1 * np.sin(theta_local)
-                )
-                y[1, s2 : e2 + 1] = x[1, s2 : e2 + 1]
+                p_x1 = sum_cos1 * np.cos(theta_local) + sum_sin1 * np.sin(theta_local)
+                y[ring0] = p_x0 + x[ring1] - p_x1
+                y[ring1] = x[ring1]
             else:
-                y[0, s2 : e2 + 1] = sum_cos0 * np.cos(theta_local) + sum_sin0 * np.sin(
-                    theta_local
-                )
-                y[1, s2 : e2 + 1] = (
-                    x[0, s2 : e2 + 1] + x[1, s2 : e2 + 1] - y[0, s2 : e2 + 1]
-                )
+                y[ring0] = p_x0
+                y[ring1] = x[ring0] + x[ring1] - p_x0
 
-            y[2 : e1 + 1, s2 : e2 + 1] = x[2 : e1 + 1, s2 : e2 + 1]
+            y[inner] = x[inner]
         else:
-            y[s1 : e1 + 1, s2 : e2 + 1] = x[s1 : e1 + 1, s2 : e2 + 1]
+            owned = polar_index(rdim, slice(sr, er + 1), ang)  # all radial indices of the rank
+            y[owned] = x[owned]
 
         y.update_ghost_regions()
         return y
 
     def transpose(self, conjugate=False):
-        return C1PolarProjection_U1_00(self.W1, transposed=not self.transposed)
+        return C1PolarProjection_U1_s_s(
+            self.W1, transposed=not self.transposed, radial_dim=self.radial_dim
+        )
 
     def tosparse(self):
 
-        [n01, n02] = self.domain.npts
-        theta = np.linspace(0, 2 * pi, n02, endpoint=False)  # Warning not mpi!
-        [s1, s2] = self.domain.starts
-        [e1, e2] = self.domain.ends
+        # The matrix is assembled with (radial, angular) C-style flat indices
+        # i*na + j for radial index i and angular index j.
+
+        rdim, adim = self.radial_dim, self.angle_dim
+        V = self.domain
+        sr, sa = V.starts[rdim], V.starts[adim]
+        er, ea = V.ends[rdim], V.ends[adim]
+        nr, na = V.npts[rdim], V.npts[adim]
+        theta = np.linspace(0, 2 * pi, na, endpoint=False)
+        rank_at_polar_edge = sr == 0
 
         data, cols, rows = [], [], []
-        rank_at_polar_edge = s1 == 0
 
         if rank_at_polar_edge:
-            # block p
-            data = (2 / n02) * toeplitz_columns_sym(theta, s2, e2, n02)
-            # block I - p
-            i_minus_p = -1 * data.copy()
-            diag_js = np.arange(s2, e2 + 1)
-            diag_pos = (diag_js - s2) * n02 + diag_js
-            i_minus_p[diag_pos] += 1.0
+            # block p (ring 0 -> ring 0) and block I - p (ring 0 -> ring 1)
+            p = (2 / na) * toeplitz_columns_sym(theta, sa, ea, na)
+            i_minus_p = -p
+            diag_js = np.arange(sa, ea + 1)
+            i_minus_p[(diag_js - sa) * na + diag_js] += 1.0
+            data = np.concatenate((p, i_minus_p))
 
-            data = np.concatenate((data, i_minus_p))
+            rows_theta = np.repeat(np.arange(sa, ea + 1), na)
+            cols_theta = np.tile(np.arange(na), ea - sa + 1)
+            rows = np.concatenate((rows_theta, rows_theta + na))
+            cols = np.concatenate((cols_theta, cols_theta))
 
-            cols_theta = np.tile(np.arange(n02), e2 - s2 + 1)
-            rows_theta = np.repeat(np.arange(s2, e2 + 1), n02)
-            rows = np.concatenate((rows, rows_theta))
-            cols = np.concatenate((cols, cols_theta))
-            rows = np.concatenate((rows, rows_theta + 1 * n02))
-            cols = np.concatenate((cols, cols_theta))
+        # identity on radial indices i >= 1
+        i = np.arange(max(sr, 1), er + 1)[:, None]
+        j = np.arange(sa, ea + 1)[None, :]
+        local_rows = (i * na + j).ravel()
 
-        # Assemble the rest of the matrix (identity block)
-        start_s = max(s1, 1)
-        end_s = e1 + 1
-        i = np.arange(start_s, end_s)[:, None]
-        j = np.arange(s2, e2 + 1)[None, :]
-        local_rows = (i * n02 + j).ravel()
-
-        data = np.concatenate((data, np.ones((e2 - s2 + 1) * (end_s - start_s))))
+        data = np.concatenate((data, np.ones(local_rows.size)))
         cols = np.concatenate((cols, local_rows))
         rows = np.concatenate((rows, local_rows))
 
         rows = np.asarray(rows, dtype=np.int64)
         cols = np.asarray(cols, dtype=np.int64)
 
+        if rdim == 1:
+            rows = transpose_flat_index(rows, nr, na)
+            cols = transpose_flat_index(cols, nr, na)
+
         P = coo_matrix(
-            (data, (rows, cols)), shape=[n01 * n02, n01 * n02], dtype=self.domain.dtype
+            (data, (rows, cols)),
+            shape=[nr * na, nr * na],
+            dtype=V.dtype,
         )
         P.eliminate_zeros()
 
@@ -1212,10 +1222,11 @@ class C1PolarProjection_U1_00(LinearOperator):
         return self.tosparse().toarray()
 
 
-class C1PolarProjection_U1_10(LinearOperator):
+class C1PolarProjection_U1_theta_s(LinearOperator):
     r"""
-    Matrix-free representation of the lower left block of the CONGA
-    projection matrix $\mathbb{P}_U^1$.
+    Matrix-free representation of the block of the CONGA projection matrix
+    $\mathbb{P}_U^1$ which maps the $s$-component of a 1-form to its
+    $\theta$-component.
 
     Parameters
     ----------
@@ -1226,25 +1237,35 @@ class C1PolarProjection_U1_10(LinearOperator):
 
     transposed : bool, default=False
         If `True`, create block of transposed projection matrix
-        $(\mathbb{P}_U^1)^T$.
+        $(\mathbb{P}_U^1)^T$, which maps the $\theta$-component of a 1-form
+        to its $s$-component.
+
+    radial_dim : int, default=0
+        Index of the logical dimension corresponding to the radial coordinate
+        $s$. With `radial_dim=0` this is the lower-left block of $\mathbb{P}_U^1$
+        (upper-right if transposed), with `radial_dim=1` it is the upper-right
+        block (lower-left if transposed).
     """
-    def __init__(self, W1, transposed=False):
+    def __init__(self, W1, transposed=False, radial_dim=0):
         assert isinstance(W1, VectorFemSpace)
+        assert radial_dim in (0, 1)
 
         self.W1 = W1
         self.transposed = transposed
+        self.radial_dim = radial_dim
+        self.angle_dim = 1 - radial_dim
 
     @property
     def domain(self):
-        if self.transposed:
-            return self.W1.coeff_space[1]
-        return self.W1.coeff_space[0]
+        # s-component, or theta-component if transposed
+        idx = self.angle_dim if self.transposed else self.radial_dim
+        return self.W1.coeff_space[idx]
 
     @property
     def codomain(self):
-        if self.transposed:
-            return self.W1.coeff_space[0]
-        return self.W1.coeff_space[1]
+        # theta-component, or s-component if transposed
+        idx = self.radial_dim if self.transposed else self.angle_dim
+        return self.W1.coeff_space[idx]
 
     @property
     def dtype(self):
@@ -1276,16 +1297,17 @@ class C1PolarProjection_U1_10(LinearOperator):
 
     def dot(self, x, out=None):
         assert isinstance(x, StencilVector)
+
         if not x.ghost_regions_in_sync:
             x.update_ghost_regions()
 
-        # The number of radial basis functions is one less than
-        # the number on the angular basis functions
-        [s1, s2] = self.domain.starts
-        [e1, e2] = self.domain.ends
-        [n1, n2] = self.domain.npts
-        theta_local = np.linspace(s2 * 2 * pi / n2, e2 * 2 * pi / n2, e2 - s2 + 1)
-        rank_at_polar_edge = s1 == 0
+        rdim, adim = self.radial_dim, self.angle_dim
+        V = self.domain
+        sr, sa = V.starts[rdim], V.starts[adim]
+        ea = V.ends[adim]
+        na = V.npts[adim]
+        theta_local = np.linspace(sa * 2 * pi / na, ea * 2 * pi / na, ea - sa + 1)
+        rank_at_polar_edge = sr == 0
 
         if out is None:
             y = self.codomain.zeros()
@@ -1296,72 +1318,74 @@ class C1PolarProjection_U1_10(LinearOperator):
             y = out
 
         if rank_at_polar_edge:
-            angle_comm = x.space.cart.subcomm[1] if x.space.parallel else None
+            angle_comm = x.space.cart.subcomm[adim] if x.space.parallel else None
+            ang = slice(sa, ea + 1)
 
             if self.transposed:
-                y[0, s2 : e2 + 1] = x[1, s2 - 1 : e2] - x[1, s2 : e2 + 1]
+                s_ring0          = polar_index(rdim, 0, ang)
+                theta_ring1      = polar_index(rdim, 1, ang)
+                theta_ring1_prev = polar_index(rdim, 1, slice(sa - 1, ea))
+                y[s_ring0] = x[theta_ring1_prev] - x[theta_ring1]
                 sum_cos, sum_sin = cos_sin_avg(
-                    theta_local, y, angle_comm, s2, e2, n2, 0
+                    theta_local, y, angle_comm, sa, ea, na, 0, radial_dim=rdim
                 )
-                y[0, s2 : e2 + 1] = (
-                    np.cos(theta_local) * sum_cos + np.sin(theta_local) * sum_sin
-                )
-                y[1 : e1 + 1, s2 : e2 + 1] = 0
+                y[s_ring0] = np.cos(theta_local) * sum_cos + np.sin(theta_local) * sum_sin
             else:
-                y[0, s2 : e2 + 1] = 0
+                theta_ring1 = polar_index(rdim, 1, ang)
                 sum_cos, sum_sin = cos_sin_avg(
-                    theta_local, x, angle_comm, s2, e2, n2, 0
+                    theta_local, x, angle_comm, sa, ea, na, 0, radial_dim=rdim
                 )
-                row = np.cos(theta_local) * sum_cos + np.sin(theta_local) * sum_sin
-                y[1, s2 : e2 + 1] = self.forward_theta_diff_local(row, angle_comm)
-                y[2 : e1 + 1, s2 : e2 + 1] = 0
-        else:
-            y[s1 : e1 + 1, s2 : e2 + 1] = 0
+                p_x0 = np.cos(theta_local) * sum_cos + np.sin(theta_local) * sum_sin
+                y[theta_ring1] = self.forward_theta_diff_local(p_x0, angle_comm)
 
         y.update_ghost_regions()
         return y
 
     def transpose(self, conjugate=False):
-        return C1PolarProjection_U1_10(self.W1, transposed=not self.transposed)
+        return C1PolarProjection_U1_theta_s(
+            self.W1, transposed=not self.transposed, radial_dim=self.radial_dim
+        )
 
     def tosparse(self):
 
-        if self.transposed:
-            domain_P1_10 = self.codomain
-            codomain_P1_10 = self.domain
-        else:
-            domain_P1_10 = self.domain
-            codomain_P1_10 = self.codomain
+        # The non-transposed block is assembled, which maps the s-component
+        # to the theta-component, with (radial, angular) C-style flat indices
+        # i*na + j for radial index i and angular index j.
 
-        [n01, n02] = domain_P1_10.npts  # radial grid
-        [n11, n12] = codomain_P1_10.npts  # angular grid
-        [s1, s2] = domain_P1_10.starts
-        [e1, e2] = domain_P1_10.ends
+        rdim, adim = self.radial_dim, self.angle_dim
+        V_s = self.W1.coeff_space[rdim]
+        V_theta = self.W1.coeff_space[adim]
+        nr_s, na = V_s.npts[rdim], V_s.npts[adim]
+        nr_theta = V_theta.npts[rdim]
+        sr, sa = V_s.starts[rdim], V_s.starts[adim]
+        ea = V_s.ends[adim]
+        rank_at_polar_edge = sr == 0
 
-        rank_at_polar_edge = s1 == 0
         data, cols, rows = [], [], []
         if rank_at_polar_edge:
-            local_j = np.arange(s2, e2 + 1)  # rows
-            all_k = np.arange(n02)  # cols
-
-            rows = np.repeat(local_j + n02, n02)
+            local_j = np.arange(sa, ea + 1)
+            all_k = np.arange(na)
+            rows = np.repeat(local_j + na, na)
             cols = np.tile(all_k, len(local_j))
 
-            theta = 2.0 * pi * np.arange(n02) / n02
-
+            theta = 2 * pi * np.arange(na) / na
             j = local_j[:, None]
-            i = all_k[None, :]
-
-            p = np.cos(theta[j - i])
-            p_next = np.cos(theta[(j + 1) % n02 - i])
-            q = (2 / n02) * (p_next - p)
-            data = q.ravel(order="C")
+            k = all_k[None, :]
+            p = np.cos(theta[(j - k) % na])
+            p_next = np.cos(theta[(j + 1 - k) % na])
+            data = ((2 / na) * (p_next - p)).ravel()
 
         rows = np.asarray(rows, dtype=np.int64)
         cols = np.asarray(cols, dtype=np.int64)
 
+        if rdim == 1:
+            rows = transpose_flat_index(rows, nr_theta, na)
+            cols = transpose_flat_index(cols, nr_s, na)
+
         P = coo_matrix(
-            (data, (rows, cols)), shape=[n11 * n12, n01 * n02], dtype=self.domain.dtype
+            (data, (rows, cols)),
+            shape=[nr_theta * na, nr_s * na],
+            dtype=V_s.dtype,
         )
 
         return P.T if self.transposed else P
@@ -1369,6 +1393,8 @@ class C1PolarProjection_U1_10(LinearOperator):
     def toarray(self):
         return self.tosparse().toarray()
 
+    def toarray(self):
+        return self.tosparse().toarray()
 
 class C1PolarProjection_U1(BlockLinearOperator):
     r"""
@@ -1393,24 +1419,43 @@ class C1PolarProjection_U1(BlockLinearOperator):
     hbc : bool, default=False
         If `True`, impose homogeneous Dirichlet boundary conditions on the
         tangential (angular) component of the field.
+    radial_dim : int, default=0
+        Index of the logical dimension corresponding to the radial coordinate
+        $s$, which is also the index of the $s$-component in `W1`.
     """
-    def __init__(self, W1, transposed=False, hbc=False):
+    def __init__(self, W1, transposed=False, hbc=False, radial_dim=0):
         assert isinstance(W1, VectorFemSpace)
         assert W1.symbolic_space.kind.name == "hcurl"
+        assert radial_dim in (0, 1)
 
         T1 = W1.coeff_space
 
         super().__init__(T1, T1)
 
-        self[0, 0] = C1PolarProjection_U1_00(W1, transposed=transposed)
-        self[1, 0] = C1PolarProjection_U1_10(W1, transposed=transposed)
-        # self[0, 1] is 0 block
-        # The lower right block is the same for C0 and C1 projections
-        self[1, 1] = C0PolarProjection_V1_theta_theta(W1, transposed=transposed, hbc=hbc)
+        # indices of the s- and theta-components in W1
+        rdim, adim = radial_dim, 1 - radial_dim
+
+        self[rdim, rdim] = C1PolarProjection_U1_s_s(
+            W1, transposed=transposed, radial_dim=radial_dim
+        )
+        # The theta_theta block is the same for C0 and C1 projections
+        self[adim, adim] = C0PolarProjection_V1_theta_theta(
+            W1, transposed=transposed, hbc=hbc, radial_dim=radial_dim
+        )
+
+        P_theta_s = C1PolarProjection_U1_theta_s(
+            W1, transposed=transposed, radial_dim=radial_dim
+        )
+
+        if transposed:
+            self[rdim, adim] = P_theta_s
+        else:
+            self[adim, rdim] = P_theta_s
 
         self.W1 = W1
         self.transposed = transposed
         self.hbc = hbc
+        self.radial_dim = radial_dim
 
 
 # -------------- 2-FORMS CONGA PROJECTOR P2 ----------------#

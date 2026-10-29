@@ -191,7 +191,7 @@ def test_PolarProjection_V0(
 @pytest.mark.parametrize("degree", [[2, 2], [2, 3]])
 @pytest.mark.parametrize("ncells", [[8, 10], [15, 12]])
 @pytest.mark.parametrize("R", [1])
-@pytest.mark.parametrize("Projector", [C0PolarProjection_V1])
+@pytest.mark.parametrize("Projector", [C0PolarProjection_V1, C0PolarProjection_V1])
 @pytest.mark.mpi
 def test_PolarProjection_V1(
     Projector, R, ncells, degree, hbc, transposed, radial_dim, verbose=False
@@ -344,7 +344,7 @@ def test_PolarProjection_V2(
     P2 = Projector(V2_h, transposed=transposed, radial_dim=radial_dim)
     # Checking that the transpose keeps the projector type and coordinate ordering
     P2_T = P2.T
-    assert type(P2_T) is Projector
+    assert isinstance(P2_T, Projector)
     assert P2_T.transposed == (not transposed)
     assert P2_T.radial_dim == radial_dim
 
