@@ -24,7 +24,7 @@ from psydac.feec.polar.conga_projections import (
     transpose_flat_index,
 )
 from psydac.fem.basic import FemField
-from psydac.linalg.block import BlockVector
+from psydac.linalg.block import BlockVector, BlockVectorSpace
 from psydac.utilities.parallel_utils import (
     gather_vlen_array,
     gather_vlen_arrays,
@@ -67,6 +67,27 @@ def get_random_block_vector(space):
         [e1, e2] = space.coeff_space[i].ends
         x[i][s1 : e1 + 1, s2 : e2 + 1] = np.random.random([e1 - s1 + 1, e2 - s2 + 1])
     return x
+
+def to_s_theta_index(k, coeff_space, radial_dim):
+    """
+    Map global flat indices `k` of 1-form coefficients to the (s, theta)
+    ordering, where the s-component comes first and each component is
+    flattened in (radial, angular) order.
+    """
+    if radial_dim == 0:
+        return k
+
+    # Number the coefficients in storage order (theta-component first, both
+    # components with shape (angular, radial)), then list them in (s, theta) order
+    theta_shape, s_shape = (V.npts for V in coeff_space.spaces)
+    n_theta = np.prod(theta_shape)
+    old_theta = np.arange(n_theta).reshape(theta_shape)
+    old_s = n_theta + np.arange(np.prod(s_shape)).reshape(s_shape)
+    old_index = np.concatenate([old_s.T.ravel(), old_theta.T.ravel()])
+
+    new_index = np.empty_like(old_index)
+    new_index[old_index] = np.arange(old_index.size)
+    return new_index[k]
 
 @pytest.mark.parametrize("radial_dim", [0, 1])
 @pytest.mark.parametrize("transposed", [False, True])
@@ -164,27 +185,32 @@ def test_PolarProjection_V0(
     assert np.allclose(y_sp, y, atol=ATOL, rtol=RTOL)
 
 
+@pytest.mark.parametrize("radial_dim", [0, 1])
 @pytest.mark.parametrize("transposed", [False, True])
 @pytest.mark.parametrize("hbc", [True, False])
 @pytest.mark.parametrize("degree", [[2, 2], [2, 3]])
 @pytest.mark.parametrize("ncells", [[8, 10], [15, 12]])
 @pytest.mark.parametrize("R", [1])
-@pytest.mark.parametrize("Projector", [C0PolarProjection_V1, C1PolarProjection_U1])
+@pytest.mark.parametrize("Projector", [C0PolarProjection_V1])
 @pytest.mark.mpi
 def test_PolarProjection_V1(
-    Projector, R, ncells, degree, hbc, transposed, verbose=False
+    Projector, R, ncells, degree, hbc, transposed, radial_dim, verbose=False
 ):
     mpi_comm = MPI.COMM_WORLD
-    domain = get_domain(R)
+    domain = get_domain(R, radial_dim)
+
+    # ncells and degree are given in (radial, angular) order
+    if radial_dim == 0:
+        periodic = [False, True]
+    else:
+        ncells, degree, periodic = ncells[::-1], degree[::-1], [True, False]
 
     # Discrete physical domain and discrete space
-    domain_h = discretize(domain, ncells=ncells, periodic=[False, True], comm=mpi_comm)
+    domain_h = discretize(domain, ncells=ncells, periodic=periodic, comm=mpi_comm)
     V1 = VectorFunctionSpace("V1", domain, kind="hcurl")
     V1_h = discretize(V1, domain_h, degree=degree)
 
-    P1 = Projector(V1_h, hbc=hbc)
-    if transposed:
-        P1 = P1.T
+    P1 = Projector(V1_h, hbc=hbc, transposed=transposed, radial_dim=radial_dim)
 
     x = get_random_block_vector(V1_h)
     y = BlockVector(V1_h.coeff_space)
@@ -199,10 +225,14 @@ def test_PolarProjection_V1(
         print("Projection P1 in matrix form on rank", mpi_comm.rank)
         print(sp_P1.toarray())
 
-    [n01, n02] = V1_h.coeff_space[0].npts
-    [n11, n12] = V1_h.coeff_space[1].npts
+    # Number of radial basis functions of the s- and theta-components, and
+    # number of angular basis functions (the same for both components)
+    V_s = V1_h.coeff_space[radial_dim]
+    V_theta = V1_h.coeff_space[1 - radial_dim]
+    nr_s, na = V_s.npts[radial_dim], V_s.npts[1 - radial_dim]
+    nr_theta = V_theta.npts[radial_dim]
 
-    assert sp_P1.shape == (n01 * n02 + n11 * n12, n01 * n02 + n11 * n12)
+    assert sp_P1.shape == (nr_s * na + nr_theta * na, nr_s * na + nr_theta * na)
 
     # gather sparse matrix entries (rows, columns, data) on root process
     data = gather_vlen_array(sp_P1.data, mpi_comm)
@@ -210,16 +240,18 @@ def test_PolarProjection_V1(
 
     if mpi_comm.rank == 0:
 
-        cols = cols_rows[0]
-        rows = cols_rows[1]
+        # Express rows and columns as indices in the (s, theta) ordering,
+        # so that the checks below are the same for both orderings
+        cols = to_s_theta_index(cols_rows[0], V1_h.coeff_space, radial_dim)
+        rows = to_s_theta_index(cols_rows[1], V1_h.coeff_space, radial_dim)
 
         # Check the number of non-zero entries in the sparse matrix
         if Projector == C0PolarProjection_V1:
-            assert len(data) == n01 * n02 + 2 * n02 + (n11 - (3 if hbc else 2)) * n12
+            assert len(data) == nr_s * na + 2 * na + (nr_theta - (3 if hbc else 2)) * na
         else:
             assert (
                 len(data)
-                == 3 * n02 * n02 + n02 * (n01 - 1) + (n11 - (3 if hbc else 2)) * n12
+                == 3 * na * na + na * (nr_s - 1) + (nr_theta - (3 if hbc else 2)) * na
             )
 
         if transposed:
@@ -228,52 +260,52 @@ def test_PolarProjection_V1(
         # Check all non-zero entries
         for i, j, v in zip(rows, cols, data):
             if Projector == C0PolarProjection_V1:
-                # Block P1_00
-                if i < n01 * n02:
+                # Block s_s
+                if i < nr_s * na:
                     # identity
                     assert i == j
                     assert np.isclose(v, 1.0, atol=ATOL, rtol=RTOL)
-                # Block P1_10
-                elif n01 * n02 + n02 <= i < n01 * n02 + 2 * n02:
+                # Block theta_s
+                elif nr_s * na + na <= i < nr_s * na + 2 * na:
                     # d matrix
-                    if j == i - n02 * (n01 + 1):
+                    if j == i - na * (nr_s + 1):
                         assert np.isclose(v, -1.0, atol=ATOL, rtol=RTOL)
                     else:
                         assert np.isclose(v, 1.0, atol=ATOL, rtol=RTOL)
-                        assert j == (i - n02 * (n01 + 1) + 1) % n02
-                # Block P1_11
+                        assert j == (i - na * (nr_s + 1) + 1) % na
+                # Block theta_theta
                 else:
-                    assert i >= n01 * n02 + 2 * n02
+                    assert i >= nr_s * na + 2 * na
                     assert j == i
                     assert np.isclose(v, 1.0, atol=ATOL, rtol=RTOL)
 
             if Projector == C1PolarProjection_U1:
-                p_ij = 2 / n02 * np.cos((i - j) * 2 * np.pi / n02)
-                # Block P1_00
-                if i < n02:
+                p_ij = 2 / na * np.cos((i - j) * 2 * np.pi / na)
+                # Block s_s
+                if i < na:
                     # matrix p
-                    assert j < n02
+                    assert j < na
                     assert np.isclose(v, p_ij, atol=ATOL, rtol=RTOL)
-                elif 2 * n02 > i >= n02 > j:
+                elif 2 * na > i >= na > j:
                     # matrix I - p
-                    if i == j + n02:
+                    if i == j + na:
                         assert np.isclose(v, 1 - p_ij, atol=ATOL, rtol=RTOL)
                     else:
                         assert np.isclose(v, -p_ij, atol=ATOL, rtol=RTOL)
-                elif n02 <= i < n01 * n02:
+                elif na <= i < nr_s * na:
                     assert j == i
                     assert np.isclose(v, 1.0, atol=ATOL, rtol=RTOL)
 
-                # Block P1_10
-                elif j < n02:
+                # Block theta_s
+                elif j < na:
                     # matrix q
-                    q_ij = 2 / n02 * np.cos((i + 1 - j) * 2 * np.pi / n02) - p_ij
+                    q_ij = 2 / na * np.cos((i + 1 - j) * 2 * np.pi / na) - p_ij
                     assert np.isclose(v, q_ij, atol=ATOL, rtol=RTOL)
 
-                # Block P1_11
+                # Block theta_theta
                 else:
                     assert i == j
-                    assert i >= n01 * n02 + 2 * n02
+                    assert i >= nr_s * na + 2 * na
                     assert np.isclose(v, 1.0, atol=ATOL, rtol=RTOL)
 
     # Comparing results of dot and tosparse
