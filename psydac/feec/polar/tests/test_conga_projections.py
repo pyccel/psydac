@@ -5,7 +5,6 @@
 #---------------------------------------------------------------------------#
 
 import numpy as np
-from psydac.feec.multipatch_domain_utilities import TransposedPolarMapping
 import pytest
 from mpi4py import MPI
 from numpy import pi
@@ -14,6 +13,7 @@ from sympde.topology import Square
 from sympde.topology.analytical_mapping import PolarMapping
 
 from psydac.api.discretization import discretize
+from psydac.feec.multipatch_domain_utilities import TransposedPolarMapping
 from psydac.feec.polar.conga_projections import (
     C0PolarProjection_V0,
     C0PolarProjection_V1,
@@ -68,26 +68,48 @@ def get_random_block_vector(space):
         x[i][s1 : e1 + 1, s2 : e2 + 1] = np.random.random([e1 - s1 + 1, e2 - s2 + 1])
     return x
 
-def to_s_theta_index(k, coeff_space, radial_dim):
-    """
-    Map global flat indices `k` of 1-form coefficients to the (s, theta)
-    ordering, where the s-component comes first and each component is
-    flattened in (radial, angular) order.
+def to_s_theta_index(indices, coeff_space, radial_dim):
+    """Convert global flat indices to canonical (s, theta) ordering.
+
+    Within each component, use radial-first C-order flattening.
+    For 1-forms, also place the radial component before the angular
+    component. Input indices use the native coefficient-space ordering.
     """
     if radial_dim == 0:
-        return k
+        return indices
 
-    # Number the coefficients in storage order (theta-component first, both
-    # components with shape (angular, radial)), then list them in (s, theta) order
-    theta_shape, s_shape = (V.npts for V in coeff_space.spaces)
-    n_theta = np.prod(theta_shape)
-    old_theta = np.arange(n_theta).reshape(theta_shape)
-    old_s = n_theta + np.arange(np.prod(s_shape)).reshape(s_shape)
-    old_index = np.concatenate([old_s.T.ravel(), old_theta.T.ravel()])
+    if isinstance(coeff_space, BlockVectorSpace):
+        # Native component order is (theta, s).
+        spaces = coeff_space.spaces
+        component_order = (radial_dim, 1 - radial_dim)
+    else:
+        # 0-forms and 2-forms have one component.
+        spaces = (coeff_space,)
+        component_order = (0,)
 
-    new_index = np.empty_like(old_index)
-    new_index[old_index] = np.arange(old_index.size)
-    return new_index[k]
+    sizes = [int(np.prod(space.npts)) for space in spaces]
+    old_offsets = np.concatenate(([0], np.cumsum(sizes)))
+
+    result = np.empty_like(indices)
+    new_offset = 0
+
+    for component in component_order:
+        start = old_offsets[component]
+        stop = old_offsets[component + 1]
+        belongs_to_component = (start <= indices) & (indices < stop)
+
+        # Remove the component offset before decoding spatial indices.
+        local_indices = indices[belongs_to_component] - start
+
+        # Native shape is (angular, radial): k = j * nr + i.
+        ntheta, nr = spaces[component].npts
+        j, i = np.divmod(local_indices, nr)
+
+        # Canonical shape is (radial, angular): k = i * ntheta + j.
+        result[belongs_to_component] = new_offset + i * ntheta + j
+        new_offset += sizes[component]
+
+    return result
 
 @pytest.mark.parametrize("radial_dim", [0, 1])
 @pytest.mark.parametrize("transposed", [False, True])
@@ -139,14 +161,10 @@ def test_PolarProjection_V0(
 
     if mpi_comm.rank == 0:
 
-        cols = cols_rows[0]
-        rows = cols_rows[1]
-
         # Express rows and columns as (radial, angular) flat indices i*na + j,
         # so that the checks below are the same for both orderings
-        if radial_dim == 1:
-            rows = transpose_flat_index(rows, na, nr)
-            cols = transpose_flat_index(cols, na, nr)
+        cols = to_s_theta_index(cols_rows[0], V0_h.coeff_space, radial_dim)
+        rows = to_s_theta_index(cols_rows[1], V0_h.coeff_space, radial_dim)
 
         # Check the number of non-zero entries in the sparse matrix
         if Projector == C0PolarProjection_V0:
@@ -191,7 +209,7 @@ def test_PolarProjection_V0(
 @pytest.mark.parametrize("degree", [[2, 2], [2, 3]])
 @pytest.mark.parametrize("ncells", [[8, 10], [15, 12]])
 @pytest.mark.parametrize("R", [1])
-@pytest.mark.parametrize("Projector", [C0PolarProjection_V1, C0PolarProjection_V1])
+@pytest.mark.parametrize("Projector", [C0PolarProjection_V1, C1PolarProjection_U1])
 @pytest.mark.mpi
 def test_PolarProjection_V1(
     Projector, R, ncells, degree, hbc, transposed, radial_dim, verbose=False
@@ -371,14 +389,10 @@ def test_PolarProjection_V2(
 
     if mpi_comm.rank == 0:
 
-        cols = cols_rows[0]
-        rows = cols_rows[1]
-
         # Express rows and columns as (radial, angular) flat indices i*na + j,
         # so that the checks below are the same for both orderings
-        if radial_dim == 1:
-            rows = transpose_flat_index(rows, na, nr)
-            cols = transpose_flat_index(cols, na, nr)
+        cols = to_s_theta_index(cols_rows[0], V2_h.coeff_space, radial_dim)
+        rows = to_s_theta_index(cols_rows[1], V2_h.coeff_space, radial_dim)
 
         # Check the number of non-zero entries in the sparse matrix
         assert len(data) == nr * na
@@ -406,6 +420,6 @@ if __name__ == "__main__":
         C0PolarProjection_V0, 1, [3, 3], [1, 1], False, False, 1, verbose=True
     )
     test_PolarProjection_V1(
-        C0PolarProjection_V1, 1, [2, 3], [1, 1], False, False, verbose=True
+        C0PolarProjection_V1, 1, [2, 3], [1, 1], False, False, 1, verbose=True
     )
     test_PolarProjection_V2(1, [8, 10], [2, 2], False, 1, verbose=True)

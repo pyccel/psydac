@@ -65,9 +65,14 @@ def polar_index(radial_dim, radial_index, angular_index):
     else:
         return (angular_index, radial_index)
 
-def transpose_flat_index(k, nr, na):
-    """Map the C-order flat index i*na + j of a (radial, angular) array to j*nr + i."""
-    return (k % na) * nr + k // na
+def transpose_flat_index(k, nrows, ncols):
+    """
+    Map C-order flat indices of an (nrows, ncols) array to those of its
+    (ncols, nrows) transpose.
+    """
+    row = k // ncols
+    col = k % ncols
+    return col * nrows + row
 
 class C0PolarProjection_V0(LinearOperator):
     r"""
@@ -1393,8 +1398,6 @@ class C1PolarProjection_U1_theta_s(LinearOperator):
     def toarray(self):
         return self.tosparse().toarray()
 
-    def toarray(self):
-        return self.tosparse().toarray()
 
 class C1PolarProjection_U1(BlockLinearOperator):
     r"""
