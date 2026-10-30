@@ -21,7 +21,6 @@ from psydac.feec.polar.conga_projections import (
     C1PolarProjection_U0,
     C1PolarProjection_U1,
     C1PolarProjection_U2,
-    transpose_flat_index,
 )
 from psydac.fem.basic import FemField
 from psydac.linalg.block import BlockVector, BlockVectorSpace
@@ -68,6 +67,7 @@ def get_random_block_vector(space):
         x[i][s1 : e1 + 1, s2 : e2 + 1] = np.random.random([e1 - s1 + 1, e2 - s2 + 1])
     return x
 
+
 def to_s_theta_index(indices, coeff_space, radial_dim):
     """Convert global flat indices to canonical (s, theta) ordering.
 
@@ -110,6 +110,7 @@ def to_s_theta_index(indices, coeff_space, radial_dim):
         new_offset += sizes[component]
 
     return result
+
 
 @pytest.mark.parametrize("radial_dim", [0, 1])
 @pytest.mark.parametrize("transposed", [False, True])
@@ -422,4 +423,6 @@ if __name__ == "__main__":
     test_PolarProjection_V1(
         C0PolarProjection_V1, 1, [2, 3], [1, 1], False, False, 1, verbose=True
     )
-    test_PolarProjection_V2(1, [8, 10], [2, 2], False, 1, verbose=True)
+    test_PolarProjection_V2(
+        C0PolarProjection_V2, 1, [8, 10], [2, 2], False, 1, verbose=True
+        )

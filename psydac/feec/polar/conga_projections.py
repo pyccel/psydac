@@ -14,8 +14,11 @@ domain is the strip
 
 $$\hat{\Omega} := [0, L] \times (\mathbb{R}/2\pi\mathbb{Z})$$
 
-where tensor-product B-splines are defined. The physical (a.k.a. computational)
-domain is $\Omega = F(\hat{\Omega})$, where $F: (s, \theta) \mapsto (x_1, x_2)$ is
+where tensor-product B-splines are defined. If the logical coordinates are
+ordered as $(\theta, s)$ instead, the strip is
+$(\mathbb{R}/2\pi\mathbb{Z}) \times [0, L]$ and the projectors must be created
+with `radial_dim=1`. The physical (a.k.a. computational) domain is
+$\Omega = F(\hat{\Omega})$, where $F: (s, \theta) \mapsto (x_1, x_2)$ is
 the singular mapping which collapses the side $s = 0$ to a single point which
 we call the "pole".
 
