@@ -12,7 +12,7 @@ from psydac.cad.geometry       import Geometry
 from psydac.api.postprocessing import OutputManager, PostProcessManager
 
 from sympde.topology.analytical_mapping import IdentityMapping
-from sympde.topology                  import Cube, Derham
+from sympde.topology                  import Derham
 
 from sympy      import exp, lambdify
 
