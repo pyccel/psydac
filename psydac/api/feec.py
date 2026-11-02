@@ -283,7 +283,7 @@ class DiscreteDeRham(BasicDiscrete):
             P2 = GlobalGeometricProjectorHdiv (self.V2, nquads)
             P3 = GlobalGeometricProjectorL2   (self.V3, nquads)
             if self.has_vec : 
-                Pvec = GlobalGeometricProjectorH1vec(self.H1vec)
+                Pvec = GlobalGeometricProjectorH1vec(self.H1vec, nquads)
             if self.mapping and not logical:
                 P0_m = lambda f: P0(pull_3d_h1   (f, self.callable_mapping))
                 P1_m = lambda f: P1(pull_3d_hcurl(f, self.callable_mapping))
