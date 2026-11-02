@@ -72,8 +72,7 @@ def test_MultipatchDiscreteDeRham_projectors_logical():
     # The multipatch projectors act on a list of functions, one per patch
     funcs = [[fun, fun] for fun in functions[2]]
 
-    nquads = [p + 1 for p in degree[2]]
-    expected = project(logical_domain, funcs, nquads=nquads)
-    actual   = project(mapped_domain, funcs, nquads=nquads, logical=True)
+    expected = project(logical_domain, funcs)
+    actual   = project(mapped_domain, funcs, logical=True)
     for a, e in zip(actual, expected):
         assert np.array_equal(a, e)

@@ -188,6 +188,26 @@ class DiscreteDeRham(BasicDiscrete):
         return self._callable_mapping
 
     #--------------------------------------------------------------------------
+    def _get_nquads(self, nquads):
+        """Return the number of quadrature points along each direction
+        (default: maximum degree of V0 + 1, as in the assembly of forms)."""
+        # Local import to avoid a circular import with psydac.api.discretization
+        from psydac.api.discretization import get_max_degree_of_one_space
+
+        if nquads is None:
+            nquads = [p + 1 for p in get_max_degree_of_one_space(self.V0)]
+        elif isinstance(nquads, int):
+            nquads = [nquads] * self.dim
+        else:
+            assert hasattr(nquads, '__iter__')
+            nquads = list(nquads)
+
+        assert all(isinstance(nq, int) for nq in nquads)
+        assert all(nq >= 1 for nq in nquads)
+
+        return nquads
+
+    #--------------------------------------------------------------------------
     def projectors(self, *, kind='global', nquads=None, logical=False):
         """Projectors mapping callable functions to a corresponding `FemField`
         object in the de Rham sequence.
@@ -224,16 +244,7 @@ class DiscreteDeRham(BasicDiscrete):
         if not (kind == 'global'):
             raise NotImplementedError('only global projectors are available')
 
-        if nquads is None:
-            nquads = [p + 1 for p in self.V0.degree]
-        elif isinstance(nquads, int):
-            nquads = [nquads] * self.dim
-        else:
-            assert hasattr(nquads, '__iter__')
-            nquads = list(nquads)
-
-        assert all(isinstance(nq, int) for nq in nquads)
-        assert all(nq >= 1 for nq in nquads)
+        nquads = self._get_nquads(nquads)
 
         if self.dim == 1:
             P0 = GlobalGeometricProjectorH1(self.V0)
@@ -674,7 +685,8 @@ class MultipatchDiscreteDeRham(DiscreteDeRham):
           The projectors kind, can be global or local
 
         nquads: <list,tuple>
-          The number of quadrature points.
+          The number of quadrature points (default: degree + 1, using the
+          highest degree of all patches along each direction).
 
         logical: <bool>
           If True, the projectors act on a list of functions of the logical
@@ -699,6 +711,9 @@ class MultipatchDiscreteDeRham(DiscreteDeRham):
         """
         if not (kind == 'global'):
             raise NotImplementedError('only global projectors are available')
+
+        # The same number of quadrature points is used on all patches
+        nquads = self._get_nquads(nquads)
 
         if self.dim == 1:
             raise NotImplementedError("1D projectors are not available")
