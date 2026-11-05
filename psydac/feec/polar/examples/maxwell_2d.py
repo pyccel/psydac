@@ -19,6 +19,7 @@ import os
 import numpy as np
 from mpi4py import MPI
 
+from psydac.feec.multipatch_domain_utilities import TransposedPolarMapping
 from psydac.feec.polar.examples.analytical_solutions import (
     CircularCavitySolution,
     GaussianInitialCondition,
@@ -38,7 +39,7 @@ class Maxwell2D(PolarModel2D):
         self._exact_solution = exact_solution
 
     @staticmethod
-    def disk(R, shift_D, study, use_polar_mapping=False):
+    def disk(R, shift_D, study, radial_dim, use_polar_mapping=False):
         from sympde.topology import Square
         from sympde.topology.analytical_mapping import (
             PolarMapping,
@@ -61,13 +62,17 @@ class Maxwell2D(PolarModel2D):
         else:
             exact_solution = CircularCavitySolution(R=R, c=c, m=m, n=n, scale=scale)
 
-        domain_log = Square("Omega", bounds1=(0, R), bounds2=(0, 2 * pi))
-
-        if use_polar_mapping:
-            mapping = PolarMapping("PM", c1=0, c2=0, rmin=0, rmax=1)
+        bounds_s = (0, R)
+        bounds_theta = (0, 2 * np.pi)
+        if radial_dim == 0:
+            domain_log = Square("Omega", bounds1=bounds_s, bounds2=bounds_theta)
+            if use_polar_mapping:
+                mapping = PolarMapping("PM", c1=0, c2=0, rmin=0, rmax=1)
+            else:
+                mapping = TargetMapping("TM", c1=shift_D * R * R, c2=0, k=0, D=shift_D)
         else:
-            # domain   = ((0, 1), (0, 2 * np.pi))
-            mapping = TargetMapping("TM", c1=shift_D * R * R, c2=0, k=0, D=shift_D)
+            domain_log = Square("Omega", bounds1=bounds_theta, bounds2=bounds_s)
+            mapping = TransposedPolarMapping("TM", c1=0, c2=0, rmin=0, rmax=1)
 
         return Maxwell2D(domain_log, mapping, exact_solution)
 
@@ -267,6 +272,7 @@ def run_maxwell_2d_TE(
     tend,
     tol,
     maxiter,
+    radial_dim,
     verbose,
     use_scipy,
     save_figs,
@@ -303,13 +309,6 @@ def run_maxwell_2d_TE(
     # Radius physical domain
     R = 1.0  # 2.0
 
-    # Speed of light and scaling
-    c = 1.0
-    scale = 1.0
-
-    # Mode number
-    m, n = (2, 3)
-
     # Exact/initial solution
     assert study in ["L2_proj", "maxwell_bessel", "maxwell_wave"]
     study_L2_proj = study == "L2_proj"
@@ -317,12 +316,6 @@ def run_maxwell_2d_TE(
     if save_figs:
         visdir = f"plots_{study}"
         os.makedirs(visdir, exist_ok=True)
-
-    # Logical domain: [0, R] x [0, 2pi]
-    logical_bounds = [[0, R], [0, 2 * np.pi]]
-    logical_domain = Square(
-        "Omega", bounds1=logical_bounds[0], bounds2=logical_bounds[1]
-    )
 
     # run parameters string
     rp_str = f"{ncells[0]}_{ncells[1]}_p{degree[0]}_D{shift_D}_s{smooth}"
@@ -339,12 +332,13 @@ def run_maxwell_2d_TE(
     if use_scipy and mpi_comm.size != 1:
         raise RuntimeError("The --scipy option can only be used in serial")
 
-    model = Maxwell2D.disk(R=R, shift_D=shift_D, study=study)
+    model = Maxwell2D.disk(R=R, shift_D=shift_D, study=study, radial_dim=radial_dim)
+    periodic = [False, True] if radial_dim == 0 else [True, False]
 
     model.build_geometry(
         ncells=ncells,
         degree=degree,
-        periodic=[False, True],
+        periodic=periodic,
         mpi_comm=mpi_comm,
         use_spline_mapping=use_spline_mapping,
     )
@@ -374,7 +368,7 @@ def run_maxwell_2d_TE(
         F = list(domain_h.mappings.values()).pop()
     else:
         domain_h = discretize(
-            domain, ncells=ncells, periodic=[False, True], comm=mpi_comm
+            domain, ncells=ncells, periodic=periodic, comm=mpi_comm
         )
         derham_h = discretize(derham, domain_h, degree=degree)
         F = mapping.get_callable_mapping()
@@ -405,18 +399,17 @@ def run_maxwell_2d_TE(
             domain_h_serial = discretize(domain, filename="geo.h5")
             F_serial = [*domain_h_serial.mappings.values()].pop()
         else:
-            domain_h_serial = discretize(domain, ncells=ncells, periodic=[False, True])
+            domain_h_serial = discretize(domain, ncells=ncells, periodic=periodic)
             F_serial = F
 
         derham_h_serial = discretize(derham, domain_h_serial, degree=degree)
         V0_s, V1_s, V2_s = derham_h_serial.spaces
         V1_sx, V1_sy = V1_s.spaces
 
-        grid_x1 = V0_s.breaks[0].copy()
-        grid_x2 = V0_s.breaks[1].copy()
-
         # Fix division by zero without taking care of the limit as s --> 0
-        grid_x1[0] = 1e-20
+        grids = [V0_s.breaks[a].copy() for a in range(2)]
+        grids[radial_dim][0] = 1e-20
+        grid_x1, grid_x2 = grids
 
         N = 5
         x1 = refine_array_1d(grid_x1, N)
@@ -615,11 +608,11 @@ def run_maxwell_2d_TE(
 
     # Conga projectors
     if smooth == 0:
-        P1 = C0PolarProjection_V1(V1_h, hbc=True)
-        P2 = C0PolarProjection_V2(V2_h)
+        P1 = C0PolarProjection_V1(V1_h, hbc=True, radial_dim=radial_dim)
+        P2 = C0PolarProjection_V2(V2_h, radial_dim=radial_dim)
     else:
-        P1 = C1PolarProjection_U1(V1_h, hbc=True)
-        P2 = C1PolarProjection_U2(V2_h)
+        P1 = C1PolarProjection_U1(V1_h, hbc=True, radial_dim=radial_dim)
+        P2 = C1PolarProjection_U2(V2_h, radial_dim=radial_dim)
     P1_T = P1.T
     P2_T = P2.T
 
@@ -627,8 +620,8 @@ def run_maxwell_2d_TE(
     a1_h = discretize(a1, domain_h, (derham_h.V1, derham_h.V1), backend=backend)
     a2_h = discretize(a2, domain_h, (derham_h.V2, derham_h.V2), backend=backend)
 
-    hs = R / ncells[0]
-    htheta = 2 * np.pi / ncells[1]
+    hs = R / ncells[radial_dim]
+    htheta = 2 * np.pi / ncells[1 - radial_dim]
 
     # Mass matrices (StencilMatrix objects)
 
@@ -671,6 +664,10 @@ def run_maxwell_2d_TE(
     E_log = Pi1((Ex_ex(t), Ey_ex(t)))
     E_log.coeffs.update_ghost_regions()
     B_log = Pi2(Bz_ex(t))
+    # TEMPORARY: Pi2 uses |det DF|, but push_2d_l2 uses det DF. TODO: remove this
+    if radial_dim == 1:
+        b_coeffs = B_log.coeffs
+        b_coeffs *= -1
     B_log.coeffs.update_ghost_regions()
 
     # Initial conditions, spline coefficients
@@ -761,22 +758,29 @@ def run_maxwell_2d_TE(
     # --------------------------------------------------------------------------
     def plot_fields_along_s(tstr):
 
+        def radial_first(values):
+            return values if radial_dim == 0 else values.T
+
+        s_grid = radial_first((x1, x2)[radial_dim])
+        theta_grid = radial_first((x1, x2)[1 - radial_dim])
+
         j0 = 0
-        j1 = x2.shape[1] // 2
-        theta0 = x2[0, j0]
-        theta1 = x2[0, j1]
+        j1 = theta_grid.shape[1] // 2
+        theta0 = theta_grid[0, j0]
+        theta1 = theta_grid[0, j1]
+
         name = "Ex"
         fig_line = plot_curve_along_s(
             name,
             "s",
             tstr,
             f"{theta0} and {theta1}",
-            x1[:, j0],
-            Ex_values[:, j0],
-            Ex_ex_values[:, j0],
-            -x1[:, j1],
-            Ex_values[:, j1],
-            Ex_ex_values[:, j1],
+            s_grid[:, j0],
+            radial_first(Ex_values)[:, j0],
+            radial_first(Ex_ex_values)[:, j0],
+            -s_grid[:, j1],
+            radial_first(Ex_values)[:, j1],
+            radial_first(Ex_ex_values)[:, j1],
         )
         fig_line.savefig(f"{visdir}/{name}_line_{tstr}_{rp_str}.png")
         plt.close(fig_line)
@@ -786,12 +790,12 @@ def run_maxwell_2d_TE(
             "s",
             tstr,
             f"{theta0} and {theta1}",
-            x1[:, j0],
-            Ey_values[:, j0],
-            Ey_ex_values[:, j0],
-            -x1[:, j1],
-            Ey_values[:, j1],
-            Ey_ex_values[:, j1],
+            s_grid[:, j0],
+            radial_first(Ey_values)[:, j0],
+            radial_first(Ey_ex_values)[:, j0],
+            -s_grid[:, j1],
+            radial_first(Ey_values)[:, j1],
+            radial_first(Ey_ex_values)[:, j1],
         )
         fig_line.savefig(f"{visdir}/{name}_line_{tstr}_{rp_str}.png")
         plt.close(fig_line)
@@ -801,12 +805,12 @@ def run_maxwell_2d_TE(
             "s",
             tstr,
             f"{theta0} and {theta1}",
-            x1[:, j0],
-            Bz_values[:, j0],
-            Bz_ex_values[:, j0],
-            -x1[:, j1],
-            Bz_values[:, j1],
-            Bz_ex_values[:, j1],
+            s_grid[:, j0],
+            radial_first(Bz_values)[:, j0],
+            radial_first(Bz_ex_values)[:, j0],
+            -s_grid[:, j1],
+            radial_first(Bz_values)[:, j1],
+            radial_first(Bz_ex_values)[:, j1],
         )
         fig_line.savefig(f"{visdir}/{name}_line_{tstr}_{rp_str}.png")
         plt.close(fig_line)
@@ -1249,6 +1253,14 @@ def parse_input_arguments():
         type=int,
         default=1000,
         help="Max number of linear solver iterations",
+    )
+
+    parser.add_argument(
+        "--radial_dim",
+        type=int,
+        choices=(0, 1),
+        default=0,
+        help="Radial coordinate index: 0 for (s, theta), 1 for (theta, s)",
     )
 
     parser.add_argument(

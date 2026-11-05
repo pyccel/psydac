@@ -937,7 +937,7 @@ def parse_input_arguments():
     )
 
     parser.add_argument(
-        "--radial-dim",
+        "--radial_dim",
         type=int,
         choices=(0, 1),
         default=0,
