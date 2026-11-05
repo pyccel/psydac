@@ -146,7 +146,8 @@ class PolarModel2D:
 
         if mpi_comm.size == 1:
             from psydac.feec.polar.examples.utils_congapol import check_regular_ring_map
-            check_regular_ring_map(map_discrete, verbose=verbose)
+            radial_dim = list(periodic).index(False)
+            check_regular_ring_map(map_discrete, verbose=verbose, radial_dim=radial_dim)
 
     @property
     def logical_bounds(self):
