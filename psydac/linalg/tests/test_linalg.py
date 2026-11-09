@@ -802,11 +802,8 @@ def test_operator_evaluation(n1, n2, p1, p2):
     bi2 = ( B_ILO**2 @ u )
     error_est = 2 + n1 * n2 * 10 # Rough error estimate based on dimensions and operator norm bounds
     assert norm2(u - bi0) < 1e-10
-    bi12 = B_ILO @ u
-    bi22 = B_ILO @ bi12
-
-    assert norm2((B @ bi12) - u) < tol
-    assert norm2((B @ bi22) - bi12 ) < error_est * tol
+    assert norm2((B @ bi1) - u) < tol
+    assert norm2((B @ B @ bi2) - u) < error_est * tol
 
     zeros = U.zeros()
     z0 = ( Z**0 @ u )
@@ -831,18 +828,15 @@ def test_operator_evaluation(n1, n2, p1, p2):
     si2 = ( S_ILO**2 @ v )
     error_est = 2 + n1 * n2 * 10 # Rough error estimate based on dimensions and operator norm bounds
     assert norm2(v - si0) < 1e-10
-    si12 = S_ILO @ v
-    si22 = S_ILO @ si12
-
-    assert norm2((S @ si12) - v) < tol
-    assert norm2( (S @ si22) - si12 ) < error_est * tol
+    assert norm2((S @ si1) - v) < tol
+    assert norm2((S @ S @ si22) - si2) < error_est * tol
 
 
     i0 = ( I**0 @ v )
     i1 = ( I**1 @ v )
     i2 = ( I**2 @ v )
-    assert norm2(v- i0) < 1e-10
-    assert norm2(v - i1) <1e-10
+    assert norm2(v - i0) < 1e-10
+    assert norm2(v - i1) < 1e-10
     assert norm2(v - i2) < 1e-10
 
     ### 2.2 SumLO tests
@@ -856,7 +850,7 @@ def test_operator_evaluation(n1, n2, p1, p2):
     norm2 = lambda v: np.sqrt(v.inner(v))
 
     assert norm2((u_approx - u)) < tol
-    assert norm2( (v_approx - v)) < tol
+    assert norm2((v_approx - v)) < tol
 
     ### 2.3 CompLO tests
     C1 = B @ (-B)
@@ -906,7 +900,7 @@ def test_operator_evaluation(n1, n2, p1, p2):
     # than asserting rnorm < tol, as that is not required. Even though it should?
 
     assert norm2((S @ xs_cg - v)) < tol
-    assert norm2( (S @ xs_pcg - v)) < tol
+    assert norm2((S @ xs_pcg - v)) < tol
     assert norm2((S @ xs_bicg - v)) < tol
     assert S_lsmr.get_success() == True
     assert norm2((S @ xs_mr - v)) < tol
@@ -969,8 +963,8 @@ def test_internal_storage():
     assert len(Z2_1.tmp_vectors) == 3
     assert len(Z2_2.tmp_vectors) == 3
     assert len(Z2_3.tmp_vectors) == 3
-    assert (norm2( y1_1- y1_2 ) < 1e-10) & (norm2( y1_2 - y1_3) < 1e-10)
-    assert (norm2( y2_1 - y2_2 ) < 1e-10) & (norm2( y2_2 - y2_3) < 1e-10)
+    assert (norm2(y1_1 - y1_2) < 1e-10) & (norm2(y1_2 - y1_3) < 1e-10)
+    assert (norm2(y2_1 - y2_2) < 1e-10) & (norm2(y2_2 - y2_3) < 1e-10)
 
 #===============================================================================
 @pytest.mark.parametrize(("solver", "use_jacobi_pc"),

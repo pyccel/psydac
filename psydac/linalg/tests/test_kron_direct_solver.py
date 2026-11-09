@@ -628,10 +628,11 @@ def test_3d_m1_solver(ncells, degree, periodic):
     rhs_iterative = M1 @ x_iterative
     rhs_direct = M1 @ x_direct
     # Define 2-norm of vector using inner
-    norm2 = lambda v: np.sqrt(v.inner(v))
+    norm2_sqr = lambda v: v.inner(v)
+    tol_sqr = tol * tol
 
-    assert norm2(rhs-rhs_iterative) < tol
-    assert norm2(rhs-rhs_direct) < tol
+    assert norm2_sqr(rhs - rhs_iterative) < tol_sqr
+    assert norm2_sqr(rhs - rhs_direct) < tol_sqr
     
     
 #===============================================================================
@@ -723,10 +724,11 @@ def test_2d_mass_solver(ncells, degree, bounds, periodic):
     # assert rhs_iterative is within the tolerance close to rhs, and so is rhs_direct
     rhs_iterative = M0 @ x_iterative
     rhs_direct = M0 @ x_direct
-    norm2 = lambda v: np.sqrt(v.inner(v))
+    norm2_sqr = lambda v: v.inner(v)
+    tol_sqr = tol * tol
 
-    assert norm2(rhs-rhs_iterative) < tol
-    assert norm2(rhs-rhs_direct) < tol
+    assert norm2_sqr(rhs - rhs_iterative) < tol_sqr
+    assert norm2_sqr(rhs - rhs_direct) < tol_sqr
     
     x1 = P1(get_A_fun_vec()).coeffs
     rhs = M1 @ x1
@@ -738,10 +740,11 @@ def test_2d_mass_solver(ncells, degree, bounds, periodic):
     # assert rhs_iterative is within the tolerance close to rhs, and so is rhs_direct
     rhs_iterative = M1 @ x_iterative
     rhs_direct = M1 @ x_direct
-    norm2 = lambda v: np.sqrt(v.inner(v))
+    norm2_sqr = lambda v: v.inner(v)
+    tol_sqr = tol * tol
 
-    assert norm2(rhs-rhs_iterative) < tol
-    assert norm2(rhs-rhs_direct) < tol
+    assert norm2_sqr(rhs - rhs_iterative) < tol_sqr
+    assert norm2_sqr(rhs - rhs_direct) < tol_sqr
 
     x2 = P2(get_A_fun_scalar()).coeffs
     rhs = M2 @ x2
@@ -753,10 +756,11 @@ def test_2d_mass_solver(ncells, degree, bounds, periodic):
     # assert rhs_iterative is within the tolerance close to rhs, and so is rhs_direct
     rhs_iterative = M2 @ x_iterative
     rhs_direct = M2 @ x_direct
-    norm2 = lambda v: np.sqrt(v.inner(v))
+    norm2_sqr = lambda v: v.inner(v)
+    tol_sqr = tol * tol
 
-    assert norm2(rhs-rhs_iterative) < tol
-    assert norm2(rhs-rhs_direct) < tol
+    assert norm2_sqr(rhs - rhs_iterative) < tol_sqr
+    assert norm2_sqr(rhs - rhs_direct) < tol_sqr
     
 #===============================================================================
 
