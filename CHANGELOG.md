@@ -56,6 +56,7 @@ All notable changes to this project will be documented in this file.
 -   #571 : Fix correct application of the sum factorization algorithm
 -   #567 : Fix parallel creation of folder `__psydac__` in `psydac.api.fem_bilinear_form`
 -   #566 : Fix command `psydac test --mpi` on Ubuntu machines
+-   [DEVELOPER] Compute the cache key of PETSc in CI from the PETSc version, the runner image, the MPI library, the compilers, and Python, see #641
 -   [DEVELOPER] Add missing 'description' properties (required!) to our GitHub actions
 -   [DEVELOPER] Update CI installation of `petsc4py` after release of `setuptools` 81.0
 -   [DEVELOPER] Check correct reporting of failure for `psydac test` command in CI testing
