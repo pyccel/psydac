@@ -1,24 +1,43 @@
 name: 'Install PETSc and petsc4py'
 description: 'Install PETSc and petsc4py with complex support'
 
+inputs:
+  petsc-version:
+    description: 'Release of PETSc to download and build (Git tag)'
+    default: 'v3.25.5'
+
 runs:
   using: "composite"
   steps:
 
+    # The cached PETSc can only be reused with the same MPI library, compilers,
+    # Python version, and build steps (see #641)
+    - name: Compute cache key for PETSc
+      id: petsc-key
+      shell: bash
+      env:
+        PETSC_VERSION: ${{ inputs.petsc-version }}
+        ACTION_HASH: ${{ hashFiles('.github/actions/install_petsc4py/action.yml') }}
+      run: |
+        toolchain=$( { mpicc --version; mpirun --version; python --version; } 2>&1 | shasum -a 256 | cut -c1-12 )
+        key="petsc-${PETSC_VERSION}-${RUNNER_OS}-${RUNNER_ARCH}-${ImageOS}-${toolchain}-${ACTION_HASH:0:12}"
+        echo "PETSc cache key: $key"
+        echo "key=$key" >> "$GITHUB_OUTPUT"
+
     - name: Cache PETSc
       uses: actions/cache@v6
       id: cache-petsc
-      env:
-        cache-name: cache-PETSc
       with:
         path: "./petsc"
-        key: petsc-${{ matrix.os }}-${{ matrix.python-version }}
+        key: ${{ steps.petsc-key.outputs.key }}
 
     - if: steps.cache-petsc.outputs.cache-hit != 'true'
       name: Download a specific release of PETSc
       shell: bash
+      env:
+        PETSC_VERSION: ${{ inputs.petsc-version }}
       run: |
-        git clone --depth 1 --branch v3.25.5 https://gitlab.com/petsc/petsc.git
+        git clone --depth 1 --branch "$PETSC_VERSION" https://gitlab.com/petsc/petsc.git
       # The branch "release" contains work towards the next version of PETSc,
       # and it may not be stable. If necessary, it can be cloned as follows:
       # git clone --depth 1 --branch release https://gitlab.com/petsc/petsc.git
