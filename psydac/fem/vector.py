@@ -70,6 +70,11 @@ class VectorFemSpace(FemSpace):
         for nc in zip(*ncells):
             assert len(set(nc)) == 1
 
+        # All spaces are defined on the same patch, hence they must share its decomposition
+        ddm = new_spaces[0].domain_decomposition
+        assert all(V.domain_decomposition is ddm for V in new_spaces), \
+            'All spaces must share the same DomainDecomposition object'
+
         # Compute the SymPDE symbolic space from the symbolic spaces of the input spaces
         symbolic_spaces = [V.symbolic_space for V in spaces]
         symbolic_space = reduce(lambda x, y: x * y, symbolic_spaces) if all(symbolic_spaces) else None

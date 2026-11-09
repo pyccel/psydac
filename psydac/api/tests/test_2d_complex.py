@@ -9,8 +9,7 @@ from collections import OrderedDict
 
 from mpi4py import MPI
 import pytest
-import numpy as np
-from sympy import pi, cos, sin, symbols, conjugate, exp
+from sympy import pi, cos, sin, symbols, exp
 from sympy import Tuple, Matrix
 from sympy import lambdify
 
@@ -22,7 +21,7 @@ from sympde.topology import element_of, elements_of
 from sympde.topology import NormalVector
 from sympde.topology import Union
 from sympde.topology import Domain, Square
-from sympde.topology import IdentityMapping, AffineMapping, PolarMapping
+from sympde.topology import IdentityMapping
 from sympde.expr     import BilinearForm, LinearForm, integral
 from sympde.expr     import Norm, SemiNorm
 from sympde.expr     import find, EssentialBC
@@ -363,7 +362,7 @@ def test_complex_poisson_2d_multipatch():
     A = Square('A',bounds1=(0, 0.5), bounds2=(0, 1))
     B = Square('B',bounds1=(0.5, 1.), bounds2=(0, 1))
 
-    domain = Domain.join([A, B], [((0, 0, 1), (1, 0, -1))], 'domain')
+    domain = Domain.join([A, B], [((0, 0, 1), (1, 0, -1), 1)], 'domain')
 
     x, y = domain.coordinates
 
@@ -518,8 +517,8 @@ if __name__ == '__main__':
     else:
 
         from psydac.fem.plotting_utilities import get_plotting_grid, get_grid_vals
-        from psydac.fem.plotting_utilities import get_patch_knots_gridlines, my_small_plot
-        from psydac.api.tests.build_domain             import build_11_patch_pretzel
+        from psydac.fem.plotting_utilities import my_small_plot
+        from psydac.api.tests.build_domain            import build_11_patch_pretzel
         from psydac.feec.pull_push                     import pull_2d_hcurl
         
         domain = build_11_patch_pretzel()

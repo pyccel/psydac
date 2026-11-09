@@ -110,7 +110,7 @@ def get_max_degree_of_one_space(Vh):
     Returns
     -------
     list[int]
-        The maximum polynomial degre of Vh with respect to each coordinate.
+        The maximum polynomial degree of Vh with respect to each coordinate.
 
     """
 
@@ -125,7 +125,7 @@ def get_max_degree_of_one_space(Vh):
         return [max(p) for p in zip(*degree)]
 
     else:
-        raise TypeError(f'Type({V}) not understood')
+        raise TypeError(f'Type {type(Vh).__name__} not understood')
 
 
 def get_max_degree(*spaces):
@@ -454,11 +454,8 @@ def discretize_space(V, domain_h, *, degree=None, multiplicity=None, knots=None,
 
     connectivity = construct_connectivity(domain)
     if isinstance(domain_h, Geometry) and all(domain_h.mappings.values()):
-        # from a discrete geoemtry
-        if interiors[0].name in domain_h.mappings:
-            mappings  = [domain_h.mappings[inter.name] for inter in interiors]
-        else:
-            mappings  = [domain_h.mappings[inter.logical_domain.name] for inter in interiors]
+        # from a discrete geometry
+        mappings  = [domain_h.mappings[inter.name] for inter in interiors]
 
         # Get all the FEM spaces from the mapping and convert their coeff_space at the dtype needed
         spaces    = [change_dtype(m.space, dtype) for m in mappings]
@@ -578,7 +575,7 @@ def discretize_domain(domain, *, filename=None, ncells=None, periodic=None, comm
         raise ValueError("Cannot provide both 'filename' and 'ncells'")
 
     elif filename:
-        return Geometry(filename=filename, comm=comm, mpi_dims_mask=mpi_dims_mask)
+        return Geometry.from_file(filename, domain=domain, comm=comm, mpi_dims_mask=mpi_dims_mask)
 
     elif ncells:
         return Geometry.from_topological_domain(domain, ncells, periodic=periodic, comm=comm, mpi_dims_mask=mpi_dims_mask)

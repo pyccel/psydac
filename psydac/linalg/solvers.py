@@ -7,7 +7,7 @@
 This module provides iterative solvers and preconditioners.
 
 """
-from math import sqrt
+from math import inf, sqrt
 import numpy as np
 
 import warnings
@@ -239,7 +239,8 @@ class ConjugateGradient(InverseLinearOperator):
             template = "| {:7d} | {:19.2e} |"
             print(template.format(1, sqrt(am)))
 
-        # Iterate to convergence
+        # Iterate to convergence (iteration 1 is the initial residual)
+        m = 1
         for m in range(2, maxiter+1):
             if am < tol_sqr:
                 m -= 1
@@ -339,7 +340,8 @@ class ConjugateGradient(InverseLinearOperator):
             template = "| {:7d} | {:19.2e} |"
             print( template.format(1, sqrt(nrmr_sqr)))
 
-        # Iterate to convergence
+        # Iterate to convergence (iteration 1 is the initial residual)
+        k = 1
         for k in range(2, maxiter+1):
 
             if nrmr_sqr < tol_sqr:
@@ -906,10 +908,12 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
 
         while res_sqr > tol_sqr and niter < maxiter:
 
-            # v = A @ pp, vp = PC @ v, alphap = rhop/(vp.rp0)
+            # v = A @ pp, vp = PC @ v, alphap = rhop/(rp0^H vp)
+            # `inner` conjugates its first argument, as `vdot` in SciPy's bicgstab:
+            # the arguments must be swapped if this convention changes (see #485)
             A.dot(pp, out=v)
             pc.dot(v, out=vp)
-            alphap = rhop / vp.inner(rp0)
+            alphap = rhop / rp0.inner(vp)
 
             # s = r - alphap*v, sp = PC @ s
             r.copy(out=s)
@@ -942,8 +946,8 @@ class BiConjugateGradientStabilized(InverseLinearOperator):
             tp *= omegap
             rp -= tp
 
-            # rhop_new = rp.rp0, betap = (alphap*rhop_new)/(omegap*rhop)
-            rhop_new = rp.inner(rp0)
+            # rhop_new = rp0^H rp, betap = (alphap*rhop_new)/(omegap*rhop)
+            rhop_new = rp0.inner(rp)
             betap = (alphap*rhop_new) / (omegap*rhop)
             rhop = 1*rhop_new
 
@@ -1218,12 +1222,17 @@ class MinimumResidual(InverseLinearOperator):
             ynorm = sqrt(x.inner(x))
 
             rnorm  = phibar
-            if ynorm == 0 or Anorm == 0:test1 = inf
-            #else:test1 = rnorm / (Anorm*ynorm)  # ||r||  / (||A|| ||x||)
-            else:test1 = rnorm                   # ||r||
+            if ynorm == 0 or Anorm == 0:
+                test1 = inf
+            #else:
+            #    test1 = rnorm / (Anorm*ynorm)  # ||r||  / (||A|| ||x||)
+            else:
+                test1 = rnorm                   # ||r||
 
-            if Anorm == 0:test2 = inf
-            else:test2 = root / Anorm           # ||Ar|| / (||A|| ||r||)
+            if Anorm == 0:
+                test2 = inf
+            else:
+                test2 = root / Anorm           # ||Ar|| / (||A|| ||r||)
 
             # Estimate  cond(A).
             # In this version we look at the diagonals of  R  in the
@@ -1485,6 +1494,16 @@ class LSMR(InverseLinearOperator):
         if conlim > 0:ctol = 1 / conlim
         normr = beta
 
+        # Early exits as in SciPy (which returns istop = 0 in both cases):
+        # the solution of A x = 0 is x = 0, and A^H (b - A x) = 0 means
+        # that x is already a least-squares solution
+        if normb == 0:
+            x *= 0.0
+            normr = 0.0
+            istop = 1
+        elif alpha * beta == 0:
+            istop = 1 if beta == 0 else 2
+
         # Reverse the order here from the original matlab code because
 
         if verbose:
@@ -1495,7 +1514,8 @@ class LSMR(InverseLinearOperator):
             template = "| {:7d} | {:19.2e} |"
 
         # Main iteration loop.
-        for itn in range(1, maxiter + 1):
+        while istop == 0 and itn < maxiter:
+            itn += 1
 
             # Perform the next step of the bidiagonalization to obtain the
             # next  beta, u, alpha, v.  These satisfy the relations
@@ -1596,7 +1616,7 @@ class LSMR(InverseLinearOperator):
 
             test1 = normr / normb
             if (normA * normr) != 0:test2 = normar / (normA * normr)
-            else:test2 = np.infty
+            else:test2 = inf
             test3 = 1 / condA
             t1    = test1 / (1 + normA * normx / normb)
             rtol  = btol + atol * normA * normx / normb
@@ -1777,8 +1797,6 @@ class GMRES(InverseLinearOperator):
 
         # Iterate to convergence
         for k in range(maxiter):
-            if am < tol:
-                break
 
             # run Arnoldi
             self.arnoldi(k, p)
@@ -1786,24 +1804,27 @@ class GMRES(InverseLinearOperator):
             # make the last diagonal entry in H equal to 0, so that H becomes upper triangular
             self.apply_givens_rotation(k, sn, cn)
 
-            # update the residual vector
+            # update the residual vector with the same rotation, as in PETSc
             beta.append(- sn[k] * beta[k])
-            beta[k] *= cn[k]
+            beta[k] *= cn[k].conjugate()
 
             am = abs(beta[k+1])
             if verbose:
                 print( template.format( k+2, am ) )
 
-        if verbose:
-            print( "+---------+---------------------+")        
-        # calculate result
-        y = self.solve_triangular(self._H[:k, :k], beta[:k]) # system of upper triangular matrix
+            if am < tol:
+                break
 
-        for i in range(k):
+        if verbose:
+            print( "+---------+---------------------+")
+        # calculate result from all k+1 Arnoldi vectors
+        y = self.solve_triangular(self._H[:k+1, :k+1], beta[:k+1]) # system of upper triangular matrix
+
+        for i in range(k+1):
             x.mul_iadd(y[i], self._Q[i])
 
         # Convergence information
-        self._info = {'niter': k+1, 'success': bool(am < tol), 'res_norm': am}
+        self._info = {'niter': k+2, 'success': bool(am < tol), 'res_norm': am}
         
         if recycle:
             x.copy(out=self._options["x0"])
@@ -1828,7 +1849,9 @@ class GMRES(InverseLinearOperator):
         self._A.dot( self._Q[k] , out=p) # Krylov vector
 
         for i in range(k + 1): # Modified Gram-Schmidt, keeping Hessenberg matrix
-            h[i] = p.inner(self._Q[i])
+            # h[i] = Q[i]^H p, because `inner` conjugates its first argument:
+            # the arguments must be swapped if this convention changes (see #485)
+            h[i] = self._Q[i].inner(p)
             p.mul_iadd(-h[i], self._Q[i])
         
         h[k+1] = sqrt(p.inner(p).real)
@@ -1840,23 +1863,24 @@ class GMRES(InverseLinearOperator):
             self._Q.append(p.copy())
 
     def apply_givens_rotation(self, k, sn, cn):
-        # Apply Givens rotation to last column of H
+        # Apply Givens rotation [[conj(c), s], [-s, c]] to last column of H,
+        # as in PETSc: s is real, because h[k+1] is a norm (see `arnoldi`)
         h = self._H[:k+2, k]
 
         for i in range(k):
             h_i_prev = h[i]
 
-            h[i] *= cn[i]
+            h[i] *= cn[i].conjugate()
             h[i] += sn[i] * h[i+1]
 
             h[i+1] *= cn[i]
             h[i+1] -= sn[i] * h_i_prev
-        
-        mod = (h[k]**2 + h[k+1]**2)**0.5
+
+        mod = (abs(h[k])**2 + abs(h[k+1])**2)**0.5
         cn.append( h[k] / mod )
         sn.append( h[k+1] / mod )
 
-        h[k] *= cn[k]
+        h[k] *= cn[k].conjugate()
         h[k] += sn[k] * h[k+1]
         h[k+1] = 0. # becomes triangular
 

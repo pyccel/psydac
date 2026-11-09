@@ -136,12 +136,12 @@ def psydac_test(*, mod, mpi, petsc, verbose, exitfirst):
 
     else:
         mpi_exe = []
-        flags.extend(['-n', 'auto', '--dist', 'loadgroup'])  # for pytest-xdist
+        flags.extend(['-n', 'auto'])  # for pytest-xdist
 
     # If PETSc tests are requested, check that petsc4py is installed
     if petsc:
         try:
-            import petsc4py  # noqa: F401
+            import petsc4py  # noqa: F401  # pylint: disable=unused-import
         except ImportError:
             exit_with_error_message("petsc4py is not installed, cannot run PETSc tests")
 

@@ -4,8 +4,6 @@
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
 from itertools import product
-import string
-import random
 
 import yaml
 import numpy as np
@@ -819,6 +817,10 @@ class NurbsMapping(SplineMapping):
 
         SplineMapping.__init__(self, *components, name=name)
 
+        # The weights must be defined on the same space as the coordinates
+        assert isinstance(weights, FemField)
+        assert weights.space is self._space
+
         self._weights = NurbsMapping.Weights(self)
         self._weights_field = weights
 
@@ -843,14 +845,13 @@ class NurbsMapping(SplineMapping):
         fields += [FemField(tensor_space)]
 
         # Get spline coefficients for each coordinate X_i
-        # we store w*x where w is the weight and x is the control point
+        # we store the Cartesian control points x, not the homogeneous w*x
         starts = tensor_space.coeff_space.starts
         ends   = tensor_space.coeff_space.ends
         idx_to = tuple(slice(s, e+1) for s,e in zip(starts, ends))
         for i, field in enumerate(fields[:-1]):
             idx_from = (*idx_to, i)
-#            idw_from = tuple(idx_to)
-            field.coeffs[idx_to] = control_points[idx_from] #* weights[idw_from]
+            field.coeffs[idx_to] = control_points[idx_from]
 
         # weights
         idx_from = tuple(idx_to)

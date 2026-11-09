@@ -8,17 +8,11 @@ from pathlib import Path
 
 import pytest
 import numpy as np
-from sympy import pi, cos, sin, sqrt, exp, ImmutableDenseMatrix as Matrix, Tuple, lambdify
+from sympy import pi, cos, sin, exp, ImmutableDenseMatrix as Matrix, Tuple
 from scipy.sparse.linalg import spsolve
-from scipy.sparse.linalg import gmres as sp_gmres
-from scipy.sparse.linalg import minres as sp_minres
-from scipy.sparse.linalg import cg as sp_cg
-from scipy.sparse.linalg import bicg as sp_bicg
-from scipy.sparse.linalg import bicgstab as sp_bicgstab
 
-from sympde.calculus import grad, dot, inner, div, curl, cross
-from sympde.calculus import Transpose, laplace
-from sympde.topology import NormalVector
+from sympde.calculus import grad, dot, inner, div
+from sympde.calculus import Transpose
 from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
 from sympde.topology import ProductSpace
 from sympde.topology import element_of, elements_of
@@ -27,7 +21,6 @@ from sympde.expr     import BilinearForm, LinearForm, integral
 from sympde.expr     import Norm
 from sympde.expr     import find, EssentialBC
 from sympde.core     import Constant
-from sympde.expr     import TerminalExpr
 from sympde.expr     import linearize
 
 from psydac.api.essential_bc   import apply_essential_bc
@@ -39,7 +32,7 @@ from psydac.linalg.utilities   import array_to_psydac
 from psydac.linalg.stencil     import *
 from psydac.linalg.block       import *
 from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL
-from psydac.utilities.utils    import refine_array_1d, animate_field, split_space, split_field
+from psydac.utilities.utils    import animate_field, split_space, split_field
 from psydac.linalg.solvers     import inverse
 
 from mpi4py import MPI
@@ -467,9 +460,7 @@ if __name__ == '__main__':
         
     else:
     
-        import matplotlib.pyplot as plt
         from matplotlib import animation
-        from time       import time
 
         Tf       = 3.
         dt_h     = 0.05
@@ -479,7 +470,7 @@ if __name__ == '__main__':
         solutions, p_h, domain, domain_h = run_time_dependent_navier_stokes_2d(filename, dt_h=dt_h, nt=nt, scipy=False)
 
         domain = domain.logical_domain
-        mapping = domain_h.mappings['patch_0']
+        mapping, = domain_h.mappings.values()
 
         anim = animate_field(solutions, domain, mapping, res=(150,150), progress=True)
         anim.save('animated_fields_{}_{}.mp4'.format(str(Tf).replace('.','_'), str(dt_h).replace('.','_')), writer=animation.FFMpegWriter(fps=60))

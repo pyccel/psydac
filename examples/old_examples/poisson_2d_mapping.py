@@ -632,7 +632,7 @@ def main(*, test_case, ncells, degree, nquads,
         map_discrete = SplineMapping.from_mapping(V, map_analytic)
         # Write discrete geometry to HDF5 file
         t0 = time()
-        geometry = Geometry.from_discrete_mapping(map_discrete, comm=mpi_comm)
+        geometry = Geometry.from_discrete_mapping(map_discrete)
         geometry.export('geo.h5')
         t1 = time()
         timing['export'] += t1-t0

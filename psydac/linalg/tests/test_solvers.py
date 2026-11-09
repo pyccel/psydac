@@ -8,7 +8,7 @@ import  numpy as np
 import  pytest
 from    mpi4py import MPI
 
-from    sympde.topology               import elements_of, Mapping, Derham, Square, Cube
+from    sympde.topology               import elements_of, Derham, Square, Cube
 from    sympde.calculus               import inner
 from    sympde.expr                   import integral, BilinearForm
 
@@ -24,31 +24,42 @@ from    psydac.linalg.tests.utilities import check_linop_equality_using_rng, Ann
 
 
 def define_data_hermitian(n, p, dtype=float):
-    domain_decomposition = DomainDecomposition([n - p], [False])
-    cart = CartDecomposition(domain_decomposition, [n], [np.array([0])], [np.array([n - 1])], [p], [1])
-    # ... Vector Spaces
-    V = StencilVectorSpace(cart,dtype=dtype)
-    e = V.ends[0]
-    s = V.starts[0]
+    """
+    Create a Hermitian positive definite banded matrix, and a random exact solution.
 
-    # Build banded matrix with 2p+1 diagonals: must be symmetric and positive definite
-    # Here we assign value 2*p on main diagonal and -1 on other diagonals
-    if dtype==complex:
-        factor=1+1j
-    else:
-        factor=1
-    A = StencilMatrix(V, V)
-    A[:, -p:0] = 1-1*factor
-    A[:, 0:1] = 2 * p
-    A[:, 1:p + 1] = 1-1*factor.conjugate()
-    A.remove_spurious_entries()
-
-    # Build exact solution
-    xe = StencilVector(V)
-    xe[s:e + 1] = factor*np.random.random(e + 1 - s)
-    return(V, A, xe)
+    The matrix is created by `define_data` with 2p on the main diagonal, and -1
+    (real case) or -1j (complex case) on the p lower diagonals. The p upper
+    diagonals hold the complex conjugate of the lower ones. In the complex case,
+    the exact solution is complex as well. See `define_data` for the returns.
+    """
+    lower = -1j if dtype == complex else -1
+    V, A, xe = define_data(n, p, [lower, 2 * p, np.conj(lower)], dtype=dtype)
+    if dtype == complex:
+        xe *= 1 + 1j
+    return V, A, xe
 
 def define_data(n, p, matrix_data, dtype=float):
+    """
+    Create a banded matrix with 2p+1 constant diagonals, and a random exact solution.
+
+    The p lower diagonals are set to matrix_data[0], the main diagonal to
+    matrix_data[1], and the p upper diagonals to matrix_data[2]. Hence the
+    matrix is not necessarily symmetric or positive definite. It is Hermitian
+    positive definite if matrix_data[2] = conj(matrix_data[0]) and
+    matrix_data[1] >= 2p |matrix_data[0]|, e.g. with matrix_data = [-1, 2p, -1].
+    See also `define_data_hermitian`.
+
+    Returns
+    -------
+    V : StencilVectorSpace
+        The space of the matrix and of the solution.
+
+    A : StencilMatrix
+        The banded matrix.
+
+    xe : StencilVector
+        The exact solution, with random entries.
+    """
     domain_decomposition = DomainDecomposition([n - p], [False])
     cart = CartDecomposition(domain_decomposition, [n], [np.array([0])], [np.array([n - 1])], [p], [1])
     # ... Vector Spaces
@@ -56,11 +67,8 @@ def define_data(n, p, matrix_data, dtype=float):
     e = V.ends[0]
     s = V.starts[0]
 
-    # Build banded matrix with 2p+1 diagonals: must be symmetric and positive definite
-    # Here we assign value 2*p on main diagonal and -1 on other diagonals
-
     A = StencilMatrix(V, V)
-    A[:, -p:0] = -matrix_data[0]
+    A[:, -p:0] = matrix_data[0]
     A[:, 0:1] = matrix_data[1]
     A[:, 1:p + 1] = matrix_data[2]
     A.remove_spurious_entries()
@@ -85,9 +93,7 @@ def define_data(n, p, matrix_data, dtype=float):
 def test_solver_tridiagonal(n, p, dtype, solver, use_jacobi_pc, verbose=False):
 
     # Quickly skip tests that are not relevant
-    if solver == 'BiCGSTAB' and use_jacobi_pc and dtype == complex:
-        pytest.skip("Preconditioned BiCGSTAB only works for real matrices")
-    elif solver == 'MINRES' and dtype == complex:
+    if solver == 'MINRES' and dtype == complex:
         pytest.skip("MINRES only works for real matrices")
     
     # Also skip some problematic tests for now -- see Issue #557
@@ -107,10 +113,10 @@ def test_solver_tridiagonal(n, p, dtype, solver, use_jacobi_pc, verbose=False):
         diagonals = None
     elif solver in ['BiCG', 'BiCGSTAB', 'LSMR']:
         hermitian = False
-        diagonals = [1-10j, 6+9j, 3+5j] if dtype==complex else [1, 6, 3]
+        diagonals = [-1+10j, 6+9j, 3+5j] if dtype==complex else [-1, 6, 3]
     elif solver == 'GMRES':
         hermitian = False
-        diagonals = [-7-2j, -6-2j, -1-10j] if dtype==complex else [-7, -6, -1]
+        diagonals = [7+2j, -6-2j, -1-10j] if dtype==complex else [7, -6, -1]
 
     if hermitian:
         V, A, xe = define_data_hermitian(n, p, dtype=dtype)
@@ -251,6 +257,82 @@ def test_solver_tridiagonal(n, p, dtype, solver, use_jacobi_pc, verbose=False):
     assert errt_norm < tol
     assert errh_norm < tol
     assert (solver == 'CG' and use_jacobi_pc) or errc_norm < tol
+
+#===============================================================================
+# With A = 0, the stopping tests of MINRES set test1 = test2 = inf
+def test_MinimumResidual_solve_zero_operator() -> None:
+
+    V, A, _ = define_data(6, 1, [0.0, 0.0, 0.0])
+    b = V.zeros()
+    b[:] = 1.0
+
+    x = inverse(A, 'MINRES', tol=1e-10) @ b
+
+    assert np.array_equal(x.toarray(), np.zeros(6))
+
+#===============================================================================
+# With A = 2I, LSMR finds the exact solution, and its stopping tests set test2 = inf
+def test_LSMR_solve_zero_residual() -> None:
+
+    V, A, _ = define_data(6, 1, [0.0, 2.0, 0.0])
+    b = V.zeros()
+    b[:] = 1.0
+
+    x = inverse(A, 'LSMR', tol=1e-10) @ b
+
+    assert np.array_equal(x.toarray(), np.full(6, 0.5))
+
+#===============================================================================
+# GMRES must report the true residual of the returned solution, converged or not
+@pytest.mark.parametrize('maxiter', [1, 6, 12])
+@pytest.mark.parametrize('dtype', [float, complex])
+def test_GMRES_solve(maxiter: int, dtype: type) -> None:
+
+    n = 12
+    diagonals = [7+2j, -6-2j, -1-10j] if dtype == complex else [7, -6, -1]
+    _, A, xe = define_data(n, 1, diagonals, dtype=dtype)
+    b = A @ xe
+
+    solver = inverse(A, 'GMRES', tol=1e-10, maxiter=maxiter)
+    x = solver @ b
+    info = solver.get_info()
+
+    r = b - A @ x
+    assert np.isclose(info['res_norm'], np.sqrt(r.inner(r).real), rtol=1e-8, atol=1e-12)
+
+#===============================================================================
+# With maxiter=1, CG only evaluates the residual of the initial guess
+@pytest.mark.parametrize('use_jacobi_pc', [False, True])
+def test_ConjugateGradient_solve_maxiter_1(use_jacobi_pc: bool) -> None:
+
+    V, A, xe = define_data_hermitian(6, 1)
+    pc = A.diagonal(inverse=True) if use_jacobi_pc else None
+
+    solver = inverse(A, 'CG', pc=pc, tol=1e-10, maxiter=1)
+    x = solver @ (A @ xe)
+    info = solver.get_info()
+
+    assert np.array_equal(x.toarray(), V.zeros().toarray())
+    assert info['niter'] == 1
+    assert not info['success']
+
+#===============================================================================
+# LSMR returns before iterating if b = 0 (x = 0) or if A^H (b - A x0) = 0 (x = x0)
+@pytest.mark.parametrize(('diagonal', 'rhs'), [(2.0, 0.0), (0.0, 1.0)])
+def test_LSMR_solve_early_exit(diagonal: float, rhs: float) -> None:
+
+    V, A, xe = define_data(6, 1, [0.0, diagonal, 0.0])
+    b = V.zeros()
+    b[:] = rhs
+
+    solver = inverse(A, 'LSMR', x0=xe, tol=1e-10)
+    x = solver @ b
+    info = solver.get_info()
+
+    expected = xe if rhs else V.zeros()
+    assert np.array_equal(x.toarray(), expected.toarray())
+    assert info['niter'] == 0
+    assert info['success']
 
 #===============================================================================
 def test_LST_preconditioner(comm=None):

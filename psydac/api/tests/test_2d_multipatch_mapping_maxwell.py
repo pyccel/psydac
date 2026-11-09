@@ -7,25 +7,22 @@ import os
 from pathlib import Path
 
 import pytest
-import numpy as np
 from mpi4py import MPI
 from sympy  import pi, sin, cos, Tuple, Matrix
 
-from sympde.calculus      import grad, dot, curl, cross
+from sympde.calculus      import dot, curl, cross
 from sympde.calculus      import minus, plus
 from sympde.topology      import VectorFunctionSpace
 from sympde.topology      import elements_of
 from sympde.topology      import NormalVector
-from sympde.topology      import Square, Domain
-from sympde.topology      import IdentityMapping, PolarMapping
+from sympde.topology      import Domain
 from sympde.expr.expr     import LinearForm, BilinearForm
 from sympde.expr.expr     import integral
 from sympde.expr.expr     import Norm
-from sympde.expr.equation import find, EssentialBC
+from sympde.expr.equation import find
 
 from psydac.api.discretization       import discretize
 from psydac.api.tests.build_domain   import build_11_patch_pretzel, build_2_patch_annulus
-from psydac.fem.basic                import FemField
 from psydac.api.settings             import PSYDAC_BACKEND_GPYCCEL
 from psydac.feec.pull_push           import pull_2d_hcurl
 
@@ -204,10 +201,10 @@ def teardown_function():
 
 if __name__ == '__main__':
 
-    from collections                               import OrderedDict
-    from sympy                                     import lambdify
+    from collections                     import OrderedDict
+    from sympy                           import lambdify
     from psydac.fem.plotting_utilities   import get_plotting_grid, get_grid_vals
-    from psydac.fem.plotting_utilities   import get_patch_knots_gridlines, my_small_plot
+    from psydac.fem.plotting_utilities   import my_small_plot
 
     domain    = build_11_patch_pretzel()
     x,y       = domain.coordinates

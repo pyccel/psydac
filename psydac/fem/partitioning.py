@@ -67,11 +67,15 @@ def partition_coefficients(domain_decomposition, spaces, min_blocks=None):
     if min_blocks is None:
         min_blocks = [None] * ndims
 
-    for s, e, V, mb in zip(global_starts, global_ends, spaces, min_blocks):
-        if V.periodic or mb is None:
-            assert all(e-s+1 >= V.degree)
-        else:
-            assert all(e-s+1 >= mb)
+    # Each process must own enough coefficients along each axis. The global
+    # starts and ends are the same on all processes, hence so is the error
+    for axis, (s, e, V, mb) in enumerate(zip(global_starts, global_ends, spaces, min_blocks)):
+        min_coeffs = V.degree if V.periodic or mb is None else mb
+        owned_coeffs = int(min(e - s + 1))
+        if owned_coeffs < min_coeffs:
+            raise ValueError(f'Along axis {axis}, an MPI process owns only {owned_coeffs} coefficients,'
+                             f' but at least {min_coeffs} are needed: use fewer MPI processes along'
+                             ' this axis (e.g. with mpi_dims_mask), or more cells')
 
     return global_starts, global_ends
 

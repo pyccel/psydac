@@ -654,8 +654,7 @@ class KroneckerLinearSolver(LinearOperator):
         Copies data to an internal, 1-dimensional temporary array.
         Does not allocate any new array.
         """
-        targetview = target[:self._localsize]
-        targetview.shape = inslice.shape
+        targetview = target[:self._localsize].reshape(inslice.shape, copy=False)
 
         targetview[:] = inslice
     
@@ -664,11 +663,9 @@ class KroneckerLinearSolver(LinearOperator):
         Reorders the dimensions of the temporary arrays, and copies data from one to another.
         Does not allocate any new array.
         """
-        sourceview = source[:self._localsize]
-        sourceview.shape = self._shapes[i]
+        sourceview = source[:self._localsize].reshape(self._shapes[i], copy=False)
 
-        targetview = target[:self._localsize]
-        targetview.shape = self._shapes[i+1]
+        targetview = target[:self._localsize].reshape(self._shapes[i+1], copy=False)
 
         targetview[:] = sourceview.transpose(self._perm)
     
@@ -677,8 +674,7 @@ class KroneckerLinearSolver(LinearOperator):
         Reorders the dimensions of the temporary array for a final time, and copies it to the output.
         Does not allocate any new array.
         """
-        sourceview = source[:self._localsize]
-        sourceview.shape = self._shapes[-1]
+        sourceview = source[:self._localsize].reshape(self._shapes[-1], copy=False)
 
         outslice[:] = sourceview.transpose(self._perm)
 
@@ -729,8 +725,8 @@ class KroneckerLinearSolver(LinearOperator):
                 Ignored, it exists for compatibility with the parallel solver.
             """
             # reshape necessary memory in column-major
-            view = workmem[:self._datasize]
-            view.shape = (self._numrhs,self._dimrhs)
+            view = workmem[:self._datasize].reshape(
+                (self._numrhs, self._dimrhs), copy=False)
 
             # call solver in in-place mode
             self._solver.solve(view, out=view)
@@ -879,11 +875,12 @@ class KroneckerLinearSolver(LinearOperator):
             Copies from a blocked view to a contiguous view.
             Equals roughly a partial transpose, if the block sizes in the cartesian grid are the same.
             """
-            blocked_view = blocked[:self._datasize]
-            blocked_view.shape = (self._mlocal,self._nglobal)
+            blocked_view = blocked[:self._datasize].reshape(
+                (self._mlocal, self._nglobal), copy=False)
             for start, end in zip(self._cartstart, self._cartend):
-                contiguouspart = contiguous[start*self._mlocal:end*self._mlocal]
-                contiguouspart.shape = (self._mlocal,end-start)
+                contiguouspart = np.reshape(
+                    contiguous[start*self._mlocal:end*self._mlocal],
+                    (self._mlocal, end-start), copy=False)
                 blocked_view[:,start:end] = contiguouspart
         
         def _contiguous_to_blocked(self, blocked, contiguous):
@@ -891,11 +888,12 @@ class KroneckerLinearSolver(LinearOperator):
             Copies from a contiguous view to a blocked view.
             Equals roughly a partial transpose, if the block sizes in the cartesian grid are the same.
             """
-            blocked_view = blocked[:self._datasize]
-            blocked_view.shape = (self._mlocal,self._nglobal)
+            blocked_view = blocked[:self._datasize].reshape(
+                (self._mlocal, self._nglobal), copy=False)
             for start, end in zip(self._cartstart, self._cartend):
-                contiguouspart = contiguous[start*self._mlocal:end*self._mlocal]
-                contiguouspart.shape = (self._mlocal,end-start)
+                contiguouspart = np.reshape(
+                    contiguous[start*self._mlocal:end*self._mlocal],
+                    (self._mlocal, end-start), copy=False)
                 contiguouspart[:] = blocked_view[:,start:end]
 
         def solve_pass(self, workmem, tempmem):

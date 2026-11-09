@@ -4,7 +4,6 @@
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
 import os
-import glob
 from pathlib import Path
 
 import pytest
@@ -17,6 +16,7 @@ from sympde.topology.analytical_mapping import IdentityMapping, AffineMapping, P
 from psydac.api.discretization import discretize
 from psydac.fem.basic import FemField
 from psydac.fem.tensor import TensorFemSpace
+from psydac.mapping.discrete import SplineMapping
 from psydac.utilities.utils import refine_array_1d
 from psydac.feec.pull_push import (push_2d_hcurl,
                                    push_2d_h1,
@@ -57,7 +57,7 @@ def build_2_mapped_squares():
     D2     = mapping_2(B)
 
     patches = [D1, D2]
-    connectivity = [((0,1,1),(1,1,-1))]
+    connectivity = [((0, 1, 1), (1, 1,-1), 1)]
     return Domain.join(patches, connectivity, 'domain')
 
 
@@ -66,7 +66,7 @@ def build_2_squares():
     B = Square('B',bounds1=(0.5, 1.), bounds2=(np.pi/2, np.pi))
 
     patches = [A, B]
-    connectivity = [((0,1,1),(1,1,-1))]
+    connectivity = [((0, 1, 1), (1, 1,-1), 1)]
     return Domain.join(patches, connectivity, 'domain')
 
 
@@ -75,16 +75,14 @@ def build_2_cubes():
     B = Cube('B',bounds1=(0.5, 1.), bounds2=(np.pi/2, np.pi), bounds3=(0, 1))
 
     patches = [A, B]
-    connectivity = [((0,1,1),(1,1,-1))]
+    connectivity = [((0, 1, 1), (1, 1,-1), (1, 1, 1))]
     return Domain.join(patches, connectivity, 'domain')
-
 
 ###############################################################################
 #                            Output Manager tests                             #
 ###############################################################################
-@pytest.mark.xdist_group('h5py')
 @pytest.mark.parametrize( 'dtype', ['float', 'complex'] )
-def test_add_spaces(dtype):
+def test_add_spaces(dtype, tmp_path):
     domain = Square('D')
     A = ScalarFunctionSpace('A', domain, kind='H1')
     A.codomain_type = dtype
@@ -96,8 +94,8 @@ def test_add_spaces(dtype):
     Ah = discretize(A, domain_h, degree=[3, 3])
     Bh = discretize(B, domain_h, degree=[2, 2])
 
-    Om = OutputManager('test_add_spaces_single_patch.yml',
-                       'test_add_spaces_single_patch.h5')
+    Om = OutputManager(tmp_path / 'test_add_spaces_single_patch.yml',
+                       tmp_path / 'test_add_spaces_single_patch.h5')
 
     Om.add_spaces(Ah=Ah, Bh=Bh)
 
@@ -203,13 +201,9 @@ def test_add_spaces(dtype):
 
     Om.export_space_info()
 
-    # Remove file
-    os.remove('test_add_spaces_single_patch.yml')
 
-
-@pytest.mark.xdist_group('h5py')
 @pytest.mark.parametrize( 'dtype', ['float', 'complex'] )
-def test_export_fields_serial(dtype):
+def test_export_fields_serial(dtype, tmp_path):
     domain = Square('D')
     A = ScalarFunctionSpace('A', domain, kind='H1')
     A.codomain_type = dtype
@@ -221,7 +215,7 @@ def test_export_fields_serial(dtype):
     Ah = discretize(A, domain_h, degree=[3, 3])
     Bh = discretize(B, domain_h, degree=[2, 2])
 
-    Om = OutputManager('test_export_fields_serial.yml', 'test_export_fields_serial.h5')
+    Om = OutputManager(tmp_path / 'test_export_fields_serial.yml', tmp_path / 'test_export_fields_serial.h5')
     Om.add_spaces(Ah=Ah, Bh=Bh)
 
     uh = FemField(Ah)
@@ -252,7 +246,7 @@ def test_export_fields_serial(dtype):
     Om.close()
 
     import h5py as h5
-    fh5 = h5.File('test_export_fields_serial.h5', mode='r')
+    fh5 = h5.File(tmp_path / 'test_export_fields_serial.h5', mode='r')
 
     # General check
     assert fh5.attrs['spaces'] == 'test_export_fields_serial.yml'
@@ -285,13 +279,9 @@ def test_export_fields_serial(dtype):
     assert set(fh5['snapshot_0002']['D']['Bh[0]'].keys()) == {'vh_00[0]', 'vh_01[0]'}
     assert set(fh5['snapshot_0002']['D']['Bh[1]'].keys()) == {'vh_00[1]', 'vh_01[1]'}
 
-    os.remove('test_export_fields_serial.yml')
-    os.remove('test_export_fields_serial.h5')
 
-
-@pytest.mark.xdist_group('h5py')
 @pytest.mark.mpi
-def test_export_fields_parallel():
+def test_export_fields_parallel(mpi_tmp_path):
     comm = MPI.COMM_WORLD
     domain = Square('D')
     A = ScalarFunctionSpace('A', domain, kind='H1')
@@ -301,8 +291,8 @@ def test_export_fields_parallel():
     Ah = discretize(A, domain_h, degree=[3, 3])
 
     Om = OutputManager(
-        'test_export_fields_parallel.yml',
-        'test_export_fields_parallel.h5',
+        mpi_tmp_path / 'test_export_fields_parallel.yml',
+        mpi_tmp_path / 'test_export_fields_parallel.h5',
         comm=comm,
         save_mpi_rank=True)
 
@@ -318,24 +308,21 @@ def test_export_fields_parallel():
     rank = comm.Get_rank()
     if rank  == 0:
         import h5py as h5
-        fh5 = h5.File('test_export_fields_parallel.h5', mode='r',)
+        fh5 = h5.File(mpi_tmp_path / 'test_export_fields_parallel.h5', mode='r',)
 
         assert 'mpi_dd' in fh5.keys()
         assert 'D' in fh5['mpi_dd'].keys()
         # Shape should be (size, 2, ldim) here ldim is 2 (Square())
         assert fh5['mpi_dd']['D'].shape == (comm.Get_size(), 2, 2)
         fh5.close()
-        os.remove('test_export_fields_parallel.yml')
-        os.remove('test_export_fields_parallel.h5')
 
 
 ###############################################################################
 #                 Output Manager and PostProcess Manager tests                #
 ###############################################################################
-@pytest.mark.xdist_group('h5py')
 @pytest.mark.parametrize('domain', [Square(), Cube()])
 @pytest.mark.parametrize( 'dtype', ['float', 'complex'] )
-def test_reconstruct_spaces_topological_domain(domain, dtype):
+def test_reconstruct_spaces_topological_domain(domain, dtype, tmp_path):
     dim = domain.dim
 
     domain_h = discretize(domain, ncells=[5] * dim)
@@ -371,8 +358,8 @@ def test_reconstruct_spaces_topological_domain(domain, dtype):
     Vhhcurl = discretize(Vhcurl, domain_h, degree=degrees[rints[5]])
 
     Om1 = OutputManager(
-        "test_reconstruct_spaces_topological_domain.yml",
-        "test_reconstruct_spaces_topological_domain.h5"
+        tmp_path / "test_reconstruct_spaces_topological_domain.yml",
+        tmp_path / "test_reconstruct_spaces_topological_domain.h5"
     )
 
     Om1.add_spaces(Vector_h1=Vvhh1, Vector_l2=Vvhl2, Vector_hdiv=Vhhdiv, Vector_hcurl=Vhhcurl)
@@ -384,13 +371,13 @@ def test_reconstruct_spaces_topological_domain(domain, dtype):
     with pytest.warns(UserWarning):
         Pm = PostProcessManager(
             domain=domain,
-            space_file="test_reconstruct_spaces_topological_domain.yml",
-            fields_file="test_reconstruct_spaces_topological_domain.h5"
+            space_file=tmp_path / "test_reconstruct_spaces_topological_domain.yml",
+            fields_file=tmp_path / "test_reconstruct_spaces_topological_domain.h5"
         )
 
     Om2 = OutputManager(
-        "test_reconstruct_spaces_topological_domain_2.yml",
-        "test_reconstruct_spaces_topological_domain.h5"
+        tmp_path / "test_reconstruct_spaces_topological_domain_2.yml",
+        tmp_path / "test_reconstruct_spaces_topological_domain.h5"
     )
     Om2.add_spaces(**Pm.spaces)
 
@@ -398,14 +385,11 @@ def test_reconstruct_spaces_topological_domain(domain, dtype):
     Om2.export_space_info()
 
     assert space_info_1 == space_info_2
-    os.remove("test_reconstruct_spaces_topological_domain.yml")
-    os.remove("test_reconstruct_spaces_topological_domain_2.yml")
 
 
-@pytest.mark.xdist_group('h5py')
 @pytest.mark.parametrize('domain, seq', [(Square(), ['h1', 'hdiv', 'l2']), (Square(), ['h1', 'hcurl', 'l2']), (Cube(), None)])
 @pytest.mark.parametrize( 'dtype', ['float', 'complex'] )
-def test_reconstruct_DerhamSequence_topological_domain(domain, seq, dtype):
+def test_reconstruct_DerhamSequence_topological_domain(domain, seq, dtype, tmp_path):
     derham = Derham(domain, sequence=seq)
 
     for V in derham.spaces:
@@ -415,8 +399,8 @@ def test_reconstruct_DerhamSequence_topological_domain(domain, seq, dtype):
     derham_h = discretize(derham, domain_h, degree=[2]*domain.dim)
 
     Om = OutputManager(
-        'test_reconstruct_DerhamSequence_topological_domain.yml',
-        'test_reconstruct_DerhamSequence_topological_domain.h5'
+        tmp_path / 'test_reconstruct_DerhamSequence_topological_domain.yml',
+        tmp_path / 'test_reconstruct_DerhamSequence_topological_domain.h5'
     )
 
     Om.add_spaces(**dict(((Vh.symbolic_space.name, Vh) for Vh in derham_h.spaces)))
@@ -424,13 +408,13 @@ def test_reconstruct_DerhamSequence_topological_domain(domain, seq, dtype):
     with pytest.warns(UserWarning):
         Pm = PostProcessManager(
             domain=domain,
-            space_file='test_reconstruct_DerhamSequence_topological_domain.yml',
-            fields_file='test_reconstruct_DerhamSequence_topological_domain.h5'
+            space_file=tmp_path / 'test_reconstruct_DerhamSequence_topological_domain.yml',
+            fields_file=tmp_path / 'test_reconstruct_DerhamSequence_topological_domain.h5'
         )
 
     Om2 = OutputManager(
-        'test_reconstruct_DerhamSequence_topological_domain_2.yml',
-        'test_reconstruct_DerhamSequence_topological_domain.h5'
+        tmp_path / 'test_reconstruct_DerhamSequence_topological_domain_2.yml',
+        tmp_path / 'test_reconstruct_DerhamSequence_topological_domain.h5'
     )
 
     Om2.add_spaces(**Pm.spaces)
@@ -457,18 +441,14 @@ def test_reconstruct_DerhamSequence_topological_domain(domain, seq, dtype):
                     else:
                         assert value1 == value2
 
-    os.remove('test_reconstruct_DerhamSequence_topological_domain_2.yml')
-    os.remove('test_reconstruct_DerhamSequence_topological_domain.yml')
 
-
-@pytest.mark.xdist_group('h5py')
 @pytest.mark.parametrize('geometry, seq', [('identity_2d.h5', ['h1', 'hdiv', 'l2']),
                                            ('identity_2d.h5', ['h1', 'hcurl', 'l2']),
                                            ('identity_3d.h5', None),
                                            ('pipe.h5', ['h1', 'hdiv', 'l2']),
                                            ('pipe.h5', ['h1', 'hcurl', 'l2'])])
 @pytest.mark.parametrize( 'dtype', ['float', 'complex'] )
-def test_reconstruct_DerhamSequence_discrete_domain(geometry, seq, dtype):
+def test_reconstruct_DerhamSequence_discrete_domain(geometry, seq, dtype, tmp_path):
 
     geometry_file = os.path.join(mesh_dir, geometry)
     domain = Domain.from_file(geometry_file)
@@ -482,8 +462,8 @@ def test_reconstruct_DerhamSequence_discrete_domain(geometry, seq, dtype):
     derham_h = discretize(derham, domain_h, degree=[2]*domain.dim)
 
     Om = OutputManager(
-        'test_reconstruct_DerhamSequence_discrete_domain.yml',
-        'test_reconstruct_DerhamSequence_discrete_domain.h5'
+        tmp_path / 'test_reconstruct_DerhamSequence_discrete_domain.yml',
+        tmp_path / 'test_reconstruct_DerhamSequence_discrete_domain.h5'
     )
     Om.add_spaces(**dict(((Vh.symbolic_space.name, Vh) for Vh in derham_h.spaces)))
     Om.export_space_info()
@@ -491,13 +471,16 @@ def test_reconstruct_DerhamSequence_discrete_domain(geometry, seq, dtype):
     with pytest.warns(UserWarning):
         Pm = PostProcessManager(
             geometry_file=geometry_file,
-            space_file='test_reconstruct_DerhamSequence_discrete_domain.yml',
-            fields_file='test_reconstruct_DerhamSequence_discrete_domain.h5'
+            space_file=tmp_path / 'test_reconstruct_DerhamSequence_discrete_domain.yml',
+            fields_file=tmp_path / 'test_reconstruct_DerhamSequence_discrete_domain.h5'
         )
 
+    # The post-processor must use the spline mappings of the geometry file
+    assert all(isinstance(F, SplineMapping) for F in Pm._mappings.values())
+
     Om2 = OutputManager(
-        'test_reconstruct_DerhamSequence_discrete_domain_2.yml',
-        'test_reconstruct_DerhamSequence_discrete_domain.h5'
+        tmp_path / 'test_reconstruct_DerhamSequence_discrete_domain_2.yml',
+        tmp_path / 'test_reconstruct_DerhamSequence_discrete_domain.h5'
     )
 
     Om2.add_spaces(**Pm.spaces)
@@ -524,13 +507,9 @@ def test_reconstruct_DerhamSequence_discrete_domain(geometry, seq, dtype):
                     else:
                         assert value1 == value2
 
-    os.remove('test_reconstruct_DerhamSequence_discrete_domain_2.yml')
-    os.remove('test_reconstruct_DerhamSequence_discrete_domain.yml')
 
-
-@pytest.mark.xdist_group('h5py')
 @pytest.mark.parametrize( 'dtype', ['float', 'complex'] )
-def test_reconstruct_multipatch(dtype):
+def test_reconstruct_multipatch(dtype, tmp_path):
     bounds1   = (0.5, 1.)
     bounds2_A = (0, np.pi/2)
     bounds2_B = (np.pi/2, np.pi)
@@ -538,8 +517,8 @@ def test_reconstruct_multipatch(dtype):
     A = Square('A',bounds1=bounds1, bounds2=bounds2_A)
     B = Square('B',bounds1=bounds1, bounds2=bounds2_B)
 
-    connectivity = [((0,1,1),(1,1,-1))]
-    patches = [A,B]
+    patches = [A, B]
+    connectivity = [((0, 1, 1), (1, 1,-1), 1)]
     domain = Domain.join(patches, connectivity, 'domain')
 
     Va = ScalarFunctionSpace('Va', A)
@@ -553,7 +532,7 @@ def test_reconstruct_multipatch(dtype):
     Vva = VectorFunctionSpace('Vva', A)
     Vva.codomain_type = dtype
 
-    Om = OutputManager('spaces_multipatch.yml', 'fields_multipatch.h5')
+    Om = OutputManager(tmp_path / 'spaces_multipatch.yml', tmp_path / 'fields_multipatch.h5')
 
     domain_h = discretize(domain, ncells = [15, 15])
     Ah = discretize(A, ncells = [15, 15])
@@ -577,15 +556,13 @@ def test_reconstruct_multipatch(dtype):
     with pytest.warns(UserWarning):
         Pm = PostProcessManager(
             domain=domain,
-            space_file='spaces_multipatch.yml',
-            fields_file='fields_multipatch.h5'
+            space_file=tmp_path / 'spaces_multipatch.yml',
+            fields_file=tmp_path / 'fields_multipatch.h5'
         )
 
-    Om2 = OutputManager('__.yml', '__.h5')
+    Om2 = OutputManager(tmp_path / '__.yml', tmp_path / '__.h5')
 
     Om2.add_spaces(**Pm.spaces)
-
-    os.remove('spaces_multipatch.yml')
 
     space_info_1 = Om.space_info
     space_info_2 = Om2.space_info
@@ -610,8 +587,7 @@ def test_reconstruct_multipatch(dtype):
                         assert value1 == value2
 
 
-@pytest.mark.xdist_group('h5py')
-def test_incorrect_arg_export_to_vtk():
+def test_incorrect_arg_export_to_vtk(tmp_path):
     domain = Square()
     space = ScalarFunctionSpace('V', domain)
 
@@ -621,8 +597,8 @@ def test_incorrect_arg_export_to_vtk():
     u = FemField(space_h)
 
     Om = OutputManager(
-        "test_incorrect_arg_export_to_vtk.yml",
-        "test_incorrect_arg_export_to_vtk.h5"
+        tmp_path / "test_incorrect_arg_export_to_vtk.yml",
+        tmp_path / "test_incorrect_arg_export_to_vtk.h5"
     )
 
     Om.add_spaces(V=space_h)
@@ -635,27 +611,23 @@ def test_incorrect_arg_export_to_vtk():
 
     Pm = PostProcessManager(
         domain=domain,
-        space_file="test_incorrect_arg_export_to_vtk.yml",
-        fields_file="test_incorrect_arg_export_to_vtk.h5",
+        space_file=tmp_path / "test_incorrect_arg_export_to_vtk.yml",
+        fields_file=tmp_path / "test_incorrect_arg_export_to_vtk.h5",
     )
 
+    vtk_file = str(tmp_path / '_')
     with pytest.raises(ValueError): # needs npts_per_cell or grid
-        Pm.export_to_vtk('_', grid=None, npts_per_cell=None)
+        Pm.export_to_vtk(vtk_file, grid=None, npts_per_cell=None)
     with pytest.raises(ValueError): # snapshot = 'none' but no static fields
-        Pm.export_to_vtk('_', grid=None, npts_per_cell=2, snapshots='none', fields='f')
+        Pm.export_to_vtk(vtk_file, grid=None, npts_per_cell=2, snapshots='none', fields='f')
     with pytest.warns(UserWarning): # snapshot = 'all' but no static fields
-        Pm.export_to_vtk('_', grid=None, npts_per_cell=2, snapshots='all', fields='f')
+        Pm.export_to_vtk(vtk_file, grid=None, npts_per_cell=2, snapshots='all', fields='f')
     with pytest.warns(UserWarning): # snapshot = 'all' but no time dependent field
-        Pm.export_to_vtk('_', grid=None, npts_per_cell=2, snapshots='all', fields='u')
+        Pm.export_to_vtk(vtk_file, grid=None, npts_per_cell=2, snapshots='all', fields='u')
     with pytest.raises(ValueError): # empty grid
-        Pm.export_to_vtk('_', grid=[[],[]], npts_per_cell=None, snapshots='none', fields='u')
-
-    os.remove('_.static.vtu')
-    os.remove("test_incorrect_arg_export_to_vtk.yml")
-    os.remove("test_incorrect_arg_export_to_vtk.h5")
+        Pm.export_to_vtk(vtk_file, grid=[[],[]], npts_per_cell=None, snapshots='none', fields='u')
 
 
-@pytest.mark.xdist_group('h5py')
 @pytest.mark.mpi
 @pytest.mark.parametrize('geometry', ['identity_2d.h5',
                                       'identity_3d.h5',
@@ -665,9 +637,8 @@ def test_incorrect_arg_export_to_vtk():
 @pytest.mark.parametrize('kind', ['h1', 'l2', 'hdiv', 'hcurl'])
 @pytest.mark.parametrize('space', [ScalarFunctionSpace, VectorFunctionSpace])
 @pytest.mark.parametrize( 'dtype', ['float', 'complex'] )
-def test_parallel_export_discrete_domain(geometry, kind, space, dtype):
+def test_parallel_export_discrete_domain(geometry, kind, space, dtype, mpi_tmp_path):
     comm = MPI.COMM_WORLD
-    rank = comm.Get_rank()
 
     filename = os.path.join(mesh_dir, geometry)
 
@@ -685,8 +656,8 @@ def test_parallel_export_discrete_domain(geometry, kind, space, dtype):
     field = FemField(space_h)
 
     Om = OutputManager(
-        "test_parallel_export_discrete_domain.yml",
-        "test_parallel_export_discrete_domain.h5",
+        mpi_tmp_path / "test_parallel_export_discrete_domain.yml",
+        mpi_tmp_path / "test_parallel_export_discrete_domain.h5",
         comm=comm,
         save_mpi_rank=True,
     )
@@ -703,8 +674,8 @@ def test_parallel_export_discrete_domain(geometry, kind, space, dtype):
 
     Pm = PostProcessManager(
         geometry_file=filename,
-        space_file="test_parallel_export_discrete_domain.yml",
-        fields_file="test_parallel_export_discrete_domain.h5",
+        space_file=mpi_tmp_path / "test_parallel_export_discrete_domain.yml",
+        fields_file=mpi_tmp_path / "test_parallel_export_discrete_domain.h5",
         comm=comm
     )
 
@@ -734,7 +705,7 @@ def test_parallel_export_discrete_domain(geometry, kind, space, dtype):
 
     # Test grid1
     Pm.export_to_vtk(
-        "test_export_None_grid",
+        str(mpi_tmp_path / "test_export_None_grid"),
         grid=grid1,
         npts_per_cell=npts_per_cell,
         snapshots='all',
@@ -743,7 +714,7 @@ def test_parallel_export_discrete_domain(geometry, kind, space, dtype):
 
     # Test grid2
     Pm.export_to_vtk(
-        "test_export_regular_grid",
+        str(mpi_tmp_path / "test_export_regular_grid"),
         grid=grid2,
         npts_per_cell=npts_per_cell,
         snapshots='all',
@@ -751,22 +722,14 @@ def test_parallel_export_discrete_domain(geometry, kind, space, dtype):
     )
 
     Pm.export_to_vtk(
-        "test_export_irregular_grid_1",
+        str(mpi_tmp_path / "test_export_irregular_grid_1"),
         grid=grid2,
         npts_per_cell=None,
         snapshots='all',
         fields=('field_s', 'field_t'),
     )
 
-    Pm.comm.Barrier()
-    if rank == 0:
-        for f in glob.glob("test_export*grid*.*vtu"):
-            os.remove(f)
-        os.remove("test_parallel_export_discrete_domain.yml")
-        os.remove("test_parallel_export_discrete_domain.h5")
 
-
-@pytest.mark.xdist_group('h5py')
 @pytest.mark.mpi
 @pytest.mark.parametrize('domain', [
     Square(),
@@ -779,9 +742,8 @@ def test_parallel_export_discrete_domain(geometry, kind, space, dtype):
 @pytest.mark.parametrize('kind', ['h1', 'l2', 'hdiv', 'hcurl'])
 @pytest.mark.parametrize('space', [ScalarFunctionSpace, VectorFunctionSpace])
 @pytest.mark.parametrize( 'dtype', ['float', 'complex'] )
-def test_parallel_export_topological_domain(domain, mapping, kind, space, dtype):
+def test_parallel_export_topological_domain(domain, mapping, kind, space, dtype, mpi_tmp_path):
     comm = MPI.COMM_WORLD
-    rank = comm.Get_rank()
     dim = domain.dim
     dim_params_dict = {
         2: {'c1': 0, 'c2': 0,
@@ -807,8 +769,8 @@ def test_parallel_export_topological_domain(domain, mapping, kind, space, dtype)
     field = FemField(space_h)
 
     Om = OutputManager(
-        "test_parallel_export_topological_domain.yml",
-        "test_parallel_export_topological_domain.h5",
+        mpi_tmp_path / "test_parallel_export_topological_domain.yml",
+        mpi_tmp_path / "test_parallel_export_topological_domain.h5",
         comm=comm,
     )
 
@@ -824,8 +786,8 @@ def test_parallel_export_topological_domain(domain, mapping, kind, space, dtype)
 
     Pm = PostProcessManager(
         domain=domain,
-        space_file="test_parallel_export_topological_domain.yml",
-        fields_file="test_parallel_export_topological_domain.h5",
+        space_file=mpi_tmp_path / "test_parallel_export_topological_domain.yml",
+        fields_file=mpi_tmp_path / "test_parallel_export_topological_domain.h5",
         comm=comm,
     )
 
@@ -854,7 +816,7 @@ def test_parallel_export_topological_domain(domain, mapping, kind, space, dtype)
     npts_per_cell = [2] * dim
     # Test grid1
     Pm.export_to_vtk(
-        "test_export_None_grid",
+        str(mpi_tmp_path / "test_export_None_grid"),
         grid=grid1,
         npts_per_cell=npts_per_cell,
         snapshots='all',
@@ -863,7 +825,7 @@ def test_parallel_export_topological_domain(domain, mapping, kind, space, dtype)
 
     # Test grid2
     Pm.export_to_vtk(
-        "test_export_regular_grid",
+        str(mpi_tmp_path / "test_export_regular_grid"),
         grid=grid2,
         npts_per_cell=npts_per_cell,
         snapshots='all',
@@ -871,7 +833,7 @@ def test_parallel_export_topological_domain(domain, mapping, kind, space, dtype)
     )
 
     Pm.export_to_vtk(
-        "test_export_irregular_grid_1",
+        str(mpi_tmp_path / "test_export_irregular_grid_1"),
         grid=grid2,
         npts_per_cell=None,
         snapshots='all',
@@ -879,9 +841,3 @@ def test_parallel_export_topological_domain(domain, mapping, kind, space, dtype)
     )
 
     Pm.fields_file.close()
-
-    if rank == 0:
-        for f in glob.glob("test_export*grid*.*vtu"):
-            os.remove(f)
-        os.remove("test_parallel_export_topological_domain.yml")
-        os.remove("test_parallel_export_topological_domain.h5")
