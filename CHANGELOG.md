@@ -28,6 +28,7 @@ All notable changes to this project will be documented in this file.
 
 -   #614 : Fix NaN in parallel evaluation of fields at subdomain boundaries with repeated knots, see #612
 -   #614 : Update ghost regions in `TensorFemSpace.eval_field_gradient` if needed, as in `eval_field`
+-   #638 : Fix random failures of the post-processing tests in `psydac test` with pytest 9.2.0, and write all files of the unit tests to temporary directories, see #637
 -   #624 : Terminate all MPI processes when one of them fails in `parallel_run_from_cli`, see #621
 -   #604 : Fix several bugs in iterative linear solvers (MINRES, LSMR, GMRES, CG, BiCGSTAB), see #603
 -   #527 : Require `sympde==0.20.0` which changes how multipatch interfaces are defined
@@ -58,6 +59,8 @@ All notable changes to this project will be documented in this file.
 -   #571 : Fix correct application of the sum factorization algorithm
 -   #567 : Fix parallel creation of folder `__psydac__` in `psydac.api.fem_bilinear_form`
 -   #566 : Fix command `psydac test --mpi` on Ubuntu machines
+-   [DEVELOPER] Run the macOS jobs of CI on `macos-15`, as GitHub retired `macos-14` on November 2, 2026
+-   [DEVELOPER] Compute the cache key of PETSc in CI from the PETSc version, the runner image, the MPI library, the compilers, and Python, see #641
 -   [DEVELOPER] Add missing 'description' properties (required!) to our GitHub actions
 -   [DEVELOPER] Update CI installation of `petsc4py` after release of `setuptools` 81.0
 -   [DEVELOPER] Check correct reporting of failure for `psydac test` command in CI testing
