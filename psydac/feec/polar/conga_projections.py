@@ -83,17 +83,15 @@ def check_polar_space(W, space_type, radial_dim):
     """
     Check that `W` is a 2D space of type `space_type` with a non-periodic
     radial direction `radial_dim` and a periodic angular direction.
-        return (angular_index, radial_index)
-
-
-def transpose_flat_index(k, nrows, ncols):
     """
-    Map C-order flat indices of an (nrows, ncols) array to those of its
-    (ncols, nrows) transpose.
-    """
-    row = k // ncols
-    col = k % ncols
-    return col * nrows + row
+    assert isinstance(W, space_type)
+    if isinstance(W, VectorFemSpace):
+        assert len(W.component_spaces) == 2
+        assert all(isinstance(S, TensorFemSpace) for S in W.component_spaces)
+    assert W.ldim == 2
+    assert radial_dim in (0, 1)
+    assert not W.periodic[radial_dim]
+    assert W.periodic[1 - radial_dim]
 
 
 class C0PolarProjection_V0(LinearOperator):
