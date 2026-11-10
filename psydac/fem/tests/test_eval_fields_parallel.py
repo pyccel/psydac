@@ -33,7 +33,7 @@ rank = comm.Get_rank()
 @pytest.mark.mpi
 @pytest.mark.parametrize('geometry', ('identity_2d.h5', 'identity_3d.h5', 'collela_2d.h5', 'collela_3d.h5', 'bent_pipe.h5'))
 @pytest.mark.parametrize('npts_per_cell', [2, 3, 4, 6])
-def test_eval_fields_regular(geometry, npts_per_cell):
+def test_eval_fields_regular(geometry, npts_per_cell, mpi_tmp_path):
     filename = os.path.join(mesh_dir, geometry)
 
     domain = Domain.from_file(filename=filename)
@@ -61,7 +61,7 @@ def test_eval_fields_regular(geometry, npts_per_cell):
     shape = tuple(len(grid_reg[i]) for i in range(space.ldim))
 
     # Saving in an hdf5 file to compare on root
-    fh5 = h5.File(f'result_parallel.h5', mode='w', driver='mpio', comm=comm)
+    fh5 = h5.File(mpi_tmp_path / 'result_parallel.h5', mode='w', driver='mpio', comm=comm)
 
     for i, dset_name in enumerate(['x_mesh', 'y_mesh', 'z_mesh'][:space.ldim]):
         fh5.create_dataset(dset_name, shape=shape, dtype=float)
@@ -79,7 +79,7 @@ def test_eval_fields_regular(geometry, npts_per_cell):
 
         mesh = mapping.build_mesh(grid_reg, npts_per_cell)
 
-        fh5 = h5.File(f'result_parallel.h5', mode='r')
+        fh5 = h5.File(mpi_tmp_path / 'result_parallel.h5', mode='r')
 
         for i, dset_name in enumerate(['x_mesh', 'y_mesh', 'z_mesh'][:space.ldim]):
             dset = fh5[dset_name][...]
@@ -87,13 +87,12 @@ def test_eval_fields_regular(geometry, npts_per_cell):
             assert np.allclose(dset, mesh[i], atol=ATOL, rtol=RTOL)
 
         fh5.close()
-        os.remove('result_parallel.h5')
 
 #==============================================================================
 @pytest.mark.mpi
 @pytest.mark.parametrize('geometry', ('identity_2d.h5', 'identity_3d.h5', 'collela_2d.h5', 'collela_3d.h5', 'bent_pipe.h5'))
 @pytest.mark.parametrize('npts_irregular', [2, 5, 10, 25])
-def test_eval_fields_irregular(geometry, npts_irregular):
+def test_eval_fields_irregular(geometry, npts_irregular, mpi_tmp_path):
     filename = os.path.join(mesh_dir, geometry)
 
     domain = Domain.from_file(filename=filename)
@@ -122,7 +121,7 @@ def test_eval_fields_irregular(geometry, npts_irregular):
     shape = tuple(len(grid_i[i]) for i in range(space.ldim))
 
     # Saving in an hdf5 file to compare on root
-    fh5 = h5.File(f'result_parallel_i.h5', mode='w', driver='mpio', comm=comm)
+    fh5 = h5.File(mpi_tmp_path / 'result_parallel_i.h5', mode='w', driver='mpio', comm=comm)
 
     for i, dset_name in enumerate(['x_mesh', 'y_mesh', 'z_mesh'][:space.ldim]):
         fh5.create_dataset(dset_name, shape=shape, dtype=float)
@@ -140,7 +139,7 @@ def test_eval_fields_irregular(geometry, npts_irregular):
 
         mesh = mapping.build_mesh(grid_i)
 
-        fh5 = h5.File(f'result_parallel_i.h5', mode='r')
+        fh5 = h5.File(mpi_tmp_path / 'result_parallel_i.h5', mode='r')
 
         for i, dset_name in enumerate(['x_mesh', 'y_mesh', 'z_mesh'][:space.ldim]):
             dset = fh5[dset_name][...]
@@ -148,7 +147,6 @@ def test_eval_fields_irregular(geometry, npts_irregular):
             assert np.allclose(dset, mesh[i], atol=ATOL, rtol=RTOL)
 
         fh5.close()
-        os.remove('result_parallel_i.h5')
 
 #==============================================================================
 @pytest.mark.mpi

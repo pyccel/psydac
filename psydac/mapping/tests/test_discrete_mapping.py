@@ -127,7 +127,7 @@ def test_build_mesh_i(geometry_file, npts_i):
 @pytest.mark.mpi
 @pytest.mark.parametrize('geometry',  ['collela_3d.h5', 'collela_2d.h5', 'bent_pipe.h5'])
 @pytest.mark.parametrize('npts_per_cell', [2, 3, 4, 6])
-def test_parallel_jacobians_regular(geometry, npts_per_cell):
+def test_parallel_jacobians_regular(geometry, npts_per_cell, mpi_tmp_path):
     from mpi4py import MPI
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -161,7 +161,7 @@ def test_parallel_jacobians_regular(geometry, npts_per_cell):
     shape_1 = tuple(len(grid_reg[i]) for i in range(space.ldim))
 
     # Saving in an hdf5 file to compare on root
-    fh5 = h5.File(f'result_parallel.h5', mode='w', driver='mpio', comm=comm)
+    fh5 = h5.File(mpi_tmp_path / 'result_parallel.h5', mode='w', driver='mpio', comm=comm)
 
     fh5.create_dataset('jac_mat', shape=shape_0, dtype=float)
     fh5.create_dataset('inv_jac', shape=shape_0, dtype=float)
@@ -183,7 +183,7 @@ def test_parallel_jacobians_regular(geometry, npts_per_cell):
         inv_jacobian_matrix = mapping.inv_jac_mat_grid(grid_reg, npts_per_cell=npts_per_cell)
         jacobian_determinants = mapping.jac_det_grid(grid_reg, npts_per_cell=npts_per_cell)
 
-        fh5 = h5.File(f'result_parallel.h5', mode='r')
+        fh5 = h5.File(mpi_tmp_path / 'result_parallel.h5', mode='r')
 
         jac_mat_par = fh5['jac_mat'][...]
         inv_jac_mat_par = fh5['inv_jac'][...]
@@ -194,13 +194,12 @@ def test_parallel_jacobians_regular(geometry, npts_per_cell):
         assert np.allclose(jac_dets_par, jacobian_determinants, atol=ATOL, rtol=RTOL)
 
         fh5.close()
-        os.remove('result_parallel.h5')
 
 #==============================================================================
 @pytest.mark.mpi
 @pytest.mark.parametrize('geometry',  ['collela_3d.h5', 'collela_2d.h5', 'bent_pipe.h5'])
 @pytest.mark.parametrize('npts_irregular', [2, 5, 10, 25])
-def test_parallel_jacobians_irregular(geometry, npts_irregular):
+def test_parallel_jacobians_irregular(geometry, npts_irregular, mpi_tmp_path):
     from mpi4py import MPI
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -235,7 +234,7 @@ def test_parallel_jacobians_irregular(geometry, npts_irregular):
     shape_1 = tuple(len(grid_i[i]) for i in range(space.ldim))
 
     # Saving in an hdf5 file to compare on root
-    fh5 = h5.File(f'result_parallel.h5', mode='w', driver='mpio', comm=comm)
+    fh5 = h5.File(mpi_tmp_path / 'result_parallel.h5', mode='w', driver='mpio', comm=comm)
 
     fh5.create_dataset('jac_mat', shape=shape_0, dtype=float)
     fh5.create_dataset('inv_jac', shape=shape_0, dtype=float)
@@ -257,7 +256,7 @@ def test_parallel_jacobians_irregular(geometry, npts_irregular):
         inv_jacobian_matrix = mapping.inv_jac_mat_grid(grid_i)
         jacobian_determinants = mapping.jac_det_grid(grid_i)
 
-        fh5 = h5.File(f'result_parallel.h5', mode='r')
+        fh5 = h5.File(mpi_tmp_path / 'result_parallel.h5', mode='r')
 
         jac_mat_par = fh5['jac_mat'][...]
         inv_jac_mat_par = fh5['inv_jac'][...]
@@ -268,7 +267,6 @@ def test_parallel_jacobians_irregular(geometry, npts_irregular):
         assert np.allclose(jac_dets_par, jacobian_determinants, atol=ATOL, rtol=RTOL)
 
         fh5.close()
-        os.remove('result_parallel.h5')
 
 #==============================================================================
 def test_nurbs_circle():
