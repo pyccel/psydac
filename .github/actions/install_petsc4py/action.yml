@@ -19,7 +19,12 @@ runs:
         PETSC_VERSION: ${{ inputs.petsc-version }}
         ACTION_HASH: ${{ hashFiles('.github/actions/install_petsc4py/action.yml') }}
       run: |
-        toolchain=$( { mpicc --version; mpirun --version; python --version; } 2>&1 | shasum -a 256 | cut -c1-12 )
+        versions=$( { mpicc --version; mpirun --version; python --version; } 2>&1 )
+        # Print the hashed text, to see why the key changes if the cache is invalidated
+        echo "::group::Versions of MPI, compilers, and Python"
+        echo "$versions"
+        echo "::endgroup::"
+        toolchain=$(echo "$versions" | shasum -a 256 | cut -c1-12)
         key="petsc-${PETSC_VERSION}-${RUNNER_OS}-${RUNNER_ARCH}-${ImageOS}-${toolchain}-${ACTION_HASH:0:12}"
         echo "PETSc cache key: $key"
         echo "key=$key" >> "$GITHUB_OUTPUT"
