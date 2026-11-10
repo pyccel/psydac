@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+-   #639 : Add option `logical` to `DiscreteDeRham.projectors` and `MultipatchDiscreteDeRham.projectors`, to project functions of the logical coordinates, see #153
 -   #527 : Add constructor `Geometry.from_file` with option `domain` to reuse an existing SymPDE domain, after checking that it matches the file
 -   #527 : Add function `get_available_mappings` and option `mpi_dims_mask` to `discrete_mapping` in `psydac.mapping.discrete_gallery`
 -   #527 : Add property `mpi_dims_mask` to `DomainDecomposition`
@@ -25,6 +26,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+-   #639 : Pass `nquads` to the projector of the H1 vector space in 3D in `DiscreteDeRham.projectors`
 -   #638 : Fix random failures of the post-processing tests in `psydac test` with pytest 9.2.0, and write all files of the unit tests to temporary directories, see #637
 -   #624 : Terminate all MPI processes when one of them fails in `parallel_run_from_cli`, see #621
 -   #604 : Fix several bugs in iterative linear solvers (MINRES, LSMR, GMRES, CG, BiCGSTAB), see #603
@@ -65,6 +67,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+-   #639 : Use the same default `nquads` in `MultipatchDiscreteDeRham.projectors` as in `DiscreteDeRham.projectors` (maximum degree plus one)
 -   #625 : Require all components of a `VectorFemSpace` to share the same `DomainDecomposition` object, see #615
 -   #527 : Pass a domain decomposition `ddm` and physical dimension `pdim` to `Geometry.__init__`; remove arguments `ncells`, `periodic`, `filename`, `comm` and `mpi_dims_mask`
 -   #527 : Use the domain decomposition of the mapping's space in `Geometry.from_discrete_mapping`; remove arguments `comm` and `mpi_dims_mask`
