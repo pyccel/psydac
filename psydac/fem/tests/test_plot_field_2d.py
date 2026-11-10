@@ -15,7 +15,7 @@ from psydac.api.discretization     import discretize
 from psydac.fem.plotting_utilities import plot_field_2d as plot_field
 
 #==============================================================================
-def plot_some_field(Vh):
+def plot_some_field(Vh, folder):
     uh = FemField(Vh)
 
     domain  = Vh.symbolic_space.domain
@@ -30,13 +30,13 @@ def plot_some_field(Vh):
     else:
         values_type = 'scalar'
     for plot_type in plot_types:
-        plot_fn=f'uh_{domain_type}_{values_type}_{plot_type}_test.pdf'
+        plot_fn = str(folder / f'uh_{domain_type}_{values_type}_{plot_type}_test.pdf')
         plot_field(fem_field=uh, Vh=Vh, domain=domain, plot_type=plot_type, title='uh', filename=plot_fn, hide_plot=True)
 
 #==============================================================================
 @pytest.mark.parametrize('use_scalar_field', [True, False])
 @pytest.mark.parametrize('use_multipatch', [True, False])
-def test_plot_field(use_scalar_field, use_multipatch):
+def test_plot_field(use_scalar_field, use_multipatch, tmp_path):
     """
     tests that plot_field_2d runs for various types of Fem fields
     (the proper content of the plots is not tested here)
@@ -68,9 +68,12 @@ def test_plot_field(use_scalar_field, use_multipatch):
     domain_h = discretize(domain, ncells=ncells)
     Vh       = discretize(V, domain_h, degree=degree)
 
-    plot_some_field(Vh)
+    plot_some_field(Vh, tmp_path)
 
 if __name__ == '__main__':
-    for use_scalar_field in [True, False]:
-        for use_multipatch in [True, False]:
-            test_plot_field(use_scalar_field, use_multipatch)
+    from pathlib import Path
+    from tempfile import TemporaryDirectory
+    with TemporaryDirectory() as tmp_dir:
+        for use_scalar_field in [True, False]:
+            for use_multipatch in [True, False]:
+                test_plot_field(use_scalar_field, use_multipatch, Path(tmp_dir))

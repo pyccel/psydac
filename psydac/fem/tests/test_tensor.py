@@ -3,9 +3,9 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-import os
 import contextlib
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import pytest
 import numpy as np
@@ -125,13 +125,13 @@ def compare_figure_to_reference(fig, filename, *, dpi, tol, folder, comm, root):
     """
     if comm.rank == root:
         test_dir = Path(__file__).parent.absolute()
-        file1 = test_dir / filename
         file2 = test_dir / folder / filename
-        with consistent_png_rendering():
-            fig.savefig(file1, dpi=dpi)
-        close_enough = similar_images(file1, file2, tol)
-        # Clean up the temporary file
-        os.remove(file1)
+        # Save the figure outside the source folder, which may be read-only
+        with TemporaryDirectory() as tmp_dir:
+            file1 = Path(tmp_dir) / filename
+            with consistent_png_rendering():
+                fig.savefig(file1, dpi=dpi)
+            close_enough = similar_images(file1, file2, tol)
     else:
         close_enough = None
 

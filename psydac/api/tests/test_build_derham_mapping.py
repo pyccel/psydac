@@ -12,13 +12,12 @@ from psydac.cad.geometry       import Geometry
 from psydac.api.postprocessing import OutputManager, PostProcessManager
 
 from sympde.topology.analytical_mapping import IdentityMapping
-from sympde.topology                  import Cube, Derham
+from sympde.topology                  import Derham
 
 from sympy      import exp, lambdify
 
 import pytest
 import numpy as np
-import os
 
 
 @pytest.mark.parametrize('degree', [[2], [3]])
@@ -78,11 +77,10 @@ def test_build_derham_spline_mapping_id_1d(degree, ncells, periodic):
     #Pm.close()
 
 
-@pytest.mark.xdist_group('h5py')
 @pytest.mark.parametrize('degree', [[2,2], [3,4]])
 @pytest.mark.parametrize('ncells', [[5,6], [10,10]])
 @pytest.mark.parametrize('periodic', [[True,True], [True,False]])
-def test_build_derham_spline_mapping_id_2d(degree, ncells, periodic):
+def test_build_derham_spline_mapping_id_2d(degree, ncells, periodic, tmp_path):
 
     p1 , p2 = degree
     nc1, nc2 = ncells
@@ -116,8 +114,8 @@ def test_build_derham_spline_mapping_id_2d(degree, ncells, periodic):
     f_h = P0(f)
 
     # Export the discrete function
-    Om = OutputManager("./export_sol.yml",
-                       "./export_sol.h5")
+    Om = OutputManager(tmp_path / "export_sol.yml",
+                       tmp_path / "export_sol.h5")
 
     V0h = derham_h.V0
     Om.add_spaces(V0h=V0h)
@@ -127,24 +125,18 @@ def test_build_derham_spline_mapping_id_2d(degree, ncells, periodic):
     Om.close()
 
     Pm = PostProcessManager(domain=domain_h.domain,
-                            space_file="./export_sol.yml",
-                            fields_file="./export_sol.h5")
-    Pm.export_to_vtk("./fields_test",
+                            space_file=tmp_path / "export_sol.yml",
+                            fields_file=tmp_path / "export_sol.h5")
+    Pm.export_to_vtk(str(tmp_path / "fields_test"),
                      grid=None, npts_per_cell=2,
                      snapshots='all', fields=('f'))     
     Pm.close()
 
-    #cleanup 
-    os.remove("./export_sol.yml")
-    os.remove("./export_sol.h5")
-    os.remove("./fields_test.0000.vtu")
 
-
-@pytest.mark.xdist_group('h5py')
 @pytest.mark.parametrize('degree', [[2,2,2], [2,3,4]])
 @pytest.mark.parametrize('ncells', [[4,6,7], [10,10,10]])
 @pytest.mark.parametrize('periodic', [[True,True,True], [True,False,False]])
-def test_build_derham_spline_mapping_id_3d(degree, ncells, periodic):
+def test_build_derham_spline_mapping_id_3d(degree, ncells, periodic, tmp_path):
 
     p1 , p2, p3  = degree
     nc1, nc2, nc3 = ncells
@@ -180,8 +172,8 @@ def test_build_derham_spline_mapping_id_3d(degree, ncells, periodic):
     f_h = P0(f)
 
     # Export the discrete function
-    Om = OutputManager("./export_sol.yml",
-                       "./export_sol.h5")
+    Om = OutputManager(tmp_path / "export_sol.yml",
+                       tmp_path / "export_sol.h5")
 
     V0h = derham_h.V0
     Om.add_spaces(V0h=V0h)
@@ -191,20 +183,18 @@ def test_build_derham_spline_mapping_id_3d(degree, ncells, periodic):
     Om.close()
 
     Pm = PostProcessManager(domain=domain_h.domain,
-                            space_file="./export_sol.yml",
-                            fields_file="./export_sol.h5")
-    Pm.export_to_vtk("./fields_test",
+                            space_file=tmp_path / "export_sol.yml",
+                            fields_file=tmp_path / "export_sol.h5")
+    Pm.export_to_vtk(str(tmp_path / "fields_test"),
                      grid=None, npts_per_cell=2,
                      snapshots='all', fields=('f'))     
     Pm.close()
 
-    #cleanup 
-    os.remove("./export_sol.yml")
-    os.remove("./export_sol.h5")
-    os.remove("./fields_test.0000.vtu")
-
 if __name__ == '__main__':
-    #test_build_derham_spline_mapping_id_1d([2], [10], [True]) 
-    test_build_derham_spline_mapping_id_2d([2,2], [5,10], [True,True])  
-    test_build_derham_spline_mapping_id_2d([2,2], [10,10], [True,True])    
-    #test_build_derham_spline_mapping_id_3d([2,3,4], [10,11,3], [True,False,False])
+    from pathlib import Path
+    from tempfile import TemporaryDirectory
+    with TemporaryDirectory() as tmp_dir:
+        #test_build_derham_spline_mapping_id_1d([2], [10], [True])
+        test_build_derham_spline_mapping_id_2d([2,2], [5,10], [True,True], Path(tmp_dir))
+        test_build_derham_spline_mapping_id_2d([2,2], [10,10], [True,True], Path(tmp_dir))
+        #test_build_derham_spline_mapping_id_3d([2,3,4], [10,11,3], [True,False,False], Path(tmp_dir))
