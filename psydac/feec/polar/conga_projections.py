@@ -142,6 +142,8 @@ class C0PolarProjection_V0(LinearOperator):
 
     def dot(self, x, out=None):
         assert isinstance(x, StencilVector)
+        assert x.space is self.domain
+
         if not x.ghost_regions_in_sync:
             x.update_ghost_regions()
 
@@ -318,6 +320,7 @@ class C0PolarProjection_V1_s_s(LinearOperator):
     # the logical coordinates.
     def dot(self, x, out=None):
         assert isinstance(x, StencilVector)
+        assert x.space is self.domain
 
         if not x.ghost_regions_in_sync:
             x.update_ghost_regions()
@@ -417,6 +420,7 @@ class C0PolarProjection_V1_theta_s(LinearOperator):
 
     def dot(self, x, out=None):
         assert isinstance(x, StencilVector)
+        assert x.space is self.domain
 
         if not x.ghost_regions_in_sync:
             x.update_ghost_regions()
@@ -556,6 +560,7 @@ class C0PolarProjection_V1_theta_theta(LinearOperator):
 
     def dot(self, x, out=None):
         assert isinstance(x, StencilVector)
+        assert x.space is self.domain
 
         if not x.ghost_regions_in_sync:
             x.update_ghost_regions()
@@ -743,6 +748,7 @@ class C0PolarProjection_V2(LinearOperator):
 
     def dot(self, x, out=None):
         assert isinstance(x, StencilVector)
+        assert x.space is self.domain
 
         if not x.ghost_regions_in_sync:
             x.update_ghost_regions()
@@ -923,6 +929,7 @@ class C1PolarProjection_U0(LinearOperator):
 
     def dot(self, x, out=None):
         assert isinstance(x, StencilVector)
+        assert x.space is self.domain
 
         if not x.ghost_regions_in_sync:
             x.update_ghost_regions()
@@ -1122,6 +1129,7 @@ class C1PolarProjection_U1_s_s(LinearOperator):
 
     def dot(self, x, out=None):
         assert isinstance(x, StencilVector)
+        assert x.space is self.domain
 
         rdim, adim = self.radial_dim, self.angle_dim
         V = self.domain
@@ -1307,6 +1315,7 @@ class C1PolarProjection_U1_theta_s(LinearOperator):
 
     def dot(self, x, out=None):
         assert isinstance(x, StencilVector)
+        assert x.space is self.domain
 
         if not x.ghost_regions_in_sync:
             x.update_ghost_regions()
