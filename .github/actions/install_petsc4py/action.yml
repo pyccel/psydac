@@ -19,7 +19,13 @@ runs:
         PETSC_VERSION: ${{ inputs.petsc-version }}
         ACTION_HASH: ${{ hashFiles('.github/actions/install_petsc4py/action.yml') }}
       run: |
-        versions=$( { mpicc --version; mpirun --version; python --version; } 2>&1 )
+        # The MPI version is read from the macros of mpi.h, because `mpirun --version`
+        # fails on some images (missing help files of PRRTE). A separate assignment
+        # makes the step fail if mpi.h cannot be found
+        mpi_version=$(echo '#include <mpi.h>' | mpicc -E -dM -x c - \
+          | grep -E '#define (MPI_VERSION|MPI_SUBVERSION|OMPI_(MAJOR|MINOR|RELEASE)_VERSION|MPICH_VERSION|I_MPI_VERSION) ' \
+          | sort)
+        versions=$( { mpicc --version; echo "$mpi_version"; python --version; } 2>&1 )
         # Print the hashed text, to see why the key changes if the cache is invalidated
         echo "::group::Versions of MPI, compilers, and Python"
         echo "$versions"
