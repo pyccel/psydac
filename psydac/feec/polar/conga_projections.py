@@ -68,6 +68,7 @@ def polar_index(radial_dim, radial_index, angular_index):
     else:
         return (angular_index, radial_index)
 
+
 def transpose_flat_index(k, nrows, ncols):
     """
     Map C-order flat indices of an (nrows, ncols) array to those of its
@@ -76,6 +77,22 @@ def transpose_flat_index(k, nrows, ncols):
     row = k // ncols
     col = k % ncols
     return col * nrows + row
+
+
+def check_polar_space(W, space_type, radial_dim):
+    """
+    Check that `W` is a 2D space of type `space_type` with a non-periodic
+    radial direction `radial_dim` and a periodic angular direction.
+    """
+    assert isinstance(W, space_type)
+    if isinstance(W, VectorFemSpace):
+        assert len(W.component_spaces) == 2
+        assert all(isinstance(S, TensorFemSpace) for S in W.component_spaces)
+    assert W.ldim == 2
+    assert radial_dim in (0, 1)
+    assert not W.periodic[radial_dim]
+    assert W.periodic[1 - radial_dim]
+
 
 class C0PolarProjection_V0(LinearOperator):
     r"""
@@ -103,10 +120,7 @@ class C0PolarProjection_V0(LinearOperator):
         Use `radial_dim=1` for spaces built on $(\theta, s)$.
     """
     def __init__(self, W0, *, transposed=False, hbc=False, radial_dim=0):
-        assert isinstance(W0, TensorFemSpace)
-        assert radial_dim in (0, 1)
-        assert W0.coeff_space.periods[radial_dim] == False
-        assert W0.coeff_space.periods[1 - radial_dim] == True
+        check_polar_space(W0, TensorFemSpace, radial_dim)
 
         self.W0 = W0
         self.transposed = transposed
@@ -283,8 +297,7 @@ class C0PolarProjection_V1_s_s(LinearOperator):
         `radial_dim=1` it is the lower-right block.
     """
     def __init__(self, W1, radial_dim=0):
-        assert isinstance(W1, VectorFemSpace)
-        assert radial_dim in (0, 1)
+        check_polar_space(W1, VectorFemSpace, radial_dim)
 
         self.W1 = W1
         self.radial_dim = radial_dim
@@ -379,8 +392,7 @@ class C0PolarProjection_V1_theta_s(LinearOperator):
         block (lower-left if transposed).
     """
     def __init__(self, W1, transposed=False, radial_dim=0):
-        assert isinstance(W1, VectorFemSpace)
-        assert radial_dim in (0, 1)
+        check_polar_space(W1, VectorFemSpace, radial_dim)
 
         self.W1 = W1
         self.transposed = transposed
@@ -522,8 +534,7 @@ class C0PolarProjection_V1_theta_theta(LinearOperator):
         `radial_dim=1` it is the upper-left block.
     """
     def __init__(self, W1, transposed=False, hbc=False, radial_dim=0):
-        assert isinstance(W1, VectorFemSpace)
-        assert radial_dim in (0, 1)
+        check_polar_space(W1, VectorFemSpace, radial_dim)
 
         self.W1 = W1
         self.transposed = transposed
@@ -656,9 +667,8 @@ class C0PolarProjection_V1(BlockLinearOperator):
         transposed).
     """
     def __init__(self, W1, transposed=False, hbc=False, radial_dim=0):
-        assert isinstance(W1, VectorFemSpace)
+        check_polar_space(W1, VectorFemSpace, radial_dim)
         assert W1.symbolic_space.kind.name == "hcurl"
-        assert radial_dim in (0, 1)
 
         T1 = W1.coeff_space
 
@@ -712,10 +722,7 @@ class C0PolarProjection_V2(LinearOperator):
         Use `radial_dim=1` for spaces built on $(\theta, s)$.
     """
     def __init__(self, W2, transposed=False, radial_dim=0):
-        assert isinstance(W2, TensorFemSpace)
-        assert radial_dim in (0, 1)
-        assert W2.coeff_space.periods[radial_dim] == False
-        assert W2.coeff_space.periods[1 - radial_dim] == True
+        check_polar_space(W2, TensorFemSpace, radial_dim)
 
         self.W2 = W2
         self.transposed = transposed
@@ -894,10 +901,7 @@ class C1PolarProjection_U0(LinearOperator):
         Use `radial_dim=1` for spaces built on $(\theta, s)$.
     """
     def __init__(self, W0, *, transposed=False, hbc=False, radial_dim=0):
-        assert isinstance(W0, TensorFemSpace)
-        assert radial_dim in (0, 1)
-        assert W0.coeff_space.periods[radial_dim] == False
-        assert W0.coeff_space.periods[1 - radial_dim] == True
+        check_polar_space(W0, TensorFemSpace, radial_dim)
 
         self.W0 = W0
         self.transposed = transposed
@@ -1097,8 +1101,7 @@ class C1PolarProjection_U1_s_s(LinearOperator):
         `radial_dim=1` it is the lower-right block.
     """
     def __init__(self, W1, transposed=False, radial_dim=0):
-        assert isinstance(W1, VectorFemSpace)
-        assert radial_dim in (0, 1)
+        check_polar_space(W1, VectorFemSpace, radial_dim)
 
         self.W1 = W1
         self.transposed = transposed
@@ -1255,8 +1258,7 @@ class C1PolarProjection_U1_theta_s(LinearOperator):
         block (lower-left if transposed).
     """
     def __init__(self, W1, transposed=False, radial_dim=0):
-        assert isinstance(W1, VectorFemSpace)
-        assert radial_dim in (0, 1)
+        check_polar_space(W1, VectorFemSpace, radial_dim)
 
         self.W1 = W1
         self.transposed = transposed
@@ -1430,9 +1432,8 @@ class C1PolarProjection_U1(BlockLinearOperator):
         $s$, which is also the index of the $s$-component in `W1`.
     """
     def __init__(self, W1, transposed=False, hbc=False, radial_dim=0):
-        assert isinstance(W1, VectorFemSpace)
+        check_polar_space(W1, VectorFemSpace, radial_dim)
         assert W1.symbolic_space.kind.name == "hcurl"
-        assert radial_dim in (0, 1)
 
         T1 = W1.coeff_space
 
