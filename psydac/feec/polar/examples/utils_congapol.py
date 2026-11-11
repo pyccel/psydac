@@ -36,21 +36,19 @@ def check_regular_ring_map(map_discrete, radial_dim=0, verbose=False):
         Discrete spline mapping whose coefficients are inspected.
 
     radial_dim : int, default=0
-        Index of the logical dimension corresponding to the radial coordinate
-        $s$. Use `radial_dim=1` for mappings defined on $(\theta, s)$.
-
-    verbose : bool, default False
-        Print diagnostic information if `True`.
-    """
     angle_dim = 1 - radial_dim
-    n_s = map_discrete._fields[0]._space._spaces[radial_dim]._nbasis
-    n_theta = map_discrete._fields[0]._space._spaces[angle_dim]._nbasis
-    assert n_s == map_discrete._fields[1]._space._spaces[radial_dim]._nbasis
-    assert n_theta == map_discrete._fields[1]._space._spaces[angle_dim]._nbasis
+    spaces = map_discrete.space.spaces  # shared by all components of the mapping
+    n_s = spaces[radial_dim].nbasis
+    n_theta = spaces[angle_dim].nbasis
+
+    if verbose:
+        print("n_s = ", n_s)
+        print("n_theta = ", n_theta)
+        print()
 
     # read mapping coefficients, flattened with the radial index first
-    map_0_c = map_discrete._fields[0]._coeffs.toarray()
-    map_1_c = map_discrete._fields[1]._coeffs.toarray()
+    map_0_c = map_discrete.fields[0].coeffs.toarray()
+    map_1_c = map_discrete.fields[1].coeffs.toarray()
     if radial_dim == 1:
         map_0_c = map_0_c.reshape(n_theta, n_s).T.ravel()
         map_1_c = map_1_c.reshape(n_theta, n_s).T.ravel()
