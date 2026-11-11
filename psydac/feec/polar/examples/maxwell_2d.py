@@ -341,6 +341,7 @@ def run_maxwell_2d_TE(
         periodic=periodic,
         mpi_comm=mpi_comm,
         use_spline_mapping=use_spline_mapping,
+        verbose=verbose,
     )
 
     domain = model.domain

@@ -17,60 +17,7 @@ __all__ = (
     "add_colorbar",
     "check_regular_ring_map",
     "create_tensor_spline_space",
-    "print_map_polar_coeffs",
 )
-
-def print_map_polar_coeffs(map_discrete):
-    """
-    Used for debugging purposes. Prints information about discrete
-    polar coefficients
-
-    Parameters
-    ----------
-    map_discrete : psydac.mapping.discrete.SplineMapping
-        Discrete spline mapping whose coefficients are inspected.
-    """
-    # Print spline mapping
-    print("Spline mapping:")
-    print(map_discrete)
-    print("vars(map_discrete):")
-    print(vars(map_discrete))
-    print()
-    print("vars(map_discrete._fields[0]) :")
-    print(vars(map_discrete._fields[0]))
-
-    print()
-    print("vars(map_discrete._fields[0]._space._spaces[0]) :")
-    print(vars(map_discrete._fields[0]._space._spaces[0]))
-    print("vars(map_discrete._fields[0]._space._spaces[1]) :")
-    print(vars(map_discrete._fields[0]._space._spaces[1]))
-    n_s = map_discrete._fields[0]._space._spaces[0]._nbasis
-    n_theta = map_discrete._fields[0]._space._spaces[1]._nbasis
-    print("n_s = ", n_s)
-    print("n_theta = ", n_theta)
-    print()
-
-    map_0_c = map_discrete._fields[0]._coeffs.toarray()
-    map_1_c = map_discrete._fields[1]._coeffs.toarray()
-
-    print("pole: ", map_0_c[0], map_1_c[0])
-    map_0_c -= map_0_c[0]
-    map_1_c -= map_1_c[0]
-
-    # print(map_0_c**2 + map_1_c**2)
-    radius_pole = np.sqrt(map_0_c[:n_theta] ** 2 + map_1_c[:n_theta] ** 2)
-    radius_first_ring = np.sqrt(
-        map_0_c[n_theta : 2 * n_theta] ** 2 + map_1_c[n_theta : 2 * n_theta] ** 2
-    )
-    rho_1 = radius_first_ring[0]
-
-    cs = map_0_c[n_theta : 2 * n_theta] / rho_1
-    sn = map_1_c[n_theta : 2 * n_theta] / rho_1
-    theta = np.arctan2(sn, cs)
-
-    print("radius_pole:", radius_pole)
-    print("radius first ring:", radius_first_ring)
-    print("D theta_j:", np.mod(theta[1:] - theta[:-1], 2 * np.pi))
 
 
 def check_regular_ring_map(map_discrete, radial_dim=0, verbose=False):
@@ -101,17 +48,18 @@ def check_regular_ring_map(map_discrete, radial_dim=0, verbose=False):
     assert n_s == map_discrete._fields[1]._space._spaces[radial_dim]._nbasis
     assert n_theta == map_discrete._fields[1]._space._spaces[angle_dim]._nbasis
 
-    if verbose:
-        print("n_s = ", n_s)
-        print("n_theta = ", n_theta)
-        print()
-
     # read mapping coefficients, flattened with the radial index first
     map_0_c = map_discrete._fields[0]._coeffs.toarray()
     map_1_c = map_discrete._fields[1]._coeffs.toarray()
     if radial_dim == 1:
         map_0_c = map_0_c.reshape(n_theta, n_s).T.ravel()
         map_1_c = map_1_c.reshape(n_theta, n_s).T.ravel()
+
+    if verbose:
+        print("n_s = ", n_s)
+        print("n_theta = ", n_theta)
+        print("pole position:", map_0_c[0], map_1_c[0])
+        print()
 
     # shift
     map_0_c -= map_0_c[0]
