@@ -34,16 +34,28 @@ RTOL = 1e-12
 
 
 def get_domain(R, radial_dim=0):
+    r"""
+    Build a physical domain in the form of a disk of radius $R$.
+
+    This is the mapped domain obtained from a rectangular logical domain
+    with coordinates $(s, \theta)$, which are swapped to $(\theta, s)$
+    in the case that `radial_dim=1`.
+    """
+    bounds_s = (0, R)
+    bounds_theta = (0, 2 * pi)
+
     if radial_dim == 0:
-        # Build physical domain - disk of radius R
-        logical_domain = Square("Omega", bounds1=[0, R], bounds2=[0, 2 * pi])
-        mapping = PolarMapping("F", c1=0, c2=0, rmin=0, rmax=1)
-        domain = mapping(logical_domain)
+        bounds1, bounds2 = bounds_s, bounds_theta
+        mapping_class = PolarMapping
+    elif radial_dim == 1:
+        bounds1, bounds2 = bounds_theta, bounds_s
+        mapping_class = TransposedPolarMapping
     else:
-        # Logical domain with swapped coordinates (theta, s). 
-        logical_domain = Square("Omega", bounds1=[0, 2 * pi], bounds2=[0, R])
-        mapping = TransposedPolarMapping("F", c1=0, c2=0, rmin=0, rmax=1)
-        domain = mapping(logical_domain)
+        raise ValueError(f"accepted values of `radial_dim` are (0, 1); got {radial_dim} instead")
+
+    logical_domain = Square("Omega", bounds1=bounds1, bounds2=bounds2)
+    mapping = mapping_class("F", c1=0, c2=0, rmin=0, rmax=1)
+    domain = mapping(logical_domain)
 
     return domain
 
