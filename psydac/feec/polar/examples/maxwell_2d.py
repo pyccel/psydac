@@ -31,7 +31,26 @@ from psydac.feec.polar.examples.polar_model_2d import PolarModel2D
 # MANUFACTURED SOLUTION
 # ==============================================================================
 class Maxwell2D(PolarModel2D):
-    """Analytical TE Maxwell model on a mapped polar disk."""
+    r"""
+    Analytical solution of the 2D time-dependent Maxwell equations in
+    transverse electric (TE) form, with perfectly conducting boundary
+    conditions, to be employed for the method of manufactured solutions.
+
+    $\partial_t \mathbf{E} - c^2 \operatorname{\mathbf{curl}} B = 0$,
+    $\partial_t B + \operatorname{curl} \mathbf{E} = 0$,
+
+    where $\mathbf{E} = (E_x, E_y)$ is the electric field and $B = B_z$ is the
+    magnetic field.
+
+    Parameters
+    ----------
+    domain_log : sympde.topology.Domain
+        Logical domain on which the solution is defined.
+    mapping : sympde.topology.Mapping
+        Mapping from the logical domain to the physical domain.
+    exact_solution : TESolution
+        Exact solution, or initial condition if no exact solution is known.
+    """
 
     def __init__(self, domain_log, mapping, exact_solution):
         super().__init__(domain_log, mapping)
@@ -39,12 +58,39 @@ class Maxwell2D(PolarModel2D):
         self._exact_solution = exact_solution
 
     @staticmethod
-    def disk(R, shift_D, study, radial_dim, use_polar_mapping=False):
+    def disk(R, shift_D, study, radial_dim):
+        r"""
+        Solve Maxwell's equations on a disk of radius R, with logical
+        coordinates (s, theta), or (theta, s) if `radial_dim=1`:
+
+        - The radial coordinate s belongs to the interval [0, R];
+        - The angular coordinate theta belongs to the interval [0, 2 * pi).
+
+        If `study="maxwell_wave"`, the initial condition is a Gaussian pulse
+        centered at (x, y) = (0, 0); otherwise the exact solution is a
+        time-harmonic mode of a circular cavity.
+
+        Parameters
+        ----------
+        R : float
+            Radius of the disk.
+        shift_D : float
+            Shafranov shift.
+        study : str
+            Type of study.
+        radial_dim : int
+            Index of the logical dimension corresponding to the radial
+            coordinate s.
+
+        Returns
+        -------
+        Maxwell2D
+            Maxwell model containing the logical domain, mapping and exact
+            solution.
+        """
+
         from sympde.topology import Square
-        from sympde.topology.analytical_mapping import (
-            PolarMapping,
-            TargetMapping,
-        )
+        from sympde.topology.analytical_mapping import TargetMapping
         from sympy import pi
 
         # Speed of light and scaling
@@ -66,10 +112,7 @@ class Maxwell2D(PolarModel2D):
         bounds_theta = (0, 2 * np.pi)
         if radial_dim == 0:
             domain_log = Square("Omega", bounds1=bounds_s, bounds2=bounds_theta)
-            if use_polar_mapping:
-                mapping = PolarMapping("PM", c1=0, c2=0, rmin=0, rmax=1)
-            else:
-                mapping = TargetMapping("TM", c1=shift_D * R * R, c2=0, k=0, D=shift_D)
+            mapping = TargetMapping("TM", c1=shift_D * R * R, c2=0, k=0, D=shift_D)
         else:
             domain_log = Square("Omega", bounds1=bounds_theta, bounds2=bounds_s)
             mapping = TransposedPolarMapping("TM", c1=0, c2=0, rmin=0, rmax=1)
