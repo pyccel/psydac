@@ -6,12 +6,9 @@
 import pytest
 import numpy as np
 
-from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
-from psydac.linalg.basic import LinearOperator, ZeroOperator, IdentityOperator, ComposedLinearOperator, SumLinearOperator, PowerLinearOperator, ScaledLinearOperator
-from psydac.linalg.basic import MatrixFreeLinearOperator
+from psydac.linalg.basic import MatrixFreeLinearOperator, ZeroOperator
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
-from psydac.linalg.solvers import ConjugateGradient, inverse
-from psydac.ddm.cart       import DomainDecomposition, CartDecomposition
+from psydac.linalg.solvers import inverse
 
 from psydac.linalg.tests.test_linalg import get_StencilVectorSpace, get_positive_definite_StencilMatrix, assert_pos_def
 from psydac.linalg.tests.utilities import norm2_sqr
