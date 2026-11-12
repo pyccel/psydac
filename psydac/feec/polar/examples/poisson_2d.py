@@ -71,7 +71,7 @@ class Poisson2D(PolarModel2D):
     def disk(R, shift_D, radial_dim):
         r"""
         Solve Poisson's equation on a disk of radius R centered at (x,y) = (0, 0),
-        with logical coordinates (s, theta):
+        with logical coordinates (s, theta), or (theta, s) if `radial_dim=1`:
 
         - The radial coordinate s belongs to the interval [0, R];
         - The angular coordinate theta belongs to the interval [0, 2 * pi).
@@ -127,7 +127,8 @@ class Poisson2D(PolarModel2D):
     @staticmethod
     def target(radial_dim):
         r"""
-        Solve Poisson's equation on a polar domain, with logical coordinates (s, theta):
+        Solve Poisson's equation on a polar domain, with logical coordinates (s, theta),
+        or (theta, s) if `radial_dim=1`:
 
         - The radial coordinate s belongs to the interval [0, 1];
         - The angular coordinate theta belongs to the interval [0, 2 * pi).
@@ -183,7 +184,8 @@ class Poisson2D(PolarModel2D):
     @staticmethod
     def czarny(radial_dim):
         r"""
-        Solve Poisson's equation on a czarny domain, with logical coordinates (s, theta):
+        Solve Poisson's equation on a czarny domain, with logical coordinates (s, theta),
+        or (theta, s) if `radial_dim=1`:
 
         - The radial coordinate s belongs to the interval [0, 1];
         - The angular coordinate theta belongs to the interval [0, 2 * pi).
@@ -271,8 +273,6 @@ class CongaLaplacian(LinearOperator):
     W0 : StencilVectorSpace
         Coefficient space on which the operator acts.
     """
-
-
     def __init__(self, S, M, P, alpha):
 
         from psydac.feec.polar.conga_projections import (
