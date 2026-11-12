@@ -12,6 +12,8 @@ from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatr
 from psydac.linalg.solvers import ConjugateGradient, inverse
 from psydac.ddm.cart       import DomainDecomposition, CartDecomposition
 
+from psydac.linalg.tests.utilities import norm2_sqr
+
 #===============================================================================
 
 n1array = [2, 7]
@@ -647,26 +649,26 @@ def test_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
     assert isinstance(C_T, ConjugateGradient)
     assert isinstance(inverse(B_T, 'cg', tol=tol), ConjugateGradient)
     diff = C_T @ u - inverse(B_T, 'cg', tol=tol) @ u
-    assert diff.inner(diff) == 0
+    assert norm2_sqr(diff) == 0
 
     # -1,T,T -> equal -1
     diff = C_T.T @ u - C @ u
-    assert diff.inner(diff) == 0
+    assert norm2_sqr(diff) == 0
 
     # -1,T,-1 -> equal T
     assert isinstance(inverse(C_T, 'bicg'), BlockLinearOperator)
     diff = inverse(C_T, 'bicg') @ u - B_T @ u
-    assert diff.inner(diff) == 0
+    assert norm2_sqr(diff) == 0
 
     # T,-1,-1 -> equal T
     assert isinstance(inverse(inverse(B_T, 'cg', tol=tol), 'cg', pc=P), BlockLinearOperator)
     diff = inverse(inverse(B_T, 'cg', tol=tol), 'cg', pc=P) @ u - B_T @ u
-    assert diff.inner(diff) == 0
+    assert norm2_sqr(diff) == 0
 
     # T,-1,T -> equal -1
     assert isinstance(inverse(B_T, 'cg', tol=tol).T, ConjugateGradient)
     diff = inverse(B_T, 'cg', tol=tol) @ u - C @ u
-    assert diff.inner(diff) == 0
+    assert norm2_sqr(diff) == 0
 
     ###
     ### StencilMatrix Transpose - Inverse Tests
@@ -684,26 +686,26 @@ def test_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
     assert isinstance(C_T, ConjugateGradient)
     assert isinstance(inverse(S_T, 'cg', tol=tol), ConjugateGradient)
     diff = C_T @ v - inverse(S_T, 'cg', tol=tol) @ v
-    assert diff.inner(diff) == 0
+    assert norm2_sqr(diff) == 0
 
     # -1,T,T -> equal -1
     diff = C_T.T @ v - C @ v
-    assert diff.inner(diff) == 0
+    assert norm2_sqr(diff) == 0
 
     # -1,T,-1 -> equal T
     assert isinstance(inverse(C_T, 'bicg'), StencilMatrix)
     diff = inverse(C_T, 'bicg') @ v - S_T @ v
-    assert diff.inner(diff) == 0
+    assert norm2_sqr(diff) == 0
 
     # T,-1,-1 -> equal T
     assert isinstance(inverse(inverse(S_T, 'cg', tol=tol), 'cg', pc=P), StencilMatrix)
     diff = inverse(inverse(S_T, 'cg', tol=tol), 'cg', pc=P) @ v - S_T @ v
-    assert diff.inner(diff) == 0
+    assert norm2_sqr(diff) == 0
 
     # T,-1,T -> equal -1
     assert isinstance(inverse(S_T, 'cg', tol=tol).T, ConjugateGradient)
     diff = inverse(S_T, 'cg', tol=tol) @ v - C @ v
-    assert diff.inner(diff) == 0
+    assert norm2_sqr(diff) == 0
 
 #===============================================================================
 @pytest.mark.parametrize('n1', [3, 5])
@@ -783,61 +785,57 @@ def test_operator_evaluation(n1, n2, p1, p2):
     ###
 
     ### 2.1 PowerLO test
-    # Define 2-norm of vector using inner
-    norm2 = lambda v: np.sqrt(v.inner(v))
-
-    ### 2.1 PowerLO test
 
     assert_pos_def(B)
 
     b0 = ( B**0 @ u )
     b1 = ( B**1 @ u )
     b2 = ( B**2 @ u )
-    assert norm2(u-b0) < 1e-10
-    assert norm2(B @ u - b1) < 1e-10
-    assert norm2(B @ (B @ u) - b2) < 1e-10
+    assert norm2_sqr(u-b0) < 1e-20
+    assert norm2_sqr(B @ u - b1) < 1e-20
+    assert norm2_sqr(B @ (B @ u) - b2) < 1e-20
 
     bi0 = ( B_ILO**0 @ u )
     bi1 = ( B_ILO**1 @ u )
     bi2 = ( B_ILO**2 @ u )
-    error_est = 2 + n1 * n2 * 10 # Rough error estimate based on dimensions and operator norm bounds
-    assert norm2(u - bi0) < 1e-10
-    assert norm2((B @ bi1) - u) < tol
-    assert norm2((B @ B @ bi2) - u) < error_est * tol
+    assert norm2_sqr(u - bi0) < 1e-20
+    assert norm2_sqr((B @ bi1) - u) < tol**2
+    # Two solves: error <= (1 + ||B||) * tol, and ||B|| = ||S|| < 3 (Gershgorin)
+    assert norm2_sqr(B @ (B @ bi2) - u) < (4 * tol)**2
 
     zeros = U.zeros()
     z0 = ( Z**0 @ u )
     z1 = ( Z**1 @ u )
     z2 = ( Z**2 @ u )
-    assert norm2(u - z0) < 1e-10
-    assert norm2(zeros - z1) < 1e-10
-    assert norm2(zeros - z2) < 1e-10
+    assert norm2_sqr(u - z0) < 1e-20
+    assert norm2_sqr(zeros - z1) < 1e-20
+    assert norm2_sqr(zeros - z2) < 1e-20
 
     assert_pos_def(S)
     s0 = ( S**0 @ v )
     s1 = ( S**1 @ v )
     s2 = ( S**2 @ v )
-    assert norm2(v-s0) < 1e-10
+    assert norm2_sqr(v-s0) < 1e-20
 
-    assert norm2((S @ v) - s1) < 1e-10
-    assert norm2(S @ (S @ v ) - s2) < 1e-10
+    assert norm2_sqr((S @ v) - s1) < 1e-20
+    assert norm2_sqr(S @ (S @ v ) - s2) < 1e-20
 
 
     si0 = ( S_ILO**0 @ v )
     si1 = ( S_ILO**1 @ v )
     si2 = ( S_ILO**2 @ v )
-    error_est = 2 + n1 * n2 * 10 # Rough error estimate based on dimensions and operator norm bounds
-    assert norm2(v - si0) < 1e-10
-    assert norm2((S @ si1) - v) < tol
-    assert norm2((S @ S @ si22) - si2) < error_est * tol
+    assert norm2_sqr(v - si0) < 1e-20
+    assert norm2_sqr((S @ si1) - v) < tol**2
+    # Two solves: error <= (1 + ||S||) * tol, and ||S|| < 3 (Gershgorin)
+    assert norm2_sqr(S @ (S @ si2) - v) < (4 * tol)**2
 
 
     i0 = ( I**0 @ v )
     i1 = ( I**1 @ v )
     i2 = ( I**2 @ v )
-    assert norm2(v - i0) < 1e-10
-    assert norm2(v - i1) < 1e-10
-    assert norm2(v - i2) < 1e-10
+    assert norm2_sqr(v - i0) < 1e-20
+    assert norm2_sqr(v - i1) < 1e-20
+    assert norm2_sqr(v - i2) < 1e-20
 
     ### 2.2 SumLO tests
     Sum1 = B + B_ILO + B + B_ILO
@@ -846,19 +844,16 @@ def test_operator_evaluation(n1, n2, p1, p2):
     sum2 = Sum2 @ v
     u_approx = B @ (0.5*(sum1 - 2*B@u))
     v_approx = S @ (0.5*(sum2 - 2*S@v))
-    # Define 2-norm of vector using inner
-    norm2 = lambda v: np.sqrt(v.inner(v))
-
-    assert norm2((u_approx - u)) < tol
-    assert norm2((v_approx - v)) < tol
+    assert norm2_sqr(u_approx - u) < tol**2
+    assert norm2_sqr(v_approx - v) < tol**2
 
     ### 2.3 CompLO tests
     C1 = B @ (-B)
     C2 = S @ (-S)
     c1 = ( C1 @ u )
     c2 = ( C2 @ v )
-    assert norm2(-c1 - b2) < 1e-10
-    assert norm2(-c2 - s2) < 1e-10
+    assert norm2_sqr(-c1 - b2) < 1e-20
+    assert norm2_sqr(-c2 - s2) < 1e-20
 
     ### 2.4 Huge composition
     ZV = ZeroOperator(V, V)
@@ -869,7 +864,7 @@ def test_operator_evaluation(n1, n2, p1, p2):
     H5 = ZV @ I
     H = H1 @ ( H2 + H3 - H4 + H5 ).T
 
-    assert norm2((H @ v)- v) < 10 * tol
+    assert norm2_sqr((H @ v)- v) < (10 * tol)**2
 
     ### 2.5 InverseLO test
 
@@ -899,16 +894,16 @@ def test_operator_evaluation(n1, n2, p1, p2):
     # Several break-criteria in the LSMR algorithm require different way to determine success
     # than asserting rnorm < tol, as that is not required. Even though it should?
 
-    assert norm2((S @ xs_cg - v)) < tol
-    assert norm2((S @ xs_pcg - v)) < tol
-    assert norm2((S @ xs_bicg - v)) < tol
+    assert norm2_sqr(S @ xs_cg - v) < tol**2
+    assert norm2_sqr(S @ xs_pcg - v) < tol**2
+    assert norm2_sqr(S @ xs_bicg - v) < tol**2
     assert S_lsmr.get_success() == True
-    assert norm2((S @ xs_mr - v)) < tol
-    assert norm2((B @ xb_cg - u)) < tol
-    assert norm2((B @ xb_pcg - u)) < tol
-    assert norm2((B @ xb_bicg - u)) < tol
+    assert norm2_sqr(S @ xs_mr - v) < tol**2
+    assert norm2_sqr(B @ xb_cg - u) < tol**2
+    assert norm2_sqr(B @ xb_pcg - u) < tol**2
+    assert norm2_sqr(B @ xb_bicg - u) < tol**2
     assert B_lsmr.get_success() == True
-    assert norm2((B @ xb_mr - u)) < tol
+    assert norm2_sqr(B @ xb_mr - u) < tol**2
 
 #===============================================================================
 
@@ -916,9 +911,7 @@ def test_internal_storage():
 
     # Create LinearOperator Z = A @ A.T @ A @ A.T @ A, where the domain and codomain of A are of different dimension.
     # Prior to a fix, operator would not have enough preallocated storage defined.
-    # Define 2-norm of vector using inner
-    norm2 = lambda v: np.sqrt(v.inner(v))
-    
+
     n1=2
     n2=1
     p1=1
@@ -963,8 +956,10 @@ def test_internal_storage():
     assert len(Z2_1.tmp_vectors) == 3
     assert len(Z2_2.tmp_vectors) == 3
     assert len(Z2_3.tmp_vectors) == 3
-    assert (norm2(y1_1 - y1_2) < 1e-10) & (norm2(y1_2 - y1_3) < 1e-10)
-    assert (norm2(y2_1 - y2_2) < 1e-10) & (norm2(y2_2 - y2_3) < 1e-10)
+    assert norm2_sqr(y1_1 - y1_2) < 1e-20
+    assert norm2_sqr(y1_2 - y1_3) < 1e-20
+    assert norm2_sqr(y2_1 - y2_2) < 1e-20
+    assert norm2_sqr(y2_2 - y2_3) < 1e-20
 
 #===============================================================================
 @pytest.mark.parametrize(("solver", "use_jacobi_pc"),
