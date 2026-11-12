@@ -2,15 +2,29 @@ import numpy as np
 
 from sympde.topology import Mapping
 
-from psydac.linalg.basic import LinearOperator
+from psydac.linalg.basic import LinearOperator, Vector
 from psydac.linalg.block import BlockVectorSpace
 
 __all__ = (
     'SquareTorus',
     'Annulus',
     'SinMapping1D',
-    'check_linop_equality_using_rng'
+    'check_linop_equality_using_rng',
+    'norm2_sqr',
 )
+
+
+def norm2_sqr(v: Vector) -> float:
+    """
+    Squared Euclidean norm of a PSYDAC vector, without converting it to a NumPy array.
+
+    The result is real and non-negative, also for complex vectors: the inner
+    product of a vector with itself is real in exact arithmetic, but round-off
+    errors may produce a tiny imaginary part, which is discarded. Compare the
+    result with the squared tolerance, to avoid computing a square root.
+    """
+    return v.inner(v).real
+
 
 class SquareTorus(Mapping):
     _expressions = {'x': 'x1 * cos(x2)',
