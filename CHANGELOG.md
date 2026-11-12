@@ -82,6 +82,7 @@ All notable changes to this project will be documented in this file.
 -   #579 : Require `pytest>=9.0` and use `pytest.toml` instead of `pytest.ini` for Pytest configuration
 -   #579 : Move coverage configuration from `pyproject.toml` to `psydac/pytest.toml`
 -   #570 : Optimize PSYDAC logo
+-   [DEVELOPER] Compute the 2-norm of vectors in the unit tests with `Vector.inner`, without converting them to NumPy arrays, see #492
 -   [DEVELOPER] Update GitHub Actions for repository checkout and Python setup
 -   [DEVELOPER] Rename actions: `macos/ubuntu_install` -> `macos/ubuntu_installations`
 -   [DEVELOPER] Do not check file changes to trigger testing workflow on PRs
