@@ -34,6 +34,17 @@ class TransposedPolarMapping(Mapping):
     _pdim = 2
 
 
+class TransposedTargetMapping(Mapping):
+    """
+    Represents a Transposed (x1 <> x2) Target 2D Mapping object.
+
+    """
+    _expressions = {'x': 'c1 + (1-k)*x2*cos(x1) - D*x2**2',
+                    'y': 'c2 + (1+k)*x2*sin(x1)'}
+
+    _ldim        = 2
+    _pdim        = 2
+
 
 def get_2D_rotation_mapping(name='no_name', c1=0., c2=0., alpha=None):
 

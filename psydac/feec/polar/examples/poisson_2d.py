@@ -25,7 +25,7 @@ As an example, a parallel simulation with 6 MPI processes may be run with:
 from dataclasses import dataclass
 
 # Base classes are needed at class definition
-from psydac.feec.multipatch_domain_utilities import TransposedPolarMapping
+from psydac.feec.multipatch_domain_utilities import TransposedTargetMapping
 from psydac.feec.polar.examples.polar_model_2d import PolarModel2D
 from psydac.linalg.basic import LinearOperator
 
@@ -103,11 +103,14 @@ class Poisson2D(PolarModel2D):
         bounds_theta = (0, 2 * np.pi)
         params = dict(c1=shift_D * R * R, c2=0, k=0, D=shift_D)
         if radial_dim == 0:
-            domain_log = Square("Omega", bounds1=bounds_s, bounds2=bounds_theta)
-            mapping = TargetMapping("TM", **params)
+            bounds1, bounds2 = bounds_s, bounds_theta
+            mapping_class = TargetMapping
         else:
-            domain_log = Square("Omega", bounds1=bounds_theta, bounds2=bounds_s)
-            mapping = TransposedPolarMapping("TM", c1=0, c2=0, rmin=0, rmax=1)
+            bounds1, bounds2 = bounds_theta, bounds_s
+            mapping_class = TransposedTargetMapping
+
+        mapping = mapping_class("TM", **params)
+        domain_log = Square("Omega", bounds1=bounds1, bounds2=bounds2)
 
         # physical field (cf use of physical ref solution in Maxwell case)
         k = params["k"]

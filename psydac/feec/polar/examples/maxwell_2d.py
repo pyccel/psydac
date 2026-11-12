@@ -19,7 +19,7 @@ import os
 import numpy as np
 from mpi4py import MPI
 
-from psydac.feec.multipatch_domain_utilities import TransposedPolarMapping
+from psydac.feec.multipatch_domain_utilities import TransposedTargetMapping
 from psydac.feec.polar.examples.analytical_solutions import (
     CircularCavitySolution,
     GaussianInitialCondition,
@@ -111,12 +111,14 @@ class Maxwell2D(PolarModel2D):
         bounds_s = (0, R)
         bounds_theta = (0, 2 * np.pi)
         if radial_dim == 0:
-            domain_log = Square("Omega", bounds1=bounds_s, bounds2=bounds_theta)
-            mapping = TargetMapping("TM", c1=shift_D * R * R, c2=0, k=0, D=shift_D)
+            bounds1, bounds2 = bounds_s, bounds_theta
+            mapping_class = TargetMapping
         else:
-            domain_log = Square("Omega", bounds1=bounds_theta, bounds2=bounds_s)
-            mapping = TransposedPolarMapping("TM", c1=0, c2=0, rmin=0, rmax=1)
+            bounds1, bounds2 = bounds_theta, bounds_s
+            mapping_class = TransposedTargetMapping
+        mapping = mapping_class("TM", c1=shift_D * R * R, c2=0, k=0, D=shift_D)
 
+        domain_log = Square("Omega", bounds1=bounds1, bounds2=bounds2)
         return Maxwell2D(domain_log, mapping, exact_solution)
 
     @property
