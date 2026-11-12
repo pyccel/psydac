@@ -23,6 +23,7 @@ from psydac.feec.multipatch_domain_utilities import TransposedTargetMapping
 from psydac.feec.polar.examples.analytical_solutions import (
     CircularCavitySolution,
     GaussianInitialCondition,
+    TESolution,
 )
 from psydac.feec.polar.examples.polar_model_2d import PolarModel2D
 
@@ -55,6 +56,7 @@ class Maxwell2D(PolarModel2D):
     def __init__(self, domain_log, mapping, exact_solution):
         super().__init__(domain_log, mapping)
 
+        assert isinstance(exact_solution, TESolution)
         self._exact_solution = exact_solution
 
     @staticmethod
@@ -76,7 +78,7 @@ class Maxwell2D(PolarModel2D):
             Radius of the disk.
         shift_D : float
             Shafranov shift.
-        study : str
+        study : {"maxwell_bessel", "maxwell_wave", "L2_proj"}
             Type of study.
         radial_dim : int
             Index of the logical dimension corresponding to the radial
@@ -566,7 +568,7 @@ def run_maxwell_2d_TE(
         int_wo_det = derham_h.V0.integral(cst_wo_det)
         int_wi_det = derham_h.V0.integral(cst_wi_det)
         print(f"V0 - integral of 1 (no det):   {int_wo_det:.2e}")
-        print(f"V0 - integral of 1 (with det): {int_w1_det:.2e}")
+        print(f"V0 - integral of 1 (with det): {int_wi_det:.2e}")
         print(f"Radius of disk: {R:.2e}".format(R))
         print(f"Area of log domain: {2 * np.pi * R:.2e}")
         print(f"Area of disk:       {np.pi * R * R:.2e}")
