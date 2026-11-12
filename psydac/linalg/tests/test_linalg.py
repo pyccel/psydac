@@ -791,14 +791,14 @@ def test_operator_evaluation(n1, n2, p1, p2):
     b0 = ( B**0 @ u )
     b1 = ( B**1 @ u )
     b2 = ( B**2 @ u )
-    assert norm2_sqr(u-b0) < 1e-20
+    assert norm2_sqr(u-b0) == 0
     assert norm2_sqr(B @ u - b1) < 1e-20
     assert norm2_sqr(B @ (B @ u) - b2) < 1e-20
 
     bi0 = ( B_ILO**0 @ u )
     bi1 = ( B_ILO**1 @ u )
     bi2 = ( B_ILO**2 @ u )
-    assert norm2_sqr(u - bi0) < 1e-20
+    assert norm2_sqr(u - bi0) == 0
     assert norm2_sqr((B @ bi1) - u) < tol**2
     # Two solves: error <= (1 + ||B||) * tol, and ||B|| = ||S|| < 3 (Gershgorin)
     assert norm2_sqr(B @ (B @ bi2) - u) < (4 * tol)**2
@@ -807,15 +807,15 @@ def test_operator_evaluation(n1, n2, p1, p2):
     z0 = ( Z**0 @ u )
     z1 = ( Z**1 @ u )
     z2 = ( Z**2 @ u )
-    assert norm2_sqr(u - z0) < 1e-20
-    assert norm2_sqr(zeros - z1) < 1e-20
-    assert norm2_sqr(zeros - z2) < 1e-20
+    assert norm2_sqr(u - z0) == 0
+    assert norm2_sqr(zeros - z1) == 0
+    assert norm2_sqr(zeros - z2) == 0
 
     assert_pos_def(S)
     s0 = ( S**0 @ v )
     s1 = ( S**1 @ v )
     s2 = ( S**2 @ v )
-    assert norm2_sqr(v-s0) < 1e-20
+    assert norm2_sqr(v-s0) == 0
 
     assert norm2_sqr((S @ v) - s1) < 1e-20
     assert norm2_sqr(S @ (S @ v ) - s2) < 1e-20
@@ -824,7 +824,7 @@ def test_operator_evaluation(n1, n2, p1, p2):
     si0 = ( S_ILO**0 @ v )
     si1 = ( S_ILO**1 @ v )
     si2 = ( S_ILO**2 @ v )
-    assert norm2_sqr(v - si0) < 1e-20
+    assert norm2_sqr(v - si0) == 0
     assert norm2_sqr((S @ si1) - v) < tol**2
     # Two solves: error <= (1 + ||S||) * tol, and ||S|| < 3 (Gershgorin)
     assert norm2_sqr(S @ (S @ si2) - v) < (4 * tol)**2
@@ -833,9 +833,9 @@ def test_operator_evaluation(n1, n2, p1, p2):
     i0 = ( I**0 @ v )
     i1 = ( I**1 @ v )
     i2 = ( I**2 @ v )
-    assert norm2_sqr(v - i0) < 1e-20
-    assert norm2_sqr(v - i1) < 1e-20
-    assert norm2_sqr(v - i2) < 1e-20
+    assert norm2_sqr(v - i0) == 0
+    assert norm2_sqr(v - i1) == 0
+    assert norm2_sqr(v - i2) == 0
 
     ### 2.2 SumLO tests
     Sum1 = B + B_ILO + B + B_ILO
