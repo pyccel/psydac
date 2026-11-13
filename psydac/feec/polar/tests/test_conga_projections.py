@@ -188,17 +188,14 @@ def test_PolarProjection_V0(
         if transposed:
             rows, cols = cols, rows
 
-        # Check all non-zero entries
+        # Check all non-zero entries, using the radial index (ring) of rows and columns
         for i, j, v in zip(rows, cols, data):
-            if i < na and j < na:
+            ring_i, ring_j = i // na, j // na
+            if ring_i == 0 and ring_j == 0:
                 assert np.isclose(v, 1 / na, atol=ATOL, rtol=RTOL)
-            elif Projector == C1PolarProjection_U0 and j < na <= i < 2 * na:
+            elif Projector == C1PolarProjection_U0 and ring_i == 1 and ring_j == 0:
                 assert np.isclose(v, 1 / na, atol=ATOL, rtol=RTOL)
-            elif (
-                    Projector == C1PolarProjection_U0
-                    and na <= i < 2 * na
-                    and na <= j < 2 * na
-            ):
+            elif Projector == C1PolarProjection_U0 and ring_i == 1 and ring_j == 1:
                 assert np.isclose(
                     v, 2 / na * np.cos((i - j) * 2 * np.pi / na), atol=ATOL, rtol=RTOL
                 )
