@@ -175,8 +175,7 @@ def petsc_to_psydac(x, Xh, out=None):
 
 #==============================================================================
 def _local_petsc_indices_to_data_indices(local_petsc_indices, npts_local, pads, shifts):
-    """ Vectorized equivalent of calling `petsc_local_to_psydac` for every index in
-    `local_petsc_indices` (all belonging to the same block), returning a tuple of
+    """ Convert local PETSc indices (all belonging to the same block) to a tuple of
     integer arrays directly usable to index a StencilVector's `._data` array.
     """
     ndim = len(npts_local)
