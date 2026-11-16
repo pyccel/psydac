@@ -25,6 +25,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+-   #592 : Copy all entries in `petsc_to_psydac` when `out` is given, instead of keeping stale values where the PETSc vector is zero, see #640
 -   #638 : Fix random failures of the post-processing tests in `psydac test` with pytest 9.2.0, and write all files of the unit tests to temporary directories, see #637
 -   #624 : Terminate all MPI processes when one of them fails in `parallel_run_from_cli`, see #621
 -   #604 : Fix several bugs in iterative linear solvers (MINRES, LSMR, GMRES, CG, BiCGSTAB), see #603
@@ -65,6 +66,8 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+-   #592 : Vectorize the conversion of vectors between PSYDAC and PETSc in `vec_topetsc` and `petsc_to_psydac`
+-   #592 : Remove unused functions `psydac_to_petsc_global` and `petsc_local_to_psydac` from `psydac.linalg.topetsc`
 -   #625 : Require all components of a `VectorFemSpace` to share the same `DomainDecomposition` object, see #615
 -   #527 : Pass a domain decomposition `ddm` and physical dimension `pdim` to `Geometry.__init__`; remove arguments `ncells`, `periodic`, `filename`, `comm` and `mpi_dims_mask`
 -   #527 : Use the domain decomposition of the mapping's space in `Geometry.from_discrete_mapping`; remove arguments `comm` and `mpi_dims_mask`
