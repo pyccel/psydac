@@ -40,6 +40,35 @@ def test_find_span( lims, nc, p, eps=1e-12 ):
         assert find_span( knots, p, x=xi+eps ) == p + min( i, nc-1 )
 
 #==============================================================================
+@pytest.mark.parametrize('p', (1, 2, 3))
+@pytest.mark.parametrize('multiplicity', ('simple', 'repeated', 'mixed'))
+def test_find_span_side(p: int, multiplicity: str) -> None:
+
+    grid = np.linspace(0.0, 1.0, 9)
+    interior = grid[1:-1]
+    m = {'simple'  : [1] * len(interior),
+         'repeated': [p] * len(interior),
+         'mixed'   : [1 + i % p for i in range(len(interior))]}[multiplicity]
+    knots = np.r_[[grid[0]] * (p + 1), np.repeat(interior, m), [grid[-1]] * (p + 1)]
+    first_span, last_span = p, len(knots) - p - 2
+
+    # On the breakpoints, the selected span is never empty
+    for x in grid:
+        span_right = find_span(knots, p, x, side='right')
+        span_left  = find_span(knots, p, x, side='left')
+        if x == grid[0]:
+            assert span_right == span_left == first_span
+        elif x == grid[-1]:
+            assert span_right == span_left == last_span
+        else:
+            assert knots[span_right] <= x < knots[span_right + 1]
+            assert knots[span_left]  <  x <= knots[span_left + 1]
+
+    # Away from the breakpoints, the side does not matter
+    for x in (grid[:-1] + grid[1:]) / 2:
+        assert find_span(knots, p, x, side='left') == find_span(knots, p, x)
+
+#==============================================================================
 @pytest.mark.parametrize( 'lims', ([0,1], [-2,3]) )
 @pytest.mark.parametrize( 'nc', (10, 18, 33) )
 @pytest.mark.parametrize( 'p' , (0,1,2,3,7,10) )
