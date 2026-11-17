@@ -20,7 +20,7 @@ from    psydac.linalg.basic           import IdentityOperator, ScaledLinearOpera
 from    psydac.linalg.block           import BlockVectorSpace
 from    psydac.linalg.solvers         import inverse
 from    psydac.linalg.stencil         import StencilVectorSpace, StencilMatrix, StencilVector
-from    psydac.linalg.tests.utilities import check_linop_equality_using_rng, Annulus, SquareTorus
+from    psydac.linalg.tests.utilities import check_linop_equality_using_rng, Annulus, SquareTorus, norm2_sqr
 
 
 def define_data_hermitian(n, p, dtype=float):
@@ -211,21 +211,21 @@ def test_solver_tridiagonal(n, p, dtype, solver, use_jacobi_pc, verbose=False):
         bc = A @ A @ xc
 
     err = b - be
-    err_norm = np.linalg.norm( err.toarray() )
+    err_norm_sqr = norm2_sqr(err)
     err2 = b2 - be2
-    err2_norm = np.linalg.norm( err2.toarray() )
+    err2_norm_sqr = norm2_sqr(err2)
     err3 = b3 - be
-    err3_norm = np.linalg.norm( err3.toarray() )
+    err3_norm_sqr = norm2_sqr(err3)
     err4 = b4 - be2
-    err4_norm = np.linalg.norm( err4.toarray() )
+    err4_norm_sqr = norm2_sqr(err4)
     errt = bt - bet
-    errt_norm = np.linalg.norm( errt.toarray() )
+    errt_norm_sqr = norm2_sqr(errt)
     errh = bh - beh
-    errh_norm = np.linalg.norm( errh.toarray() )
+    errh_norm_sqr = norm2_sqr(errh)
 
     if not (solver == 'CG' and use_jacobi_pc):
         errc = bc - be2
-        errc_norm = np.linalg.norm( errc.toarray() )
+        errc_norm_sqr = norm2_sqr(errc)
 
     #---------------------------------------------------------------------------
     # TERMINAL OUTPUT
@@ -240,8 +240,8 @@ def test_solver_tridiagonal(n, p, dtype, solver, use_jacobi_pc, verbose=False):
         print()
 
         print( "-"*40 )
-        print( f"2-norm of error in solution = {err_norm:.2e}" )
-        if err_norm < tol:
+        print( f"2-norm of error in solution = {np.sqrt(err_norm_sqr):.2e}" )
+        if err_norm_sqr < tol**2:
             print( "PASSED" )
         else:
             print( "FAIL" )
@@ -250,13 +250,13 @@ def test_solver_tridiagonal(n, p, dtype, solver, use_jacobi_pc, verbose=False):
     #---------------------------------------------------------------------------
     # PYTEST
     #---------------------------------------------------------------------------
-    assert err_norm < tol
-    assert err2_norm < tol
-    assert err3_norm < tol
-    assert err4_norm < tol
-    assert errt_norm < tol
-    assert errh_norm < tol
-    assert (solver == 'CG' and use_jacobi_pc) or errc_norm < tol
+    assert err_norm_sqr < tol**2
+    assert err2_norm_sqr < tol**2
+    assert err3_norm_sqr < tol**2
+    assert err4_norm_sqr < tol**2
+    assert errt_norm_sqr < tol**2
+    assert errh_norm_sqr < tol**2
+    assert (solver == 'CG' and use_jacobi_pc) or errc_norm_sqr < tol**2
 
 #===============================================================================
 # With A = 0, the stopping tests of MINRES set test1 = test2 = inf

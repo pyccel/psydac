@@ -6,14 +6,13 @@
 import pytest
 import numpy as np
 
-from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
-from psydac.linalg.basic import LinearOperator, ZeroOperator, IdentityOperator, ComposedLinearOperator, SumLinearOperator, PowerLinearOperator, ScaledLinearOperator
-from psydac.linalg.basic import MatrixFreeLinearOperator
+from psydac.linalg.basic import MatrixFreeLinearOperator, ZeroOperator
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
-from psydac.linalg.solvers import ConjugateGradient, inverse
-from psydac.ddm.cart       import DomainDecomposition, CartDecomposition
+from psydac.linalg.solvers import inverse
 
 from psydac.linalg.tests.test_linalg import get_StencilVectorSpace, get_positive_definite_StencilMatrix, assert_pos_def
+from psydac.linalg.tests.utilities import norm2_sqr
+
 
 def get_random_StencilMatrix(domain, codomain):
 
@@ -72,19 +71,14 @@ def test_fake_matrix_free(n1, n2, p1, p2):
     V2 = get_StencilVectorSpace([m1, m2], [q1, q2], [P1, P2])
     S = get_random_StencilMatrix(codomain=V2, domain=V1)
     O = MatrixFreeLinearOperator(codomain=V2, domain=V1, dot=lambda v: S @ v)
-
-    print(f'O.domain = {O.domain}')
-    print(f'S.domain = {S.domain}')
-    print(f'V1:      = {V1}')
     v = get_random_StencilVector(V1)
     tol = 1e-10
     y = S.dot(v)
     x = O.dot(v)
-    print(f'error = {np.linalg.norm( (x - y).toarray() )}')
-    assert np.linalg.norm( (x - y).toarray() ) < tol
+    assert norm2_sqr(x-y) < tol**2
+
     O.dot(v, out=x)
-    print(f'error = {np.linalg.norm( (x - y).toarray() )}')
-    assert np.linalg.norm( (x - y).toarray() ) < tol
+    assert norm2_sqr(x-y) < tol**2
 
 
 @pytest.mark.parametrize(("solver", "use_jacobi_pc"),
@@ -96,7 +90,6 @@ def test_fake_matrix_free(n1, n2, p1, p2):
      ('GMRES'   , False)]
  )
 def test_solvers_matrix_free(solver, use_jacobi_pc):
-    print(f'solver = {solver}')
     n1 = 4
     n2 = 3
     p1 = 5
@@ -116,17 +109,11 @@ def test_solvers_matrix_free(solver, use_jacobi_pc):
     # Create Inverse with A
     tol = 1e-6
     pc = A_SM.diagonal(inverse=True) if use_jacobi_pc else None
-    A_inv = inverse(A, solver, pc=pc, tol=tol)  
-
-    AA = A_inv._A
-    xx = AA.dot(b)
-    print(f'norm(xx) = {np.linalg.norm( xx.toarray() )}')
-    print(f'norm(x)  = {np.linalg.norm( x.toarray() )}')
+    A_inv = inverse(A, solver, pc=pc, tol=tol)
 
     # Apply inverse and check
     y = A_inv @ x
-    error = np.linalg.norm( (b - y).toarray())
-    assert np.linalg.norm( (b - y).toarray() ) < tol
+    assert norm2_sqr(b-y) < tol**2
 
 @pytest.mark.parametrize('n1', [3, 5])
 @pytest.mark.parametrize('n2', [4, 7])

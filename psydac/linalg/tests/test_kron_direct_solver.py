@@ -25,6 +25,7 @@ from psydac.linalg.direct_solvers  import SparseSolver, BandedSolver
 from psydac.linalg.kron            import KroneckerLinearSolver
 from psydac.linalg.solvers         import inverse
 from psydac.linalg.stencil         import StencilVectorSpace, StencilVector, StencilMatrix
+from psydac.linalg.tests.utilities import norm2_sqr
 
 #===============================================================================
 def compute_global_starts_ends(domain_decomposition, npts):
@@ -627,8 +628,9 @@ def test_3d_m1_solver(ncells, degree, periodic):
     # assert rhs_iterative is within the tolerance close to rhs, and so is rhs_direct
     rhs_iterative = M1 @ x_iterative
     rhs_direct = M1 @ x_direct
-    assert np.linalg.norm((rhs-rhs_iterative).toarray()) < tol
-    assert np.linalg.norm((rhs-rhs_direct).toarray()) < tol
+
+    assert norm2_sqr(rhs - rhs_iterative) < tol**2
+    assert norm2_sqr(rhs - rhs_direct) < tol**2
     
     
 #===============================================================================
@@ -720,8 +722,9 @@ def test_2d_mass_solver(ncells, degree, bounds, periodic):
     # assert rhs_iterative is within the tolerance close to rhs, and so is rhs_direct
     rhs_iterative = M0 @ x_iterative
     rhs_direct = M0 @ x_direct
-    assert np.linalg.norm((rhs-rhs_iterative).toarray()) < tol
-    assert np.linalg.norm((rhs-rhs_direct).toarray()) < tol
+
+    assert norm2_sqr(rhs - rhs_iterative) < tol**2
+    assert norm2_sqr(rhs - rhs_direct) < tol**2
     
     x1 = P1(get_A_fun_vec()).coeffs
     rhs = M1 @ x1
@@ -733,9 +736,10 @@ def test_2d_mass_solver(ncells, degree, bounds, periodic):
     # assert rhs_iterative is within the tolerance close to rhs, and so is rhs_direct
     rhs_iterative = M1 @ x_iterative
     rhs_direct = M1 @ x_direct
-    assert np.linalg.norm((rhs-rhs_iterative).toarray()) < tol
-    assert np.linalg.norm((rhs-rhs_direct).toarray()) < tol
-    
+
+    assert norm2_sqr(rhs - rhs_iterative) < tol**2
+    assert norm2_sqr(rhs - rhs_direct) < tol**2
+
     x2 = P2(get_A_fun_scalar()).coeffs
     rhs = M2 @ x2
 
@@ -746,8 +750,9 @@ def test_2d_mass_solver(ncells, degree, bounds, periodic):
     # assert rhs_iterative is within the tolerance close to rhs, and so is rhs_direct
     rhs_iterative = M2 @ x_iterative
     rhs_direct = M2 @ x_direct
-    assert np.linalg.norm((rhs-rhs_iterative).toarray()) < tol
-    assert np.linalg.norm((rhs-rhs_direct).toarray()) < tol
+
+    assert norm2_sqr(rhs - rhs_iterative) < tol**2
+    assert norm2_sqr(rhs - rhs_direct) < tol**2
     
 #===============================================================================
 
