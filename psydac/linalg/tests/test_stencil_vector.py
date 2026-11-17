@@ -466,6 +466,30 @@ def test_stencil_vector_2d_serial_topetsc(dtype, n1, n2, p1, p2, s1, s2, P1, P2)
     assert np.array_equal(v.array, w.array) 
 
 # ===============================================================================
+@pytest.mark.petsc
+def test_stencil_vector_2d_serial_petsc_to_psydac_out_zeros():
+    # Regression test for #640: `out` must be fully overwritten, also where the PETSc vector is zero
+    n1, n2, p1, p2 = 6, 5, 2, 1
+    D = DomainDecomposition([n1, n2], periods=[False, False])
+    npts = [n1, n2]
+    global_starts, global_ends = compute_global_starts_ends(D, npts)
+    C = CartDecomposition(D, npts, global_starts, global_ends, pads=[p1, p2], shifts=[1, 1])
+
+    V = StencilVectorSpace(C, dtype=float)
+    x = StencilVector(V)
+    out = StencilVector(V)
+
+    for i1 in range(n1):
+        for i2 in range(n2):
+            x[i1, i2] = (i1 + i2) % 2 * (10 * i1 + i2 + 1)  # some zero entries
+            out[i1, i2] = 7.0
+
+    v = x.topetsc()
+    petsc_to_psydac(v, V, out=out)
+
+    assert np.array_equal(x.toarray(), out.toarray())
+
+# ===============================================================================
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('n1', [5, 7])
 @pytest.mark.parametrize('n2', [5, 9])

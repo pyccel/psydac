@@ -650,6 +650,31 @@ def test_2D_block_serial_math( dtype, npts, p, P1, P2 ):
     assert np.allclose(Mc.blocks[1][0].toarray(), M3a,  rtol=1e-14, atol=1e-14 )
 
 #===============================================================================
+@pytest.mark.petsc
+def test_block_vector_serial_petsc_to_psydac_out_zeros():
+    # Regression test for #640: `out` must be fully overwritten, also where the PETSc vector is zero
+    D1 = DomainDecomposition([6], periods=[False])
+    D2 = DomainDecomposition([4], periods=[False])
+    gs1, ge1 = compute_global_starts_ends(D1, [6])
+    gs2, ge2 = compute_global_starts_ends(D2, [4])
+    cart1 = CartDecomposition(D1, [6], gs1, ge1, pads=[1], shifts=[1])
+    cart2 = CartDecomposition(D2, [4], gs2, ge2, pads=[1], shifts=[1])
+
+    W = BlockVectorSpace(StencilVectorSpace(cart1), StencilVectorSpace(cart2))
+    x = BlockVector(W)
+    out = BlockVector(W)
+
+    for b, n in enumerate([6, 4]):
+        for i in range(n):
+            x[b][i] = (i % 2) * (i + 1.0)  # some zero entries
+            out[b][i] = 7.0
+
+    v = x.topetsc()
+    petsc_to_psydac(v, W, out=out)
+
+    assert np.array_equal(x.toarray(), out.toarray())
+
+#===============================================================================
 @pytest.mark.parametrize( 'dtype', [float, complex] )
 @pytest.mark.parametrize( 'n1', [8, 16] )
 @pytest.mark.parametrize( 'n2', [8, 12] )
