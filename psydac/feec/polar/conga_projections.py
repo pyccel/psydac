@@ -47,7 +47,7 @@ from scipy.sparse import coo_matrix
 
 from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import VectorFemSpace
-from psydac.linalg.basic import LinearOperator, Vector
+from psydac.linalg.basic import LinearOperator
 from psydac.linalg.block import BlockLinearOperator
 from psydac.linalg.stencil import StencilVector
 
