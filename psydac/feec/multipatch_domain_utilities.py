@@ -3,16 +3,14 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-from mpi4py import MPI
-
 import numpy as np
 
 from sympde.topology import Square, Domain
-# TransposedPolarMapping
 from sympde.topology import IdentityMapping, PolarMapping, AffineMapping, Mapping
 
 __all__ = (
     'TransposedPolarMapping',
+    'TransposedTargetMapping',
     'get_2D_rotation_mapping',
     'flip_axis',
     'build_multipatch_domain',
