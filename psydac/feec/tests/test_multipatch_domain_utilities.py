@@ -1,9 +1,15 @@
+#---------------------------------------------------------------------------#
+# This file is part of PSYDAC which is released under MIT License. See the  #
+# LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
+# for full license details.                                                 #
+#---------------------------------------------------------------------------#
+
 import pytest
 from sympde.topology import PolarMapping, TargetMapping
 from sympy import simplify
 
 from psydac.feec.multipatch_domain_utilities import (
-    TransposedPolarMapping, 
+    TransposedPolarMapping,
     TransposedTargetMapping,
 )
 
@@ -16,8 +22,8 @@ from psydac.feec.multipatch_domain_utilities import (
     ],
 )
 def test_transposed_mapping(Transposed, Original, params):
-    F = Transposed('F', **params)
-    G = Original('G', **params)
+    F = Transposed("F", **params)
+    G = Original("G", **params)
     assert F.ldim == F.pdim == 2
 
     x1, x2 = G.logical_coordinates
