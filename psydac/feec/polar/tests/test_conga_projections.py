@@ -51,7 +51,9 @@ def get_domain(R, radial_dim=0):
         bounds1, bounds2 = bounds_theta, bounds_s
         mapping_class = TransposedPolarMapping
     else:
-        raise ValueError(f"accepted values of `radial_dim` are (0, 1); got {radial_dim} instead")
+        raise ValueError(
+            f"accepted values of `radial_dim` are (0, 1); got {radial_dim} instead"
+        )
 
     logical_domain = Square("Omega", bounds1=bounds1, bounds2=bounds2)
     mapping = mapping_class("F", c1=0, c2=0, rmin=0, rmax=1)
@@ -134,7 +136,7 @@ def to_s_theta_index(indices, coeff_space, radial_dim):
 @pytest.mark.mpi
 def test_PolarProjection_V0(
     Projector, R, ncells, degree, hbc, transposed, radial_dim, verbose=False
-    ):
+):
     mpi_comm = MPI.COMM_WORLD
     domain = get_domain(R, radial_dim)
 
@@ -353,7 +355,7 @@ def test_PolarProjection_V1(
 @pytest.mark.parametrize("Projector", [C0PolarProjection_V2, C1PolarProjection_U2])
 @pytest.mark.mpi
 def test_PolarProjection_V2(
-        Projector, R, ncells, degree, transposed, radial_dim, verbose=False
+    Projector, R, ncells, degree, transposed, radial_dim, verbose=False
 ):
     mpi_comm = MPI.COMM_WORLD
     domain = get_domain(R, radial_dim)
@@ -434,4 +436,4 @@ if __name__ == "__main__":
     )
     test_PolarProjection_V2(
         C0PolarProjection_V2, 1, [8, 10], [2, 2], False, 1, verbose=True
-        )
+    )

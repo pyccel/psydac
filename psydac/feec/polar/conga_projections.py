@@ -119,6 +119,7 @@ class C0PolarProjection_V0(LinearOperator):
         $s$. The other dimension is the (periodic) angular coordinate $\theta$.
         Use `radial_dim=1` for spaces built on $(\theta, s)$.
     """
+
     def __init__(self, W0, *, transposed=False, hbc=False, radial_dim=0):
         check_polar_space(W0, TensorFemSpace, radial_dim)
 
@@ -196,8 +197,10 @@ class C0PolarProjection_V0(LinearOperator):
 
     def transpose(self, conjugate=False):
         return C0PolarProjection_V0(
-            self.W0, transposed=not self.transposed, hbc=self.hbc,
-            radial_dim=self.radial_dim
+            self.W0,
+            transposed=not self.transposed,
+            hbc=self.hbc,
+            radial_dim=self.radial_dim,
         )
 
     def tosparse(self):
@@ -294,10 +297,11 @@ class C0PolarProjection_V1_s_s(LinearOperator):
         \times \mathbb{S}_{p_1, p_2-1}(\hat{\Omega})$.
 
     radial_dim : int, default=0
-        Index of the logical dimension corresponding to the radial coordinate. 
+        Index of the logical dimension corresponding to the radial coordinate.
         With `radial_dim=0` this is the upper-left block of $\mathbb{P}_V^1$, with
         `radial_dim=1` it is the lower-right block.
     """
+
     def __init__(self, W1, radial_dim=0):
         check_polar_space(W1, VectorFemSpace, radial_dim)
 
@@ -374,7 +378,7 @@ class C0PolarProjection_V1_theta_s(LinearOperator):
     r"""
     Matrix-free representation of the block of the CONGA projection matrix
     $\mathbb{P}_V^1$ which maps the $s$-component of a 1-form to its
-    $\theta$-component. 
+    $\theta$-component.
 
     Parameters
     ----------
@@ -394,6 +398,7 @@ class C0PolarProjection_V1_theta_s(LinearOperator):
         (upper-right if transposed), with `radial_dim=1` it is the upper-right
         block (lower-left if transposed).
     """
+
     def __init__(self, W1, transposed=False, radial_dim=0):
         check_polar_space(W1, VectorFemSpace, radial_dim)
 
@@ -537,6 +542,7 @@ class C0PolarProjection_V1_theta_theta(LinearOperator):
         `radial_dim=0` this is the lower-right block of $\mathbb{P}_V^1$, with
         `radial_dim=1` it is the upper-left block.
     """
+
     def __init__(self, W1, transposed=False, hbc=False, radial_dim=0):
         check_polar_space(W1, VectorFemSpace, radial_dim)
 
@@ -592,7 +598,7 @@ class C0PolarProjection_V1_theta_theta(LinearOperator):
             y[owned] = x[owned]
 
         if self.hbc and rank_at_outer_edge:
-            outer = polar_index(rdim, er, slice(None)) # s = L
+            outer = polar_index(rdim, er, slice(None))  # s = L
             y[outer] = 0.0
 
         y.update_ghost_regions()
@@ -600,8 +606,10 @@ class C0PolarProjection_V1_theta_theta(LinearOperator):
 
     def transpose(self, conjugate=False):
         return C0PolarProjection_V1_theta_theta(
-            self.W1, transposed=not self.transposed, hbc=self.hbc,
-            radial_dim=self.radial_dim
+            self.W1,
+            transposed=not self.transposed,
+            hbc=self.hbc,
+            radial_dim=self.radial_dim,
         )
 
     def tosparse(self):
@@ -663,7 +671,7 @@ class C0PolarProjection_V1(BlockLinearOperator):
     hbc : bool, default=False
         If `True`, impose homogeneous Dirichlet boundary conditions on the
         tangential (angular) component of the field.
-    
+
     radial_dim : int, default=0
         Index of the logical dimension corresponding to the radial coordinate
         $s$, which is also the index of the $s$-component in `W1`. With
@@ -671,6 +679,7 @@ class C0PolarProjection_V1(BlockLinearOperator):
         `radial_dim=1` it is block upper triangular (and vice versa if
         transposed).
     """
+
     def __init__(self, W1, transposed=False, hbc=False, radial_dim=0):
         check_polar_space(W1, VectorFemSpace, radial_dim)
         assert W1.symbolic_space.kind.name == "hcurl"
@@ -702,6 +711,7 @@ class C0PolarProjection_V1(BlockLinearOperator):
         self.hbc = hbc
         self.radial_dim = radial_dim
 
+
 # ---------------- 2-FORMS CONGA PROJECTOR P2 ----------------#
 class C0PolarProjection_V2(LinearOperator):
     r"""
@@ -720,12 +730,13 @@ class C0PolarProjection_V2(LinearOperator):
 
     transposed : bool, default=False
         If `True`, create the transposed projection matrix $(\mathbb{P}_V^2)^T$.
-    
+
     radial_dim : int, default=0
         Index of the logical dimension corresponding to the radial coordinate
         $s$. The other dimension is the (periodic) angular coordinate $\theta$.
         Use `radial_dim=1` for spaces built on $(\theta, s)$.
     """
+
     def __init__(self, W2, transposed=False, radial_dim=0):
         check_polar_space(W2, TensorFemSpace, radial_dim)
 
@@ -771,9 +782,11 @@ class C0PolarProjection_V2(LinearOperator):
 
         if rank_at_polar_edge:
             # regions of the local coefficient array near the pole, in the correct array ordering
-            ring0 = polar_index(rdim, 0, ang)                  # first radial index, touching the pole
-            ring1 = polar_index(rdim, 1, ang)                  # second radial index
-            inner = polar_index(rdim, slice(2, er + 1), ang)   # radial indices > 1 owned by the rank
+            ring0 = polar_index(rdim, 0, ang)  # first radial index, touching the pole
+            ring1 = polar_index(rdim, 1, ang)  # second radial index
+            inner = polar_index(
+                rdim, slice(2, er + 1), ang
+            )  # radial indices > 1 owned by the rank
 
             if self.transposed:
                 y[ring0] = x[ring1]
@@ -900,12 +913,13 @@ class C1PolarProjection_U0(LinearOperator):
 
     hbc : bool, default=False
         If `True`, impose homogeneous Dirichlet boundary conditions.
-    
+
     radial_dim : int, default=0
         Index of the logical dimension corresponding to the radial coordinate
         $s$. The other dimension is the (periodic) angular coordinate $\theta$.
         Use `radial_dim=1` for spaces built on $(\theta, s)$.
     """
+
     def __init__(self, W0, *, transposed=False, hbc=False, radial_dim=0):
         check_polar_space(W0, TensorFemSpace, radial_dim)
 
@@ -955,9 +969,11 @@ class C1PolarProjection_U0(LinearOperator):
 
         if rank_at_polar_edge:
             # regions of the coefficient array local to the process, in the correct array ordering
-            pole  = polar_index(rdim, 0, ang)                  # s = 0
-            ring1 = polar_index(rdim, 1, ang)                  # first ring around the pole
-            inner = polar_index(rdim, slice(2, er + 1), ang)   # s > 1, rank at polar edge
+            pole = polar_index(rdim, 0, ang)  # s = 0
+            ring1 = polar_index(rdim, 1, ang)  # first ring around the pole
+            inner = polar_index(
+                rdim, slice(2, er + 1), ang
+            )  # s > 1, rank at polar edge
 
             # compute sums of points with s = 0, 1 for the process
             x0 = np.sum(x[pole]) / na
@@ -979,18 +995,18 @@ class C1PolarProjection_U0(LinearOperator):
             if self.transposed:
                 y[pole] = x0 + x1
                 y[ring1] = (
-                    + np.cos(theta_local) * sum_cos
-                    + np.sin(theta_local) * sum_sin
+                    +np.cos(theta_local) * sum_cos + np.sin(theta_local) * sum_sin
                 )
             else:
                 y[pole] = x0
                 y[ring1] = (
-                    x0 + np.cos(theta_local) * sum_cos
-                    + np.sin(theta_local) * sum_sin
+                    x0 + np.cos(theta_local) * sum_cos + np.sin(theta_local) * sum_sin
                 )
             y[inner] = x[inner]
         else:
-            owned = polar_index(rdim, slice(sr, er + 1), ang)  # all radial indices of the rank
+            owned = polar_index(
+                rdim, slice(sr, er + 1), ang
+            )  # all radial indices of the rank
             y[owned] = x[owned]
 
         if self.hbc and rank_at_outer_edge:
@@ -1002,8 +1018,10 @@ class C1PolarProjection_U0(LinearOperator):
 
     def transpose(self, conjugate=False):
         return C1PolarProjection_U0(
-            self.W0, transposed=not self.transposed, hbc=self.hbc,
-            radial_dim=self.radial_dim
+            self.W0,
+            transposed=not self.transposed,
+            hbc=self.hbc,
+            radial_dim=self.radial_dim,
         )
 
     def tosparse(self):
@@ -1107,6 +1125,7 @@ class C1PolarProjection_U1_s_s(LinearOperator):
         `radial_dim=0` this is the upper-left block of $\mathbb{P}_U^1$, with
         `radial_dim=1` it is the lower-right block.
     """
+
     def __init__(self, W1, transposed=False, radial_dim=0):
         check_polar_space(W1, VectorFemSpace, radial_dim)
 
@@ -1173,7 +1192,9 @@ class C1PolarProjection_U1_s_s(LinearOperator):
 
             y[inner] = x[inner]
         else:
-            owned = polar_index(rdim, slice(sr, er + 1), ang)  # all radial indices of the rank
+            owned = polar_index(
+                rdim, slice(sr, er + 1), ang
+            )  # all radial indices of the rank
             y[owned] = x[owned]
 
         y.update_ghost_regions()
@@ -1265,6 +1286,7 @@ class C1PolarProjection_U1_theta_s(LinearOperator):
         (upper-right if transposed), with `radial_dim=1` it is the upper-right
         block (lower-left if transposed).
     """
+
     def __init__(self, W1, transposed=False, radial_dim=0):
         check_polar_space(W1, VectorFemSpace, radial_dim)
 
@@ -1348,7 +1370,9 @@ class C1PolarProjection_U1_theta_s(LinearOperator):
                 sum_cos, sum_sin = cos_sin_avg(
                     theta_local, y, angle_comm, sa, ea, na, 0, radial_dim=rdim
                 )
-                y[s_ring0] = np.cos(theta_local) * sum_cos + np.sin(theta_local) * sum_sin
+                y[s_ring0] = (
+                    np.cos(theta_local) * sum_cos + np.sin(theta_local) * sum_sin
+                )
             else:
                 theta_ring1 = polar_index(rdim, 1, ang)
                 sum_cos, sum_sin = cos_sin_avg(
@@ -1440,6 +1464,7 @@ class C1PolarProjection_U1(BlockLinearOperator):
         Index of the logical dimension corresponding to the radial coordinate
         $s$, which is also the index of the $s$-component in `W1`.
     """
+
     def __init__(self, W1, transposed=False, hbc=False, radial_dim=0):
         check_polar_space(W1, VectorFemSpace, radial_dim)
         assert W1.symbolic_space.kind.name == "hcurl"
@@ -1492,7 +1517,7 @@ class C1PolarProjection_U2(C0PolarProjection_V2):
 
     transposed : bool, default=False
         If `True`, create the transposed projection matrix $(\mathbb{P}_U^2)^T$.
-    
+
     radial_dim : int, default=0
         Index of the logical dimension corresponding to the radial coordinate
         $s$. The other dimension is the (periodic) angular coordinate $\theta$.

@@ -205,7 +205,7 @@ class Poisson2D(PolarModel2D):
         Poisson2D
             Poisson model containing the logical domain, mapping, exact solution
             and source term.
-        
+
         """
         import numpy as np
         from sympde.topology.analytical_mapping import CzarnyMapping
@@ -276,6 +276,7 @@ class CongaLaplacian(LinearOperator):
     W0 : StencilVectorSpace
         Coefficient space on which the operator acts.
     """
+
     def __init__(self, S, M, P, alpha):
 
         from psydac.feec.polar.conga_projections import (
@@ -533,7 +534,7 @@ def run_poisson_2d(
     maxiter,
     radial_dim,
     verbose,
-    mpi_comm, # given by function 'parallel_run_from_cli'
+    mpi_comm,  # given by function 'parallel_run_from_cli'
 ):
     import os
     from time import sleep, time

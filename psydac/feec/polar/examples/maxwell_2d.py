@@ -323,9 +323,9 @@ def run_maxwell_2d_TE(
     verbose,
     use_scipy,
     save_figs,
-    cfl=0.9,         # not read from CLI
+    cfl=0.9,  # not read from CLI
     show_figs=True,  # not read from CLI
-    mpi_comm,        # given by function 'parallel_run_from_cli'
+    mpi_comm,  # given by function 'parallel_run_from_cli'
 ):
     import matplotlib.pyplot as plt
     from sympde.calculus import dot
@@ -415,9 +415,7 @@ def run_maxwell_2d_TE(
         derham_h = discretize(derham, domain_h)
         F = list(domain_h.mappings.values()).pop()
     else:
-        domain_h = discretize(
-            domain, ncells=ncells, periodic=periodic, comm=mpi_comm
-        )
+        domain_h = discretize(domain, ncells=ncells, periodic=periodic, comm=mpi_comm)
         derham_h = discretize(derham, domain_h, degree=degree)
         F = mapping.get_callable_mapping()
 
