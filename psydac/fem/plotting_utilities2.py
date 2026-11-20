@@ -186,11 +186,13 @@ def get_plotting_grid(mappings, N, centered_nodes=False):
     
     callable_mappings = [M.get_callable_mapping() for M in mappings.values()]
 
-    pcoords = [np.array([[f(e1, e2) for e2 in eta[1]] for e1 in eta[0]])
-               for f, eta in zip(callable_mappings, etas)]
-    
-    xx = [pcoords[k][:, :, 0] for k in range(nb_patches)]
-    yy = [pcoords[k][:, :, 1] for k in range(nb_patches)]
+    # The callable mappings work on arrays, so every patch is mapped at once (instead of point by point)
+    xx, yy = [], []
+    for f, eta in zip(callable_mappings, etas):
+        e1, e2 = np.meshgrid(eta[0], eta[1], indexing='ij')
+        x, y   = f(e1, e2)
+        xx.append(np.broadcast_to(x, e1.shape).astype(float))     # broadcast: a component might not depend on eta
+        yy.append(np.broadcast_to(y, e1.shape).astype(float))
 
     return etas, xx, yy
 
@@ -413,6 +415,24 @@ class _Prepared(NamedTuple):
     patch_boundaries : list | None   # per patch, see _patch_lines
     style            : dict          # options passed on to fill_axes
 
+# Every option plot_2d / fill_axes understands (global keyword arguments or keys of a dictionary in funs).
+# Anything else gives a warning, so that a typo doesn't get ignored silently.
+_KNOWN_OPTIONS = {
+    # plot_2d
+    'plot_type', 'components', 'magnitude', 'N_vis', 'N_lines', 'xx', 'yy', 'cmap',
+    'plot_spline_grid', 'spline_grid', 'plot_patch_boundaries', 'patch_boundaries',
+    'figsize', 'suptitle_size', 'tight_layout',
+    # fill_axes
+    'title_size', 'save_vals', 'index', 'vmin', 'vmax', 'color_scale',
+    'contourf_levels', 'contourf_zorder', 'contourf_extend',
+    'spline_grid_color', 'spline_grid_linewidth', 'patch_boundaries_color', 'patch_boundaries_linewidth',
+    'rasterization_zorder', 'rastarization_zorder',
+    'show_xylabel', 'xlabel', 'ylabel', 'xlabel_rotation', 'ylabel_rotation', 'aspect', 'cbar',
+    'contour', 'contour_levels', 'contour_zorder', 'contour_cmap', 'contour_colors',
+    'rstride', 'cstride',
+    'vf_skip', 'vf_skip_x', 'vf_skip_y', 'amp_factor', 'scale', 'vector_width', 'vf_color', 'contourf',
+}
+
 # Options that plot_2d uses itself, they are not passed on to fill_axes
 _PLOT2D_ONLY = {'xx', 'yy', 'N_vis', 'N_lines', 'components', 'magnitude', 
                 'plot_spline_grid', 'spline_grid', 'plot_patch_boundaries', 'patch_boundaries'}
@@ -439,6 +459,10 @@ def _prepare(fun, global_opts, cache):
     """Compute everything needed to draw one entry of funs: the data of its plot(s) and its lines."""
     kind, data, local_opts = _split_fun(fun)
     o = {**global_opts, **local_opts}
+
+    unknown = sorted(set(o) - _KNOWN_OPTIONS)
+    if unknown:
+        warnings.warn(f'Unknown option(s) {unknown}, they are ignored. Typo?')
 
     if kind == 'fem_field':
         arrays, kinds, xx, yy = _from_fem_field(data, o, cache)
@@ -487,7 +511,7 @@ def plot_2d(funs, titles=None, suptitle=None, xx=None, yy=None,
         plot_type='contourf', components=None, magnitude=False,
         N_vis=(100,100),
         plot_spline_grid=False, spline_grid=None, plot_patch_boundaries=False, patch_boundaries=None,
-        cmap='jet', layout=None,
+        cmap='viridis', layout=None,
         show_plot=True, filename=None, fig=None, scales=None,
         **kwargs
         ):
@@ -593,13 +617,13 @@ def plot_2d(funs, titles=None, suptitle=None, xx=None, yy=None,
 
     Examples
     --------
-    >>> plot_fields_2d(funs   = (F, {'fem_field':G, 'plot_type':'surface_plot'}, vals_H, {'vals':vals_I, 'cmap':'jet'}), 
-                       titles = ('F', 'G - Surface Plot', 'H', 'I'), 
-                       xx     = xx, 
-                       yy     = yy,
-                       cmap   = 'magma', 
-                       plot_patch_boundaries = True,
-                       patch_boundary_linewidth = 1)
+    >>> plot_2d(funs   = (F, {'fem_field':G, 'plot_type':'surface_plot'}, vals_H, {'vals':vals_I, 'cmap':'plasma'}), 
+                titles = ('F', 'G - Surface Plot', 'H', 'I'), 
+                xx     = xx, 
+                yy     = yy,
+                cmap   = 'magma', 
+                plot_patch_boundaries = True,
+                patch_boundaries_linewidth = 1)
 
     F and G are FemFields. vals_H and vals_I are grid data.
     The code produces a Figure with 4 to 8 plots depending on whether F, G, H and I are scalar- or vector-valued.
@@ -608,14 +632,14 @@ def plot_2d(funs, titles=None, suptitle=None, xx=None, yy=None,
     by passing {'fem_field':G, 'plot_type':'surface_plot'} rather than only G.
     The FemFields F and G are plotted over their own respective domain, vals_H and vals_I are plotted over xx & yy.
     Titles for each plot are specified. No Figure title (suptitle) is specified.
-    The default colormap is 'jet'. This default is overwritten for all 4 to 8 plots by setting cmap='magma'.
+    The default colormap is 'viridis'. This default is overwritten for all 4 to 8 plots by setting cmap='magma'.
     A plot-specific colormap is chosen for vals_I by locally overwriting the global setting.
     The plot_patch_boundaries setting will automatically add patch boundaries to the FemField plots.
     Grid value plots would require additional patch_boundaries information.
-    An additional kwarg is passed: patch_boundary_linewidth=1. It does not appear in the documentation for this function.
+    An additional kwarg is passed: patch_boundaries_linewidth=1. It does not appear in the documentation for this function.
     It is on of many additional kwargs that can be passed for more subtle changes to fill_axes in this file.
-    In the fill_axes function below, instead of hardcoding these vast options, e.g. patch_boundary_linewidth = 2, we write 
-    patch_boundary_linewidth = kwargs.get('patch_boundary_linewidth', 2).
+    In the fill_axes function below, instead of hardcoding these vast options, e.g. patch_boundaries_linewidth = 2, we write 
+    patch_boundaries_linewidth = kwargs.get('patch_boundaries_linewidth', 2).
     
     """
     return _plot_2d(funs, titles=titles, suptitle=suptitle, xx=xx, yy=yy, 
@@ -639,8 +663,9 @@ def _plot_2d(funs, titles=None, suptitle=None, layout=None, show_plot=True, file
         Plotting grid and lines are stored here and reused by later calls passing the same dictionary.
     """
     # Global options (used for all plots unless overwritten locally)
-    global_opts = {'plot_type':'contourf', 'components':True, 'magnitude':False, 'N_vis':(100, 100), 'N_lines':100, 
-                   'xx':None, 'yy':None, 'cmap':'jet', 'plot_spline_grid':False, 'spline_grid':None, 
+    # Same defaults as plot_2d (plot_2d_time calls this function directly)
+    global_opts = {'plot_type':'contourf', 'components':None, 'magnitude':False, 'N_vis':(100, 100), 'N_lines':100, 
+                   'xx':None, 'yy':None, 'cmap':'viridis', 'plot_spline_grid':False, 'spline_grid':None, 
                    'plot_patch_boundaries':False, 'patch_boundaries':None,
                    **options}
     kwargs = options
@@ -669,6 +694,9 @@ def _plot_2d(funs, titles=None, suptitle=None, layout=None, show_plot=True, file
         if len(titles) == len(prepared) and n_plots > len(prepared):
             plot_titles = [_decorate_title(t, kind) for t, p in zip(titles, prepared) for kind in p.kinds]
         else:
+            if len(titles) != n_plots:
+                warnings.warn(f'{len(titles)} titles for {n_plots} plots ({len(prepared)} functions): '
+                              'pass one title per plot or one per function. Missing titles are left empty, extra ones are ignored.')
             plot_titles = [*titles[:n_plots], *[None] * (n_plots - len(titles))]
 
     # Figure
@@ -738,10 +766,14 @@ def _h5_frames(f, domain, fields):
     return get_frame, len(snapshots), [f[s].attrs['t'] for s in snapshots]
 
 
-def _value_range(arr, plot_type):
-    """(min, max) of the values of one plot, of the magnitude for a vector field plot."""
-    vals = [np.hypot(a, b) for a, b in zip(*arr)] if plot_type == 'vector_field' else arr
-    return min(np.min(v) for v in vals), max(np.max(v) for v in vals)
+def _value_range(arr, style):
+    """(min, max) of the values of one plot, of the magnitude for a vector field plot.
+    For color_scale='log' the min is the smallest positive value (values <= 0 cannot be shown)."""
+    vals   = [np.hypot(a, b) for a, b in zip(*arr)] if style['plot_type'] == 'vector_field' else arr
+    values = np.concatenate([np.ravel(v) for v in vals])
+    if style.get('color_scale', 'linear') == 'log' and np.any(values > 0):
+        return np.min(values[values > 0]), np.max(values)
+    return np.min(values), np.max(values)
 
 
 def _fixed_scales(style, vmin, vmax):
@@ -752,9 +784,7 @@ def _fixed_scales(style, vmin, vmax):
         vmax = vmin + 1e-12     # contour levels must be increasing, even for a constant function
     opts = {'vmin': vmin, 'vmax': vmax}
     for key, n in (('contourf_levels', 50), ('contour_levels', 10)):
-        levels = style.get(key, n)
-        if np.isscalar(levels):
-            opts[key] = np.linspace(vmin, vmax, levels + 1)
+        opts[key] = _shared_levels(style.get(key, n), vmin, vmax, style.get('color_scale', 'linear'))
     if style['plot_type'] == 'vector_field' and 'scale' not in style:
         opts['scale'] = style.get('amp_factor', 10) * vmax
     return opts
@@ -838,7 +868,7 @@ def plot_2d_time(frames, filedirname, format:Literal['gif', 'png']='gif', domain
     as_gif = format == 'gif'
     if as_gif and not path.endswith('.gif'):
         path += '.gif'
-    if not as_gif:                                      # the name is the folder name, whatever it ends with
+    if not as_gif:
         os.makedirs(path, exist_ok=True)
 
     if isinstance(frames, h5py.File):
@@ -855,7 +885,7 @@ def plot_2d_time(frames, filedirname, format:Literal['gif', 'png']='gif', domain
     for i in range(n_frames):
         prepared = _plot_2d(get_frame(i), prepare_only=True, cache=cache, **kwargs)
         plots    = [(arr, p.style) for p in prepared for arr in p.arrays]
-        lo, hi   = np.array([_value_range(arr, style['plot_type']) for arr, style in plots]).T
+        lo, hi   = np.array([_value_range(arr, style) for arr, style in plots]).T
         vmin     = lo if vmin is None else np.minimum(vmin, lo)
         vmax     = hi if vmax is None else np.maximum(vmax, hi)
     scales = [_fixed_scales(style, a, b) for (_, style), a, b in zip(plots, vmin, vmax)]
@@ -886,8 +916,50 @@ def plot_2d_time(frames, filedirname, format:Literal['gif', 'png']='gif', domain
 
 # ------------------------------------------------------------------------------
 
+def _color_norm(vals, kwargs):
+    """
+    One color norm for all patches (essential to guarantee continuous colors along patch interfaces).
+    color_scale 'linear' (default) or 'log'. For 'log', values <= 0 cannot be shown.
+    Returns (norm, vmin, vmax).
+    """
+    color_scale = kwargs.get('color_scale', 'linear')
+    if color_scale not in ('linear', 'log'):
+        raise ValueError(f"color_scale must be 'linear' or 'log', got {color_scale!r}.")
+    values = np.concatenate([np.ravel(v) for v in vals])
+
+    if color_scale == 'log':
+        positive = values[values > 0]
+        if positive.size == 0:
+            raise ValueError("color_scale='log' requires positive values.")
+        if positive.size < values.size and 'vmin' not in kwargs:
+            warnings.warn("color_scale='log': values <= 0 cannot be shown.")
+        vmin = kwargs.get('vmin', np.min(positive))
+        vmax = kwargs.get('vmax', np.max(positive))
+        return colors.LogNorm(vmin=vmin, vmax=vmax), vmin, vmax
+
+    vmin = kwargs.get('vmin', np.min(values))
+    vmax = kwargs.get('vmax', np.max(values))
+    return colors.Normalize(vmin=vmin, vmax=vmax), vmin, vmax
+
+
+def _shared_levels(levels, vmin, vmax, color_scale='linear'):
+    """
+    Contour levels for all patches. A number of levels is turned into explicit levels between vmin and vmax,
+    otherwise matplotlib would choose them from the values of every patch separately, and the bands would not
+    line up at the patch interfaces. Explicit levels are returned as they are.
+    """
+    if not np.isscalar(levels):
+        return levels
+    if vmax <= vmin:
+        vmax = vmin + 1e-12     # levels must be increasing, even for a constant function
+    if color_scale == 'log':
+        return np.geomspace(vmin, vmax, levels + 1)
+    return np.linspace(vmin, vmax, levels + 1)
+
+# ------------------------------------------------------------------------------
+
 def fill_axes(ax, xx, yy, vals, 
-        title=None, plot_type='contourf', cmap='jet', spline_grid=None, patch_boundaries=None,
+        title=None, plot_type='contourf', cmap='viridis', spline_grid=None, patch_boundaries=None,
         **kwargs
 ):
     """
@@ -926,17 +998,18 @@ def fill_axes(ax, xx, yy, vals,
         Extra settings. Currently implemented:
         title_size, 
         save_vals, index, 
-        vmin, vmax, 
+        vmin, vmax, color_scale ('linear' or 'log'),
         contourf_levels, contourf_zorder, contourf_extend,
         spline_grid_color, spline_grid_linewidth, 
         patch_boundaries_color, patch_boundaries_linewidth, 
-        rastarization_zorder,
+        rasterization_zorder (old spelling rastarization_zorder also accepted),
         show_xylabel, xlabel, ylabel, xlabel_rotation, ylabel_rotation, 
         aspect, 
         cbar,
         contour (in addition to contourf), contour_levels, contour_zorder, contour_cmap, contour_colors,
         rstride, cstride,
         vf_skip, vf_skip_x, vf_skip_y, amp_factor, scale, vector_width,
+        vf_color ('magnitude': arrows colored by their length, otherwise one color, default 'k'),
         contourf (in addition to a quiver/vector_field plot)
 
     Returns
@@ -957,18 +1030,17 @@ def fill_axes(ax, xx, yy, vals,
         title_size = kwargs.get('title_size', 14)
         ax.set_title(title, fontsize=title_size)
 
-    rastarization_zorder = kwargs.get('rastarization_zorder', 0)
-    ax.set_rasterization_zorder(rastarization_zorder)
+    # 'rastarization_zorder' is the old (misspelled) name, still accepted
+    rasterization_zorder = kwargs.get('rasterization_zorder', kwargs.get('rastarization_zorder', 0))
+    ax.set_rasterization_zorder(rasterization_zorder)
 
     n_patches = len(xx)
 
     if plot_type == 'contourf':
-        # Essential to guarantee continuous colors along patch interfaces
-        vmin  = kwargs.get('vmin', np.min(vals))
-        vmax  = kwargs.get('vmax', np.max(vals))
-        cnorm = colors.Normalize(vmin=vmin, vmax=vmax)
+        cnorm, vmin, vmax = _color_norm(vals, kwargs)
+        color_scale       = kwargs.get('color_scale', 'linear')
 
-        contourf_levels            = kwargs.get('contourf_levels', 50)
+        contourf_levels            = _shared_levels(kwargs.get('contourf_levels', 50), vmin, vmax, color_scale)
         contourf_zorder            = kwargs.get('contourf_zorder', -10)
         contourf_extend            = kwargs.get('contourf_extend', 'neither')
         spline_grid_color          = kwargs.get('spline_grid_color', 'k')
@@ -978,7 +1050,7 @@ def fill_axes(ax, xx, yy, vals,
 
         contour = kwargs.get('contour', False)
         if contour:
-            contour_levels = kwargs.get('contour_levels', 10)
+            contour_levels = _shared_levels(kwargs.get('contour_levels', 10), vmin, vmax, color_scale)
             contour_zorder = kwargs.get('contour_zorder', contourf_zorder+1)
             contour_cmap   = kwargs.get('contour_cmap', None)
             contour_colors = kwargs.get('contour_colors', 'k')
@@ -1001,10 +1073,10 @@ def fill_axes(ax, xx, yy, vals,
                     ax.plot(*patch_boundaries[k][3], color=patch_boundaries_color, linewidth=patch_boundaries_linewidth)
 
     elif plot_type == 'surface_plot':
-        # Essential to guarantee continuous colors along patch interfaces
-        vmin  = kwargs.get('vmin', np.min(vals))
-        vmax  = kwargs.get('vmax', np.max(vals))
-        cnorm = colors.Normalize(vmin=vmin, vmax=vmax)
+        cnorm, vmin, vmax = _color_norm(vals, kwargs)
+
+        if spline_grid is not None or patch_boundaries is not None:
+            warnings.warn("The spline grid and patch boundaries are not drawn on a surface_plot.")
 
         rstride = kwargs.get('rstride', 2)
         cstride = kwargs.get('cstride', 2)
@@ -1030,8 +1102,18 @@ def fill_axes(ax, xx, yy, vals,
         abs_vals    = [np.sqrt(abs(v_x)**2 + abs(v_y)**2) for v_x, v_y in zip(vals_x, vals_y)]
         max_val     = np.max(abs_vals)
 
-        vf_skip_x_default          = max(10, int(np.floor(len(vals_x[0])/10)))
-        vf_skip_y_default          = max(10, int(np.floor(len(vals_y[0])/10)))
+        # The magnitude is color-mapped if the arrows are colored by it and/or it is drawn as contourf below.
+        # Both then use the same norm (over all patches), otherwise nothing is color-mapped (cnorm = None).
+        vf_color    = kwargs.get('vf_color', 'k')
+        contourf    = kwargs.get('contourf', False)
+        color_scale = kwargs.get('color_scale', 'linear')
+        if vf_color == 'magnitude' or contourf:
+            cnorm, vmin, vmax = _color_norm(abs_vals, kwargs)
+        else:
+            cnorm = None
+
+        vf_skip_x_default          = max(10, int(np.floor(np.shape(vals_x[0])[0]/10)))
+        vf_skip_y_default          = max(10, int(np.floor(np.shape(vals_x[0])[1]/10)))
 
         vf_skip_x                  = kwargs.get('vf_skip_x', kwargs.get('vf_skip', vf_skip_x_default))
         vf_skip_y                  = kwargs.get('vf_skip_y', kwargs.get('vf_skip', vf_skip_y_default))
@@ -1039,7 +1121,7 @@ def fill_axes(ax, xx, yy, vals,
         scale                      = kwargs.get('scale', amp_factor * max_val)
         vector_width               = kwargs.get('vector_width', 0.005)
         if kwargs.get('scale', None) is not None and kwargs.get('amp_factor', None) is not None:
-            print(f'Warning: scale overwrites amp_factor.')
+            warnings.warn('scale overwrites amp_factor.')
 
         patch_boundaries_color     = kwargs.get('patch_boundaries_color', 'k')
         patch_boundaries_linewidth = kwargs.get('patch_boundaries_linewidth', 2)
@@ -1047,22 +1129,20 @@ def fill_axes(ax, xx, yy, vals,
         spline_grid_linewidth      = kwargs.get('spline_grid_linewidth', 1)
 
         for k in range(n_patches):
-            ax.quiver(xx[k][::vf_skip_x, ::vf_skip_x],
-                      yy[k][::vf_skip_y, ::vf_skip_y],
-                      vals_x[k][::vf_skip_x, ::vf_skip_x],
-                      vals_y[k][::vf_skip_y, ::vf_skip_y],
-                      scale=scale,
-                      width=vector_width)
+            # arrays are indexed [i, j] with i along eta_1 and j along eta_2 (meshgrid indexing='ij'),
+            # so every array is thinned with vf_skip_x along axis 0 and vf_skip_y along axis 1
+            arrows = (xx[k][::vf_skip_x, ::vf_skip_y],
+                      yy[k][::vf_skip_x, ::vf_skip_y],
+                      vals_x[k][::vf_skip_x, ::vf_skip_y],
+                      vals_y[k][::vf_skip_x, ::vf_skip_y])
+            if vf_color == 'magnitude':
+                ax.quiver(*arrows, abs_vals[k][::vf_skip_x, ::vf_skip_y], norm=cnorm, cmap=cmap, scale=scale, width=vector_width)
+            else:
+                ax.quiver(*arrows, color=vf_color, scale=scale, width=vector_width)
 
-            contourf = kwargs.get('contourf', False)
             if contourf:
-                # Essential to guarantee continuous colors along patch interfaces
-                vmin  = kwargs.get('vmin', np.min(abs_vals))
-                vmax  = kwargs.get('vmax', np.max(abs_vals))
-                cnorm = colors.Normalize(vmin=vmin, vmax=vmax)
-
-                contourf_levels = kwargs.get('contourf_levels', 50)
-                contourf_zorder = kwargs.get('contourf_zoder', -10)
+                contourf_levels = _shared_levels(kwargs.get('contourf_levels', 50), vmin, vmax, color_scale)
+                contourf_zorder = kwargs.get('contourf_zorder', -10)
                 contourf_extend = kwargs.get('contourf_extend', 'neither')
 
                 ax.contourf(xx[k], yy[k], abs_vals[k], alpha=0.5, levels=contourf_levels, norm=cnorm, cmap=cmap, zorder=contourf_zorder, extend=contourf_extend)
@@ -1080,9 +1160,11 @@ def fill_axes(ax, xx, yy, vals,
                     ax.plot(*patch_boundaries[k][3], color=patch_boundaries_color, linewidth=patch_boundaries_linewidth)
 
     # Add the colorbar
-    cbar_default = True if (plot_type == 'contourf') or (plot_type == 'vector_field' and kwargs.get('contourf', False)) else False
+    cbar_default = plot_type == 'contourf' or (plot_type == 'vector_field' and cnorm is not None)
     cbar = kwargs.get('cbar', cbar_default)
-    if cbar:
+    if cbar and cnorm is None:
+        warnings.warn("cbar has no effect on plot_type='vector_field' without contourf=True or vf_color='magnitude': nothing is color-mapped.")
+    elif cbar:
         plt.colorbar(cm.ScalarMappable(norm=cnorm, cmap=cmap), ax=ax, pad=0.05)
 
     # Set x & ylabel

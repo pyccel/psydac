@@ -86,12 +86,10 @@ if input("check png format and string as input: ") == "y":
 
 
 
+#! logical=True => take logical domain, not physical; also "logical" components
+
 #! symlog
 #! take coefficient-file + femspace or coefficient-file + domain-yml + mapping-file
     # coeefs.h5 + FemSpace  //  coeefs.h5 + geometry.h5 + mapping.yml
 #! same_scale_for_all inside the dicts, to have same for components, or for all all
-#!??? SCHAUEN, was als erstes kommt: magnitude oder components, um die order der plots <-> title zu bestimmen
-
-
-#* {"magnitude": True, "components": True} => show both magn and comp plots
-#* auto names
+#! names=("E", "B"), titles="auto" => automatically generate titles for the plots

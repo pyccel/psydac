@@ -53,14 +53,50 @@ B_vals = pu.get_grid_vals(B, etas, list(mappings.values()))
 
 
 
-#* auto-titles
-# this should automatically complete the titles
-# it should also never plot the absolute value of anything
-# it should also not plot B twice (components and magnitude)
-pu.plot_2d((E, B), titles=("E", "B"), components=True, magnitude=True, show_plot=True)
+# #* auto-titles
+# # this should automatically complete the titles
+# # it should also never plot the absolute value of anything
+# # it should also not plot B twice (components and magnitude)
+# pu.plot_2d((E, {"fem_field": B, "cmap": "viridis"}), titles=("E", "B"), components=True, magnitude=True, show_plot=True)
 
-# this should plot the normal basic names, not magnitudified names
-pu.plot_2d((E, B), titles=("E", "B"), magnitude=True, show_plot=True)
+# pu.plot_2d(({"fem_field": E, "components": "x", "cmap":"plasma"}, {"fem_field": E, "components": "y", "cmap":"hsv"}, {"fem_field": B, "cmap": "viridis"}), titles=("E", "B"), components=True, magnitude=True, show_plot=True)
 
-# this should just not fail
-pu.plot_2d((E, B), titles=("E1", "E2", "E3", "B"), components=True, magnitude=True, show_plot=True)
+# # this should plot the normal basic names, not magnitudified names
+# pu.plot_2d((E, B), titles=("E", "B"), magnitude=True, show_plot=True)
+
+# # this should just not fail
+# pu.plot_2d((E, B), titles=("E1", "E2", "E3", "B"), components=True, magnitude=True, show_plot=True)
+
+
+
+
+
+# pu.plot_2d((E, B), titles=("E_x", "E_y", "||E||", "B"), components=True, magnitude=True, show_plot=True)
+
+# pu.plot_2d((E, B), titles=("||E||", "E_x", "E_y", "B"), magnitude=True, components=True, show_plot=True)
+
+
+
+
+
+pu.plot_2d(
+    (E, B), titles=("E", "B"),
+    components=True, magnitude=True, show_plot=True
+)
+
+# pu.plot_2d(
+#     {
+#         "E": E,
+#         "B": {"fem_field": B, "cmap": "plasma"},
+#     },
+#     components=True, magnitude=True, show_plot=False
+# )
+
+
+
+pu.plot_2d(
+    (E, B), titles=("magnitude of E", "comp1 of E", "comp2 of E", "B"),
+    components=True, magnitude=True, show_plot=True
+)
+
+
