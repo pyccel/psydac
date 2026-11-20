@@ -41,9 +41,9 @@ class Poisson2D(PolarModel2D):
 
     Parameters
     ----------
-    domain_log : sympde.topology.Domain
+    domain_log : sympde.topology.domain.Domain
         Logical domain on which the solution is defined.
-    mapping : sympde.topology.Mapping
+    mapping : sympde.topology.mapping.Mapping
         Mapping from the logical domain to the physical domain.
     phi_log : sympy.Expr
         Exact scalar potential in logical coordinates.

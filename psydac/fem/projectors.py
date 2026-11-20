@@ -182,7 +182,7 @@ class DirichletProjector(LinearOperator):
         fem_space.coeff_space is domain and codomain of this LO. fem_space.kind.name determines the BCs that get applied.
 
     bcs : Iterable | None
-        Iterable of sympde.topology.Boundary objects. 
+        Iterable of sympde.topology.basic.Boundary objects. 
         Allows the user to apply different kinds of BCs.
         Must not be passed if a space_kind argument is passed.
 
@@ -284,7 +284,7 @@ class DirichletProjector(LinearOperator):
         Returns
         -------
         bcs : tuple
-            tuple of sympde.topology.Boundary. 
+            tuple of sympde.topology.basic.Boundary. 
             Coefficients corresponding to functions non-zero on these boundaries will be set to 0.
         
         """
@@ -366,7 +366,7 @@ class MultipatchDirichletProjector(DirichletProjector):
         fem_space.coeff_space is domain and codomain of this LO. fem_space.kind.name determines the BCs that get applied.
 
     bcs : Iterable | None
-        Iterable of sympde.topology.Boundary objects. 
+        Iterable of sympde.topology.basic.Boundary objects. 
         Allows the user to apply different kinds of BCs.
         Must not be passed if a space_kind argument is passed.
 
@@ -427,7 +427,7 @@ class MultipatchDirichletProjector(DirichletProjector):
         Returns
         -------
         bcs : tuple
-            tuple of sympde.topology.Boundary. 
+            tuple of sympde.topology.basic.Boundary. 
             Coefficients corresponding to functions non-zero on these boundaries will be set to 0.
         
         """

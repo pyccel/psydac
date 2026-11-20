@@ -19,7 +19,7 @@ class PolarModel2D:
 
     Parameters
     ----------
-    domain_log : sympde.topology.Domain
+    domain_log : sympde.topology.domain.Domain
         Logical domain on which the analytical mapping is defined.
 
     analytical_mapping : sympde.topology.mapping.Mapping
@@ -37,11 +37,11 @@ class PolarModel2D:
     analytical_mapping : sympde.topology.mapping.Mapping
         Original analytical mapping from the logical to the physical domain.
 
-    domain : sympde.topology.Domain
+    domain : sympde.topology.domain.Domain
         Physical domain associated with `mapping`. Initialized by
         calling `build_geometry`.
 
-    domain_log : sympde.topology.Domain
+    domain_log : sympde.topology.domain.Domain
         Logical domain.
 
     geometry_export_time : float
