@@ -8,15 +8,15 @@ from sympy import pi, cos, sin, symbols
 from sympy.utilities.lambdify import implemented_function
 import pytest
 
-from sympde.calculus import grad, dot
-from sympde.topology import ScalarFunctionSpace
-from sympde.topology import element_of
-from sympde.topology import NormalVector
-from sympde.topology import Square
-from sympde.topology import Union
-from sympde.expr     import BilinearForm, LinearForm, integral
-from sympde.expr     import Norm, SemiNorm
-from sympde.expr     import find, EssentialBC
+from sympde.api import grad, dot
+from sympde.api import ScalarFunctionSpace
+from sympde.api import element_of
+from sympde.api import NormalVector
+from sympde.api import Square
+from sympde.api import Union
+from sympde.api import BilinearForm, LinearForm, integral
+from sympde.api import Norm, SemiNorm
+from sympde.api import find, EssentialBC
 
 from psydac.api.discretization import discretize
 from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL

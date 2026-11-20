@@ -20,7 +20,7 @@
 import os
 import numpy as np
 
-from sympde.topology import Derham
+from sympde.api import Derham
 
 from psydac.api.discretization import discretize
 from psydac.api.postprocessing import OutputManager, PostProcessManager

@@ -11,17 +11,17 @@ import numpy as np
 from sympy import pi, cos, sin, exp, ImmutableDenseMatrix as Matrix, Tuple
 from scipy.sparse.linalg import spsolve
 
-from sympde.calculus import grad, dot, inner, div
-from sympde.calculus import Transpose
-from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
-from sympde.topology import ProductSpace
-from sympde.topology import element_of, elements_of
-from sympde.topology import Domain, Square, Union
-from sympde.expr     import BilinearForm, LinearForm, integral
-from sympde.expr     import Norm
-from sympde.expr     import find, EssentialBC
-from sympde.core     import Constant
-from sympde.expr     import linearize
+from sympde.api import grad, dot, inner, div
+from sympde.api import Transpose
+from sympde.api import ScalarFunctionSpace, VectorFunctionSpace
+from sympde.api import ProductSpace
+from sympde.api import element_of, elements_of
+from sympde.api import Domain, Square, Union
+from sympde.api import BilinearForm, LinearForm, integral
+from sympde.api import Norm
+from sympde.api import find, EssentialBC
+from sympde.api import Constant
+from sympde.api import linearize
 
 from psydac.api.essential_bc   import apply_essential_bc
 from psydac.fem.basic          import FemField
@@ -351,8 +351,8 @@ def test_st_navier_stokes_2d():
     assert (ux.diff(x) + uy.diff(y)).simplify() == 0
 
     # ... Compute right-hand side
-    from sympde.calculus import laplace, grad
-    from sympde.expr     import TerminalExpr
+    from sympde.api import laplace, grad
+    from sympde.api import TerminalExpr
 
     a = TerminalExpr(-mu*laplace(ue), domain)
     b = TerminalExpr(    grad(ue), domain)
@@ -405,8 +405,8 @@ def test_st_navier_stokes_2d_parallel():
     assert (ux.diff(x) + uy.diff(y)).simplify() == 0
 
     # ... Compute right-hand side
-    from sympde.calculus import laplace, grad
-    from sympde.expr     import TerminalExpr
+    from sympde.api import laplace, grad
+    from sympde.api import TerminalExpr
 
     a = TerminalExpr(-mu*laplace(ue), domain)
     b = TerminalExpr(    grad(ue), domain)

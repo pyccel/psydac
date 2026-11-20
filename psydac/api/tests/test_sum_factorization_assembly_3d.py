@@ -11,9 +11,9 @@ import  time
 import  numpy   as      np
 from    sympy   import  sin, sqrt, pi, Abs, cos, tan
 
-from    sympde.calculus             import dot, cross, grad, curl, div, laplace
-from    sympde.expr                 import BilinearForm, integral
-from    sympde.topology             import element_of, elements_of, Cube, Mapping, ScalarFunctionSpace, VectorFunctionSpace, Domain, Derham
+from sympde.api import dot, cross, grad, curl, div, laplace
+from sympde.api import BilinearForm, integral
+from sympde.api import element_of, elements_of, Cube, Mapping, ScalarFunctionSpace, VectorFunctionSpace, Domain, Derham
 
 from    psydac.api.discretization   import discretize
 from    psydac.api.settings         import PSYDAC_BACKEND_GPYCCEL

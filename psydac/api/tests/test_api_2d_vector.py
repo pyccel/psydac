@@ -6,13 +6,13 @@
 from sympy import Tuple, Matrix
 from sympy import pi, sin
 
-from sympde.calculus import grad, dot, inner
-from sympde.topology import VectorFunctionSpace
-from sympde.topology import element_of
-from sympde.topology import Square
-from sympde.expr     import BilinearForm, LinearForm, integral
-from sympde.expr     import Norm, SemiNorm
-from sympde.expr     import find, EssentialBC
+from sympde.api import grad, dot, inner
+from sympde.api import VectorFunctionSpace
+from sympde.api import element_of
+from sympde.api import Square
+from sympde.api import BilinearForm, LinearForm, integral
+from sympde.api import Norm, SemiNorm
+from sympde.api import find, EssentialBC
 
 from psydac.api.discretization import discretize
 

@@ -10,8 +10,8 @@ from sympy import Tuple, lambdify
 from scipy.sparse.linalg import norm as sp_norm
 from scipy.sparse.linalg import inv
 
-from sympde.topology.domain import Domain
-from sympde.topology import Derham, Square, IdentityMapping
+from sympde.api import Domain
+from sympde.api import Derham, Square, IdentityMapping
 
 from psydac.api.discretization import discretize
 

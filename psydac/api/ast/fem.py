@@ -10,13 +10,13 @@ from sympy import Basic, S, Function, Integer, Symbol
 from sympy import Matrix, ImmutableDenseMatrix, true
 from sympy.core.containers import Tuple
 
-from sympde.expr                 import LinearForm, BilinearForm, Functional
-from sympde.topology.basic       import Boundary, Interface
-from sympde.topology             import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType, UndefinedSpaceType, IdentityMapping
-from sympde.topology.space       import ScalarFunction, VectorFunction, IndexedVectorFunction
-from sympde.topology.derivatives import _logical_partial_derivatives, get_atom_logical_derivatives
-from sympde.topology.mapping     import InterfaceMapping
-from sympde.calculus.core        import is_zero, PlusInterfaceOperator
+from sympde.api import LinearForm, BilinearForm, Functional
+from sympde.api import Boundary, Interface
+from sympde.api import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType, UndefinedSpaceType, IdentityMapping
+from sympde.api import ScalarFunction, VectorFunction, IndexedVectorFunction
+from sympde.api import logical_partial_derivatives, get_atom_logical_derivatives
+from sympde.api import InterfaceMapping
+from sympde.api import is_zero, PlusInterfaceOperator
 
 from psydac.pyccel.ast.core import _atomic, Assign, Import, Return, Comment, Continue, Slice
 
@@ -354,7 +354,7 @@ class AST(object):
             atomic_expr_field = {f:[] for f in fields}
             for i_row in range(0, n_rows):
                 for i_col in range(0, n_cols):
-                    atoms       = _atomic(terminal_expr[i_row, i_col], cls=atoms_types+_logical_partial_derivatives)
+                    atoms       = _atomic(terminal_expr[i_row, i_col], cls=atoms_types+logical_partial_derivatives)
                     #--------------------------------------------------------------------
                     # TODO [YG, 05.02.2021]: create 'get_test_function' and use it below:
 #                    field_atoms = [a for a in atoms if get_test_function(a) in fields]
@@ -370,7 +370,7 @@ class AST(object):
                     nderiv = max(nderiv, max(d.values()))
 
         else:
-            atoms       = _atomic(terminal_expr, cls=atoms_types+_logical_partial_derivatives)
+            atoms       = _atomic(terminal_expr, cls=atoms_types+logical_partial_derivatives)
             #--------------------------------------------------------------------
             # TODO [YG, 05.02.2021]: create 'get_test_function' and use it below:
 #            field_atoms = [a for a in atoms if get_test_function(a) in fields]

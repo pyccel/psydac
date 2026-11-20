@@ -10,9 +10,9 @@ import numpy as np
 from   mpi4py          import MPI
 from   scipy.sparse    import kron
 
-from   sympde.calculus import inner
-from   sympde.expr     import integral, BilinearForm
-from   sympde.topology import elements_of, Square, Line, Derham
+from sympde.api import inner
+from sympde.api import integral, BilinearForm
+from sympde.api import elements_of, Square, Line, Derham
 
 from   psydac.api.discretization     import discretize
 from   psydac.api.settings           import PSYDAC_BACKEND_GPYCCEL

@@ -8,10 +8,10 @@ import  pytest
 from    mpi4py import MPI
 from    sympy import sin, pi, sqrt, Tuple
 
-from    sympde.calculus               import inner, cross
-from    sympde.expr                   import integral, LinearForm, BilinearForm
-from    sympde.topology               import elements_of, Derham, Mapping, Line, Square, Cube, Union, NormalVector, ScalarFunctionSpace, VectorFunctionSpace
-from    sympde.topology.datatype      import H1Space, HcurlSpace
+from sympde.api import inner, cross
+from sympde.api import integral, LinearForm, BilinearForm
+from sympde.api import elements_of, Derham, Mapping, Line, Square, Cube, Union, NormalVector, ScalarFunctionSpace, VectorFunctionSpace
+from sympde.api import H1Space, HcurlSpace
 
 from    psydac.api.discretization     import discretize
 from    psydac.api.settings           import PSYDAC_BACKEND_GPYCCEL
@@ -52,7 +52,7 @@ def test_function_space_boundary_projector(dim):
     print()
 
     domain        = mappings[dim-1](logical_domains[dim-1])
-    from sympde.utilities.utils import plot_domain
+    from sympde.api import plot_domain
     #plot_domain(domain, draw=True, isolines=True)
 
     # Obtain "true" boundary, i.e., remove periodic y-direction boundary
@@ -252,7 +252,7 @@ def test_discrete_derham_boundary_projector(dim):
     print()
 
     domain        = mappings[dim-1](logical_domains[dim-1])
-    from sympde.utilities.utils import plot_domain
+    from sympde.api import plot_domain
     #plot_domain(domain, draw=True, isolines=True)
 
     # Obtain "true" boundary, i.e., remove periodic y-direction boundary

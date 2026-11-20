@@ -15,17 +15,15 @@ from sympy.core.singleton      import Singleton
 from sympy.core.containers     import Tuple
 from sympy.utilities.iterables import iterable as is_iterable
 
-from sympde.old_sympy_utilities import with_metaclass
-
-from sympde.topology import element_of
-from sympde.topology import ScalarFunction, VectorFunction
-from sympde.topology import VectorFunctionSpace
-from sympde.topology import IndexedVectorFunction
-from sympde.topology import H1SpaceType, L2SpaceType, UndefinedSpaceType
-from sympde.topology import Mapping
-from sympde.topology import dx1, dx2, dx3
-from sympde.topology import get_atom_logical_derivatives
-from sympde.topology import Interface
+from sympde.api import element_of
+from sympde.api import ScalarFunction, VectorFunction
+from sympde.api import VectorFunctionSpace
+from sympde.api import IndexedVectorFunction
+from sympde.api import H1SpaceType, L2SpaceType, UndefinedSpaceType
+from sympde.api import Mapping
+from sympde.api import dx1, dx2, dx3
+from sympde.api import get_atom_logical_derivatives
+from sympde.api import Interface
 
 from psydac.api.utilities   import flatten, random_string
 from psydac.pyccel.ast.core import AugAssign, Assign, Slice
@@ -134,7 +132,7 @@ class VectorAssign(Basic):
     def op(self):
         return self._args[2]
 #==============================================================================
-class ArityType(with_metaclass(Singleton, Basic)):
+class ArityType(Basic, metaclass=Singleton):
     """Base class representing a form type: bilinear/linear/functional"""
 
 class BilinearArity(ArityType):
@@ -318,7 +316,7 @@ index_inner_dof_test = IndexInnerDofTest()
 local_index_element  = LocalIndexElement()
 
 #==============================================================================
-class RankNode(with_metaclass(Singleton, Basic)):
+class RankNode(Basic, metaclass=Singleton):
     """Base class representing a rank of an iterator"""
     pass
 

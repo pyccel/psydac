@@ -617,8 +617,8 @@ def test_stencil_matrix_2d_serial_topetsc( dtype, n1, n2, p1, p2, s1, s2, P1, P2
 @pytest.mark.petsc
 
 def test_mass_matrix_2d_serial_topetsc(n1, n2, p1, p2, P1, P2):
-    from sympde.topology import Square, ScalarFunctionSpace, element_of
-    from sympde.expr     import BilinearForm, integral
+    from sympde.api import Square, ScalarFunctionSpace, element_of
+    from sympde.api      import BilinearForm, integral
     from psydac.api.settings            import PSYDAC_BACKENDS
     from psydac.api.discretization      import discretize
 
@@ -2939,8 +2939,8 @@ def test_stencil_matrix_1d_parallel_topetsc(dtype, n1, p1, sh1, P1):
 @pytest.mark.petsc
 
 def test_mass_matrix_2d_parallel_topetsc(n1, n2, p1, p2, P1, P2):
-    from sympde.topology import Square, ScalarFunctionSpace, element_of
-    from sympde.expr     import BilinearForm, integral
+    from sympde.api import Square, ScalarFunctionSpace, element_of
+    from sympde.api      import BilinearForm, integral
     from psydac.api.settings            import PSYDAC_BACKENDS
     from psydac.api.discretization      import discretize
     from mpi4py import MPI
@@ -3000,8 +3000,8 @@ def test_mass_matrix_2d_parallel_topetsc(n1, n2, p1, p2, P1, P2):
 @pytest.mark.petsc
 
 def test_mass_matrix_3d_parallel_topetsc(n1, n2, n3, p1, p2, p3, P1, P2, P3):
-    from sympde.topology import Cube, ScalarFunctionSpace, element_of
-    from sympde.expr     import BilinearForm, integral
+    from sympde.api import Cube, ScalarFunctionSpace, element_of
+    from sympde.api      import BilinearForm, integral
     from psydac.api.settings            import PSYDAC_BACKENDS
     from psydac.api.discretization      import discretize
     from mpi4py import MPI
@@ -3056,8 +3056,8 @@ def test_mass_matrix_3d_parallel_topetsc(n1, n2, n3, p1, p2, p3, P1, P2, P3):
 @pytest.mark.petsc
 
 def test_mass_matrix_1d_parallel_topetsc(n1, p1, P1):
-    from sympde.topology import Line, ScalarFunctionSpace, element_of
-    from sympde.expr     import BilinearForm, integral
+    from sympde.api import Line, ScalarFunctionSpace, element_of
+    from sympde.api      import BilinearForm, integral
     from psydac.api.settings            import PSYDAC_BACKENDS
     from psydac.api.discretization      import discretize
     from mpi4py import MPI

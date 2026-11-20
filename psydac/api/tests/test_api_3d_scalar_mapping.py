@@ -10,15 +10,15 @@ from mpi4py import MPI
 from sympy import pi, cos, sin, symbols
 import pytest
 
-from sympde.calculus import grad, dot
-from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
-from sympde.topology import element_of
-from sympde.topology import NormalVector
-from sympde.topology import Union
-from sympde.topology import Domain
-from sympde.expr     import BilinearForm, LinearForm, integral
-from sympde.expr     import Norm, SemiNorm
-from sympde.expr     import find, EssentialBC
+from sympde.api import grad, dot
+from sympde.api import ScalarFunctionSpace, VectorFunctionSpace
+from sympde.api import element_of
+from sympde.api import NormalVector
+from sympde.api import Union
+from sympde.api import Domain
+from sympde.api import BilinearForm, LinearForm, integral
+from sympde.api import Norm, SemiNorm
+from sympde.api import find, EssentialBC
 
 from psydac.api.discretization import discretize
 

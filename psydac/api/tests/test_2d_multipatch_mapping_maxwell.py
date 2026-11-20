@@ -10,16 +10,16 @@ import pytest
 from mpi4py import MPI
 from sympy  import pi, sin, cos, Tuple, Matrix
 
-from sympde.calculus      import dot, curl, cross
-from sympde.calculus      import minus, plus
-from sympde.topology      import VectorFunctionSpace
-from sympde.topology      import elements_of
-from sympde.topology      import NormalVector
-from sympde.topology      import Domain
-from sympde.expr.expr     import LinearForm, BilinearForm
-from sympde.expr.expr     import integral
-from sympde.expr.expr     import Norm
-from sympde.expr.equation import find
+from sympde.api import dot, curl, cross
+from sympde.api import minus, plus
+from sympde.api import VectorFunctionSpace
+from sympde.api import elements_of
+from sympde.api import NormalVector
+from sympde.api import Domain
+from sympde.api import LinearForm, BilinearForm
+from sympde.api import integral
+from sympde.api import Norm
+from sympde.api import find
 
 from psydac.api.discretization       import discretize
 from psydac.api.tests.build_domain   import build_11_patch_pretzel, build_2_patch_annulus

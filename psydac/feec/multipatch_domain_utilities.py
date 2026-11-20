@@ -7,9 +7,9 @@ from mpi4py import MPI
 
 import numpy as np
 
-from sympde.topology import Square, Domain
+from sympde.api import Square, Domain
 # TransposedPolarMapping
-from sympde.topology import IdentityMapping, PolarMapping, AffineMapping, Mapping
+from sympde.api import IdentityMapping, PolarMapping, AffineMapping, Mapping
 
 __all__ = (
     'TransposedPolarMapping',

@@ -8,10 +8,10 @@ from collections.abc import Iterable
 import numpy as np
 from scipy.sparse import diags
 
-from sympde.topology            import element_of, Boundary
-from sympde.calculus            import dot
-from sympde.expr                import LinearForm, integral, EssentialBC
-from sympde.topology.datatype   import SpaceType
+from sympde.api import element_of, Boundary
+from sympde.api import dot
+from sympde.api import LinearForm, integral, EssentialBC
+from sympde.api import SpaceType
 
 from psydac.api.essential_bc    import apply_essential_bc
 from psydac.api.settings        import PSYDAC_BACKENDS

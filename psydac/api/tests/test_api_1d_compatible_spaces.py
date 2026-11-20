@@ -6,15 +6,15 @@
 from sympy               import pi, sin
 from scipy.sparse.linalg import spsolve
 
-from sympde.calculus import dot, div
-from sympde.topology import VectorFunctionSpace, ScalarFunctionSpace
-from sympde.topology import ProductSpace
-from sympde.topology import element_of
-from sympde.topology import Line
-from sympde.expr     import BilinearForm, LinearForm
-from sympde.expr     import integral
-from sympde.expr     import Norm
-from sympde.expr     import find
+from sympde.api import dot, div
+from sympde.api import VectorFunctionSpace, ScalarFunctionSpace
+from sympde.api import ProductSpace
+from sympde.api import element_of
+from sympde.api import Line
+from sympde.api import BilinearForm, LinearForm
+from sympde.api import integral
+from sympde.api import Norm
+from sympde.api import find
 
 from psydac.fem.basic          import FemField
 from psydac.api.discretization import discretize

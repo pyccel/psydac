@@ -11,7 +11,7 @@ class Laplacian:
     """
 
     def __init__(self, mapping):
-        from sympde.topology.mapping import Mapping
+        from sympde.api import Mapping
 
         assert isinstance(mapping, Mapping)
 

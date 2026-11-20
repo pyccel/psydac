@@ -9,7 +9,7 @@ import yaml
 import numpy as np
 import h5py
 
-from sympde.topology.callable_mapping import BasicCallableMapping
+from sympde.api import BasicCallableMapping
 
 from psydac.fem.basic    import FemField
 from psydac.fem.tensor   import TensorFemSpace

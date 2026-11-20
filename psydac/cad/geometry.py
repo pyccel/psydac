@@ -17,9 +17,9 @@ import h5py
 import yaml
 from mpi4py import MPI
 
-from sympde.topology       import Domain, Line, Square, Cube, NCubeInterior, Mapping, NCube
-from sympde.topology.basic import Union
-from sympde.topology.callable_mapping import BasicCallableMapping
+from sympde.api import Domain, Line, Square, Cube, NCubeInterior, Mapping, NCube
+from sympde.api import Union
+from sympde.api import BasicCallableMapping
 
 from psydac.fem.splines        import SplineSpace
 from psydac.fem.tensor         import TensorFemSpace

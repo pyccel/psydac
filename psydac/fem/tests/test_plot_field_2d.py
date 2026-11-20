@@ -6,9 +6,9 @@
 import pytest
 import numpy as np
 
-from sympde.topology import Domain, Square
-from sympde.topology import PolarMapping
-from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
+from sympde.api import Domain, Square
+from sympde.api import PolarMapping
+from sympde.api import ScalarFunctionSpace, VectorFunctionSpace
 
 from psydac.fem.basic              import FemField
 from psydac.api.discretization     import discretize

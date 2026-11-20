@@ -13,15 +13,15 @@ from scipy.sparse.linalg import cg as sp_cg
 from scipy.sparse.linalg import bicg as sp_bicg
 from scipy.sparse.linalg import bicgstab as sp_bicgstab
 
-from sympde.calculus import grad, dot, inner, div, curl, cross
-from sympde.topology import NormalVector
-from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
-from sympde.topology import ProductSpace
-from sympde.topology import element_of, elements_of
-from sympde.topology import Square
-from sympde.expr import BilinearForm, LinearForm, integral
-from sympde.expr import Norm
-from sympde.expr import find, EssentialBC
+from sympde.api import grad, dot, inner, div, curl, cross
+from sympde.api import NormalVector
+from sympde.api import ScalarFunctionSpace, VectorFunctionSpace
+from sympde.api import ProductSpace
+from sympde.api import element_of, elements_of
+from sympde.api import Square
+from sympde.api import BilinearForm, LinearForm, integral
+from sympde.api import Norm
+from sympde.api import find, EssentialBC
 
 from psydac.fem.basic          import FemField
 from psydac.api.discretization import discretize
@@ -447,8 +447,8 @@ def test_stokes_2d_dir_homogeneous(scipy):
     assert (ux.diff(x) + uy.diff(y)).simplify() == 0
 
     # ... Check that exact solution is correct
-    from sympde.calculus import laplace, grad
-    from sympde.expr import TerminalExpr
+    from sympde.api import laplace, grad
+    from sympde.api import TerminalExpr
 
     a = TerminalExpr(-laplace(ue), domain)
     b = TerminalExpr(    grad(pe), domain)
@@ -486,8 +486,8 @@ def test_stokes_2d_dir_non_homogeneous(scipy):
     assert (ux.diff(x) + uy.diff(y)).simplify() == 0
 
     # ... Compute right-hand side
-    from sympde.calculus import laplace, grad
-    from sympde.expr import TerminalExpr
+    from sympde.api import laplace, grad
+    from sympde.api import TerminalExpr
 
     kwargs = dict(dim=2, logical=True)
     a = TerminalExpr(-laplace(ue), domain)
@@ -547,8 +547,8 @@ def test_stokes_2d_dir_non_homogeneous_petsc():
     assert (ux.diff(x) + uy.diff(y)).simplify() == 0
 
     # ... Compute right-hand side
-    from sympde.calculus import laplace, grad
-    from sympde.expr import TerminalExpr
+    from sympde.api import laplace, grad
+    from sympde.api import TerminalExpr
 
     kwargs = dict(dim=2, logical=True)
     a = TerminalExpr(-laplace(ue), domain)

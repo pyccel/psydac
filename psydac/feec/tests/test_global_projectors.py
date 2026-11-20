@@ -14,9 +14,9 @@ from psydac.feec.global_geometric_projectors    import GlobalGeometricProjectorH
 from psydac.feec.global_geometric_projectors    import GlobalGeometricProjectorL2
 
 from psydac.ddm.cart               import DomainDecomposition
-from sympde.topology               import Square, Cube
+from sympde.api                    import Square, Cube
 from psydac.api.discretization     import discretize
-from sympde.topology               import element_of, Derham
+from sympde.api                    import element_of, Derham
 
 
 #==============================================================================

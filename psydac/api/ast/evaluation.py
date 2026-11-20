@@ -6,11 +6,11 @@
 from sympy import symbols, Range
 from sympy import Tuple
 
-from sympde.topology             import Mapping
-from sympde.topology             import ScalarFunction
-from sympde.topology             import SymbolicExpr
-from sympde.topology.space       import element_of
-from sympde.topology.derivatives import _logical_partial_derivatives
+from sympde.api import Mapping
+from sympde.api import ScalarFunction
+from sympde.api import SymbolicExpr
+from sympde.api import element_of
+from sympde.api import logical_partial_derivatives
 
 from psydac.pyccel.ast.core      import IndexedVariable
 from psydac.pyccel.ast.core      import For
@@ -212,7 +212,7 @@ class EvalArrayMapping(SplBasic):
         # ...
 
         # ...
-        ops = _logical_partial_derivatives[:dim]
+        ops = logical_partial_derivatives[:dim]
         M = mapping
 
         components = [M[i] for i in range(0, dim)]
@@ -332,7 +332,7 @@ class EvalArrayMapping(SplBasic):
 
             # ...
             nderiv = self.nderiv
-            ops = _logical_partial_derivatives[:dim]
+            ops = logical_partial_derivatives[:dim]
 
             if nderiv > 0:
                 weights_elements += [d(weights_pts) for d in ops]

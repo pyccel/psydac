@@ -5,14 +5,14 @@
 #---------------------------------------------------------------------------#
 from collections import namedtuple
 
-from sympde.topology import ScalarFunction
-from sympde.topology import ProductSpace
-from sympde.topology import element_of
-from sympde.calculus import dot
-from sympde.expr     import integral
-from sympde.expr     import Integral
-from sympde.expr     import find
-from sympde.expr     import Equation
+from sympde.api import ScalarFunction
+from sympde.api import ProductSpace
+from sympde.api import element_of
+from sympde.api import dot
+from sympde.api import integral
+from sympde.api import Integral
+from sympde.api import find
+from sympde.api import Equation
 
 from psydac.api.basic                import BasicDiscrete
 from psydac.api.essential_bc         import apply_essential_bc

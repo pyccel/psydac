@@ -50,7 +50,7 @@ class PolarModel2D:
     """
 
     def __init__(self, domain_log, analytical_mapping):
-        from sympde.topology.mapping import Mapping
+        from sympde.api import Mapping
 
         assert isinstance(analytical_mapping, Mapping)
 
@@ -107,8 +107,8 @@ class PolarModel2D:
             self._domain = self._analytical_mapping(self._domain_log)
             return
 
-        from sympde.topology.domain import Domain
-        from sympde.topology.mapping import Mapping
+        from sympde.api import Domain
+        from sympde.api import Mapping
 
         from psydac.cad.geometry import Geometry
         from psydac.feec.polar.examples.utils_congapol import (

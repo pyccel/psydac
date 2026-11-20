@@ -9,13 +9,13 @@ from sympy import Expr, ImmutableDenseMatrix, Matrix
 
 import numpy as np
 
-from sympde.expr.basic           import BasicForm
-from sympde.expr.evaluation      import KernelExpression
-from sympde.topology.space       import ScalarFunction, VectorFunction, IndexedVectorFunction
-from sympde.topology.space       import ProductSpace, VectorFunctionSpace
-from sympde.topology.datatype    import H1SpaceType, L2SpaceType, UndefinedSpaceType
-from sympde.topology.derivatives import get_atom_logical_derivatives
-from sympde.topology.derivatives import _logical_partial_derivatives
+from sympde.api import BasicForm
+from sympde.api import KernelExpression
+from sympde.api import ScalarFunction, VectorFunction, IndexedVectorFunction
+from sympde.api import ProductSpace, VectorFunctionSpace
+from sympde.api import H1SpaceType, L2SpaceType, UndefinedSpaceType
+from sympde.api import get_atom_logical_derivatives
+from sympde.api import logical_partial_derivatives
 
 from psydac.fem.basic         import FemSpace
 from psydac.linalg.stencil    import StencilMatrix, StencilInterfaceMatrix
@@ -63,7 +63,7 @@ def compute_max_nderiv(kernel_expr: KernelExpression) -> int:
     n_rows, n_cols = terminal_expr.shape
 
     atoms_types = (ScalarFunction, VectorFunction, IndexedVectorFunction)
-    extended_atoms_types = atoms_types + _logical_partial_derivatives
+    extended_atoms_types = atoms_types + logical_partial_derivatives
 
     nderiv = 0
     for i_row in range(n_rows):

@@ -15,7 +15,7 @@ from mpi4py import MPI
 import numpy as np
 import h5py
 
-from sympde.topology.space import BasicFunctionSpace
+from sympde.api import BasicFunctionSpace
 
 from psydac.linalg.stencil   import StencilVectorSpace
 from psydac.linalg.kron      import kronecker_solve
@@ -1247,7 +1247,7 @@ class TensorFemSpace(FemSpace):
         """
         import matplotlib.pyplot as plt
         from matplotlib.patches  import Polygon, Patch
-        from sympde.topology.mapping import BasicCallableMapping
+        from sympde.api import BasicCallableMapping
         from psydac.utilities.utils import refine_array_1d
 
         # Sanity check

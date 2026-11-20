@@ -10,7 +10,7 @@ import pytest
 import numpy as np
 from mpi4py import MPI
 
-from sympde.topology import Domain, Line, Square, Cube, Mapping, IdentityMapping
+from sympde.api import Domain, Line, Square, Cube, Mapping, IdentityMapping
 
 from psydac.cad.geometry             import Geometry, export_nurbs_to_hdf5, refine_nurbs
 from psydac.cad.geometry             import import_geopdes_to_nurbs

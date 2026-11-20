@@ -13,8 +13,7 @@ def main(*, mapping, degree, ncells, name='F'):
     import numpy as np
     import matplotlib.pyplot as plt
 
-    from sympde.topology.analytical_mapping import (IdentityMapping,
-            TargetMapping, CzarnyMapping, PolarMapping, CollelaMapping2D)
+    from sympde.api import IdentityMapping, TargetMapping, CzarnyMapping, PolarMapping, CollelaMapping2D
 
     from psydac.mapping.discrete import SplineMapping
     from psydac.fem.splines      import SplineSpace

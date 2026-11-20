@@ -1,6 +1,6 @@
 import numpy as np
 
-from sympde.topology import Mapping
+from sympde.api import Mapping
 
 from psydac.linalg.basic import LinearOperator
 from psydac.linalg.block import BlockVectorSpace

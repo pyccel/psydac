@@ -22,8 +22,8 @@ from abc import ABC, abstractmethod
 import matplotlib.pyplot as plt
 import numpy as np
 from numpy import pi
-from sympde.topology import Square
-from sympde.topology.analytical_mapping import PolarMapping
+from sympde.api import Square
+from sympde.api import PolarMapping
 
 from psydac.api.tests.test_api_feec_2d import add_colorbar
 from psydac.feec.pull_push import push_2d_hcurl, push_2d_l2

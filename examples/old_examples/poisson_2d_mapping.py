@@ -10,9 +10,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from   mpl_toolkits.axes_grid1 import make_axes_locatable
 
-from sympde.topology.callable_mapping   import CallableMapping
-from sympde.topology.analytical_mapping import IdentityMapping, PolarMapping
-from sympde.topology.analytical_mapping import TargetMapping, CzarnyMapping
+from sympde.api import CallableMapping
+from sympde.api import IdentityMapping, PolarMapping
+from sympde.api import TargetMapping, CzarnyMapping
 
 from psydac.ddm.cart             import DomainDecomposition
 from psydac.linalg.stencil       import StencilVector, StencilMatrix

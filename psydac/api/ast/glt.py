@@ -12,16 +12,16 @@ from sympy import simplify, expand
 from sympy import Range
 from sympy.core.numbers import ImaginaryUnit
 
-from sympde.topology.space       import ScalarFunction
-from sympde.topology.space       import VectorFunction
-from sympde.topology.space       import IndexedVectorFunction
-from sympde.topology.derivatives import _partial_derivatives
-from sympde.topology.derivatives import _logical_partial_derivatives, get_atom_derivatives
-from sympde.topology             import LogicalExpr
-from sympde.topology             import SymbolicExpr
-from sympde.calculus.matrices    import SymbolicDeterminant
-from sympde.topology             import IdentityMapping
-from sympde.expr.evaluation      import TerminalExpr
+from sympde.api import ScalarFunction
+from sympde.api import VectorFunction
+from sympde.api import IndexedVectorFunction
+from sympde.api import partial_derivatives
+from sympde.api import logical_partial_derivatives, get_atom_derivatives
+from sympde.api import LogicalExpr
+from sympde.api import SymbolicExpr
+from sympde.api import SymbolicDeterminant
+from sympde.api import IdentityMapping
+from sympde.api import TerminalExpr
 
 from gelato.expr import gelatize
 
@@ -275,8 +275,8 @@ class GltKernel(SplBasic):
 
         # ...
 
-        atoms_types = (_partial_derivatives,
-                       _logical_partial_derivatives,
+        atoms_types = (partial_derivatives,
+                       logical_partial_derivatives,
                        ScalarFunction,
                        VectorFunction,
                        IndexedVectorFunction,
@@ -298,7 +298,7 @@ class GltKernel(SplBasic):
         # ...
 
         # ...
-        d_subs = dict(zip(_partial_derivatives, _logical_partial_derivatives))
+        d_subs = dict(zip(partial_derivatives, logical_partial_derivatives))
         atomic_expr_field_logical = tuple(f.subs(d_subs) for f in atomic_expr_field)
         fields_str         = tuple(sorted(SymbolicExpr(f).name for f in atomic_expr_field))
         fields_logical_str = tuple(sorted(SymbolicExpr(f).name for f in atomic_expr_field_logical))

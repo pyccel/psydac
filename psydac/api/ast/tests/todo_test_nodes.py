@@ -12,16 +12,16 @@ from psydac.pyccel.ast.core import AugAssign
 # TODO remove
 from psydac.pyccel.codegen.printing.pycode import pycode
 
-from sympde.calculus import grad, dot
-from sympde.topology import dx, dy
-from sympde.topology import dx1, dx2
-from sympde.topology import ScalarFunctionSpace
-from sympde.topology import elements_of
-from sympde.topology import Square
-from sympde.topology import Mapping, IdentityMapping
-from sympde.expr     import integral
-from sympde.expr     import LinearForm
-from sympde.expr     import BilinearForm
+from sympde.api import grad, dot
+from sympde.api import dx, dy
+from sympde.api import dx1, dx2
+from sympde.api import ScalarFunctionSpace
+from sympde.api import elements_of
+from sympde.api import Square
+from sympde.api import Mapping, IdentityMapping
+from sympde.api import integral
+from sympde.api import LinearForm
+from sympde.api import BilinearForm
 
 from psydac.api.ast.nodes import Grid
 from psydac.api.ast.nodes import Element
