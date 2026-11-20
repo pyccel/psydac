@@ -5,7 +5,7 @@
 #---------------------------------------------------------------------------#
 from mpi4py import MPI
 
-from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
+from sympde.api import ScalarFunctionSpace, VectorFunctionSpace
 
 from psydac.api.discretization     import discretize
 from psydac.api.tests.build_domain import build_11_patch_pretzel

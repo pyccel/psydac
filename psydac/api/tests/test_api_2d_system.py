@@ -8,14 +8,14 @@ from sympy import pi, cos, sin, Tuple, Matrix
 import numpy as np
 import pytest
 
-from sympde.calculus import grad, dot, inner
-from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
-from sympde.topology import ProductSpace
-from sympde.topology import element_of
-from sympde.topology import Square
-from sympde.expr import BilinearForm, LinearForm, integral
-from sympde.expr import Norm, SemiNorm
-from sympde.expr import find, EssentialBC
+from sympde.api import grad, dot, inner
+from sympde.api import ScalarFunctionSpace, VectorFunctionSpace
+from sympde.api import ProductSpace
+from sympde.api import element_of
+from sympde.api import Square
+from sympde.api import BilinearForm, LinearForm, integral
+from sympde.api import Norm, SemiNorm
+from sympde.api import find, EssentialBC
 
 from psydac.fem.basic          import FemField
 from psydac.api.discretization import discretize

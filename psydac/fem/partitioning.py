@@ -5,7 +5,7 @@
 #---------------------------------------------------------------------------#
 import numpy as np
 
-from sympde.topology import Interface
+from sympde.api import Interface
 
 from psydac.ddm.cart   import CartDecomposition, InterfaceCartDecomposition, create_interfaces_cart
 from psydac.fem.vector import VectorFemSpace

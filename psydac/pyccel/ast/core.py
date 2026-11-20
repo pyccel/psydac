@@ -2400,6 +2400,18 @@ class VoidFunction(Basic):
         return Symbol("""x9846548484665
                       494794564465165161561""")
 
+def _init_symbol_assumptions(obj):
+    """Set the assumption attributes which Symbol.__new__ sets.
+
+    Subclasses of Symbol which call Basic.__new__ instead of Symbol.__new__
+    must set them, because recent SymPy versions use them in
+    Symbol._hashable_content. The assumptions are the default assumptions of
+    the class, which are set by its class attributes (e.g. is_commutative).
+    """
+    obj._assumptions_orig = {}
+    obj._assumptions0 = tuple(sorted(obj.default_assumptions.items()))
+    return obj
+
 class Variable(Symbol, PyccelAstNode):
 
     """Represents a typed variable.
@@ -2464,9 +2476,12 @@ class Variable(Symbol, PyccelAstNode):
     >>> Variable('int', DottedName('matrix', 'n_rows'))
     matrix.n_rows
     """
+    # Unlike Symbol, Variable does not call Symbol.__new__, which assumes
+    # commutativity. Without it SymPy does not simplify e.g. a + b - (a + b).
+    is_commutative = True
 
     def __new__( cls, *args, **kwargs ):
-        return Basic.__new__(cls)
+        return _init_symbol_assumptions(Basic.__new__(cls))
 
     def __init__(
         self,
@@ -2742,10 +2757,6 @@ class Variable(Symbol, PyccelAstNode):
 
     def _eval_subs(self, old, new):
         return self
-
-    def _eval_is_positive(self):
-        #we do this inorder to infere the type of Pow expression correctly
-        return self.is_real
 
 
 class DottedVariable(AtomicExpr, sp_Boolean, PyccelAstNode):
@@ -5708,8 +5719,10 @@ class PyccelArraySize(Function, PyccelAstNode):
 
 class AnnotatedArgument(Symbol, PyccelAstNode):
 
+    is_commutative = True
+
     def __new__(cls, name, annotation):
-        return Basic.__new__(cls, name, annotation)
+        return _init_symbol_assumptions(Basic.__new__(cls, name, annotation))
 
     @property
     def name(self):

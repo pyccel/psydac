@@ -8,10 +8,8 @@ from typing import Iterable
 import numpy as np
 from mpi4py import MPI
 
-from sympde.topology.mapping import Mapping
-from sympde.topology.analytical_mapping import (IdentityMapping, PolarMapping,
-                                                TargetMapping, CzarnyMapping,
-                                                CollelaMapping2D, SphericalMapping)
+from sympde.api import Mapping
+from sympde.api import IdentityMapping, PolarMapping, TargetMapping, CzarnyMapping, CollelaMapping2D, SphericalMapping
 
 from psydac.fem.splines      import SplineSpace
 from psydac.fem.tensor       import TensorFemSpace

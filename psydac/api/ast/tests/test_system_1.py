@@ -8,16 +8,16 @@ from pathlib import Path
 
 from sympy import pi, sin, Tuple, Matrix
 
-from sympde.calculus import grad, dot, inner
-from sympde.topology import VectorFunctionSpace
-from sympde.topology import element_of
-from sympde.topology import Square
-from sympde.topology import Domain, Mapping
-from sympde.expr     import integral
-from sympde.expr     import LinearForm
-from sympde.expr     import BilinearForm
-from sympde.expr     import Norm, SemiNorm
-from sympde.expr.evaluation import TerminalExpr
+from sympde.api import grad, dot, inner
+from sympde.api import VectorFunctionSpace
+from sympde.api import element_of
+from sympde.api import Square
+from sympde.api import Domain, Mapping
+from sympde.api import integral
+from sympde.api import LinearForm
+from sympde.api import BilinearForm
+from sympde.api import Norm, SemiNorm
+from sympde.api import TerminalExpr
 
 from psydac.api.ast.fem          import AST
 from psydac.api.ast.parser       import parse

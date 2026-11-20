@@ -39,11 +39,8 @@ class Maxwell2D(PolarModel2D):
 
     @staticmethod
     def disk(R, shift_D, study, use_polar_mapping=False):
-        from sympde.topology import Square
-        from sympde.topology.analytical_mapping import (
-            PolarMapping,
-            TargetMapping,
-        )
+        from sympde.api import Square
+        from sympde.api import PolarMapping, TargetMapping
         from sympy import pi
 
         # Speed of light and scaling
@@ -275,9 +272,9 @@ def run_maxwell_2d_TE(
     mpi_comm,        # given by function 'parallel_run_from_cli'
 ):
     import matplotlib.pyplot as plt
-    from sympde.calculus import dot
-    from sympde.expr import BilinearForm, LinearForm, integral
-    from sympde.topology import Derham, Square, element_of, elements_of
+    from sympde.api import dot
+    from sympde.api import BilinearForm, LinearForm, integral
+    from sympde.api import Derham, Square, element_of, elements_of
     from sympy import Tuple, cos, sin, sqrt
 
     from psydac.api.discretization import discretize

@@ -6,19 +6,19 @@
 from sympy import pi, cos, sin
 from sympy.utilities.lambdify import implemented_function
 
-from sympde.core import Constant
-from sympde.calculus import grad, dot, inner, cross, rot, curl, div
-from sympde.calculus import laplace, hessian
-from sympde.topology import dx1, dx2, dx3
-from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
-from sympde.topology import element_of
-from sympde.topology import Boundary, NormalVector, TangentVector
-from sympde.topology import Domain, Line, Square, Cube
-from sympde.topology import Trace, trace_0, trace_1
-from sympde.topology import Union
-from sympde.expr import BilinearForm, LinearForm, integral
-from sympde.expr import Norm
-from sympde.expr import find, EssentialBC
+from sympde.api import Constant
+from sympde.api import grad, dot, inner, cross, rot, curl, div
+from sympde.api import laplace, hessian
+from sympde.api import dx1, dx2, dx3
+from sympde.api import ScalarFunctionSpace, VectorFunctionSpace
+from sympde.api import element_of
+from sympde.api import Boundary, NormalVector, TangentVector
+from sympde.api import Domain, Line, Square, Cube
+from sympde.api import Trace, trace_0, trace_1
+from sympde.api import Union
+from sympde.api import BilinearForm, LinearForm, integral
+from sympde.api import Norm
+from sympde.api import find, EssentialBC
 
 from gelato.expr import GltExpr
 

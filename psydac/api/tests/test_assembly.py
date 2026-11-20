@@ -8,13 +8,13 @@ import numpy as np
 from mpi4py import MPI
 from sympy import pi, sin, cos, tan, atan, atan2, exp, sinh, cosh, tanh, atanh, Tuple, I, sqrt
 
-from sympde.topology import Line, Square
-from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
-from sympde.topology import element_of, Derham
-from sympde.core     import Constant
-from sympde.expr     import LinearForm, BilinearForm, Functional, Norm
-from sympde.expr     import integral
-from sympde.calculus import Inner
+from sympde.api import Line, Square
+from sympde.api import ScalarFunctionSpace, VectorFunctionSpace
+from sympde.api import element_of, Derham
+from sympde.api import Constant
+from sympde.api import LinearForm, BilinearForm, Functional, Norm
+from sympde.api import integral
+from sympde.api import Inner
 
 from psydac.linalg.solvers     import inverse
 from psydac.api.discretization import discretize

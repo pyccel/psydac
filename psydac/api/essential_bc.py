@@ -3,7 +3,7 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-from sympde.expr.equation  import EssentialBC
+from sympde.api import EssentialBC
 
 from psydac.linalg.basic   import ComposedLinearOperator
 from psydac.linalg.stencil import StencilVector, StencilMatrix

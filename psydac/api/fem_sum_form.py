@@ -5,11 +5,7 @@
 #---------------------------------------------------------------------------#
 import numpy as np
 
-from sympde.expr.expr import (
-    BilinearForm as sym_BilinearForm,
-    LinearForm as sym_LinearForm,
-    Functional as sym_Functional
-)
+from sympde.api import BilinearForm as sym_BilinearForm, LinearForm as sym_LinearForm, Functional as sym_Functional
 
 from .basic             import BasicDiscrete
 from .fem               import DiscreteFunctional
@@ -61,7 +57,7 @@ class DiscreteSumForm(BasicDiscrete):
         for e in kernel_expr:
 
             # Currently sum factorization can only be used for interior domains
-            from sympde.expr.evaluation import DomainExpression
+            from sympde.api import DomainExpression
             is_interior_expr = isinstance(e, DomainExpression)
 
             if isinstance(a, sym_LinearForm):

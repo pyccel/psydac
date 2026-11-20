@@ -10,7 +10,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from sympde.topology import Domain, ScalarFunctionSpace, Line, Square, Cube
+from sympde.api import Domain, ScalarFunctionSpace, Line, Square, Cube
 from psydac.api.discretization import discretize
 from psydac.fem.basic import FemField
 from psydac.mapping.discrete import NurbsMapping

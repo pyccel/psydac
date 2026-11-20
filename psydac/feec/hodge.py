@@ -6,11 +6,11 @@
 import os
 import numpy as np
 
-from sympde.topology import elements_of
-from sympde.topology.space import ScalarFunction
-from sympde.calculus import dot
-from sympde.expr.expr import BilinearForm
-from sympde.expr.expr import integral
+from sympde.api import elements_of
+from sympde.api import ScalarFunction
+from sympde.api import dot
+from sympde.api import BilinearForm
+from sympde.api import integral
 
 from psydac.api.settings import PSYDAC_BACKENDS
 

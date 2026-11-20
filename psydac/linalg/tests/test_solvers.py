@@ -8,9 +8,9 @@ import  numpy as np
 import  pytest
 from    mpi4py import MPI
 
-from    sympde.topology               import elements_of, Derham, Square, Cube
-from    sympde.calculus               import inner
-from    sympde.expr                   import integral, BilinearForm
+from sympde.api import elements_of, Derham, Square, Cube
+from sympde.api import inner
+from sympde.api import integral, BilinearForm
 
 from    psydac.api.discretization     import discretize
 from    psydac.api.settings           import PSYDAC_BACKEND_GPYCCEL

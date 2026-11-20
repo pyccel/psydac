@@ -11,8 +11,8 @@ from typing import Optional
 
 import numpy as np
 
-from sympde.topology.space import BasicFunctionSpace
-from sympde.topology.callable_mapping import BasicCallableMapping
+from sympde.api import BasicFunctionSpace
+from sympde.api import BasicCallableMapping
 # from sympde.topology.datatype import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType, UndefinedSpaceType
 
 from psydac.linalg.block import BlockVectorSpace

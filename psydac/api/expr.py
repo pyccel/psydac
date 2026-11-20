@@ -10,7 +10,7 @@
 import numpy as np
 from sympy import Expr
 
-from sympde.expr import TerminalExpr
+from sympde.api import TerminalExpr
 
 from psydac.api.glt           import GltBasicCodeGen as BasicCodeGen
 from psydac.api.settings      import PSYDAC_BACKEND_PYTHON

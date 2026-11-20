@@ -14,8 +14,7 @@ def main(*, mapping, degree, ncells, name='F'):
     import matplotlib.pyplot as plt
     from mpl_toolkits.mplot3d import Axes3D
 
-    from sympde.topology.analytical_mapping import (TwistedTargetSurfaceMapping,
-                                                    TorusSurfaceMapping)
+    from sympde.api import TwistedTargetSurfaceMapping, TorusSurfaceMapping
 
     from psydac.mapping.discrete import SplineMapping
     from psydac.fem.splines      import SplineSpace

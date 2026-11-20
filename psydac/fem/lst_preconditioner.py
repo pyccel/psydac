@@ -7,9 +7,9 @@ from   functools                    import lru_cache
 from   scipy.sparse                 import dia_matrix
 import numpy as np
 
-from   sympde.topology              import elements_of, Line, ScalarFunctionSpace
-from   sympde.topology.datatype     import SpaceType
-from   sympde.expr                  import integral, BilinearForm
+from sympde.api import elements_of, Line, ScalarFunctionSpace
+from sympde.api import SpaceType
+from sympde.api import integral, BilinearForm
 
 from   psydac.linalg.basic          import IdentityOperator, LinearOperator
 from   psydac.linalg.block          import BlockVectorSpace, BlockLinearOperator

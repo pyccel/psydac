@@ -6,15 +6,15 @@
 import numpy as np
 from mpi4py import MPI
 
-from sympde.calculus      import grad, dot
-from sympde.topology      import ScalarFunctionSpace
-from sympde.topology      import elements_of
-from sympde.topology      import Square
-from sympde.topology      import PolarMapping
-from sympde.expr.expr     import LinearForm, BilinearForm
-from sympde.expr.expr     import integral
-from sympde.expr.expr     import Norm, SemiNorm
-from sympde.expr.equation import find, EssentialBC
+from sympde.api import grad, dot
+from sympde.api import ScalarFunctionSpace
+from sympde.api import elements_of
+from sympde.api import Square
+from sympde.api import PolarMapping
+from sympde.api import LinearForm, BilinearForm
+from sympde.api import integral
+from sympde.api import Norm, SemiNorm
+from sympde.api import find, EssentialBC
 
 from psydac.api.discretization import discretize
 

@@ -5,10 +5,10 @@
 #---------------------------------------------------------------------------#
 import numpy as np
 
-from sympde.topology.mapping import Mapping
-from sympde.topology.callable_mapping import CallableMapping
-from sympde.topology.analytical_mapping import IdentityMapping
-from sympde.topology.datatype import UndefinedSpaceType, H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType
+from sympde.api import Mapping
+from sympde.api import CallableMapping
+from sympde.api import IdentityMapping
+from sympde.api import UndefinedSpaceType, H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType
 
 from psydac.mapping.discrete import SplineMapping
 from psydac.fem.basic import FemField

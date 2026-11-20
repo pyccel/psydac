@@ -11,12 +11,12 @@ from mpi4py              import MPI
 from scipy.sparse        import csc_matrix, kron
 from scipy.sparse.linalg import splu
 
-from sympde.calculus import dot
-from sympde.expr     import BilinearForm, integral
-from sympde.topology import Line
-from sympde.topology import Cube, Square
-from sympde.topology import Derham
-from sympde.topology import elements_of
+from sympde.api import dot
+from sympde.api import BilinearForm, integral
+from sympde.api import Line
+from sympde.api import Cube, Square
+from sympde.api import Derham
+from sympde.api import elements_of
 
 from psydac.api.discretization     import discretize
 from psydac.ddm.cart               import DomainDecomposition, CartDecomposition

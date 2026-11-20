@@ -55,12 +55,12 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
     from mpi4py          import MPI
     from scipy.integrate import quad
 
-    from sympde.topology import Mapping
-    from sympde.topology import Line
-    from sympde.topology import Derham
-    from sympde.topology import elements_of
-    from sympde.expr     import integral
-    from sympde.expr     import BilinearForm
+    from sympde.api import Mapping
+    from sympde.api import Line
+    from sympde.api import Derham
+    from sympde.api import elements_of
+    from sympde.api import integral
+    from sympde.api import BilinearForm
 
     from psydac.api.discretization import discretize
     from psydac.linalg.solvers     import inverse
@@ -119,7 +119,7 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
 
         # Option 1: Apply essential BCs to elements of V0 space
         if bc_mode == 'strong':
-            from sympde.expr import EssentialBC
+            from sympde.api import EssentialBC
             bcs = [EssentialBC(u0, 0, side) for side in domain.boundary]
 
         # Option 2: Penalize L2 projection to V0 space

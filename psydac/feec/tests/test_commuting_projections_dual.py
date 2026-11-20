@@ -6,8 +6,8 @@
 from psydac.feec.derivatives        import Gradient3D
 from psydac.feec.derivatives        import Curl3D
 from psydac.feec.derivatives        import Divergence3D
-from sympde.expr                    import LinearForm, integral      
-from sympde.topology                import Derham, element_of, Cube  
+from sympde.api                     import LinearForm, integral
+from sympde.api                     import Derham, element_of, Cube
 from psydac.api.discretization      import discretize
 from psydac.api.settings            import PSYDAC_BACKENDS
 from sympy                          import sin, cos

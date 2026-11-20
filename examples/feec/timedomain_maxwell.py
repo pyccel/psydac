@@ -18,12 +18,12 @@
 import os
 import numpy as np
 
-from sympde.calculus        import grad, dot, curl, cross
-from sympde.topology        import NormalVector
-from sympde.topology        import elements_of
-from sympde.topology        import Derham
-from sympde.expr.expr       import integral
-from sympde.expr.expr       import BilinearForm
+from sympde.api import grad, dot, curl, cross
+from sympde.api import NormalVector
+from sympde.api import elements_of
+from sympde.api import Derham
+from sympde.api import integral
+from sympde.api import BilinearForm
 
 from psydac.linalg.basic    import IdentityOperator
 

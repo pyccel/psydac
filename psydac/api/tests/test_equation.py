@@ -6,15 +6,15 @@
 import pytest
 import numpy as np
 
-from sympde.topology import Line, Square
-from sympde.topology import ScalarFunctionSpace
-from sympde.topology import element_of
-from sympde.core     import Constant
-from sympde.expr     import BilinearForm
-from sympde.expr     import LinearForm
-from sympde.expr     import integral
-from sympde.expr     import find
-from sympde.expr     import EssentialBC
+from sympde.api import Line, Square
+from sympde.api import ScalarFunctionSpace
+from sympde.api import element_of
+from sympde.api import Constant
+from sympde.api import BilinearForm
+from sympde.api import LinearForm
+from sympde.api import integral
+from sympde.api import find
+from sympde.api import EssentialBC
 
 from psydac.fem.basic          import FemField
 from psydac.api.discretization import discretize

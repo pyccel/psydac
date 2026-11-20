@@ -13,18 +13,18 @@ from sympy import pi, cos, sin, symbols, exp
 from sympy import Tuple, Matrix
 from sympy import lambdify
 
-from sympde.calculus import grad, dot, cross, curl
-from sympde.calculus import minus, plus
-from sympde.calculus import laplace
-from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
-from sympde.topology import element_of, elements_of
-from sympde.topology import NormalVector
-from sympde.topology import Union
-from sympde.topology import Domain, Square
-from sympde.topology import IdentityMapping
-from sympde.expr     import BilinearForm, LinearForm, integral
-from sympde.expr     import Norm, SemiNorm
-from sympde.expr     import find, EssentialBC
+from sympde.api import grad, dot, cross, curl
+from sympde.api import minus, plus
+from sympde.api import laplace
+from sympde.api import ScalarFunctionSpace, VectorFunctionSpace
+from sympde.api import element_of, elements_of
+from sympde.api import NormalVector
+from sympde.api import Union
+from sympde.api import Domain, Square
+from sympde.api import IdentityMapping
+from sympde.api import BilinearForm, LinearForm, integral
+from sympde.api import Norm, SemiNorm
+from sympde.api import find, EssentialBC
 
 from psydac.api.discretization import discretize
 from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL
