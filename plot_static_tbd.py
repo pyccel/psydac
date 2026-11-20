@@ -100,3 +100,41 @@ pu.plot_2d(
 )
 
 
+
+#* logical=True => plot over the logical domain (eta1, eta2) instead of the physical one
+# raw values, no push-forward: E gives its logical components, B is not divided by det(J)
+pu.plot_2d((E, B), titles=("E", "B"), components=True, logical=True, show_plot=True)
+
+# per function: E logical, B physical; the lines are drawn over the matching domain
+pu.plot_2d(({"fem_field": E, "logical": True}, B), titles=("E", "B"), components=True,
+           plot_patch_boundaries=True, show_plot=True)
+
+
+#* logical=True with multiple patches: patches with the same logical domain (here 3 unit squares)
+# are placed next to each other along eta1 (with a gap); disjoint logical domains stay where they are
+import numpy as np
+from sympde.topology import Domain, Mapping, Derham
+from psydac.api.discretization import discretize
+from psydac.fem.basic import FemField
+
+class Rot(Mapping):
+    _expressions = {'x': 'x1*cos(t) - x2*sin(t) + a', 'y': 'x1*sin(t) + x2*cos(t) + b'}
+    _ldim = 2; _pdim = 2
+
+patches = [Rot(f'R{k}', a=float(k), b=0., t=0.3*k)(Square(f'S{k}', bounds1=(0, 1), bounds2=(0, 1))) for k in range(3)]
+mp_domain = Domain.join(patches, [((0,0,1),(1,0,-1)), ((1,0,1),(2,0,-1))], 'row')
+mp_derham_h = discretize(Derham(mp_domain, sequence=['h1', 'hcurl', 'l2']), discretize(mp_domain, ncells=[6, 6]), degree=[3, 3])
+
+rng = np.random.default_rng(1)
+def random_field(Vh):       # random coefficients are enough to see the layout
+    f = FemField(Vh)
+    for c in (f.coeffs.blocks if hasattr(f.coeffs, 'blocks') else [f.coeffs]):
+        for cc in (c.blocks if hasattr(c, 'blocks') else [c]):
+            cc._data[...] = rng.standard_normal(cc._data.shape)
+    return f
+
+E_mp, B_mp = random_field(mp_derham_h.spaces[1]), random_field(mp_derham_h.spaces[2])
+pu.plot_2d((E_mp, B_mp), titles=("E", "B"), components=True, plot_patch_boundaries=True, show_plot=True)                 # physical
+pu.plot_2d((E_mp, B_mp), titles=("E", "B"), components=True, plot_patch_boundaries=True, logical=True, show_plot=True)   # logical
+
+

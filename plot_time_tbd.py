@@ -86,7 +86,12 @@ if input("check png format and string as input: ") == "y":
 
 
 
-#! logical=True => take logical domain, not physical; also "logical" components
+#* logical=True => take logical domain, not physical; also "logical" components
+if input("check logical domain: ") == "y":
+    plot_2d_time(data, "zz_logical.gif", domain=domain, fields=("E", "B"),
+                 titles=("E", "B"), components=True, logical=True, fps=50)
+    plot_2d_time(data, "zz_logical_pngs", format="png", domain=domain, fields=("E", "B"),
+                 titles=("E", "B"), components=True, logical=True)
 
 #! symlog
 #! take coefficient-file + femspace or coefficient-file + domain-yml + mapping-file

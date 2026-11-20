@@ -157,7 +157,23 @@ def get_grid_vals(u, etas, mappings_list=None, space_kind=None):
 
 # ------------------------------------------------------------------------------
 
-def get_plotting_grid(mappings, N, centered_nodes=False):
+def _callable_mappings(mappings, logical=False):
+    """The mappings as functions (eta1, eta2) -> (x, y), or the identity if logical (plots over the logical domain).
+    If the logical domains of the patches overlap (e.g. all are the unit square), the patches are shifted next to each other in eta1."""
+    if not logical:
+        return [M.get_callable_mapping() for M in mappings.values()]
+
+    boxes = [(D.min_coords, D.max_coords) for D in mappings]
+    overlap = any(all(a[0][i] < b[1][i] and b[0][i] < a[1][i] for i in range(2))
+                  for n, a in enumerate(boxes) for b in boxes[n + 1:])
+    shifts, pos = [], 0.
+    for lo, hi in boxes:
+        shifts.append(pos - lo[0] if overlap else 0.)
+        pos += 1.1 * (hi[0] - lo[0])                    # next patch: patch width plus a gap of 10%
+    return [lambda e1, e2, s=s: (e1 + s, e2) for s in shifts]
+
+
+def get_plotting_grid(mappings, N, centered_nodes=False, logical=False):
     # if centered_nodes == False, returns a regular grid with (N+1)x(N+1) nodes, starting and ending at patch boundaries
     # (useful for plotting the full patches)
     # if centered_nodes == True, returns the grid consisting of the NxN centers of the latter
@@ -184,7 +200,7 @@ def get_plotting_grid(mappings, N, centered_nodes=False):
     etas = [[refine_array_1d(bounds, N_cells[i]) for i, bounds in enumerate(zip(
         grid_min_coords[k], grid_max_coords[k]))] for k in range(nb_patches)]
     
-    callable_mappings = [M.get_callable_mapping() for M in mappings.values()]
+    callable_mappings = _callable_mappings(mappings, logical)
 
     # The callable mappings work on arrays, so every patch is mapped at once (instead of point by point)
     xx, yy = [], []
@@ -198,14 +214,14 @@ def get_plotting_grid(mappings, N, centered_nodes=False):
 
 # ------------------------------------------------------------------------------
 
-def get_patch_knots_gridlines(Vh, N, plotted_patch=-1):
+def get_patch_knots_gridlines(Vh, N, plotted_patch=-1, logical=False):
 
     is_vector_valued = Vh.is_vector_valued
     V = Vh.symbolic_space
     domain = V.domain
     mappings = domain.mappings
 
-    F = [M.get_callable_mapping() for M in mappings.values()]
+    F = _callable_mappings(mappings, logical)
 
     if plotted_patch in range(len(mappings)):
         if is_vector_valued:
@@ -231,14 +247,14 @@ def get_patch_knots_gridlines(Vh, N, plotted_patch=-1):
 
 # ------------------------------------------------------------------------------
 
-def get_patch_boundary_gridlines(Vh, N, plotted_patch=-1):
+def get_patch_boundary_gridlines(Vh, N, plotted_patch=-1, logical=False):
 
     is_vector_valued = Vh.is_vector_valued
     V = Vh.symbolic_space
     domain = V.domain
     mappings = domain.mappings
 
-    F = [M.get_callable_mapping() for M in mappings.values()]
+    F = _callable_mappings(mappings, logical)
 
     if plotted_patch in range(len(mappings)):
         if is_vector_valued:
@@ -281,7 +297,7 @@ def _is_grid_data(x):
     return n == 3 or (n == 4 and len(x) == 2)
 
 
-def _patch_lines(source, selection, getter, N=100, cache=None):
+def _patch_lines(source, selection, getter, N=100, cache=None, logical=False):
     """
     Lines to be drawn on top of the plot (spline grid or patch boundaries), one entry per patch.
 
@@ -298,10 +314,13 @@ def _patch_lines(source, selection, getter, N=100, cache=None):
         Whether to draw at all is decided by the caller, by passing source=None.
 
     getter : Callable
-        Function (Vh, N, patch_index) -> lines of that patch. Only used if source is a FemSpace.
+        Function (Vh, N, patch_index, logical) -> lines of that patch. Only used if source is a FemSpace.
 
     N : int
         Resolution of the lines. Only used if source is a FemSpace.
+
+    logical : bool
+        Lines over the logical domain instead of the physical one. Only used if source is a FemSpace.
 
     cache : dict | None
         Computed lines are stored here and reused, as long as the source is the same FemSpace object.
@@ -328,9 +347,9 @@ def _patch_lines(source, selection, getter, N=100, cache=None):
         if k not in selected:
             lines.append(None)
             continue
-        key = ('lines', id(source), getter.__name__, N, k)
+        key = ('lines', id(source), getter.__name__, N, k, logical)
         if key not in cache or cache[key][0] is not source:     # the stored source guards against a reused id
-            cache[key] = (source, getter(source, N, k))
+            cache[key] = (source, getter(source, N, k, logical))
         lines.append(cache[key][1])
     return lines
 
@@ -379,13 +398,15 @@ def _from_fem_field(vh, o, cache):
     Vh       = vh.space
     mappings = Vh.symbolic_space.domain.mappings
 
-    # The grid only depends on the domain and N_vis, so it is computed once and then reused
-    key = ('grid', id(mappings), tuple(o['N_vis']))
+    # The grid only depends on the domain, N_vis and logical, so it is computed once and then reused
+    logical = o['logical']
+    key = ('grid', id(mappings), tuple(o['N_vis']), logical)
     if key not in cache or cache[key][0] is not mappings:       # the stored mappings guard against a reused id
-        cache[key] = (mappings, *get_plotting_grid(mappings, N=o['N_vis']))
+        cache[key] = (mappings, *get_plotting_grid(mappings, N=o['N_vis'], logical=logical))
     _, etas, xx, yy = cache[key]
 
-    vals         = get_grid_vals(vh, etas, list(mappings.values()))
+    # Logical domain: no push-forward ('h1' leaves the values as they are)
+    vals         = get_grid_vals(vh, etas, list(mappings.values()), space_kind='h1' if logical else None)
     arrays, kinds = _fem_field_arrays(vals, Vh.is_vector_valued, o)
     return arrays, kinds, xx, yy
 
@@ -420,7 +441,7 @@ class _Prepared(NamedTuple):
 _KNOWN_OPTIONS = {
     # plot_2d
     'plot_type', 'components', 'magnitude', 'N_vis', 'N_lines', 'xx', 'yy', 'cmap',
-    'plot_spline_grid', 'spline_grid', 'plot_patch_boundaries', 'patch_boundaries',
+    'plot_spline_grid', 'spline_grid', 'plot_patch_boundaries', 'patch_boundaries', 'logical',
     'figsize', 'suptitle_size', 'tight_layout',
     # fill_axes
     'title_size', 'save_vals', 'index', 'vmin', 'vmax', 'color_scale',
@@ -434,7 +455,7 @@ _KNOWN_OPTIONS = {
 }
 
 # Options that plot_2d uses itself, they are not passed on to fill_axes
-_PLOT2D_ONLY = {'xx', 'yy', 'N_vis', 'N_lines', 'components', 'magnitude', 
+_PLOT2D_ONLY = {'xx', 'yy', 'N_vis', 'N_lines', 'components', 'magnitude', 'logical',
                 'plot_spline_grid', 'spline_grid', 'plot_patch_boundaries', 'patch_boundaries'}
 
 
@@ -464,6 +485,10 @@ def _prepare(fun, global_opts, cache):
     if unknown:
         warnings.warn(f'Unknown option(s) {unknown}, they are ignored. Typo?')
 
+    # Only FemFields can be plotted over the logical domain (grid values come with their own xx, yy)
+    logical = bool(o['logical']) and kind == 'fem_field'
+    labels  = {'xlabel': r'$\eta_1$', 'ylabel': r'$\eta_2$'} if logical else {}
+
     if kind == 'fem_field':
         arrays, kinds, xx, yy = _from_fem_field(data, o, cache)
         # A FemField is its own source of the lines, they are drawn if requested
@@ -479,9 +504,9 @@ def _prepare(fun, global_opts, cache):
         kinds            = kinds,
         xx               = xx, 
         yy               = yy,
-        spline_grid      = _patch_lines(spline_source,   o['plot_spline_grid'],      get_patch_knots_gridlines,    o['N_lines'], cache),
-        patch_boundaries = _patch_lines(boundary_source, o['plot_patch_boundaries'], get_patch_boundary_gridlines, o['N_lines'], cache),
-        style            = {k: v for k, v in o.items() if k not in _PLOT2D_ONLY},
+        spline_grid      = _patch_lines(spline_source,   o['plot_spline_grid'],      get_patch_knots_gridlines,    o['N_lines'], cache, logical),
+        patch_boundaries = _patch_lines(boundary_source, o['plot_patch_boundaries'], get_patch_boundary_gridlines, o['N_lines'], cache, logical),
+        style            = {**labels, **{k: v for k, v in o.items() if k not in _PLOT2D_ONLY}},
     )
 
 
@@ -567,6 +592,14 @@ def plot_2d(funs, titles=None, suptitle=None, xx=None, yy=None,
 
     N_vis : list | tuple
         of two ints. Determines the interpolation points (per patch) used for the plot.
+
+    logical : bool
+        (keyword argument, also possible in the dictionary of a function) If True, FemFields are plotted over the logical domain
+        (axes eta_1, eta_2) instead of the physical one: no mapping, no push-forward. The values are the raw ones:
+        hcurl/hdiv vector fields give their logical components (not x and y components), l2 values are not divided by the Jacobian determinant.
+        The spline grid and the patch boundaries are drawn over the logical domain as well. Ignored for grid values.
+        If the logical domains of the patches overlap (e.g. all are the unit square), they are placed next to each other along eta_1 (with a gap),
+        so the eta_1 axis values of the later patches are shifted.
 
     plot_spline_grid : bool | tuple | list
         If True, the spline cells are visualized (on all patches) using line plots. 
@@ -665,8 +698,8 @@ def _plot_2d(funs, titles=None, suptitle=None, layout=None, show_plot=True, file
     # Global options (used for all plots unless overwritten locally)
     # Same defaults as plot_2d (plot_2d_time calls this function directly)
     global_opts = {'plot_type':'contourf', 'components':None, 'magnitude':False, 'N_vis':(100, 100), 'N_lines':100, 
-                   'xx':None, 'yy':None, 'cmap':'viridis', 'plot_spline_grid':False, 'spline_grid':None, 
-                   'plot_patch_boundaries':False, 'patch_boundaries':None,
+                   'xx':None, 'yy':None, 'cmap':'viridis', 'plot_spline_grid':False, 'spline_grid':None,
+                   'plot_patch_boundaries':False, 'patch_boundaries':None, 'logical':False,
                    **options}
     kwargs = options
 
