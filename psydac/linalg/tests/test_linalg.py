@@ -12,6 +12,8 @@ from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatr
 from psydac.linalg.solvers import ConjugateGradient, inverse
 from psydac.ddm.cart       import DomainDecomposition, CartDecomposition
 
+from psydac.linalg.tests.utilities import norm2_sqr
+
 #===============================================================================
 
 n1array = [2, 7]
@@ -647,26 +649,26 @@ def test_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
     assert isinstance(C_T, ConjugateGradient)
     assert isinstance(inverse(B_T, 'cg', tol=tol), ConjugateGradient)
     diff = C_T @ u - inverse(B_T, 'cg', tol=tol) @ u
-    assert diff.inner(diff) == 0
+    assert norm2_sqr(diff) == 0
 
     # -1,T,T -> equal -1
     diff = C_T.T @ u - C @ u
-    assert diff.inner(diff) == 0
+    assert norm2_sqr(diff) == 0
 
     # -1,T,-1 -> equal T
     assert isinstance(inverse(C_T, 'bicg'), BlockLinearOperator)
     diff = inverse(C_T, 'bicg') @ u - B_T @ u
-    assert diff.inner(diff) == 0
+    assert norm2_sqr(diff) == 0
 
     # T,-1,-1 -> equal T
     assert isinstance(inverse(inverse(B_T, 'cg', tol=tol), 'cg', pc=P), BlockLinearOperator)
     diff = inverse(inverse(B_T, 'cg', tol=tol), 'cg', pc=P) @ u - B_T @ u
-    assert diff.inner(diff) == 0
+    assert norm2_sqr(diff) == 0
 
     # T,-1,T -> equal -1
     assert isinstance(inverse(B_T, 'cg', tol=tol).T, ConjugateGradient)
     diff = inverse(B_T, 'cg', tol=tol) @ u - C @ u
-    assert diff.inner(diff) == 0
+    assert norm2_sqr(diff) == 0
 
     ###
     ### StencilMatrix Transpose - Inverse Tests
@@ -684,26 +686,26 @@ def test_inverse_transpose_interaction(n1, n2, p1, p2, P1=False, P2=False):
     assert isinstance(C_T, ConjugateGradient)
     assert isinstance(inverse(S_T, 'cg', tol=tol), ConjugateGradient)
     diff = C_T @ v - inverse(S_T, 'cg', tol=tol) @ v
-    assert diff.inner(diff) == 0
+    assert norm2_sqr(diff) == 0
 
     # -1,T,T -> equal -1
     diff = C_T.T @ v - C @ v
-    assert diff.inner(diff) == 0
+    assert norm2_sqr(diff) == 0
 
     # -1,T,-1 -> equal T
     assert isinstance(inverse(C_T, 'bicg'), StencilMatrix)
     diff = inverse(C_T, 'bicg') @ v - S_T @ v
-    assert diff.inner(diff) == 0
+    assert norm2_sqr(diff) == 0
 
     # T,-1,-1 -> equal T
     assert isinstance(inverse(inverse(S_T, 'cg', tol=tol), 'cg', pc=P), StencilMatrix)
     diff = inverse(inverse(S_T, 'cg', tol=tol), 'cg', pc=P) @ v - S_T @ v
-    assert diff.inner(diff) == 0
+    assert norm2_sqr(diff) == 0
 
     # T,-1,T -> equal -1
     assert isinstance(inverse(S_T, 'cg', tol=tol).T, ConjugateGradient)
     diff = inverse(S_T, 'cg', tol=tol) @ v - C @ v
-    assert diff.inner(diff) == 0
+    assert norm2_sqr(diff) == 0
 
 #===============================================================================
 @pytest.mark.parametrize('n1', [3, 5])
@@ -783,64 +785,57 @@ def test_operator_evaluation(n1, n2, p1, p2):
     ###
 
     ### 2.1 PowerLO test
-    Bmat = B.toarray()
+
     assert_pos_def(B)
-    uarr = u.toarray()
-    b0 = ( B**0 @ u ).toarray()
-    b1 = ( B**1 @ u ).toarray()
-    b2 = ( B**2 @ u ).toarray()
-    assert np.array_equal(uarr, b0)
-    assert np.linalg.norm( np.dot(Bmat, uarr) - b1 ) < 1e-10
-    assert np.linalg.norm( np.dot(Bmat, np.dot(Bmat, uarr)) - b2 ) < 1e-10
 
-    bi0 = ( B_ILO**0 @ u ).toarray()
-    bi1 = ( B_ILO**1 @ u ).toarray()
-    bi2 = ( B_ILO**2 @ u ).toarray()
-    B_inv_mat = np.linalg.inv(Bmat)
-    b_inv_arr = np.matrix.flatten(B_inv_mat)
-    error_est = 2 + n1 * n2 * np.max( [ np.abs(b_inv_arr[i]) for i in range(len(b_inv_arr)) ] )
-    assert np.array_equal(uarr, bi0)
-    bi12 = np.linalg.solve(Bmat, uarr)
-    bi22 = np.linalg.solve(Bmat, bi12)
-    assert np.linalg.norm( (Bmat @ bi12) - uarr ) < tol
-    assert np.linalg.norm( (Bmat @ bi22) - bi12 ) < error_est * tol
+    b0 = ( B**0 @ u )
+    b1 = ( B**1 @ u )
+    b2 = ( B**2 @ u )
+    assert norm2_sqr(u-b0) == 0
+    assert norm2_sqr(B @ u - b1) < 1e-20
+    assert norm2_sqr(B @ (B @ u) - b2) < 1e-20
 
-    zeros = U.zeros().toarray()
-    z0 = ( Z**0 @ u ).toarray()
-    z1 = ( Z**1 @ u ).toarray()
-    z2 = ( Z**2 @ u ).toarray()
-    assert np.array_equal(uarr, z0)
-    assert np.array_equal(zeros, z1)
-    assert np.array_equal(zeros, z2)
+    bi0 = ( B_ILO**0 @ u )
+    bi1 = ( B_ILO**1 @ u )
+    bi2 = ( B_ILO**2 @ u )
+    assert norm2_sqr(u - bi0) == 0
+    assert norm2_sqr((B @ bi1) - u) < tol**2
+    # Two solves: error <= (1 + ||B||) * tol, and ||B|| = ||S|| < 3 (Gershgorin)
+    assert norm2_sqr(B @ (B @ bi2) - u) < (4 * tol)**2
 
-    Smat = S.toarray()
+    zeros = U.zeros()
+    z0 = ( Z**0 @ u )
+    z1 = ( Z**1 @ u )
+    z2 = ( Z**2 @ u )
+    assert norm2_sqr(u - z0) == 0
+    assert norm2_sqr(zeros - z1) == 0
+    assert norm2_sqr(zeros - z2) == 0
+
     assert_pos_def(S)
-    varr = v.toarray()
-    s0 = ( S**0 @ v ).toarray()
-    s1 = ( S**1 @ v ).toarray()
-    s2 = ( S**2 @ v ).toarray()
-    assert np.array_equal(varr, s0)
-    assert np.linalg.norm( np.dot(Smat, varr) - s1 ) < 1e-10
-    assert np.linalg.norm( np.dot(Smat, np.dot(Smat, varr)) - s2 ) < 1e-10
+    s0 = ( S**0 @ v )
+    s1 = ( S**1 @ v )
+    s2 = ( S**2 @ v )
+    assert norm2_sqr(v-s0) == 0
 
-    si0 = ( S_ILO**0 @ v ).toarray()
-    si1 = ( S_ILO**1 @ v ).toarray()
-    si2 = ( S_ILO**2 @ v ).toarray()
-    S_inv_mat = np.linalg.inv(Smat)
-    s_inv_arr = np.matrix.flatten(S_inv_mat)
-    error_est = 2 + n1 * n2 * np.max( [ np.abs(s_inv_arr[i]) for i in range(len(s_inv_arr)) ] )
-    assert np.array_equal(varr, si0)
-    si12 = np.linalg.solve(Smat, varr)
-    si22 = np.linalg.solve(Smat, si12)
-    assert np.linalg.norm( (Smat @ si12) - varr ) < tol
-    assert np.linalg.norm( (Smat @ si22) - si12 ) < error_est * tol
+    assert norm2_sqr((S @ v) - s1) < 1e-20
+    assert norm2_sqr(S @ (S @ v ) - s2) < 1e-20
 
-    i0 = ( I**0 @ v ).toarray()
-    i1 = ( I**1 @ v ).toarray()
-    i2 = ( I**2 @ v ).toarray()
-    assert np.array_equal(varr, i0)
-    assert np.array_equal(varr, i1)
-    assert np.array_equal(varr, i2)
+
+    si0 = ( S_ILO**0 @ v )
+    si1 = ( S_ILO**1 @ v )
+    si2 = ( S_ILO**2 @ v )
+    assert norm2_sqr(v - si0) == 0
+    assert norm2_sqr((S @ si1) - v) < tol**2
+    # Two solves: error <= (1 + ||S||) * tol, and ||S|| < 3 (Gershgorin)
+    assert norm2_sqr(S @ (S @ si2) - v) < (4 * tol)**2
+
+
+    i0 = ( I**0 @ v )
+    i1 = ( I**1 @ v )
+    i2 = ( I**2 @ v )
+    assert norm2_sqr(v - i0) == 0
+    assert norm2_sqr(v - i1) == 0
+    assert norm2_sqr(v - i2) == 0
 
     ### 2.2 SumLO tests
     Sum1 = B + B_ILO + B + B_ILO
@@ -849,16 +844,16 @@ def test_operator_evaluation(n1, n2, p1, p2):
     sum2 = Sum2 @ v
     u_approx = B @ (0.5*(sum1 - 2*B@u))
     v_approx = S @ (0.5*(sum2 - 2*S@v))
-    assert np.linalg.norm( (u_approx - u).toarray() ) < tol
-    assert np.linalg.norm( (v_approx - v).toarray() ) < tol
+    assert norm2_sqr(u_approx - u) < tol**2
+    assert norm2_sqr(v_approx - v) < tol**2
 
     ### 2.3 CompLO tests
     C1 = B @ (-B)
     C2 = S @ (-S)
-    c1 = ( C1 @ u ).toarray()
-    c2 = ( C2 @ v ).toarray()
-    assert np.array_equal(-c1, b2)
-    assert np.array_equal(-c2, s2)
+    c1 = ( C1 @ u )
+    c2 = ( C2 @ v )
+    assert norm2_sqr(-c1 - b2) < 1e-20
+    assert norm2_sqr(-c2 - s2) < 1e-20
 
     ### 2.4 Huge composition
     ZV = ZeroOperator(V, V)
@@ -868,7 +863,8 @@ def test_operator_evaluation(n1, n2, p1, p2):
     H4 = 2 * (S**1 @ S**0)
     H5 = ZV @ I
     H = H1 @ ( H2 + H3 - H4 + H5 ).T
-    assert np.linalg.norm( (H @ v).toarray() - v.toarray() ) < 10 * tol
+
+    assert norm2_sqr((H @ v)- v) < (10 * tol)**2
 
     ### 2.5 InverseLO test
 
@@ -898,17 +894,16 @@ def test_operator_evaluation(n1, n2, p1, p2):
     # Several break-criteria in the LSMR algorithm require different way to determine success
     # than asserting rnorm < tol, as that is not required. Even though it should?
 
-    assert np.linalg.norm( (S @ xs_cg - v).toarray() ) < tol
-    assert np.linalg.norm( (S @ xs_pcg - v).toarray() ) < tol
-    assert np.linalg.norm( (S @ xs_bicg - v).toarray() ) < tol
+    assert norm2_sqr(S @ xs_cg - v) < tol**2
+    assert norm2_sqr(S @ xs_pcg - v) < tol**2
+    assert norm2_sqr(S @ xs_bicg - v) < tol**2
     assert S_lsmr.get_success() == True
-    assert np.linalg.norm( (S @ xs_mr - v).toarray() ) < tol
-
-    assert np.linalg.norm( (B @ xb_cg - u).toarray() ) < tol
-    assert np.linalg.norm( (B @ xb_pcg - u).toarray() ) < tol
-    assert np.linalg.norm( (B @ xb_bicg - u).toarray() ) < tol
+    assert norm2_sqr(S @ xs_mr - v) < tol**2
+    assert norm2_sqr(B @ xb_cg - u) < tol**2
+    assert norm2_sqr(B @ xb_pcg - u) < tol**2
+    assert norm2_sqr(B @ xb_bicg - u) < tol**2
     assert B_lsmr.get_success() == True
-    assert np.linalg.norm( (B @ xb_mr - u).toarray() ) < tol
+    assert norm2_sqr(B @ xb_mr - u) < tol**2
 
 #===============================================================================
 
@@ -961,8 +956,10 @@ def test_internal_storage():
     assert len(Z2_1.tmp_vectors) == 3
     assert len(Z2_2.tmp_vectors) == 3
     assert len(Z2_3.tmp_vectors) == 3
-    assert np.array_equal( y1_1.toarray(), y1_2.toarray() ) & np.array_equal( y1_2.toarray(), y1_3.toarray() )
-    assert np.array_equal( y2_1.toarray(), y2_2.toarray() ) & np.array_equal( y2_2.toarray(), y2_3.toarray() )
+    assert norm2_sqr(y1_1 - y1_2) < 1e-20
+    assert norm2_sqr(y1_2 - y1_3) < 1e-20
+    assert norm2_sqr(y2_1 - y2_2) < 1e-20
+    assert norm2_sqr(y2_2 - y2_3) < 1e-20
 
 #===============================================================================
 @pytest.mark.parametrize(("solver", "use_jacobi_pc"),
