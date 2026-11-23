@@ -7,6 +7,9 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 -   #639 : Add option `logical` to `DiscreteDeRham.projectors` and `MultipatchDiscreteDeRham.projectors`, to project functions of the logical coordinates, see #153
+-   #634 : Add option `radial_dim` to the projections in `psydac.feec.polar.conga_projections` to allow logical coordinates (theta, s) in place of (s, theta)
+-   #634 : Add classes `TransposedTargetMapping` and `TransposedCzarnyMapping` to `psydac.feec.multipatch_domain_utilities`
+-   #614 : Add option `side` to `psydac.core.bsplines.find_span` to select the knot span on the left of a knot
 -   #527 : Add constructor `Geometry.from_file` with option `domain` to reuse an existing SymPDE domain, after checking that it matches the file
 -   #527 : Add function `get_available_mappings` and option `mpi_dims_mask` to `discrete_mapping` in `psydac.mapping.discrete_gallery`
 -   #527 : Add property `mpi_dims_mask` to `DomainDecomposition`
@@ -27,6 +30,8 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 
 -   #639 : Pass `nquads` to the projector of the H1 vector space in 3D in `DiscreteDeRham.projectors`
+-   #614 : Fix NaN in parallel evaluation of fields at subdomain boundaries with repeated knots, see #612
+-   #614 : Update ghost regions in `TensorFemSpace.eval_field_gradient` if needed, as in `eval_field`
 -   #638 : Fix random failures of the post-processing tests in `psydac test` with pytest 9.2.0, and write all files of the unit tests to temporary directories, see #637
 -   #624 : Terminate all MPI processes when one of them fails in `parallel_run_from_cli`, see #621
 -   #604 : Fix several bugs in iterative linear solvers (MINRES, LSMR, GMRES, CG, BiCGSTAB), see #603
