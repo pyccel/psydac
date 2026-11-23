@@ -411,16 +411,25 @@ def calculate_mixed_mass_matrix(domain_space, codomain_space):
     knots = coarse_space.knots
     spl_type = coarse_space.basis
     breaks = coarse_space.breaks
+    periodic = coarse_space.periodic
+    pads = coarse_space.pads
 
     fdeg = fine_space.degree
     fknots = fine_space.knots
     fbreaks = fine_space.breaks
+    fperiodic = fine_space.periodic
+    fpads = fine_space.pads
     fspl_type = fine_space.basis
     fNel = fine_space.ncells
 
     assert spl_type == fspl_type
     assert deg == fdeg
-    assert ((knots[0] == fknots[0]) and (knots[-1] == fknots[-1]))
+    assert periodic == fperiodic
+
+    if not periodic:
+        assert (knots[0] == fknots[0]) and (knots[-1] == fknots[-1])
+    else:
+        assert (knots[pads] == fknots[fpads]) and (knots[-pads-1] == fknots[-fpads-1])
 
     u, w = gauss_legendre(deg + 1)
 
