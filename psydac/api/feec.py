@@ -188,34 +188,14 @@ class DiscreteDeRham(BasicDiscrete):
         return self._callable_mapping
 
     #--------------------------------------------------------------------------
-    def projectors(self, *, kind='global', nquads=None):
-        """Projectors mapping callable functions of the physical coordinates to a 
-        corresponding `FemField` object in the de Rham sequence.
-
-        Parameters
-        ----------
-        kind : str
-            Type of the projection : at the moment, only global is accepted and
-            returns geometric commuting projectors based on interpolation/histopolation 
-            for the de Rham sequence (GlobalProjector objects).
-
-        nquads : list(int) | tuple(int)
-            Number of quadrature points along each direction, to be used in Gauss
-            quadrature rule for computing the (approximated) degrees of freedom.
-
-        Returns
-        -------
-        P0, ..., Pn : callables
-            Projectors that can be called on any callable function that maps 
-            from the physical space to R (scalar case) or R^d (vector case) and
-            returns a FemField belonging to the i-th space of the de Rham sequence
-        """
-
-        if not (kind == 'global'):
-            raise NotImplementedError('only global projectors are available')
+    def _get_nquads(self, nquads):
+        """Return the number of quadrature points along each direction
+        (default: maximum degree of V0 + 1, as in the assembly of forms)."""
+        # Local import to avoid a circular import with psydac.api.discretization
+        from psydac.api.discretization import get_max_degree_of_one_space
 
         if nquads is None:
-            nquads = [p + 1 for p in self.V0.degree]
+            nquads = [p + 1 for p in get_max_degree_of_one_space(self.V0)]
         elif isinstance(nquads, int):
             nquads = [nquads] * self.dim
         else:
@@ -225,10 +205,51 @@ class DiscreteDeRham(BasicDiscrete):
         assert all(isinstance(nq, int) for nq in nquads)
         assert all(nq >= 1 for nq in nquads)
 
+        return nquads
+
+    #--------------------------------------------------------------------------
+    def projectors(self, *, kind='global', nquads=None, logical=False):
+        """Projectors mapping callable functions to a corresponding `FemField`
+        object in the de Rham sequence.
+
+        By default, the functions are given in the physical coordinates, and
+        they are pulled back to the logical domain before the projection. If
+        `logical` is True, the functions are given in the logical coordinates,
+        and they are projected directly (as in the case without a mapping).
+
+        Parameters
+        ----------
+        kind : str
+            Type of the projection : at the moment, only global is accepted and
+            returns geometric commuting projectors based on interpolation/histopolation
+            for the de Rham sequence (GlobalProjector objects).
+
+        nquads : list(int) | tuple(int)
+            Number of quadrature points along each direction, to be used in Gauss
+            quadrature rule for computing the (approximated) degrees of freedom.
+
+        logical : bool, default=False
+            If True, the projectors act on functions of the logical coordinates,
+            which are not pulled back even if the domain has a mapping.
+
+        Returns
+        -------
+        P0, ..., Pn : callables
+            Projectors that can be called on any callable function that maps
+            from the physical (or logical) space to R (scalar case) or R^d
+            (vector case) and returns a FemField belonging to the i-th space
+            of the de Rham sequence
+        """
+
+        if not (kind == 'global'):
+            raise NotImplementedError('only global projectors are available')
+
+        nquads = self._get_nquads(nquads)
+
         if self.dim == 1:
             P0 = GlobalGeometricProjectorH1(self.V0)
             P1 = GlobalGeometricProjectorL2(self.V1, nquads)
-            if self.mapping:
+            if self.mapping and not logical:
                 P0_m = lambda f: P0(pull_1d_h1(f, self.callable_mapping))
                 P1_m = lambda f: P1(pull_1d_l2(f, self.callable_mapping))
                 return P0_m, P1_m
@@ -249,7 +270,7 @@ class DiscreteDeRham(BasicDiscrete):
             if self.has_vec : 
                 Pvec = GlobalGeometricProjectorH1vec(self.H1vec, nquads)
 
-            if self.mapping:
+            if self.mapping and not logical:
                 P0_m = lambda f: P0(pull_2d_h1(f, self.callable_mapping))
                 P2_m = lambda f: P2(pull_2d_l2(f, self.callable_mapping))
                 if kind == 'hcurl':
@@ -273,8 +294,8 @@ class DiscreteDeRham(BasicDiscrete):
             P2 = GlobalGeometricProjectorHdiv (self.V2, nquads)
             P3 = GlobalGeometricProjectorL2   (self.V3, nquads)
             if self.has_vec : 
-                Pvec = GlobalGeometricProjectorH1vec(self.H1vec)
-            if self.mapping:
+                Pvec = GlobalGeometricProjectorH1vec(self.H1vec, nquads)
+            if self.mapping and not logical:
                 P0_m = lambda f: P0(pull_3d_h1   (f, self.callable_mapping))
                 P1_m = lambda f: P1(pull_3d_hcurl(f, self.callable_mapping))
                 P2_m = lambda f: P2(pull_3d_hdiv (f, self.callable_mapping))
@@ -654,7 +675,7 @@ class MultipatchDiscreteDeRham(DiscreteDeRham):
         raise NotImplementedError('Not implemented for Multipatch de Rham sequences.')
 
     #--------------------------------------------------------------------------
-    def projectors(self, *, kind='global', nquads=None):
+    def projectors(self, *, kind='global', nquads=None, logical=False):
         """
         This method returns the patch-wise commuting projectors on the broken multi-patch space
 
@@ -664,7 +685,12 @@ class MultipatchDiscreteDeRham(DiscreteDeRham):
           The projectors kind, can be global or local
 
         nquads: <list,tuple>
-          The number of quadrature points.
+          The number of quadrature points (default: degree + 1, using the
+          highest degree of all patches along each direction).
+
+        logical: <bool>
+          If True, the projectors act on a list of functions of the logical
+          coordinates (one per patch), which are not pulled back.
 
         Returns
         -------
@@ -686,6 +712,9 @@ class MultipatchDiscreteDeRham(DiscreteDeRham):
         if not (kind == 'global'):
             raise NotImplementedError('only global projectors are available')
 
+        # The same number of quadrature points is used on all patches
+        nquads = self._get_nquads(nquads)
+
         if self.dim == 1:
             raise NotImplementedError("1D projectors are not available")
 
@@ -699,7 +728,7 @@ class MultipatchDiscreteDeRham(DiscreteDeRham):
 
             P2 = MultipatchGeometricProjector(self.V2, GlobalGeometricProjectorL2, nquads=nquads)
 
-            if self.mapping:
+            if self.mapping and not logical:
                 P0_m = lambda f : P0([pull_2d_h1(f, m) for m in self.callable_mapping])
 
                 if self.sequence[1] == 'hcurl':

@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+-   #639 : Add option `logical` to `DiscreteDeRham.projectors` and `MultipatchDiscreteDeRham.projectors`, to project functions of the logical coordinates, see #153
 -   #634 : Add option `radial_dim` to the projections in `psydac.feec.polar.conga_projections` to allow logical coordinates (theta, s) in place of (s, theta)
 -   #634 : Add classes `TransposedTargetMapping` and `TransposedCzarnyMapping` to `psydac.feec.multipatch_domain_utilities`
 -   #614 : Add option `side` to `psydac.core.bsplines.find_span` to select the knot span on the left of a knot
@@ -28,6 +29,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+-   #639 : Pass `nquads` to the projector of the H1 vector space in 3D in `DiscreteDeRham.projectors`
 -   #614 : Fix NaN in parallel evaluation of fields at subdomain boundaries with repeated knots, see #612
 -   #614 : Update ghost regions in `TensorFemSpace.eval_field_gradient` if needed, as in `eval_field`
 -   #638 : Fix random failures of the post-processing tests in `psydac test` with pytest 9.2.0, and write all files of the unit tests to temporary directories, see #637
@@ -70,6 +72,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+-   #639 : Use the same default `nquads` in `MultipatchDiscreteDeRham.projectors` as in `DiscreteDeRham.projectors` (maximum degree plus one)
 -   #625 : Require all components of a `VectorFemSpace` to share the same `DomainDecomposition` object, see #615
 -   #527 : Pass a domain decomposition `ddm` and physical dimension `pdim` to `Geometry.__init__`; remove arguments `ncells`, `periodic`, `filename`, `comm` and `mpi_dims_mask`
 -   #527 : Use the domain decomposition of the mapping's space in `Geometry.from_discrete_mapping`; remove arguments `comm` and `mpi_dims_mask`
