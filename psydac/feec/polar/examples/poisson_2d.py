@@ -588,6 +588,11 @@ def run_poisson_2d(
     timing["diagnostics"] = 0.0
     timing["export"] = 0.0
 
+    if radial_dim == 1 and smooth_method in ("polar-std", "polar-spec"):
+        raise NotImplementedError(
+            "radial_dim=1 is not supported with smooth methods 'polar-std' and 'polar-spec'"
+        )
+
     # Method of manufactured solution
     if test_case == "disk":
         model = Poisson2D.disk(R=R, shift_D=shift_D, radial_dim=radial_dim)
