@@ -5,10 +5,11 @@
 #---------------------------------------------------------------------------#
 
 import pytest
-from sympde.topology import PolarMapping, TargetMapping
-from sympy import simplify
+from sympde.topology import CzarnyMapping, PolarMapping, TargetMapping
+from sympy import Rational, simplify
 
 from psydac.feec.multipatch_domain_utilities import (
+    TransposedCzarnyMapping,
     TransposedPolarMapping,
     TransposedTargetMapping,
 )
@@ -19,6 +20,8 @@ from psydac.feec.multipatch_domain_utilities import (
     [
         (TransposedPolarMapping, PolarMapping, dict(c1=0.5, c2=-1, rmin=0.2, rmax=1.5)),
         (TransposedTargetMapping, TargetMapping, dict(c1=0.5, c2=-1, k=0.3, D=0.2)),
+        # SymPDE takes minutes to build CzarnyMapping with float parameters
+        (TransposedCzarnyMapping, CzarnyMapping, dict(c2=-1, eps=Rational(1, 5), b=Rational(7, 5))),
     ],
 )
 def test_transposed_mapping(Transposed, Original, params):

@@ -11,6 +11,7 @@ from sympde.topology import IdentityMapping, PolarMapping, AffineMapping, Mappin
 __all__ = (
     'TransposedPolarMapping',
     'TransposedTargetMapping',
+    'TransposedCzarnyMapping',
     'get_2D_rotation_mapping',
     'flip_axis',
     'build_multipatch_domain',
@@ -39,6 +40,18 @@ class TransposedTargetMapping(Mapping):
     """
     _expressions = {'x': 'c1 + (1-k)*x2*cos(x1) - D*x2**2',
                     'y': 'c2 + (1+k)*x2*sin(x1)'}
+
+    _ldim = 2
+    _pdim = 2
+
+
+class TransposedCzarnyMapping(Mapping):
+    """
+    Represents a Transposed (x1 <> x2) Czarny 2D Mapping object.
+
+    """
+    _expressions = {'x': '(1 - sqrt( 1 + eps*(eps + 2*x2*cos(x1)) )) / eps',
+                    'y': 'c2 + (b / sqrt(1-eps**2/4) * x2 * sin(x1)) /(2 - sqrt( 1 + eps*(eps + 2*x2*cos(x1)) ))'}
 
     _ldim = 2
     _pdim = 2

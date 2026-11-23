@@ -7,7 +7,7 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 -   #634 : Add option `radial_dim` to the projections in `psydac.feec.polar.conga_projections` to allow logical coordinates (theta, s) in place of (s, theta)
--   #634 : Add class `TransposedTargetMapping` to `psydac.feec.multipatch_domain_utilities`
+-   #634 : Add classes `TransposedTargetMapping` and `TransposedCzarnyMapping` to `psydac.feec.multipatch_domain_utilities`
 -   #614 : Add option `side` to `psydac.core.bsplines.find_span` to select the knot span on the left of a knot
 -   #527 : Add constructor `Geometry.from_file` with option `domain` to reuse an existing SymPDE domain, after checking that it matches the file
 -   #527 : Add function `get_available_mappings` and option `mpi_dims_mask` to `discrete_mapping` in `psydac.mapping.discrete_gallery`
