@@ -25,7 +25,10 @@ As an example, a parallel simulation with 6 MPI processes may be run with:
 from dataclasses import dataclass
 
 # Base classes are needed at class definition
-from psydac.feec.multipatch_domain_utilities import TransposedTargetMapping
+from psydac.feec.multipatch_domain_utilities import (
+    TransposedCzarnyMapping,
+    TransposedTargetMapping,
+)
 from psydac.feec.polar.examples.polar_model_2d import PolarModel2D
 from psydac.linalg.basic import LinearOperator
 
@@ -223,9 +226,18 @@ class Poisson2D(PolarModel2D):
 
         from psydac.utilities.operators import Laplacian
 
-        domain_log = Square("Omega", bounds1=(0, 1), bounds2=(0, 2 * np.pi))
+        bounds_s = (0, 1)
+        bounds_theta = (0, 2 * np.pi)
+        if radial_dim == 0:
+            bounds1, bounds2 = bounds_s, bounds_theta
+            mapping_class = CzarnyMapping
+        else:
+            bounds1, bounds2 = bounds_theta, bounds_s
+            mapping_class = TransposedCzarnyMapping
+
+        domain_log = Square("Omega", bounds1=bounds1, bounds2=bounds2)
         params = dict(c1=0, c2=0, eps=Rational(1, 5), b=Rational(7, 5))
-        mapping = CzarnyMapping("F", **params)
+        mapping = mapping_class("F", **params)
 
         lapl = Laplacian(mapping)
         s = mapping.logical_coordinates[radial_dim]
