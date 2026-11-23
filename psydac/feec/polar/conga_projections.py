@@ -58,6 +58,7 @@ __all__ = (
     "C1PolarProjection_U0",
     "C1PolarProjection_U1",
     "C1PolarProjection_U2",
+    "polar_index",
 )
 
 

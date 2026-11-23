@@ -550,6 +550,7 @@ def run_poisson_2d(
     from psydac.feec.polar.conga_projections import (
         C0PolarProjection_V0,
         C1PolarProjection_U0,
+        polar_index,
     )
     from psydac.fem.basic import FemField
     from psydac.linalg.solvers import inverse
@@ -716,22 +717,23 @@ def run_poisson_2d(
     # Apply homogeneous Dirichlet boundary conditions for the conforming
     # smooth_method case 'polar' and non-conforming case 'None'
     # NOTE: this does not affect ghost regions
-    # For each angular index j on the last owned radial line, replace the assembled equation
-    #     (S u)[e1, j] = b[e1, j]
+    # For each angular index j on the last radial line, replace the assembled equation
+    #     (S u)[er, j] = b[er, j]
     # by the equation
-    #     u[e1, j] = 0.
+    #     u[er, j] = 0.
 
-    e1 = V0_h.coeff_space.ends[0]
-    if e1 == V0_h.coeff_space.npts[0] - 1:
+    er = V0_h.coeff_space.ends[radial_dim]
+    if er == V0_h.coeff_space.npts[radial_dim] - 1:
         if smooth_method in ("polar-std", "polar-spec"):
             last = bp[1].space.npts[0] - 1
             Sp[1, 1][last, :, :, :] = 0.0
             Sp[1, 1][last, :, 0, 0] = 1.0
             bp[1][last, :] = 0.0
         elif smooth_method == "None":
-            S[e1, :, :, :] = 0.0
-            S[e1, :, 0, 0] = 1.0  # set diagonal entries to 1
-            b[e1, :] = 0.0  # RHS is 0 at the outer radial boundary
+            outer = polar_index(radial_dim, er, slice(None))
+            S[outer] = 0.0  # all stencil entries of the outer rows
+            S[outer + (0, 0)] = 1.0  # set diagonal entries to 1
+            b[outer] = 0.0  # RHS is 0 at the outer radial boundary
 
     # --------------------------------------------------------------------------
     # Solve Galerkin system with CG
