@@ -141,12 +141,12 @@ class C0PolarProjection_V0(LinearOperator):
     def dtype(self):
         return float
 
-    def dot(self, x, out=None):
-        assert isinstance(x, StencilVector)
-        assert x.space is self.domain
+    def dot(self, v, out=None):
+        assert isinstance(v, StencilVector)
+        assert v.space is self.domain
 
-        if not x.ghost_regions_in_sync:
-            x.update_ghost_regions()
+        if not v.ghost_regions_in_sync:
+            v.update_ghost_regions()
 
         rdim, adim = self.radial_dim, self.angle_dim
         V = self.W0.coeff_space
@@ -173,19 +173,19 @@ class C0PolarProjection_V0(LinearOperator):
             inner = polar_index(rdim, slice(1, er + 1), ang)   # s > 0
 
             # compute sum of points with s = 0 for the process
-            local_sum = np.sum(x[pole])
-            if x.space.parallel:
+            local_sum = np.sum(v[pole])
+            if v.space.parallel:
                 from mpi4py import MPI
 
-                angle_comm = x.space.cart.subcomm[adim]
+                angle_comm = v.space.cart.subcomm[adim]
                 local_sum = angle_comm.allreduce(local_sum, op=MPI.SUM)
             # compute average of all points with s = 0
             y[pole] = local_sum / na
-            y[inner] = x[inner]
+            y[inner] = v[inner]
         else:
             # all radial indices of the rank
             owned = polar_index(rdim, slice(sr, er + 1), ang)
-            y[owned] = x[owned]
+            y[owned] = v[owned]
 
         if self.hbc:
             if rank_at_outer_edge:
@@ -322,12 +322,12 @@ class C0PolarProjection_V1_s_s(LinearOperator):
 
     # This block is the identity, so it does not depend on the ordering of
     # the logical coordinates.
-    def dot(self, x, out=None):
-        assert isinstance(x, StencilVector)
-        assert x.space is self.domain
+    def dot(self, v, out=None):
+        assert isinstance(v, StencilVector)
+        assert v.space is self.domain
 
-        if not x.ghost_regions_in_sync:
-            x.update_ghost_regions()
+        if not v.ghost_regions_in_sync:
+            v.update_ghost_regions()
 
         [s1, s2] = self.domain.starts
         [e1, e2] = self.domain.ends
@@ -340,7 +340,7 @@ class C0PolarProjection_V1_s_s(LinearOperator):
             out *= 0
             y = out
 
-        y[s1 : e1 + 1, s2 : e2 + 1] = x[s1 : e1 + 1, s2 : e2 + 1]
+        y[s1 : e1 + 1, s2 : e2 + 1] = v[s1 : e1 + 1, s2 : e2 + 1]
 
         y.update_ghost_regions()
         return y
@@ -423,12 +423,12 @@ class C0PolarProjection_V1_theta_s(LinearOperator):
     def dtype(self):
         return float
 
-    def dot(self, x, out=None):
-        assert isinstance(x, StencilVector)
-        assert x.space is self.domain
+    def dot(self, v, out=None):
+        assert isinstance(v, StencilVector)
+        assert v.space is self.domain
 
-        if not x.ghost_regions_in_sync:
-            x.update_ghost_regions()
+        if not v.ghost_regions_in_sync:
+            v.update_ghost_regions()
 
         rdim, adim = self.radial_dim, self.angle_dim
         V = self.domain
@@ -455,13 +455,13 @@ class C0PolarProjection_V1_theta_s(LinearOperator):
                 s_ring0          = polar_index(rdim, 0, ang)
                 theta_ring1      = polar_index(rdim, 1, ang)
                 theta_ring1_prev = polar_index(rdim, 1, ang_prev)
-                y[s_ring0] = x[theta_ring1_prev] - x[theta_ring1]
+                y[s_ring0] = v[theta_ring1_prev] - v[theta_ring1]
             else:
                 # (theta-component)[1, j] = (s-component)[0, j+1] - (s-component)[0, j]
                 theta_ring1  = polar_index(rdim, 1, ang)
                 s_ring0      = polar_index(rdim, 0, ang)
                 s_ring0_next = polar_index(rdim, 0, ang_next)
-                y[theta_ring1] = x[s_ring0_next] - x[s_ring0]
+                y[theta_ring1] = v[s_ring0_next] - v[s_ring0]
 
         y.update_ghost_regions()
         return y
@@ -564,12 +564,12 @@ class C0PolarProjection_V1_theta_theta(LinearOperator):
     def dtype(self):
         return float
 
-    def dot(self, x, out=None):
-        assert isinstance(x, StencilVector)
-        assert x.space is self.domain
+    def dot(self, v, out=None):
+        assert isinstance(v, StencilVector)
+        assert v.space is self.domain
 
-        if not x.ghost_regions_in_sync:
-            x.update_ghost_regions()
+        if not v.ghost_regions_in_sync:
+            v.update_ghost_regions()
 
         rdim, adim = self.radial_dim, self.angle_dim
         V = self.domain
@@ -591,11 +591,11 @@ class C0PolarProjection_V1_theta_theta(LinearOperator):
         if rank_at_polar_edge:
             # radial indices 0 and 1 stay zero, identity on the others
             inner = polar_index(rdim, slice(2, er + 1), ang)
-            y[inner] = x[inner]
+            y[inner] = v[inner]
         else:
             # all radial indices of the rank
             owned = polar_index(rdim, slice(sr, er + 1), ang)
-            y[owned] = x[owned]
+            y[owned] = v[owned]
 
         if self.hbc and rank_at_outer_edge:
             outer = polar_index(rdim, er, slice(None))  # s = L
@@ -757,12 +757,12 @@ class C0PolarProjection_V2(LinearOperator):
     def dtype(self):
         return float
 
-    def dot(self, x, out=None):
-        assert isinstance(x, StencilVector)
-        assert x.space is self.domain
+    def dot(self, v, out=None):
+        assert isinstance(v, StencilVector)
+        assert v.space is self.domain
 
-        if not x.ghost_regions_in_sync:
-            x.update_ghost_regions()
+        if not v.ghost_regions_in_sync:
+            v.update_ghost_regions()
 
         rdim, adim = self.radial_dim, self.angle_dim
         V = self.W2.coeff_space
@@ -789,16 +789,16 @@ class C0PolarProjection_V2(LinearOperator):
             )  # radial indices > 1 owned by the rank
 
             if self.transposed:
-                y[ring0] = x[ring1]
-                y[ring1] = x[ring1]
+                y[ring0] = v[ring1]
+                y[ring1] = v[ring1]
             else:
                 y[ring0] = 0
-                y[ring1] = x[ring0] + x[ring1]
-            y[inner] = x[inner]
+                y[ring1] = v[ring0] + v[ring1]
+            y[inner] = v[inner]
         else:
             # all radial indices of the rank
             owned = polar_index(rdim, slice(sr, er + 1), ang)
-            y[owned] = x[owned]
+            y[owned] = v[owned]
 
         y.update_ghost_regions()
         return y
@@ -941,12 +941,12 @@ class C1PolarProjection_U0(LinearOperator):
     def dtype(self):
         return float
 
-    def dot(self, x, out=None):
-        assert isinstance(x, StencilVector)
-        assert x.space is self.domain
+    def dot(self, v, out=None):
+        assert isinstance(v, StencilVector)
+        assert v.space is self.domain
 
-        if not x.ghost_regions_in_sync:
-            x.update_ghost_regions()
+        if not v.ghost_regions_in_sync:
+            v.update_ghost_regions()
 
         rdim, adim = self.radial_dim, self.angle_dim
         V = self.W0.coeff_space
@@ -976,15 +976,15 @@ class C1PolarProjection_U0(LinearOperator):
             )  # s > 1, rank at polar edge
 
             # compute sums of points with s = 0, 1 for the process
-            x0 = np.sum(x[pole]) / na
-            x1 = np.sum(x[ring1]) / na
+            x0 = np.sum(v[pole]) / na
+            x1 = np.sum(v[ring1]) / na
 
-            angle_comm = x.space.cart.subcomm[adim] if x.space.parallel else None
+            angle_comm = v.space.cart.subcomm[adim] if v.space.parallel else None
             sum_cos, sum_sin = cos_sin_avg(
-                theta_local, x, angle_comm, sa, ea, na, 1, radial_dim=rdim
+                theta_local, v, angle_comm, sa, ea, na, 1, radial_dim=rdim
             )
 
-            if x.space.parallel:
+            if v.space.parallel:
 
                 from mpi4py import MPI
 
@@ -1002,12 +1002,12 @@ class C1PolarProjection_U0(LinearOperator):
                 y[ring1] = (
                     x0 + np.cos(theta_local) * sum_cos + np.sin(theta_local) * sum_sin
                 )
-            y[inner] = x[inner]
+            y[inner] = v[inner]
         else:
             owned = polar_index(
                 rdim, slice(sr, er + 1), ang
             )  # all radial indices of the rank
-            y[owned] = x[owned]
+            y[owned] = v[owned]
 
         if self.hbc and rank_at_outer_edge:
             outer = polar_index(rdim, er, slice(None))  # s = L
@@ -1146,9 +1146,9 @@ class C1PolarProjection_U1_s_s(LinearOperator):
     def dtype(self):
         return float
 
-    def dot(self, x, out=None):
-        assert isinstance(x, StencilVector)
-        assert x.space is self.domain
+    def dot(self, v, out=None):
+        assert isinstance(v, StencilVector)
+        assert v.space is self.domain
 
         rdim, adim = self.radial_dim, self.angle_dim
         V = self.domain
@@ -1173,29 +1173,29 @@ class C1PolarProjection_U1_s_s(LinearOperator):
             ring1 = polar_index(rdim, 1, ang)
             inner = polar_index(rdim, slice(2, er + 1), ang)
 
-            angle_comm = x.space.cart.subcomm[adim] if x.space.parallel else None
+            angle_comm = v.space.cart.subcomm[adim] if v.space.parallel else None
             sum_cos0, sum_sin0 = cos_sin_avg(
-                theta_local, x, angle_comm, sa, ea, na, 0, radial_dim=rdim
+                theta_local, v, angle_comm, sa, ea, na, 0, radial_dim=rdim
             )
             p_x0 = sum_cos0 * np.cos(theta_local) + sum_sin0 * np.sin(theta_local)
 
             if self.transposed:
                 sum_cos1, sum_sin1 = cos_sin_avg(
-                    theta_local, x, angle_comm, sa, ea, na, 1, radial_dim=rdim
+                    theta_local, v, angle_comm, sa, ea, na, 1, radial_dim=rdim
                 )
                 p_x1 = sum_cos1 * np.cos(theta_local) + sum_sin1 * np.sin(theta_local)
-                y[ring0] = p_x0 + x[ring1] - p_x1
-                y[ring1] = x[ring1]
+                y[ring0] = p_x0 + v[ring1] - p_x1
+                y[ring1] = v[ring1]
             else:
                 y[ring0] = p_x0
-                y[ring1] = x[ring0] + x[ring1] - p_x0
+                y[ring1] = v[ring0] + v[ring1] - p_x0
 
-            y[inner] = x[inner]
+            y[inner] = v[inner]
         else:
             owned = polar_index(
                 rdim, slice(sr, er + 1), ang
             )  # all radial indices of the rank
-            y[owned] = x[owned]
+            y[owned] = v[owned]
 
         y.update_ghost_regions()
         return y
@@ -1335,12 +1335,12 @@ class C1PolarProjection_U1_theta_s(LinearOperator):
         result[-1] = recvbuf[0] - z[-1]
         return result
 
-    def dot(self, x, out=None):
-        assert isinstance(x, StencilVector)
-        assert x.space is self.domain
+    def dot(self, v, out=None):
+        assert isinstance(v, StencilVector)
+        assert v.space is self.domain
 
-        if not x.ghost_regions_in_sync:
-            x.update_ghost_regions()
+        if not v.ghost_regions_in_sync:
+            v.update_ghost_regions()
 
         rdim, adim = self.radial_dim, self.angle_dim
         V = self.domain
@@ -1359,14 +1359,14 @@ class C1PolarProjection_U1_theta_s(LinearOperator):
             y = out
 
         if rank_at_polar_edge:
-            angle_comm = x.space.cart.subcomm[adim] if x.space.parallel else None
+            angle_comm = v.space.cart.subcomm[adim] if v.space.parallel else None
             ang = slice(sa, ea + 1)
 
             if self.transposed:
                 s_ring0          = polar_index(rdim, 0, ang)
                 theta_ring1      = polar_index(rdim, 1, ang)
                 theta_ring1_prev = polar_index(rdim, 1, slice(sa - 1, ea))
-                y[s_ring0] = x[theta_ring1_prev] - x[theta_ring1]
+                y[s_ring0] = v[theta_ring1_prev] - v[theta_ring1]
                 sum_cos, sum_sin = cos_sin_avg(
                     theta_local, y, angle_comm, sa, ea, na, 0, radial_dim=rdim
                 )
@@ -1376,7 +1376,7 @@ class C1PolarProjection_U1_theta_s(LinearOperator):
             else:
                 theta_ring1 = polar_index(rdim, 1, ang)
                 sum_cos, sum_sin = cos_sin_avg(
-                    theta_local, x, angle_comm, sa, ea, na, 0, radial_dim=rdim
+                    theta_local, v, angle_comm, sa, ea, na, 0, radial_dim=rdim
                 )
                 p_x0 = np.cos(theta_local) * sum_cos + np.sin(theta_local) * sum_sin
                 y[theta_ring1] = self.forward_theta_diff_local(p_x0, angle_comm)
