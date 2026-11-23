@@ -165,9 +165,18 @@ class Poisson2D(PolarModel2D):
 
         from psydac.utilities.operators import Laplacian
 
-        domain_log = Square("Omega", bounds1=(0, 1), bounds2=(0, 2 * np.pi))
+        bounds_s = (0, 1)
+        bounds_theta = (0, 2 * np.pi)
+        if radial_dim == 0:
+            bounds1, bounds2 = bounds_s, bounds_theta
+            mapping_class = TargetMapping
+        else:
+            bounds1, bounds2 = bounds_theta, bounds_s
+            mapping_class = TransposedTargetMapping
+
+        domain_log = Square("Omega", bounds1=bounds1, bounds2=bounds2)
         params = dict(c1=0, c2=0, k=Rational(3, 10), D=Rational(2, 10))
-        mapping = TargetMapping("F", **params)
+        mapping = mapping_class("F", **params)
 
         lapl = Laplacian(mapping)
         s = mapping.logical_coordinates[radial_dim]
