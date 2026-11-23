@@ -13,8 +13,6 @@ from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatr
 from psydac.linalg.kernels.stencil2IJV_kernels import stencil2IJV_1d_C, stencil2IJV_2d_C, stencil2IJV_3d_C
 
 __all__ = (
-    'petsc_local_to_psydac',
-    'psydac_to_petsc_global',
     'get_npts_local',
     'get_npts_per_block',
     'vec_topetsc',
@@ -89,183 +87,6 @@ def toIJVrowmap(mat_block, bd, bc, I, J, V, rowmap, dspace, cspace, dnpts_block,
     V += list(Vb[:nnz])
 
     return I, J, V, rowmap
-
-
-def petsc_local_to_psydac(
-    V : VectorSpace,
-    petsc_index : int):
-    """
-    Convert the PETSc local index (starting from 0 in each process) to a PSYDAC local index (natural multi-index, as grid coordinates).
-
-    Parameters
-    ----------
-    V : VectorSpace
-        The vector space to which the PSYDAC vector belongs.
-        This defines the number of blocks, the size of each block,
-        and how each block is distributed across MPI processes.
-
-    petsc_index : int
-        The local PETSc index. The 0 index is only owned by every process.
-
-    Returns
-    -------
-    block: tuple
-        The block where the PSYDAC multi-index belongs to.
-
-    psydac_index : tuple
-        The PSYDAC local multi-index. This index is local the block.
-    """
-    # Get the number of points for each block and each dimension local to the current process:
-    npts_local_per_block = np.array(get_npts_local(V)) # indexed [b,d] for block b and dimension d
-    # Get the local size of the current process for each block:
-    local_sizes_per_block = np.prod(npts_local_per_block, axis=-1)  # indexed [b] for block b
-    # Compute the accumulated local size of the current process for each block:
-    accumulated_local_sizes_per_block = np.concatenate((np.zeros((1,), dtype=int), np.cumsum(local_sizes_per_block, axis=0))) #indexed [b+1] for block b
-
-    n_blocks = local_sizes_per_block.size
-
-    # Find the block where the index belongs to:
-    bb = np.nonzero(
-            np.array(
-                [petsc_index in range(accumulated_local_sizes_per_block[b], accumulated_local_sizes_per_block[b+1]) 
-                    for b in range(n_blocks)]
-            ))[0][0]
-
-    if isinstance(V, BlockVectorSpace):
-        V = V.spaces[bb]
-
-    ndim = V.ndim
-    p = V.pads
-    m = V.shifts    
-
-    # Get the number of points for each dimension local to the current process and block:
-    npts_local = npts_local_per_block[bb]
-    
-    # Get the PETSc index local within the block:
-    petsc_index -= accumulated_local_sizes_per_block[bb]
-    
-    ii = np.zeros((ndim,), dtype=int)
-    if ndim == 1:
-        ii[0] = petsc_index + p[0]*m[0]
-
-    elif ndim == 2:
-        ii[0] = petsc_index // npts_local[1] + p[0]*m[0]
-        ii[1] = petsc_index % npts_local[1] + p[1]*m[1]
-
-    elif ndim == 3:
-        ii[0] = petsc_index // (npts_local[1]*npts_local[2]) + p[0]*m[0]
-        ii[1] = petsc_index // npts_local[2] + p[1]*m[1] - npts_local[1]*(ii[0] - p[0]*m[0])
-        ii[2] = petsc_index % npts_local[2] + p[2]*m[2]
-
-    else:
-        raise NotImplementedError( "Cannot handle more than 3 dimensions." )
-
-    return (bb,), tuple(ii)
-
-
-def psydac_to_petsc_global(
-        V : VectorSpace, 
-        block_indices, 
-        ndarray_indices) -> int:
-    """
-    Convert the PSYDAC local index (natural multi-index, as grid coordinates) to a PETSc global index. Perform a search to find the process owning the multi-index.
-
-    Parameters
-    ----------
-    V : VectorSpace
-        The vector space to which the PSYDAC vector belongs.
-        This defines the number of blocks, the size of each block,
-        and how each block is distributed across MPI processes.
-
-    block_indices : tuple[int]
-        The indices which identify the block in a (possibly nested) block vector.
-        In the case of a StencilVector this is an empty tuple.
-
-    ndarray_indices : tuple[int]
-        The multi-index which identifies an element in the _data array,
-        excluding the ghost regions.
-
-    Returns
-    -------
-    petsc_index : int
-        The global PETSc index. The 0 index is only owned by the first process.
-    """
-    bb = block_indices[0]
-    # Get the number of points per block, per process and per dimension:
-    npts_local_per_block_per_process = np.array(get_npts_per_block(V)) #indexed [b,k,d] for block b and process k and dimension d
-    # Get the local sizes per block and per process:
-    local_sizes_per_block_per_process = np.prod(npts_local_per_block_per_process, axis=-1) #indexed [b,k] for block b and process k
-
-    # Extract Cartesian decomposition of the Block where the node is:
-    if isinstance(V, BlockVectorSpace):
-        V = V.spaces[bb]
-
-    cart = V.cart
-
-    nprocs = cart.nprocs # Number of processes in each dimension
-    ndim = cart.ndim
-
-    # Get global starts and ends to find process owning the node.
-    gs = cart.global_starts # Global variable
-    ge = cart.global_ends # Global variable
-
-    jj = ndarray_indices
-
-    if ndim == 1:
-        if cart.comm:
-            # Find to which process the node belongs to:
-            proc_index = np.nonzero(np.array([jj[0] in range(gs[0][k],ge[0][k]+1) for k in range(gs[0].size)]))[0][0]
-        else:
-            proc_index = 0
-       
-        # Find the index shift corresponding to the block and the owner process:
-        index_shift = 0 + np.sum(local_sizes_per_block_per_process[:,:proc_index]) + np.sum(local_sizes_per_block_per_process[:bb,proc_index])
-
-        # Compute the global PETSc index:
-        global_index = index_shift + jj[0] - gs[0][proc_index]
-
-    elif ndim == 2:
-        if cart.comm:
-            # Find to which process the node belongs to:
-            proc_x = np.nonzero(np.array([jj[0] in range(gs[0][k],ge[0][k]+1) for k in range(gs[0].size)]))[0][0]
-            proc_y = np.nonzero(np.array([jj[1] in range(gs[1][k],ge[1][k]+1) for k in range(gs[1].size)]))[0][0]
-        else:
-            proc_x = 0
-            proc_y = 0
-
-        proc_index = proc_y + proc_x*nprocs[1]
-        # Find the index shift corresponding to the block and the owner process:
-        index_shift = 0 + np.sum(local_sizes_per_block_per_process[:,:proc_index]) + np.sum(local_sizes_per_block_per_process[:bb,proc_index])
-
-        # Compute the global PETSc index:
-        global_index = index_shift + jj[1] - gs[1][proc_y] + (jj[0] - gs[0][proc_x]) * npts_local_per_block_per_process[bb,proc_index,1]
-
-    elif ndim == 3:
-        if cart.comm:
-            # Find to which process the node belongs to:
-            proc_x = np.nonzero(np.array([jj[0] in range(gs[0][k],ge[0][k]+1) for k in range(gs[0].size)]))[0][0]
-            proc_y = np.nonzero(np.array([jj[1] in range(gs[1][k],ge[1][k]+1) for k in range(gs[1].size)]))[0][0]
-            proc_z = np.nonzero(np.array([jj[2] in range(gs[2][k],ge[2][k]+1) for k in range(gs[2].size)]))[0][0]
-        else:
-            proc_x = 0
-            proc_y = 0
-            proc_z = 0
-
-        proc_index = proc_z + proc_y*nprocs[2] + proc_x*nprocs[1]*nprocs[2]
-
-        # Find the index shift corresponding to the block and the owner process:
-        index_shift = 0 + np.sum(local_sizes_per_block_per_process[:,:proc_index]) + np.sum(local_sizes_per_block_per_process[:bb,proc_index])
-
-        # Compute the global PETSc index:
-        global_index = index_shift \
-                    +  jj[2] - gs[2][proc_z] \
-                    + (jj[1] - gs[1][proc_y]) * npts_local_per_block_per_process[bb][proc_index][2] \
-                    + (jj[0] - gs[0][proc_x]) * npts_local_per_block_per_process[bb][proc_index][1] * npts_local_per_block_per_process[bb][proc_index][2]
-
-    else:
-        raise NotImplementedError( "Cannot handle more than 3 dimensions." )
-
-    return global_index 
 
 
 def get_npts_local(V : VectorSpace) -> list:
@@ -382,7 +203,7 @@ def vec_topetsc(vec, out=None):
         out.zeroEntries()
         gvec = out
     else:
-        gvec  = PETSc.Vec().create(comm=carts[0].global_comm)    
+        gvec  = PETSc.Vec().create(comm=carts[0].global_comm)
 
         # Set global and local size:
         gvec.setSizes(size=(localsize, globalsize))
@@ -395,45 +216,49 @@ def vec_topetsc(vec, out=None):
 
     vec_block = vec
 
-    for b in range(n_blocks): 
+    # Index shift for each block, for the *current* process only. A call to vec_topetsc
+    # only ever needs the PETSc global index of data local to the calling process, so the
+    # owning process of every such index is always the calling process itself -- there is
+    # no need to search for it index-by-index which is
+    # what makes this vectorizable.
+    index_shift_per_block = get_index_shift_per_block_per_process(vec.space) # [block][process]
+    rank = carts[0].global_comm.Get_rank() if carts[0].global_comm else 0
+
+    for b in range(n_blocks):
         if isinstance(vec, BlockVector):
             vec_block = vec.blocks[b]
-        
-        s = carts[b].starts
+
         ghost_size = [pi*mi for pi,mi in zip(carts[b].pads, carts[b].shifts)]
+        index_shift = index_shift_per_block[b][rank]
+
+        # Range of data owned by local process (no ghost regions):
+        local_slices = tuple(slice(gh, gh + n) for gh, n in zip(ghost_size, npts_local[b]))
+        local_data = vec_block._data[local_slices]
 
         if ndims[b] == 1:
-            for i1 in range(npts_local[b][0]):
-                value = vec_block._data[i1 + ghost_size[0]]
-                if value != 0:
-                    i1_n = s[0] + i1
-                    i_g = psydac_to_petsc_global(vec.space, (b,), (i1_n,))
-                    petsc_indices.append(i_g)
-                    petsc_data.append(value)        
+            (nz1,) = np.nonzero(local_data)
+            i_g = index_shift + nz1
+            petsc_indices.append(i_g)
+            petsc_data.append(local_data[nz1])
 
         elif ndims[b] == 2:
-            for i1 in range(npts_local[b][0]):
-                for i2 in range(npts_local[b][1]):
-                    value = vec_block._data[i1 + ghost_size[0], i2 + ghost_size[1]]
-                    if value != 0:
-                        i1_n = s[0] + i1
-                        i2_n = s[1] + i2                    
-                        i_g = psydac_to_petsc_global(vec.space, (b,), (i1_n, i2_n))
-                        petsc_indices.append(i_g)
-                        petsc_data.append(value)
+            nz1, nz2 = np.nonzero(local_data)
+            i_g = index_shift + nz2 + nz1 * npts_local[b][1]
+            petsc_indices.append(i_g)
+            petsc_data.append(local_data[nz1, nz2])
 
         elif ndims[b] == 3:
-            for i1 in np.arange(npts_local[b][0]):             
-                for i2 in np.arange(npts_local[b][1]):
-                    for i3 in np.arange(npts_local[b][2]):
-                        value = vec_block._data[i1 + ghost_size[0], i2 + ghost_size[1], i3 + ghost_size[2]]
-                        if value != 0:
-                            i1_n = s[0] + i1
-                            i2_n = s[1] + i2
-                            i3_n = s[2] + i3    
-                            i_g = psydac_to_petsc_global(vec.space, (b,), (i1_n, i2_n, i3_n))                    
-                            petsc_indices.append(i_g)
-                            petsc_data.append(value)        
+            nz1, nz2, nz3 = np.nonzero(local_data)
+            i_g = index_shift + nz3 + nz2 * npts_local[b][2] + nz1 * npts_local[b][1] * npts_local[b][2]
+            petsc_indices.append(i_g)
+            petsc_data.append(local_data[nz1, nz2, nz3])
+
+    petsc_indices = np.concatenate(petsc_indices) if petsc_indices else np.array([], dtype='int64')
+    petsc_indices = petsc_indices.astype(PETSc.IntType)
+    petsc_data = np.concatenate(petsc_data) if petsc_data else np.array([], dtype=vec.dtype)
+    # If PETSc was built with a real scalar type but the vector is complex, drop the
+    # imaginary part (silently, matching the previous per-scalar behaviour).
+    petsc_data = petsc_data.astype(PETSc.ScalarType)
 
     # Set the values. The values are stored in a cache memory.
     gvec.setValues(petsc_indices, petsc_data, addv=PETSc.InsertMode.ADD_VALUES) #The addition mode the values is necessary when periodic BC
