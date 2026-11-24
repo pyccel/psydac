@@ -28,6 +28,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+-   #644 : Fix the code generation with the SymPy versions required by SymPDE master: declare the SymPy symbols `Variable` and `AnnotatedArgument` of `psydac.pyccel.ast.core` commutative and set their assumptions, and remove `Variable._eval_is_positive` which recursed infinitely
 -   #614 : Fix NaN in parallel evaluation of fields at subdomain boundaries with repeated knots, see #612
 -   #614 : Update ghost regions in `TensorFemSpace.eval_field_gradient` if needed, as in `eval_field`
 -   #638 : Fix random failures of the post-processing tests in `psydac test` with pytest 9.2.0, and write all files of the unit tests to temporary directories, see #637
@@ -70,6 +71,10 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+-   #644 : Import SymPDE objects from its public namespace `sympde.api`
+-   #644 : Require SymPDE master (commit pyccel/sympde@b22ced9 of 2026/10/30) and SymPy >= 1.12, < 1.15 as required by SymPDE
+-   #644 : Require GeLaTo with support of SymPDE master (commit FrederikSchnack/GeLaTo@95e767b of 2026/11/20)
+-   #644 : Convert the geometry files in `psydac/cad/mesh` to the file format of SymPDE master, which replaces the key `dim` by `ldim` and `pdim`
 -   #625 : Require all components of a `VectorFemSpace` to share the same `DomainDecomposition` object, see #615
 -   #527 : Pass a domain decomposition `ddm` and physical dimension `pdim` to `Geometry.__init__`; remove arguments `ncells`, `periodic`, `filename`, `comm` and `mpi_dims_mask`
 -   #527 : Use the domain decomposition of the mapping's space in `Geometry.from_discrete_mapping`; remove arguments `comm` and `mpi_dims_mask`

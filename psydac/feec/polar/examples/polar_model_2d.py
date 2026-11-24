@@ -19,7 +19,7 @@ class PolarModel2D:
 
     Parameters
     ----------
-    domain_log : sympde.topology.Domain
+    domain_log : sympde.topology.domain.Domain
         Logical domain on which the analytical mapping is defined.
 
     analytical_mapping : sympde.topology.mapping.Mapping
@@ -37,11 +37,11 @@ class PolarModel2D:
     analytical_mapping : sympde.topology.mapping.Mapping
         Original analytical mapping from the logical to the physical domain.
 
-    domain : sympde.topology.Domain
+    domain : sympde.topology.domain.Domain
         Physical domain associated with `mapping`. Initialized by
         calling `build_geometry`.
 
-    domain_log : sympde.topology.Domain
+    domain_log : sympde.topology.domain.Domain
         Logical domain.
 
     geometry_export_time : float
@@ -50,7 +50,7 @@ class PolarModel2D:
     """
 
     def __init__(self, domain_log, analytical_mapping):
-        from sympde.topology.mapping import Mapping
+        from sympde.api import Mapping
 
         assert isinstance(analytical_mapping, Mapping)
 
@@ -107,8 +107,8 @@ class PolarModel2D:
             self._domain = self._analytical_mapping(self._domain_log)
             return
 
-        from sympde.topology.domain import Domain
-        from sympde.topology.mapping import Mapping
+        from sympde.api import Domain
+        from sympde.api import Mapping
 
         from psydac.cad.geometry import Geometry
         from psydac.feec.polar.examples.utils_congapol import (

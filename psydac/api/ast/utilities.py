@@ -13,22 +13,22 @@ from sympy import Mul, Pow, Function, Tuple
 from sympy import sqrt as sympy_sqrt, Range
 from sympy.utilities.iterables import cartes
 
-from sympde.topology.space       import ScalarFunction
-from sympde.topology.space       import VectorFunction
-from sympde.topology.space       import IndexedVectorFunction
-from sympde.topology.space       import element_of
-from sympde.topology             import Mapping
-from sympde.topology             import Boundary
-from sympde.topology.derivatives import _partial_derivatives
-from sympde.topology.derivatives import _logical_partial_derivatives
-from sympde.topology.derivatives import get_atom_derivatives
-from sympde.topology.derivatives import get_index_derivatives
-from sympde.topology.derivatives import get_atom_logical_derivatives
-from sympde.topology.derivatives import get_index_logical_derivatives
-from sympde.topology.derivatives import get_index_derivatives_atom, get_index_logical_derivatives_atom
-from sympde.topology             import LogicalExpr
-from sympde.topology             import SymbolicExpr
-from sympde.core                 import Constant
+from sympde.api import ScalarFunction
+from sympde.api import VectorFunction
+from sympde.api import IndexedVectorFunction
+from sympde.api import element_of
+from sympde.api import Mapping
+from sympde.api import Boundary
+from sympde.api import partial_derivatives
+from sympde.api import logical_partial_derivatives
+from sympde.api import get_atom_derivatives
+from sympde.api import get_index_derivatives
+from sympde.api import get_atom_logical_derivatives
+from sympde.api import get_index_logical_derivatives
+from sympde.api import get_index_derivatives_atom, get_index_logical_derivatives_atom
+from sympde.api import LogicalExpr
+from sympde.api import SymbolicExpr
+from sympde.api import Constant
 
 from psydac.pyccel.ast.core import Variable, IndexedVariable
 from psydac.pyccel.ast.core import For
@@ -115,7 +115,7 @@ def get_max_partial_derivatives(expr, logical=False, F=None):
 #==============================================================================
 def is_mapping(expr):
 
-    if isinstance(expr, _logical_partial_derivatives):
+    if isinstance(expr, logical_partial_derivatives):
         return is_mapping(expr.args[0])
 
     elif isinstance(expr, Indexed) and isinstance(expr.base, Mapping):
@@ -129,9 +129,9 @@ def is_mapping(expr):
 #==============================================================================
 def logical2physical(expr):
 
-    partial_der = dict(zip(_logical_partial_derivatives,_partial_derivatives))
+    partial_der = dict(zip(logical_partial_derivatives,partial_derivatives))
     
-    if isinstance(expr, _logical_partial_derivatives):
+    if isinstance(expr, logical_partial_derivatives):
         argument = logical2physical(expr.args[0])
         new_expr = partial_der[type(expr)](argument)
         return new_expr
@@ -204,7 +204,7 @@ def compute_atoms_expr(atomic_exprs, indices_quad, indices_test,
 
     """
 
-    cls = (_partial_derivatives,
+    cls = (partial_derivatives,
            VectorFunction,
            ScalarFunction,
            IndexedVectorFunction)
@@ -233,13 +233,13 @@ def compute_atoms_expr(atomic_exprs, indices_quad, indices_test,
 
         for atom in atomic_exprs:
 
-            if isinstance(atom, _partial_derivatives):
+            if isinstance(atom, partial_derivatives):
                 lhs   = SymbolicExpr(atom)
                 rhs_p = LogicalExpr(mapping, atom)
 
                 # we look for new_atoms that must be added to atomic_exprs
                 # because we need them in the maps stmts
-                logical_atoms = _atomic(rhs_p, cls=_logical_partial_derivatives)
+                logical_atoms = _atomic(rhs_p, cls=logical_partial_derivatives)
                 for a in logical_atoms:
                     ls = _atomic(a, Symbol)
                     assert len(ls) == 1
@@ -331,7 +331,7 @@ def compute_atoms_expr_field(atomic_exprs, indices_quad,
     updates   = []
     map_stmts = []
 
-    cls = (_partial_derivatives,
+    cls = (partial_derivatives,
            ScalarFunction,
            IndexedVectorFunction,
            VectorFunction)
@@ -351,13 +351,13 @@ def compute_atoms_expr_field(atomic_exprs, indices_quad,
 
         for atom in atomic_exprs:
 
-            if isinstance(atom, _partial_derivatives):
+            if isinstance(atom, partial_derivatives):
                 lhs   = SymbolicExpr(atom)
                 rhs_p = LogicalExpr(mapping, atom)
 
                 # we look for new_atoms that must be added to atomic_exprs
                 # because we need them in the maps stmts
-                logical_atoms = _atomic(rhs_p, cls=_logical_partial_derivatives)
+                logical_atoms = _atomic(rhs_p, cls=logical_partial_derivatives)
                 for a in logical_atoms:
                     ls = _atomic(a, Symbol)
                     assert len(ls) == 1
@@ -484,7 +484,7 @@ def rationalize_eval_mapping(mapping, nderiv, space, indices_quad):
 
     M = mapping
     dim = space.ldim
-    ops = _logical_partial_derivatives[:dim]
+    ops = logical_partial_derivatives[:dim]
 
     # ... mapping components and their derivatives
     components = [M[i] for i in range(0, dim)]

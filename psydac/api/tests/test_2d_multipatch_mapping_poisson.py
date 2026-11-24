@@ -11,17 +11,17 @@ import numpy as np
 from mpi4py import MPI
 from sympy  import pi, sin
 
-from sympde.calculus      import grad, dot
-from sympde.calculus      import minus, plus
-from sympde.topology      import ScalarFunctionSpace
-from sympde.topology      import elements_of
-from sympde.topology      import NormalVector
-from sympde.topology      import Square, Domain
-from sympde.topology      import IdentityMapping, PolarMapping, AffineMapping
-from sympde.expr.expr     import LinearForm, BilinearForm
-from sympde.expr.expr     import integral
-from sympde.expr.expr     import Norm, SemiNorm
-from sympde.expr.equation import find, EssentialBC
+from sympde.api import grad, dot
+from sympde.api import minus, plus
+from sympde.api import ScalarFunctionSpace
+from sympde.api import elements_of
+from sympde.api import NormalVector
+from sympde.api import Square, Domain
+from sympde.api import IdentityMapping, PolarMapping, AffineMapping
+from sympde.api import LinearForm, BilinearForm
+from sympde.api import integral
+from sympde.api import Norm, SemiNorm
+from sympde.api import find, EssentialBC
 
 from psydac.api.discretization     import discretize
 from psydac.api.tests.build_domain import build_11_patch_pretzel, build_2_patch_annulus

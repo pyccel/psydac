@@ -3,8 +3,8 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-from sympde.topology            import Square, Derham, element_of
-from sympde.expr.expr           import BilinearForm, integral
+from sympde.api                 import Square, Derham, element_of
+from sympde.api                 import BilinearForm, integral
 from psydac.api.discretization  import discretize
 from psydac.api.settings        import PSYDAC_BACKENDS
 

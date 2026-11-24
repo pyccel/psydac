@@ -8,9 +8,9 @@ import numpy as np
 import pytest
 from mpi4py import MPI
 from numpy import pi
-from sympde import ScalarFunctionSpace, VectorFunctionSpace
-from sympde.topology import Square
-from sympde.topology.analytical_mapping import PolarMapping
+from sympde.api import ScalarFunctionSpace, VectorFunctionSpace
+from sympde.api import Square
+from sympde.api import PolarMapping
 
 from psydac.api.discretization import discretize
 from psydac.feec.multipatch_domain_utilities import TransposedPolarMapping

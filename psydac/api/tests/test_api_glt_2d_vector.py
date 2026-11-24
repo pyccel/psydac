@@ -7,11 +7,11 @@ import pytest
 import numpy as np
 from scipy.linalg import eig as eig_solver
 
-from sympde.calculus import grad, inner
-from sympde.topology import VectorFunctionSpace
-from sympde.topology import element_of
-from sympde.topology import Square
-from sympde.expr     import BilinearForm, integral
+from sympde.api import grad, inner
+from sympde.api import VectorFunctionSpace
+from sympde.api import element_of
+from sympde.api import Square
+from sympde.api import BilinearForm, integral
 
 from gelato.expr import GltExpr
 

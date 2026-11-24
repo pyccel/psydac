@@ -196,17 +196,17 @@ def run_maxwell_2d_TE(*, use_spline_mapping,
     from mpi4py          import MPI
     from scipy.integrate import dblquad
 
-    from sympde.topology import Domain
-    from sympde.topology import Square
-    from sympde.topology import Mapping
-    from sympde.topology import CallableMapping
+    from sympde.api import Domain
+    from sympde.api import Square
+    from sympde.api import Mapping
+    from sympde.api import CallableMapping
 #    from sympde.topology import CollelaMapping2D
-    from sympde.topology import Derham
-    from sympde.topology import elements_of
-    from sympde.topology import NormalVector
-    from sympde.calculus import dot, cross
-    from sympde.expr     import integral
-    from sympde.expr     import BilinearForm
+    from sympde.api import Derham
+    from sympde.api import elements_of
+    from sympde.api import NormalVector
+    from sympde.api import dot, cross
+    from sympde.api import integral
+    from sympde.api import BilinearForm
 
     from psydac.api.discretization import discretize
     from psydac.api.settings       import PSYDAC_BACKENDS

@@ -25,18 +25,18 @@ from mpi4py import MPI
 from sympy import pi, cos, sin, log, exp, lambdify, symbols
 import pytest
 
-from sympde.calculus import grad, dot
-from sympde.calculus import laplace
-from sympde.topology import ScalarFunctionSpace
-from sympde.topology import element_of
-from sympde.topology import NormalVector
-from sympde.topology import Domain
-from sympde.topology import Union
-from sympde.topology import Square
-from sympde.expr     import linearize
-from sympde.expr     import BilinearForm, LinearForm, integral
-from sympde.expr     import Norm
-from sympde.expr     import find, EssentialBC
+from sympde.api import grad, dot
+from sympde.api import laplace
+from sympde.api import ScalarFunctionSpace
+from sympde.api import element_of
+from sympde.api import NormalVector
+from sympde.api import Domain
+from sympde.api import Union
+from sympde.api import Square
+from sympde.api import linearize
+from sympde.api import BilinearForm, LinearForm, integral
+from sympde.api import Norm
+from sympde.api import find, EssentialBC
 
 from psydac.fem.basic                        import FemField
 from psydac.api.discretization               import discretize

@@ -110,7 +110,7 @@ def split_space(Xh):
     Vh : <list, FemSpace>
          List of fem spaces.
     """
-    from sympde.topology.space import VectorFunctionSpace
+    from sympde.api            import VectorFunctionSpace
     from psydac.fem.vector     import VectorFemSpace
     V = Xh.symbolic_space
     spaces = Xh.spaces

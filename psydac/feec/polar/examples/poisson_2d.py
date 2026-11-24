@@ -45,9 +45,9 @@ class Poisson2D(PolarModel2D):
 
     Parameters
     ----------
-    domain_log : sympde.topology.Domain
+    domain_log : sympde.topology.domain.Domain
         Logical domain on which the solution is defined.
-    mapping : sympde.topology.Mapping
+    mapping : sympde.topology.mapping.Mapping
         Mapping from the logical domain to the physical domain.
     phi_log : sympy.Expr
         Exact scalar potential in logical coordinates.
@@ -98,8 +98,8 @@ class Poisson2D(PolarModel2D):
 
         """
         import numpy as np
-        from sympde.topology.analytical_mapping import TargetMapping
-        from sympde.topology.domain import Square
+        from sympde.api import TargetMapping
+        from sympde.api import Square
         from sympy import cos, pi, sin, symbols
 
         bounds_s = (0, R)
@@ -162,8 +162,8 @@ class Poisson2D(PolarModel2D):
 
         """
         import numpy as np
-        from sympde.topology.analytical_mapping import TargetMapping
-        from sympde.topology.domain import Square
+        from sympde.api import TargetMapping
+        from sympde.api import Square
         from sympy import Rational, cos, pi, sin
 
         from psydac.utilities.operators import Laplacian
@@ -220,8 +220,8 @@ class Poisson2D(PolarModel2D):
 
         """
         import numpy as np
-        from sympde.topology.analytical_mapping import CzarnyMapping
-        from sympde.topology.domain import Square
+        from sympde.api import CzarnyMapping
+        from sympde.api import Square
         from sympy import Rational, cos, pi, sin
 
         from psydac.utilities.operators import Laplacian
@@ -562,9 +562,9 @@ def run_poisson_2d(
 
     import numpy as np
     from mpi4py import MPI
-    from sympde.calculus import dot, grad
-    from sympde.expr import BilinearForm, LinearForm, integral
-    from sympde.topology import ScalarFunctionSpace, elements_of
+    from sympde.api import dot, grad
+    from sympde.api import BilinearForm, LinearForm, integral
+    from sympde.api import ScalarFunctionSpace, elements_of
 
     from psydac.api.discretization import discretize
     from psydac.api.settings import PSYDAC_BACKENDS

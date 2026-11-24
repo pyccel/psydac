@@ -45,9 +45,9 @@ class Maxwell2D(PolarModel2D):
 
     Parameters
     ----------
-    domain_log : sympde.topology.Domain
+    domain_log : sympde.topology.domain.Domain
         Logical domain on which the solution is defined.
-    mapping : sympde.topology.Mapping
+    mapping : sympde.topology.mapping.Mapping
         Mapping from the logical domain to the physical domain.
     exact_solution : TESolution
         Exact solution, or initial condition if no exact solution is known.
@@ -91,8 +91,8 @@ class Maxwell2D(PolarModel2D):
             solution.
         """
 
-        from sympde.topology import Square
-        from sympde.topology.analytical_mapping import TargetMapping
+        from sympde.api import Square
+        from sympde.api import TargetMapping
         from sympy import pi
 
         # Speed of light and scaling
@@ -328,9 +328,9 @@ def run_maxwell_2d_TE(
     mpi_comm,  # given by function 'parallel_run_from_cli'
 ):
     import matplotlib.pyplot as plt
-    from sympde.calculus import dot
-    from sympde.expr import BilinearForm, LinearForm, integral
-    from sympde.topology import Derham, Square, element_of, elements_of
+    from sympde.api import dot
+    from sympde.api import BilinearForm, LinearForm, integral
+    from sympde.api import Derham, Square, element_of, elements_of
     from sympy import Tuple, cos, sin, sqrt
 
     from psydac.api.discretization import discretize

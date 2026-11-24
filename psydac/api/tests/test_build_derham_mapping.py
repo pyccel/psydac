@@ -11,8 +11,8 @@ from psydac.api.discretization import discretize
 from psydac.cad.geometry       import Geometry
 from psydac.api.postprocessing import OutputManager, PostProcessManager
 
-from sympde.topology.analytical_mapping import IdentityMapping
-from sympde.topology                  import Derham
+from sympde.api import IdentityMapping
+from sympde.api import Derham
 
 from sympy      import exp, lambdify
 

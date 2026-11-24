@@ -10,21 +10,21 @@
 import numpy as np
 from sympy import Expr as sym_Expr
 
-from sympde.expr     import BasicForm as sym_BasicForm
-from sympde.expr     import BilinearForm as sym_BilinearForm
-from sympde.expr     import LinearForm as sym_LinearForm
-from sympde.expr     import Functional as sym_Functional
-from sympde.expr     import Equation as sym_Equation
-from sympde.expr     import Norm as sym_Norm, SemiNorm as sym_SemiNorm
-from sympde.expr     import TerminalExpr
+from sympde.api import BasicForm as sym_BasicForm
+from sympde.api import BilinearForm as sym_BilinearForm
+from sympde.api import LinearForm as sym_LinearForm
+from sympde.api import Functional as sym_Functional
+from sympde.api import Equation as sym_Equation
+from sympde.api import Norm as sym_Norm, SemiNorm as sym_SemiNorm
+from sympde.api import TerminalExpr
 
-from sympde.topology import BasicFunctionSpace
-from sympde.topology import VectorFunctionSpace
-from sympde.topology import ProductSpace
-from sympde.topology import Domain
-from sympde.topology import Derham
-from sympde.topology import LogicalExpr
-from sympde.topology import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType, UndefinedSpaceType
+from sympde.api import BasicFunctionSpace
+from sympde.api import VectorFunctionSpace
+from sympde.api import ProductSpace
+from sympde.api import Domain
+from sympde.api import Derham
+from sympde.api import LogicalExpr
+from sympde.api import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType, UndefinedSpaceType
 
 from gelato.expr import GltExpr as sym_GltExpr
 
@@ -655,7 +655,7 @@ def discretize(a, *args, **kwargs):
 
     if isinstance(a, sym_BilinearForm):
         # Currently sum factorization can only be used for interior domains
-        from sympde.expr.evaluation import DomainExpression
+        from sympde.api import DomainExpression
         is_interior_expr = isinstance(kernel_expr[0], DomainExpression)
 
         if kwargs.pop('sum_factorization') and is_interior_expr:

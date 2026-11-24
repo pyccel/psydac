@@ -10,11 +10,11 @@ import numpy as np
 import pytest
 from scipy.linalg import eig as eig_solver
 
-from sympde.calculus import grad, dot
-from sympde.topology import ScalarFunctionSpace
-from sympde.topology import element_of
-from sympde.topology import Domain
-from sympde.expr     import BilinearForm, integral
+from sympde.api import grad, dot
+from sympde.api import ScalarFunctionSpace
+from sympde.api import element_of
+from sympde.api import Domain
+from sympde.api import BilinearForm, integral
 
 from gelato.expr import GltExpr
 

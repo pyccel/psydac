@@ -14,27 +14,27 @@ from sympy                 import Matrix
 from sympy                 import Function                                
 from sympy                 import pi, cos, sin, exp                        
       
-from sympde.core     import Constant
-from sympde.calculus import grad, dot, inner, rot, div
-from sympde.calculus import laplace, bracket, convect
-from sympde.calculus import jump, avg, Dn, minus, plus
-from sympde.topology import ScalarFunctionSpace
-from sympde.topology import element_of, elements_of
-from sympde.topology import InteriorDomain, Union
-from sympde.topology import Boundary, NormalVector
-from sympde.topology import Domain
-from sympde.topology import trace_1
-from sympde.topology import Square
-from sympde.topology import ElementDomain
-from sympde.topology import Area
-from sympde.topology import IdentityMapping, PolarMapping, AffineMapping
-from sympde.expr.expr         import LinearExpr
-from sympde.expr.expr         import LinearForm, BilinearForm
-from sympde.expr.expr         import integral              
-from sympde.expr.expr         import Functional, Norm                       
-from sympde.expr.expr         import linearize                      
-from sympde.expr.evaluation   import TerminalExpr
-from sympde.expr              import find, EssentialBC
+from sympde.api import Constant
+from sympde.api import grad, dot, inner, rot, div
+from sympde.api import laplace, bracket, convect
+from sympde.api import jump, avg, Dn, minus, plus
+from sympde.api import ScalarFunctionSpace
+from sympde.api import element_of, elements_of
+from sympde.api import InteriorDomain, Union
+from sympde.api import Boundary, NormalVector
+from sympde.api import Domain
+from sympde.api import trace_1
+from sympde.api import Square
+from sympde.api import ElementDomain
+from sympde.api import Area
+from sympde.api import IdentityMapping, PolarMapping, AffineMapping
+from sympde.api import LinearExpr
+from sympde.api import LinearForm, BilinearForm
+from sympde.api import integral
+from sympde.api import Functional, Norm
+from sympde.api import linearize
+from sympde.api import TerminalExpr
+from sympde.api import find, EssentialBC
 
 from psydac.api.discretization import discretize
 from psydac.fem.basic          import FemField

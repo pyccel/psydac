@@ -7,9 +7,9 @@ import numpy as np
 import pytest
 
 from psydac.api.discretization  import discretize
-from sympde.topology            import ScalarFunctionSpace
-from sympde.topology            import Square
-from sympde.topology            import Mapping
+from sympde.api                 import ScalarFunctionSpace
+from sympde.api                 import Square
+from sympde.api                 import Mapping
 from psydac.mapping.discrete    import SplineMapping
 from psydac.feec.pushforward    import Pushforward
 

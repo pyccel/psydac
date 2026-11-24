@@ -9,10 +9,10 @@ from mpi4py import MPI
 from sympy import pi
 import numpy as np
 
-from sympde.calculus import dot, div
-from sympde.topology import VectorFunctionSpace
-from sympde.topology import element_of
-from sympde.topology import Square, IdentityMapping
+from sympde.api import dot, div
+from sympde.api import VectorFunctionSpace
+from sympde.api import element_of
+from sympde.api import Square, IdentityMapping
 
 from psydac.fem.basic          import FemField
 from psydac.api.discretization import discretize

@@ -23,7 +23,7 @@ dependencies = [
     # Third-party packages from PyPi
     'numpy >= 2.1',
     'scipy >= 1.12',
-    'sympy >= 1.5',
+    'sympy >= 1.12, < 1.15',
     'matplotlib',
     'pyyaml >= 5.1',
     'packaging',
@@ -31,9 +31,11 @@ dependencies = [
     'termcolor',
 
     # Our packages from PyPi
-    'sympde == 0.20.0',
+    # TODO: replace the commit of SymPDE master by the next release
+    'sympde @ git+https://github.com/pyccel/sympde.git@b22ced9c0ebb78db31fea4fe70e27cc52e144000',
     'pyccel >= 2.2.3',
-    'gelato == 0.12',
+    # TODO: replace the commit of GeLaTo (pyccel/GeLaTo PR) by the next release
+    'gelato @ git+https://github.com/FrederikSchnack/GeLaTo.git@95e767b76daadb276a88bd07d6b3131ca960209b',
 
     # MPI for Python provides Python bindings for the
     # Message Passing Interface (MPI) standard

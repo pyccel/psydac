@@ -9,15 +9,15 @@ from pathlib import Path
 from sympy import symbols
 from sympy import sin, pi
 
-from sympde.calculus import grad, dot
-from sympde.topology import ScalarFunctionSpace
-from sympde.topology import elements_of, LogicalExpr
-from sympde.topology import Domain
-from sympde.expr     import integral
-from sympde.expr     import LinearForm
-from sympde.expr     import BilinearForm
-from sympde.expr     import Norm, SemiNorm
-from sympde.expr.evaluation import TerminalExpr
+from sympde.api import grad, dot
+from sympde.api import ScalarFunctionSpace
+from sympde.api import elements_of, LogicalExpr
+from sympde.api import Domain
+from sympde.api import integral
+from sympde.api import LinearForm
+from sympde.api import BilinearForm
+from sympde.api import Norm, SemiNorm
+from sympde.api import TerminalExpr
 
 from psydac.api.ast.fem          import AST
 from psydac.api.ast.parser       import parse

@@ -17,9 +17,9 @@ import h5py
 import yaml
 from mpi4py import MPI
 
-from sympde.topology       import Domain, Line, Square, Cube, NCubeInterior, Mapping, NCube
-from sympde.topology.basic import Union
-from sympde.topology.callable_mapping import BasicCallableMapping
+from sympde.api import Domain, Line, Square, Cube, NCubeInterior, Mapping, NCube
+from sympde.api import Union
+from sympde.api import BasicCallableMapping
 
 from psydac.fem.splines        import SplineSpace
 from psydac.fem.tensor         import TensorFemSpace
@@ -179,7 +179,7 @@ class Geometry:
         filename: str
             The path to the geometry file.
 
-        domain: sympde.topology.Domain, optional
+        domain: sympde.topology.domain.Domain, optional
             The topological domain of the geometry. It must match the domain
             defined in the file: same dimension, patch names, patches and
             interfaces. Each patch must have a non-analytical mapping, to which
@@ -303,7 +303,7 @@ class Geometry:
 
         Parameters
         ----------
-        domain : sympde.topology.Domain
+        domain : sympde.topology.domain.Domain
             The single- or multi-patch topological domain, with or without
             symbolic mappings.
 
@@ -925,7 +925,7 @@ def _sort_patches(patches : list[dict], domain : Domain) -> list[dict]:
     patches : list[dict]
         The patches listed in the `geometry.yml` section of the file.
 
-    domain : sympde.topology.Domain
+    domain : sympde.topology.domain.Domain
         The topological domain read from the file.
 
     Returns

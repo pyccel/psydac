@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 from mpi4py import MPI
 
-from sympde.topology.analytical_mapping import PolarMapping
+from sympde.api import PolarMapping
 
 from psydac.polar.c1_projections import C1Projector
 from psydac.mapping.discrete     import SplineMapping

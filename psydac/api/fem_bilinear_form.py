@@ -16,16 +16,16 @@ from sympy.printing.pycode  import pycode
 
 from pyccel import epyccel
 
-from sympde.topology.basic       import Boundary, Interface
-from sympde.topology.mapping     import Mapping, SymbolicExpr
-from sympde.topology.space       import ScalarFunction, VectorFunction, IndexedVectorFunction
-from sympde.topology.derivatives import get_atom_logical_derivatives
-from sympde.topology.derivatives import _logical_partial_derivatives
-from sympde.topology.derivatives import get_index_logical_derivatives
-from sympde.topology.derivatives import get_max_logical_partial_derivatives # NOTE [YG 31.07.2025]: Maybe use the one in ast.utilities
-from sympde.expr.expr            import BilinearForm
-from sympde.expr.evaluation      import KernelExpression, TerminalExpr
-from sympde.calculus.core        import PlusInterfaceOperator
+from sympde.api import Boundary, Interface
+from sympde.api import Mapping, SymbolicExpr
+from sympde.api import ScalarFunction, VectorFunction, IndexedVectorFunction
+from sympde.api import get_atom_logical_derivatives
+from sympde.api import logical_partial_derivatives
+from sympde.api import get_index_logical_derivatives
+from sympde.api import get_max_logical_partial_derivatives  # NOTE [YG 31.07.2025]: Maybe use the one in ast.utilities
+from sympde.api import BilinearForm
+from sympde.api import KernelExpression, TerminalExpr
+from sympde.api import PlusInterfaceOperator
 
 from psydac.cad.geometry      import Geometry
 from psydac.mapping.discrete  import SplineMapping, NurbsMapping
@@ -1517,7 +1517,7 @@ class DiscreteBilinearForm:
         # e.g. atoms = [F1[1], F2[1], v[0], u[0], F1[2], F2[2], F1[0], v[1], v[2], F2[0], u[1], u[2]]
         # for a bilinear form, without derivatives, involving two vector valued Fem fields F1 & F2 and vector valued test & trial functions v and u 
         atoms_types = (ScalarFunction, VectorFunction, IndexedVectorFunction)
-        atoms       = _atomic(texpr, cls=atoms_types+_logical_partial_derivatives)
+        atoms       = _atomic(texpr, cls=atoms_types+logical_partial_derivatives)
 
         # Preparing to sort all atoms into test_, trial_ and field_atoms
         test_atoms  = {}

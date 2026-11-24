@@ -3,7 +3,7 @@
 # LICENSE file or go to https://github.com/pyccel/psydac/blob/devel/LICENSE #
 # for full license details.                                                 #
 #---------------------------------------------------------------------------#
-from sympde.topology.callable_mapping import BasicCallableMapping
+from sympde.api import BasicCallableMapping
 
 
 __all__ = (

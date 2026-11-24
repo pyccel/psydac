@@ -8,7 +8,7 @@ import os
 
 import numpy as np
 
-from sympde.topology import Cube, Mapping
+from sympde.api import Cube, Mapping
 
 from psydac.api.postprocessing import OutputManager, PostProcessManager
 from psydac.fem.basic import FemField
@@ -36,11 +36,11 @@ def run_model(ncells, degree, comm=None, is_logical=False):
 
     from sympy import sin, pi, cos
 
-    from sympde.calculus import laplace, dot, grad
-    from sympde.topology import ScalarFunctionSpace, element_of, LogicalExpr, Union
-    from sympde.expr     import BilinearForm, LinearForm, Norm
-    from sympde.expr     import EssentialBC, find
-    from sympde.expr     import integral
+    from sympde.api import laplace, dot, grad
+    from sympde.api import ScalarFunctionSpace, element_of, LogicalExpr, Union
+    from sympde.api import BilinearForm, LinearForm, Norm
+    from sympde.api import EssentialBC, find
+    from sympde.api import integral
 
     from psydac.api.discretization import discretize
     from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL

@@ -5,7 +5,7 @@
 #---------------------------------------------------------------------------#
 
 import pytest
-from sympde.topology import CzarnyMapping, PolarMapping, TargetMapping
+from sympde.api import CzarnyMapping, PolarMapping, TargetMapping
 from sympy import Rational, simplify
 
 from psydac.feec.multipatch_domain_utilities import (

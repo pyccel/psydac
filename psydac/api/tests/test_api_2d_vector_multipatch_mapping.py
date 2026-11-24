@@ -9,16 +9,16 @@ from pathlib import Path
 from sympy import Tuple, Matrix, symbols
 from sympy import pi, sin
 
-from sympde.calculus import grad, dot, inner, Transpose
-from sympde.topology import VectorFunctionSpace, ScalarFunctionSpace
-from sympde.topology import element_of
-from sympde.topology import Domain
-from sympde.topology import Union
-from sympde.expr     import BilinearForm, LinearForm, integral
-from sympde.expr     import Norm, SemiNorm
-from sympde.expr     import find, EssentialBC
-from sympde.calculus import minus, plus
-from sympde.topology import NormalVector
+from sympde.api import grad, dot, inner, Transpose
+from sympde.api import VectorFunctionSpace, ScalarFunctionSpace
+from sympde.api import element_of
+from sympde.api import Domain
+from sympde.api import Union
+from sympde.api import BilinearForm, LinearForm, integral
+from sympde.api import Norm, SemiNorm
+from sympde.api import find, EssentialBC
+from sympde.api import minus, plus
+from sympde.api import NormalVector
 
 from psydac.api.discretization import discretize
 

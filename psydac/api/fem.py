@@ -10,13 +10,13 @@
 import numpy as np
 from sympy import ImmutableDenseMatrix, Matrix
 
-from sympde.expr          import BilinearForm as sym_BilinearForm
-from sympde.expr          import LinearForm as sym_LinearForm
-from sympde.expr          import Functional as sym_Functional
-from sympde.expr          import Norm as sym_Norm
-from sympde.expr          import SemiNorm as sym_SemiNorm
-from sympde.topology      import Boundary, Interface
-from sympde.calculus.core import PlusInterfaceOperator
+from sympde.api import BilinearForm as sym_BilinearForm
+from sympde.api import LinearForm as sym_LinearForm
+from sympde.api import Functional as sym_Functional
+from sympde.api import Norm as sym_Norm
+from sympde.api import SemiNorm as sym_SemiNorm
+from sympde.api import Boundary, Interface
+from sympde.api import PlusInterfaceOperator
 
 from psydac.linalg.stencil   import StencilVector, StencilMatrix, StencilInterfaceMatrix
 from psydac.linalg.basic     import ComposedLinearOperator

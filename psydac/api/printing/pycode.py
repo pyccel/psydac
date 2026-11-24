@@ -9,8 +9,8 @@ from sympy.printing.precedence import precedence
 
 from psydac.pyccel.codegen.printing.pycode import PythonCodePrinter as PyccelPythonCodePrinter
 
-from sympde.topology.derivatives import _partial_derivatives
-from sympde.topology             import SymbolicExpr
+from sympde.api import partial_derivatives
+from sympde.api import SymbolicExpr
 
 
 #==============================================================================

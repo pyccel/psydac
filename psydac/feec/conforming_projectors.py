@@ -12,7 +12,7 @@ from scipy.sparse   import eye as sparse_eye
 from scipy.sparse   import csr_matrix
 from scipy.special  import comb
 
-from sympde.topology import Boundary, Interface
+from sympde.api import Boundary, Interface
 
 from psydac.core.bsplines           import quadrature_grid, basis_ders_on_quad_grid, find_spans, elements_spans, cell_index, basis_ders_on_irregular_grid
 from psydac.fem.basic               import FemLinearOperator

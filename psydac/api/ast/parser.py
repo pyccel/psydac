@@ -16,16 +16,16 @@ from sympy import MutableDenseNDimArray as MArray
 from sympy.simplify import cse_main
 from sympy.core.containers import Tuple
 
-from sympde.topology import (dx1, dx2, dx3)
-from sympde.topology import SymbolicExpr
-from sympde.topology import LogicalExpr
-from sympde.expr.evaluation import _split_test_function
-from sympde.topology import SymbolicWeightedVolume
-from sympde.topology import Boundary, NormalVector, Interface
-from sympde.topology.basic import BasicDomain
-from sympde.topology.mapping import Mapping
+from sympde.api import dx1, dx2, dx3
+from sympde.api import SymbolicExpr
+from sympde.api import LogicalExpr
+from sympde.api import split_test_function
+from sympde.api import SymbolicWeightedVolume
+from sympde.api import Boundary, NormalVector, Interface
+from sympde.api import BasicDomain
+from sympde.api import Mapping
 
-from sympde.topology.derivatives import get_index_logical_derivatives
+from sympde.api import get_index_logical_derivatives
 
 from psydac.pyccel.ast.core      import Assign, AugAssign, For
 from psydac.pyccel.ast.core      import Variable, IndexedVariable, IndexedElement
@@ -1008,7 +1008,7 @@ class Parser(object):
         target = expr.target
 
         ops   = [dx1, dx2, dx3][:dim]
-        atoms =  _split_test_function(target)
+        atoms =  split_test_function(target)
         args  = {}
         for atom in atoms:
             sub_args = [None]*dim
@@ -1340,7 +1340,7 @@ class Parser(object):
         atom   = BasisAtom(expr).atom
 
         # Split the ScalarFunction along each dimension
-        atoms  = _split_test_function(atom)
+        atoms  = split_test_function(atom)
         ops = [dx1, dx2, dx3][:dim]
         d_atoms = dict(zip(coords, atoms[atom]))
         d_ops   = dict(zip(coords, ops))

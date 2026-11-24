@@ -12,7 +12,7 @@ import h5py as h5
 
 from igakit.cad import circle, ruled
 
-from sympde.topology import Domain
+from sympde.api import Domain
 
 from psydac.api.discretization import discretize
 from psydac.core.bsplines import cell_index

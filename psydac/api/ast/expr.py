@@ -8,17 +8,17 @@ from sympy import Mul, Tuple, Range
 from sympy import Matrix, ImmutableDenseMatrix
 from sympy.core.numbers import ImaginaryUnit
 
-from sympde.core                 import Constant
-from sympde.topology.space       import ScalarFunction
-from sympde.topology.space       import VectorFunction
-from sympde.topology.space       import IndexedVectorFunction
-from sympde.topology.derivatives import _partial_derivatives
-from sympde.topology.derivatives import _logical_partial_derivatives
-from sympde.topology.derivatives import get_atom_derivatives
-from sympde.topology.derivatives import get_index_derivatives
-from sympde.topology             import LogicalExpr
-from sympde.topology             import SymbolicExpr
-from sympde.calculus.matrices    import SymbolicDeterminant
+from sympde.api import Constant
+from sympde.api import ScalarFunction
+from sympde.api import VectorFunction
+from sympde.api import IndexedVectorFunction
+from sympde.api import partial_derivatives
+from sympde.api import logical_partial_derivatives
+from sympde.api import get_atom_derivatives
+from sympde.api import get_index_derivatives
+from sympde.api import LogicalExpr
+from sympde.api import SymbolicExpr
+from sympde.api import SymbolicDeterminant
 
 from psydac.api.utilities   import random_string
 from psydac.fem.vector      import MultipatchFemSpace
@@ -46,10 +46,10 @@ from .nodes      import Zeros
 #==============================================================================
 def is_scalar_field(expr):
 
-    if isinstance(expr, _partial_derivatives):
+    if isinstance(expr, partial_derivatives):
         return is_scalar_field(expr.args[0])
 
-    elif isinstance(expr, _logical_partial_derivatives):
+    elif isinstance(expr, logical_partial_derivatives):
         return is_scalar_field(expr.args[0])
 
     elif isinstance(expr, ScalarFunction):
@@ -60,10 +60,10 @@ def is_scalar_field(expr):
 #==============================================================================
 def is_vector_field(expr):
 
-    if isinstance(expr, _partial_derivatives):
+    if isinstance(expr, partial_derivatives):
         return is_vector_field(expr.args[0])
 
-    elif isinstance(expr, _logical_partial_derivatives):
+    elif isinstance(expr, logical_partial_derivatives):
         return is_vector_field(expr.args[0])
 
     elif isinstance(expr, (VectorFunction, IndexedVectorFunction)):
@@ -74,7 +74,7 @@ def is_vector_field(expr):
 #==============================================================================
 def compute_atoms_expr(atom, basis, indices, loc_indices, dim):
 
-    cls = (_partial_derivatives,
+    cls = (partial_derivatives,
            ScalarFunction,
            VectorFunction,
            IndexedVectorFunction)
@@ -86,7 +86,7 @@ def compute_atoms_expr(atom, basis, indices, loc_indices, dim):
     orders = [0 for i in range(0, dim)]
     ind    = 0
     a = atom
-    if isinstance(atom, _partial_derivatives):
+    if isinstance(atom, partial_derivatives):
         a = get_atom_derivatives(atom)
         orders[atom.grad_index] = p_indices[atom.coordinate]
         
@@ -260,8 +260,8 @@ class ExprKernel(SplBasic):
         # ...
 
         # ...
-        atoms_types = (_partial_derivatives,
-                       _logical_partial_derivatives,
+        atoms_types = (partial_derivatives,
+                       logical_partial_derivatives,
                        ScalarFunction,
                        VectorFunction, IndexedVectorFunction,
                        SymbolicDeterminant,

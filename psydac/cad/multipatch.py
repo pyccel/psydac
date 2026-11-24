@@ -7,8 +7,8 @@ import h5py
 import yaml
 import numpy as np
 
-from sympde.topology       import Domain, Line, Square, Cube, Mapping
-from sympde.topology.basic import Union
+from sympde.api import Domain, Line, Square, Cube, Mapping
+from sympde.api import Union
 
 
 def export_multipatch_nurbs_to_hdf5(filename:str, nurbs:list, connectivity:dict, comm=None ):

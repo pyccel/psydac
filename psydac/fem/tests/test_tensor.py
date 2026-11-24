@@ -15,9 +15,9 @@ import matplotlib.pyplot as plt
 from PIL import Image
 from mpi4py import MPI
 
-from sympde.topology.domain import Square
-from sympde.topology.space import ScalarFunctionSpace
-from sympde.topology.analytical_mapping import TargetMapping
+from sympde.api import Square
+from sympde.api import ScalarFunctionSpace
+from sympde.api import TargetMapping
 
 from psydac.mapping.discrete_gallery import discrete_mapping
 from psydac.api.discretization import discretize

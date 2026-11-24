@@ -11,13 +11,13 @@
 import os
 import numpy as np
 
-from sympde.calculus import dot, curl, cross
-from sympde.calculus import minus, plus
-from sympde.topology import VectorFunctionSpace
-from sympde.topology import elements_of
-from sympde.topology import NormalVector
-from sympde.expr.expr import LinearForm, BilinearForm
-from sympde.expr.expr import integral
+from sympde.api import dot, curl, cross
+from sympde.api import minus, plus
+from sympde.api import VectorFunctionSpace
+from sympde.api import elements_of
+from sympde.api import NormalVector
+from sympde.api import LinearForm, BilinearForm
+from sympde.api import integral
 
 from psydac.linalg.utilities import array_to_psydac
 
