@@ -25,6 +25,10 @@ As an example, a parallel simulation with 6 MPI processes may be run with:
 from dataclasses import dataclass
 
 # Base classes are needed at class definition
+from psydac.feec.multipatch_domain_utilities import (
+    TransposedCzarnyMapping,
+    TransposedTargetMapping,
+)
 from psydac.feec.polar.examples.polar_model_2d import PolarModel2D
 from psydac.linalg.basic import LinearOperator
 
@@ -61,16 +65,16 @@ class Poisson2D(PolarModel2D):
         self._phi_log = phi_log
         self._rho_log = rho_log
 
-        s, t = mapping.logical_coordinates
-        annotated_args = {s: "float", t: "float"}
+        eta1, eta2 = mapping.logical_coordinates
+        annotated_args = {eta1: "float", eta2: "float"}
         self._phi_log_callable = lambdify(phi_log, annotated_args)
         self._rho_log_callable = lambdify(rho_log, annotated_args)
 
     @staticmethod
-    def disk(R, shift_D):
+    def disk(R, shift_D, radial_dim):
         r"""
         Solve Poisson's equation on a disk of radius R centered at (x,y) = (0, 0),
-        with logical coordinates (s, theta):
+        with logical coordinates (s, theta), or (theta, s) if `radial_dim=1`:
 
         - The radial coordinate s belongs to the interval [0, R];
         - The angular coordinate theta belongs to the interval [0, 2 * pi).
@@ -83,6 +87,8 @@ class Poisson2D(PolarModel2D):
             Radius of the disk.
         shift_D : float
             Shafranov shift.
+        radial_dim: int
+            Index of the logical dimension corresponding to the radial coordinate.
 
         Returns
         -------
@@ -96,9 +102,18 @@ class Poisson2D(PolarModel2D):
         from sympde.api import Square
         from sympy import cos, pi, sin, symbols
 
-        domain_log = Square("Omega", bounds1=(0, R), bounds2=(0, 2 * np.pi))
+        bounds_s = (0, R)
+        bounds_theta = (0, 2 * np.pi)
         params = dict(c1=shift_D * R * R, c2=0, k=0, D=shift_D)
-        mapping = TargetMapping("TM", **params)
+        if radial_dim == 0:
+            bounds1, bounds2 = bounds_s, bounds_theta
+            mapping_class = TargetMapping
+        else:
+            bounds1, bounds2 = bounds_theta, bounds_s
+            mapping_class = TransposedTargetMapping
+
+        mapping = mapping_class("TM", **params)
+        domain_log = Square("Omega", bounds1=bounds1, bounds2=bounds2)
 
         # physical field (cf use of physical ref solution in Maxwell case)
         k = params["k"]
@@ -116,9 +131,10 @@ class Poisson2D(PolarModel2D):
         return Poisson2D(domain_log, mapping, phi_log, rho_log)
 
     @staticmethod
-    def target():
+    def target(radial_dim):
         r"""
-        Solve Poisson's equation on a polar domain, with logical coordinates (s, theta):
+        Solve Poisson's equation on a polar domain, with logical coordinates (s, theta),
+        or (theta, s) if `radial_dim=1`:
 
         - The radial coordinate s belongs to the interval [0, 1];
         - The angular coordinate theta belongs to the interval [0, 2 * pi).
@@ -133,6 +149,17 @@ class Poisson2D(PolarModel2D):
 
         $\phi(x,y) = (1 - s^8)\sin(k_x(x - 0.5))\cos(k_y y)$.
 
+        Parameters
+        ----------
+        radial_dim: int
+            Index of the logical dimension corresponding to the radial coordinate.
+
+        Returns
+        -------
+        Poisson2D
+            Poisson model containing the logical domain, mapping, exact solution
+            and source term.
+
         """
         import numpy as np
         from sympde.api import TargetMapping
@@ -141,12 +168,21 @@ class Poisson2D(PolarModel2D):
 
         from psydac.utilities.operators import Laplacian
 
-        domain_log = Square("Omega", bounds1=(0, 1), bounds2=(0, 2 * np.pi))
+        bounds_s = (0, 1)
+        bounds_theta = (0, 2 * np.pi)
+        if radial_dim == 0:
+            bounds1, bounds2 = bounds_s, bounds_theta
+            mapping_class = TargetMapping
+        else:
+            bounds1, bounds2 = bounds_theta, bounds_s
+            mapping_class = TransposedTargetMapping
+
+        domain_log = Square("Omega", bounds1=bounds1, bounds2=bounds2)
         params = dict(c1=0, c2=0, k=Rational(3, 10), D=Rational(2, 10))
-        mapping = TargetMapping("F", **params)
+        mapping = mapping_class("F", **params)
 
         lapl = Laplacian(mapping)
-        s, t = mapping.logical_coordinates
+        s = mapping.logical_coordinates[radial_dim]
         x, y = mapping.expressions
 
         # Manufactured solution in logical coordinates
@@ -161,14 +197,26 @@ class Poisson2D(PolarModel2D):
         return Poisson2D(domain_log, mapping, phi_log, rho_log)
 
     @staticmethod
-    def czarny():
+    def czarny(radial_dim):
         r"""
-        Solve Poisson's equation on a czarny domain, with logical coordinates (s, theta):
+        Solve Poisson's equation on a czarny domain, with logical coordinates (s, theta),
+        or (theta, s) if `radial_dim=1`:
 
         - The radial coordinate s belongs to the interval [0, 1];
         - The angular coordinate theta belongs to the interval [0, 2 * pi).
 
         $\phi(x,y) = (1 - s^8)\sin(\pi x)\cos(\pi y)$.
+
+        Parameters
+        ----------
+        radial_dim: int
+            Index of the logical dimension corresponding to the radial coordinate.
+
+        Returns
+        -------
+        Poisson2D
+            Poisson model containing the logical domain, mapping, exact solution
+            and source term.
 
         """
         import numpy as np
@@ -178,12 +226,21 @@ class Poisson2D(PolarModel2D):
 
         from psydac.utilities.operators import Laplacian
 
-        domain_log = Square("Omega", bounds1=(0, 1), bounds2=(0, 2 * np.pi))
+        bounds_s = (0, 1)
+        bounds_theta = (0, 2 * np.pi)
+        if radial_dim == 0:
+            bounds1, bounds2 = bounds_s, bounds_theta
+            mapping_class = CzarnyMapping
+        else:
+            bounds1, bounds2 = bounds_theta, bounds_s
+            mapping_class = TransposedCzarnyMapping
+
+        domain_log = Square("Omega", bounds1=bounds1, bounds2=bounds2)
         params = dict(c1=0, c2=0, eps=Rational(1, 5), b=Rational(7, 5))
-        mapping = CzarnyMapping("F", **params)
+        mapping = mapping_class("F", **params)
 
         lapl = Laplacian(mapping)
-        s, t = mapping.logical_coordinates
+        s = mapping.logical_coordinates[radial_dim]
         x, y = mapping.expressions
 
         # Manufactured solution in logical coordinates
@@ -240,7 +297,6 @@ class CongaLaplacian(LinearOperator):
     W0 : StencilVectorSpace
         Coefficient space on which the operator acts.
     """
-
 
     def __init__(self, S, M, P, alpha):
 
@@ -497,8 +553,9 @@ def run_poisson_2d(
     alphaCONGA,
     tol,
     maxiter,
+    radial_dim,
     verbose,
-    mpi_comm, # given by function 'parallel_run_from_cli'
+    mpi_comm,  # given by function 'parallel_run_from_cli'
 ):
     import os
     from time import sleep, time
@@ -514,6 +571,7 @@ def run_poisson_2d(
     from psydac.feec.polar.conga_projections import (
         C0PolarProjection_V0,
         C1PolarProjection_U0,
+        polar_index,
     )
     from psydac.fem.basic import FemField
     from psydac.linalg.solvers import inverse
@@ -530,13 +588,18 @@ def run_poisson_2d(
     timing["diagnostics"] = 0.0
     timing["export"] = 0.0
 
+    if radial_dim == 1 and smooth_method in ("polar-std", "polar-spec"):
+        raise NotImplementedError(
+            "radial_dim=1 is not supported with smooth methods 'polar-std' and 'polar-spec'"
+        )
+
     # Method of manufactured solution
     if test_case == "disk":
-        model = Poisson2D.disk(R=R, shift_D=shift_D)
+        model = Poisson2D.disk(R=R, shift_D=shift_D, radial_dim=radial_dim)
     elif test_case == "target":
-        model = Poisson2D.target()
+        model = Poisson2D.target(radial_dim=radial_dim)
     elif test_case == "czarny":
-        model = Poisson2D.czarny()
+        model = Poisson2D.czarny(radial_dim=radial_dim)
     else:
         raise ValueError("Only available test-cases are 'disk', 'target' and 'czarny'")
 
@@ -558,7 +621,10 @@ def run_poisson_2d(
     mpi_size = mpi_comm.size  # size of MPI communicator
     mpi_rank = mpi_comm.rank  # process rank within MPI communicator
 
-    periodic = [False, True]
+    if radial_dim == 0:
+        periodic = [False, True]
+    else:
+        periodic = [True, False]
 
     model.build_geometry(
         ncells=ncells,
@@ -566,6 +632,7 @@ def run_poisson_2d(
         periodic=periodic,
         mpi_comm=mpi_comm,
         use_spline_mapping=use_spline_mapping,
+        verbose=verbose,
     )
 
     domain = model.domain
@@ -658,12 +725,14 @@ def run_poisson_2d(
         alpha = "None"
     elif smooth_method == "C1conga":
         alpha = alphaCONGA
-        P0 = C1PolarProjection_U0(V0_h, hbc=True)  # hbc imposes the boundary conditions
+        # hbc imposes the boundary conditions
+        P0 = C1PolarProjection_U0(V0_h, hbc=True, radial_dim=radial_dim)
         Sc = CongaLaplacian(S, M, P0, alpha)
         bc = P0.T.dot(b)
     elif smooth_method == "C0conga":
         alpha = alphaCONGA
-        P0 = C0PolarProjection_V0(V0_h, hbc=True)  # hbc imposes the boundary conditions
+        # hbc imposes the boundary conditions
+        P0 = C0PolarProjection_V0(V0_h, hbc=True, radial_dim=radial_dim)
         Sc = CongaLaplacian(S, M, P0, alpha)
         bc = P0.T.dot(b)
     elif smooth_method == "None":
@@ -674,22 +743,23 @@ def run_poisson_2d(
     # Apply homogeneous Dirichlet boundary conditions for the conforming
     # smooth_method case 'polar' and non-conforming case 'None'
     # NOTE: this does not affect ghost regions
-    # For each angular index j on the last owned radial line, replace the assembled equation
-    #     (S u)[e1, j] = b[e1, j]
+    # For each angular index j on the last radial line, replace the assembled equation
+    #     (S u)[er, j] = b[er, j]
     # by the equation
-    #     u[e1, j] = 0.
+    #     u[er, j] = 0.
 
-    e1 = V0_h.coeff_space.ends[0]
-    if e1 == V0_h.coeff_space.npts[0] - 1:
+    er = V0_h.coeff_space.ends[radial_dim]
+    if er == V0_h.coeff_space.npts[radial_dim] - 1:
         if smooth_method in ("polar-std", "polar-spec"):
             last = bp[1].space.npts[0] - 1
             Sp[1, 1][last, :, :, :] = 0.0
             Sp[1, 1][last, :, 0, 0] = 1.0
             bp[1][last, :] = 0.0
         elif smooth_method == "None":
-            S[e1, :, :, :] = 0.0
-            S[e1, :, 0, 0] = 1.0  # set diagonal entries to 1
-            b[e1, :] = 0.0  # RHS is 0 at the outer radial boundary
+            outer = polar_index(radial_dim, er, slice(None))
+            S[outer] = 0.0  # all stencil entries of the outer rows
+            S[outer + (0, 0)] = 1.0  # set diagonal entries to 1
+            b[outer] = 0.0  # RHS is 0 at the outer radial boundary
 
     # --------------------------------------------------------------------------
     # Solve Galerkin system with CG
@@ -897,6 +967,14 @@ def parse_input_arguments():
         type=int,
         default=1000,
         help="Max number of linear solver iterations",
+    )
+
+    parser.add_argument(
+        "--radial_dim",
+        type=int,
+        choices=(0, 1),
+        default=0,
+        help="Radial coordinate index: 0 for (s, theta), 1 for (theta, s)",
     )
 
     parser.add_argument(
